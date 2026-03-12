@@ -1,0 +1,19 @@
+{
+  "$schema": "https://headkit.io/schemas/headkit-ui-config.schema.json",
+  "style": "default",
+  "rsc": true,
+  "tsx": true,
+  "iconLibrary": "react-icons",
+  "tailwind": {
+    "config": "tailwind.config.ts",
+    "css": "app/globals.css",
+    "baseColor": "neutral",
+    "cssVariables": true
+  },
+  "aliases": {
+    "utils": "@/lib/utils",
+    "components": "@/components",
+    "ui": "@/components/ui",
+    "headkitUi": "@/components/headkit-ui"
+  }
+}

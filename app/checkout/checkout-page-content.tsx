@@ -1,0 +1,229 @@
+"use client";
+
+import React, { useCallback, useEffect, useState, Suspense } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { CheckoutForm } from "@/app/checkout/CheckoutForm";
+import { Button } from "@/components/ui/button";
+import { Cart } from "@/components/checkout/cart";
+import { useCartContext } from "@/components/headkit-ui/cart-context";
+import { getFloatVal, formatPrice, cn } from "@/lib/utils";
+import { ChevronDownIcon } from "@/components/icon";
+import type { CartFieldsFragment } from "@headkit/sdk";
+import { createCheckoutSessionAction } from "@/app/checkout/actions";
+import type { Step } from "@/app/checkout/CheckoutForm";
+function CheckoutErrorHandler({
+  onError,
+}: {
+  onError: (error: string) => void;
+}) {
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const error = searchParams.get("error");
+    if (error) {
+      switch (error) {
+        case "payment_failed":
+          onError("Payment failed. Please try again.");
+          break;
+        case "checkout_failed":
+          onError(
+            "There was an issue processing your order. Please try again.",
+          );
+          break;
+        case "stripe_error":
+          onError(
+            "There was an issue with the payment processor. Please try again.",
+          );
+          break;
+        default:
+          onError("An error occurred. Please try again.");
+      }
+    }
+  }, [searchParams, onError]);
+
+  return null;
+}
+
+export type ShippingOptionMappingItem = {
+  rateId: string;
+  stripeShippingRateId: string;
+};
+
+export type CheckoutSessionProp = {
+  clientSecret: string;
+  sessionId: string;
+  publishableKey: string;
+  stripeAccountId?: string | null;
+  /** Maps cart rateId to Stripe shipping rate ID for updateShippingOption. */
+  shippingOptionMapping?: ShippingOptionMappingItem[] | null;
+};
+
+export type PickupLocationItem = {
+  name: string;
+  address: string;
+  city: string;
+  state: string;
+  postcode: string;
+  country: string;
+  /** ISO 2-letter country code (e.g. AU) — required for Stripe */
+  countryCode: string;
+  shippingMethodId: string;
+};
+
+interface CheckoutPageContentProps {
+  initialCart?: CartFieldsFragment | null;
+  checkoutSession?: CheckoutSessionProp | null;
+  pickupLocations?: PickupLocationItem[];
+  returnUrl?: string;
+  successBaseUrl?: string;
+  allowedCountries?: string[];
+}
+
+export function CheckoutPageContent({
+  initialCart,
+  checkoutSession: initialCheckoutSession,
+  pickupLocations: pickupLocationsFromApi = [],
+  returnUrl,
+  successBaseUrl,
+  allowedCountries = ["AU", "NZ"],
+}: CheckoutPageContentProps) {
+  const { cartData, setCartData, toggleCart } = useCartContext();
+  const [showCart, setShowCart] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [checkoutSession, setCheckoutSession] =
+    useState<CheckoutSessionProp | null>(initialCheckoutSession ?? null);
+  const [restoreStep, setRestoreStep] = useState<string | null>(null);
+  const [restoredEmail, setRestoredEmail] = useState<string | null>(null);
+
+  const refreshSession = useCallback(
+    async (newEmail: string, nextStep: string) => {
+      if (!returnUrl) throw new Error("Return URL not configured");
+      // Cart is already updated by ContactFormStep before calling this
+      const session = await createCheckoutSessionAction(
+        returnUrl,
+        newEmail,
+        undefined,
+        allowedCountries,
+        successBaseUrl,
+      );
+      if (
+        !session.clientSecret ||
+        !session.sessionId ||
+        !session.publishableKey
+      ) {
+        throw new Error("Failed to create checkout session");
+      }
+      setCheckoutSession({
+        clientSecret: session.clientSecret,
+        sessionId: session.sessionId,
+        publishableKey: session.publishableKey,
+        stripeAccountId: session.stripeAccountId ?? null,
+        shippingOptionMapping: session.shippingOptionMapping ?? null,
+      });
+      setRestoreStep(nextStep);
+      setRestoredEmail(newEmail);
+    },
+    [returnUrl, successBaseUrl, allowedCountries],
+  );
+
+  useEffect(() => {
+    toggleCart(false);
+    window.scrollTo(0, 0);
+    if (initialCart && !cartData) {
+      setCartData(initialCart);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const initialStep = restoreStep;
+  const initialEmail = restoredEmail;
+  useEffect(() => {
+    if (restoreStep) {
+      setRestoreStep(null);
+      setRestoredEmail(null);
+    }
+  }, [restoreStep]);
+
+  const hasItems = (cartData?.items.length ?? 0) > 0;
+  const cartTotal = getFloatVal(cartData?.totals.totalPrice ?? "0");
+  const currency = cartData?.currency.code ?? "AUD";
+  const itemCount = cartData?.itemsCount ?? 0;
+
+  if (!cartData || !hasItems || cartTotal <= 0) {
+    return (
+      <div className="min-h-[700px] py-10 px-[20px] md:px-32 pb-[30px] md:py-[60px] text-center">
+        <div className="w-[500px] max-w-full mx-auto">
+          <p className="mb-4 font-bold leading-10">No products in your cart!</p>
+          <p className="mb-10">
+            Browse our selection to find something you love.
+          </p>
+          <Link href="/">
+            <Button fullWidth onClick={() => toggleCart(false)}>
+              Start shopping
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-[700px] py-10">
+      <Suspense fallback={null}>
+        <CheckoutErrorHandler onError={setErrorMessage} />
+      </Suspense>
+
+      {errorMessage && (
+        <div className="text-red-500 text-center mb-4 px-[20px] md:px-[40px]">
+          {errorMessage}
+        </div>
+      )}
+
+      {checkoutSession ? (
+        <CheckoutForm
+          checkoutSession={checkoutSession}
+          pickupLocationsFromApi={pickupLocationsFromApi}
+          {...(returnUrl && { onRefreshSession: refreshSession })}
+          {...(initialStep && { initialStep: initialStep as Step })}
+          {...(initialEmail && { initialEmail })}
+          cartSidebar={
+            <div className="px-[20px] py-[17px] md:py-0 border-y border-[#d6d6d6] md:border-0">
+              {/* Mobile toggle */}
+              <div
+                className="md:hidden flex justify-between cursor-pointer"
+                onClick={() => setShowCart(!showCart)}
+              >
+                <span className="font-medium">
+                  {itemCount} {itemCount === 1 ? "item" : "items"}
+                </span>
+                <span className="font-medium flex items-center">
+                  {formatPrice(
+                    getFloatVal(cartData.totals.totalItems) +
+                      getFloatVal(cartData.totals.totalItemsTax),
+                    currency,
+                  )}
+                  <ChevronDownIcon
+                    className={cn(
+                      "mt-[2px] ml-[10px] h-[24px] w-[12px] transition-transform",
+                      { "rotate-180": showCart },
+                    )}
+                  />
+                </span>
+              </div>
+
+              {/* Cart contents */}
+              <div
+                className={cn("hidden md:block transition-all", {
+                  "block! mt-[20px]": showCart,
+                })}
+              >
+                <Cart showDisplayShipping={true} />
+              </div>
+            </div>
+          }
+        />
+      ) : null}
+    </div>
+  );
+}

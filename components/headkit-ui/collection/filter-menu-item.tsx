@@ -1,0 +1,42 @@
+"use client";
+
+import { cn } from "@/lib/utils";
+import {
+  NavigationMenuItem,
+  NavigationMenuTrigger,
+  NavigationMenuContent,
+} from "@/components/ui/navigation-menu";
+
+interface FilterMenuItemProps {
+  label: string;
+  count?: number;
+  children: React.ReactNode;
+}
+
+export function FilterMenuItem({
+  label,
+  count = 0,
+  children,
+}: FilterMenuItemProps) {
+  return (
+    <NavigationMenuItem>
+      <NavigationMenuTrigger>
+        <div
+          className={cn("relative cursor-pointer whitespace-nowrap", {
+            "font-bold": count > 0,
+          })}
+        >
+          <span>{label}</span>
+          {count > 0 && (
+            <div className="absolute right-[-12px] top-[-2px] h-[14px] w-[14px] rounded-full bg-purple-500 text-center text-[10px] font-medium text-white">
+              {count}
+            </div>
+          )}
+        </div>
+      </NavigationMenuTrigger>
+      <NavigationMenuContent className="min-w-[220px] rounded-md border border-neutral-200 bg-white p-4 shadow-lg">
+        {children}
+      </NavigationMenuContent>
+    </NavigationMenuItem>
+  );
+}

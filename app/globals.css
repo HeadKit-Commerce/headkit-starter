@@ -1,0 +1,70 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+@plugin "tailwindcss-animate";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --radius: 0.5rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-urbanist);
+
+  /* Brand (themeable) */
+  --color-primary: #7f54b3;
+  --color-secondary: #000000;
+  --color-primary-text: #ffffff;
+
+  /* Purple – nav, headings, buttons, links */
+  --color-purple-100: #eae3f2;
+  --color-purple-500: #7f54b3;
+  --color-purple-800: #23102e;
+  --color-purple-900: #0b050f;
+
+  /* Pink – sale, CTA hover, destructive */
+  --color-pink-500: #ed4395;
+  --color-pink-800: #a81059;
+
+  /* Lime – accent sections */
+  --color-lime-400: #dbfe87;
+  --color-lime-800: #80b602;
+
+  /* Gray – borders, muted text, surfaces */
+  --color-gray-50: #fafaf9;
+  --color-gray-100: #f5f5f4;
+  --color-gray-200: #ececea;
+  --color-gray-500: #c5c5bf;
+  --color-gray-600: #a8a89f;
+  --color-gray-700: #76766b;
+  --color-gray-800: #56564e;
+  --color-gray-900: #171717;
+}
+
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+@layer utilities {
+  .bg-primary {
+    background-color: var(--color-primary);
+    color: var(--color-primary-text);
+  }
+  .text-primary {
+    color: var(--color-primary);
+  }
+  .text-on-primary {
+    color: var(--color-primary-text);
+  }
+  .border-primary {
+    border-color: var(--color-primary);
+  }
+}

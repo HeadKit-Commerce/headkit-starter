@@ -1,0 +1,87 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { useAuth } from "@/components/headkit-ui/auth-context";
+import { useEffect, useState } from "react";
+
+const navigation = [
+  { name: "Profile", href: "/account/profile" },
+  { name: "Orders", href: "/account/orders" },
+  { name: "Wishlist", href: "/account/wishlist" },
+];
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { signOut, isLoading, isAuthenticated } = useAuth();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && !isLoading && !isAuthenticated) {
+      router.replace("/account");
+    }
+  }, [mounted, isLoading, isAuthenticated, router]);
+
+  if (!mounted || (!isLoading && !isAuthenticated)) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex flex-col md:flex-row gap-8">
+          <div className="w-full md:w-64 space-y-1">
+            {navigation.map((item) => (
+              <Link
+                key={item.name}
+                href={item.href}
+                className="block px-4 py-2 rounded-lg text-sm font-medium hover:bg-muted"
+              >
+                {item.name}
+              </Link>
+            ))}
+            <div className="px-4 py-2 rounded-lg text-sm font-medium text-red-600">
+              Sign Out
+            </div>
+          </div>
+          <div className="flex-1">{children}</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex flex-col md:flex-row gap-8">
+        {/* Sidebar */}
+        <div className="w-full md:w-64 space-y-1">
+          {navigation.map((item) => (
+            <Link
+              key={item.name}
+              href={item.href}
+              className={cn(
+                "block px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                pathname === item.href
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:bg-muted",
+              )}
+            >
+              {item.name}
+            </Link>
+          ))}
+          <button
+            onClick={() => signOut(true)}
+            className="w-full text-left px-4 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+          >
+            Sign Out
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1">{children}</div>
+      </div>
+    </div>
+  );
+}
