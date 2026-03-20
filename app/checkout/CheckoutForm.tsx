@@ -36,6 +36,7 @@ import {
 import type { AddressInput } from "@headkit/sdk";
 import { useDebugRegister } from "@headkit/sdk/debug";
 import { SpinnerIcon } from "@/components/icon";
+import { ExpressCheckoutSection } from "@/components/checkout/express-checkout-section";
 
 export type Step =
   | CheckoutFormStepEnum.CONTACT
@@ -843,6 +844,7 @@ export function CheckoutForm({
         <div className="px-[20px] md:px-[40px] mx-auto grid grid-cols-12 gap-[20px]">
           {/* Checkout form — left on desktop */}
           <div className="order-2 md:order-1 col-span-12 md:col-span-6">
+            <ExpressCheckoutSection />
             <CheckoutSteps
               sessionId={checkoutSession.sessionId}
               pickupLocationsFromApi={pickupLocationsFromApi}
