@@ -183,7 +183,12 @@ export function CollectionProvider({
   );
 
   useEffect(() => {
-    if (!isInitialLoad) fetchProducts(1, "middle");
+    const hasAttributeFilters = Object.values(filterValues.attributes).some(
+      (v) => v.length > 0,
+    );
+    if (!isInitialLoad || hasAttributeFilters) {
+      fetchProducts(filterValues.page, "middle");
+    }
     setIsInitialLoad(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterValues]);

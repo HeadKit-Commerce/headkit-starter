@@ -6,7 +6,6 @@ import { headkit } from "@/lib/sdk";
 import { ProductDetail } from "@/components/headkit-ui/product-detail";
 import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
 import { SectionHeader } from "@/components/headkit-ui/section-header";
-import { Breadcrumb } from "@/components/headkit-ui/breadcrumb";
 import { ProductJsonLD } from "@/components/seo/product-json-ld";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { makeSeoMetadata } from "@/lib/make-metadata";
@@ -106,12 +105,8 @@ export default async function ProductPage({ params, searchParams }: Props) {
       <ProductJsonLD product={product} />
       <BreadcrumbJsonLD items={breadcrumbs} />
 
-      <div className="px-5 pt-6 md:px-10">
-        <Breadcrumb items={breadcrumbItems} />
-      </div>
-
       <div className="px-5 py-8 md:px-10">
-        <ProductDetail product={product} initialSearchParams={sp} />
+        <ProductDetail product={product} initialSearchParams={sp} breadcrumbItems={breadcrumbItems} />
       </div>
 
       {relatedAsProducts.length > 0 && (

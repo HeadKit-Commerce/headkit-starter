@@ -17,7 +17,7 @@ export function SortMenu() {
       <NavigationMenuTrigger className="cursor-pointer">
         Sort
       </NavigationMenuTrigger>
-      <NavigationMenuContent>
+      <NavigationMenuContent className="w-screen! rounded-none!">
         <div className="p-4 flex flex-col gap-2 items-end">
           {(Object.keys(SortKey) as SortKeyType[]).map((key) => (
             <div

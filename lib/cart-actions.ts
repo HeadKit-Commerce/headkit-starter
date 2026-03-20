@@ -46,12 +46,17 @@ const isTokenExpiringSoon = (
   }
 };
 
+function getKlaviyoId(cookieStore: Awaited<ReturnType<typeof cookies>>): string | undefined {
+  return cookieStore.get("__kla_id")?.value ?? undefined;
+}
+
 async function withCartRetry(
   operation: (sdk: ServerSDK) => Promise<CartFieldsFragment>,
 ): Promise<CartFieldsFragment> {
   const cartToken = await getCartToken();
   const { name: cookieName, ...cookieOpts } = cartTokenCookieOptions();
   const cookieStore = await cookies();
+  const klaviyoId = getKlaviyoId(cookieStore);
 
   const persistToken = (newToken: string) => {
     if (!newToken) return;
@@ -65,14 +70,14 @@ async function withCartRetry(
   };
 
   try {
-    const result = await operation(createServerHeadkit(cartToken));
+    const result = await operation(createServerHeadkit(cartToken, klaviyoId));
     persistToken(result.token);
     return result;
   } catch (err) {
     if (!cartToken) throw err;
 
     cookieStore.delete(cookieName);
-    const result = await operation(createServerHeadkit(undefined));
+    const result = await operation(createServerHeadkit(undefined, klaviyoId));
     persistToken(result.token);
     return result;
   }

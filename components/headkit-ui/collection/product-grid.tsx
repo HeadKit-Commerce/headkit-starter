@@ -24,9 +24,20 @@ export function ProductGrid() {
   const { products, isLoading, isLoadingBefore, isLoadingAfter } =
     useCollection();
 
+  const isEmpty = !isLoading && !isLoadingBefore && !isLoadingAfter && products.length === 0;
+
+  if (isEmpty) {
+    return (
+      <div className="flex flex-col items-center justify-center px-5 py-20 text-center md:px-10">
+        <p className="text-lg font-medium text-gray-900">No products found</p>
+        <p className="mt-2 text-sm text-gray-500">Try adjusting your filters or browse other categories.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="px-5 md:px-10 z-5">
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {isLoadingBefore && <LoadingSkeleton />}
         {products.map((product) => (
           <ProductCard key={product.id} product={product} />

@@ -10,14 +10,32 @@ import { Footer } from "@/components/headkit-ui/footer";
 import { WebsiteJsonLD } from "@/components/seo/website-json-ld";
 import { makeRootMetadata } from "@/lib/make-metadata";
 import { GoogleTagManager } from "@next/third-parties/google";
+import { ThemeCSS } from "@/components/theme-css";
+import {
+  executeRequest,
+  HEADKIT_GRAPHQL_URL,
+  GetBrandingDocument,
+} from "@headkit/sdk";
+import { env } from "@/lib/env";
 
 const urbanist = Urbanist({
   variable: "--font-urbanist",
   subsets: ["latin"],
 });
 
-const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID;
-const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
+
+async function getBranding() {
+  "use cache";
+  try {
+    const apiKey = env.HEADKIT_PRIVATE_KEY;
+    if (!apiKey) return null;
+    const url = env.NEXT_PUBLIC_GRAPHQL_URL ?? HEADKIT_GRAPHQL_URL;
+    const data = await executeRequest({ url, apiKey }, GetBrandingDocument, undefined);
+    return data.commerce.branding;
+  } catch {
+    return null;
+  }
+}
 
 export async function generateMetadata(): Promise<Metadata> {
   try {
@@ -35,18 +53,21 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const branding = await getBranding();
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
         <meta name="apple-mobile-web-app-title" content="HeadKit" />
+        <ThemeCSS branding={branding} />
       </head>
       <body
         className={`${urbanist.className} ${urbanist.variable} antialiased`}
       >
         {/* GTM noscript fallback */}
-        {GTM_ID && <GoogleTagManager gtmId={GTM_ID} />}
+        {env.NEXT_PUBLIC_GTM_ID && <GoogleTagManager gtmId={env.NEXT_PUBLIC_GTM_ID} />}
 
-        <WebsiteJsonLD siteName="HeadKit" siteUrl={SITE_URL} />
+        <WebsiteJsonLD siteName="HeadKit" siteUrl={env.NEXT_PUBLIC_FRONTEND_URL ?? ""} />
 
         <AuthProvider>
           <CartProvider>

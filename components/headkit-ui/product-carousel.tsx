@@ -13,7 +13,7 @@ interface Props {
 
 const ProductCarousel = ({
   products,
-  carouselItemClassName,
+  carouselItemClassName: _carouselItemClassName,
   id = "product-carousel",
 }: Props) => {
   return (

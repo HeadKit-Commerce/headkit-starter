@@ -12,7 +12,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/components/headkit-ui/auth-context";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -43,14 +43,8 @@ const registerSchema = z
 
 export default function Page() {
   const [error, setError] = useState<string | null>(null);
-  const { setAuthToken, isAuthenticated, isLoading } = useAuth();
+  const { setAuthToken } = useAuth();
   const router = useRouter();
-
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      router.replace("/account/profile");
-    }
-  }, [isLoading, isAuthenticated, router]);
 
   const loginForm = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),

@@ -54,26 +54,31 @@ export default async function Page({ params, searchParams }: Props) {
   const perPage = 24;
 
   try {
-    const [{ category, productFilter }, productsResult] = await Promise.all([
-      getCategoryData(categorySlug),
-      sdk.collections.list(
-        buildProductListFilter(
-          {
-            categories: sp.categories?.split(",").filter(Boolean) ?? [],
-            brands: sp.brands?.split(",").filter(Boolean) ?? [],
-            attributes: {},
-            instock: sp.instock === "true",
-            sort: (sp.sort ?? "") as SortKeyType | "",
-            page,
-          },
-          { categorySlug },
-        ),
-        page,
-        perPage,
-      ),
-    ]);
-
+    const { category, productFilter } = await getCategoryData(categorySlug);
     if (!category) return notFound();
+
+    const attributes: Record<string, string[]> = {};
+    productFilter.attributes?.forEach((attr) => {
+      if (!attr?.slug) return;
+      const values = sp[attr.slug]?.split(",").filter(Boolean) ?? [];
+      if (values.length) attributes[attr.slug] = values;
+    });
+
+    const productsResult = await sdk.collections.list(
+      buildProductListFilter(
+        {
+          categories: sp.categories?.split(",").filter(Boolean) ?? [],
+          brands: sp.brands?.split(",").filter(Boolean) ?? [],
+          attributes,
+          instock: sp.instock === "true",
+          sort: (sp.sort ?? "") as SortKeyType | "",
+          page,
+        },
+        { categorySlug },
+      ),
+      page,
+      perPage,
+    );
 
     const breadcrumbs = buildBreadcrumbFromCategory(category);
 

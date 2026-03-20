@@ -34,7 +34,7 @@ export function FilterMenuItem({
           )}
         </div>
       </NavigationMenuTrigger>
-      <NavigationMenuContent className="min-w-[220px] rounded-md border border-neutral-200 bg-white p-4 shadow-lg">
+      <NavigationMenuContent className="w-screen! rounded-none! p-4">
         {children}
       </NavigationMenuContent>
     </NavigationMenuItem>

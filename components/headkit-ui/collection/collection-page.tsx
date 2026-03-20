@@ -1,12 +1,9 @@
-"use client";
-
 import type {
   ProductSummaryFieldsFragment,
   ProductFilters,
 } from "@headkit/sdk";
 import { CollectionProvider } from "./collection-context";
 import { Filter } from "./filter";
-import { ActiveFilters } from "./active-filters";
 import { ProductGrid } from "./product-grid";
 import { LoadPrevious, LoadMore, ProductCount } from "./pagination";
 
@@ -50,7 +47,6 @@ export function CollectionPage({
     >
       <div className="flex flex-col gap-4">
         <Filter />
-        <ActiveFilters />
         <LoadPrevious />
         <ProductGrid />
         <div className="flex flex-col items-center gap-5 pb-10">
