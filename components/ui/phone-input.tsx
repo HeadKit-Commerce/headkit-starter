@@ -42,7 +42,8 @@ const PhoneInput = React.forwardRef<
       className={cn("flex w-full", className)}
       flagComponent={FlagComponent}
       countrySelectComponent={CountrySelect}
-      inputComponent={InputComponent}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      inputComponent={InputComponent as any}
       smartCaret={false}
       international={false}
       withCountryCallingCode={false}

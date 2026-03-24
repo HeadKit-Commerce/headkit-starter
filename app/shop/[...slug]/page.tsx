@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { cacheLife, cacheTag } from "next/cache";
 import type { Product, RelatedProduct } from "@headkit/sdk";
 import { headkit } from "@/lib/sdk";
 import { ProductDetail } from "@/components/headkit-ui/product-detail";
@@ -9,6 +10,7 @@ import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { ProductJsonLD } from "@/components/seo/product-json-ld";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { makeSeoMetadata } from "@/lib/make-metadata";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type Props = {
   params: Promise<{ slug: string[] }>;
@@ -17,7 +19,50 @@ type Props = {
 
 async function getProduct(slug: string) {
   "use cache";
+  cacheLife("max");
+  cacheTag(`headkit:product:${slug}`, "headkit:products");
   return headkit.products.get(slug);
+}
+
+// Dynamic inner component — awaits searchParams for variant pre-selection only
+async function ProductDetailServer({
+  product,
+  breadcrumbItems,
+  searchParams,
+}: {
+  product: Product;
+  breadcrumbItems: { name: string; uri: string; current: boolean }[];
+  searchParams: Promise<Record<string, string>>;
+}) {
+  const sp = await searchParams;
+  return (
+    <div className="px-5 py-8 md:px-10">
+      <ProductDetail
+        product={product}
+        initialSearchParams={sp}
+        breadcrumbItems={breadcrumbItems}
+      />
+    </div>
+  );
+}
+
+function ProductDetailSkeleton() {
+  return (
+    <div className="px-5 py-8 md:px-10">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+        <Skeleton className="aspect-square w-full rounded-lg" />
+        <div className="space-y-4">
+          <Skeleton className="h-4 w-48" />
+          <Skeleton className="h-8 w-3/4" />
+          <Skeleton className="h-6 w-32" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-5/6" />
+          <Skeleton className="h-10 w-full rounded-md" />
+          <Skeleton className="h-12 w-full rounded-md" />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -25,7 +70,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const productSlug = slug[slug.length - 1]!;
 
   try {
-    const product = await headkit.products.get(productSlug);
+    const product = await getProduct(productSlug);
     if (!product) {
       return { robots: { index: false, follow: false } };
     }
@@ -42,7 +87,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ProductPage({ params, searchParams }: Props) {
   const { slug } = await params;
-  const sp = await searchParams;
   const productSlug = slug[slug.length - 1]!;
 
   const product = await getProduct(productSlug);
@@ -105,9 +149,13 @@ export default async function ProductPage({ params, searchParams }: Props) {
       <ProductJsonLD product={product} />
       <BreadcrumbJsonLD items={breadcrumbs} />
 
-      <div className="px-5 py-8 md:px-10">
-        <ProductDetail product={product} initialSearchParams={sp} breadcrumbItems={breadcrumbItems} />
-      </div>
+      <Suspense fallback={<ProductDetailSkeleton />}>
+        <ProductDetailServer
+          product={product}
+          breadcrumbItems={breadcrumbItems}
+          searchParams={searchParams}
+        />
+      </Suspense>
 
       {relatedAsProducts.length > 0 && (
         <section className="overflow-hidden py-10">

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
 import { CollectionHeader } from "@/components/headkit-ui/collection/collection-header";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
@@ -43,6 +44,13 @@ export default async function Page({ searchParams }: Props) {
   const sort = (sp.sort ?? "") as SortKeyType | "";
   const attributes: Record<string, string[]> = {};
 
+  async function getSearchFilters() {
+    "use cache";
+    cacheLife("max");
+    cacheTag("headkit:products");
+    return sdk.collections.getFilters();
+  }
+
   const [productsResult, productFilter] = await Promise.all([
     sdk.collections.list(
       buildProductListFilter(
@@ -59,7 +67,7 @@ export default async function Page({ searchParams }: Props) {
       page,
       perPage,
     ),
-    sdk.collections.getFilters(),
+    getSearchFilters(),
   ]);
 
   const title = q ? `Search results for "${q}"` : "Search products";

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Urbanist } from "next/font/google";
 import { Suspense } from "react";
 import "./globals.css";
+import { cacheLife, cacheTag } from "next/cache";
 import { NavigationWrapper } from "@/components/headkit-ui/navigation-wrapper";
 import { CartProvider } from "@/components/headkit-ui/cart-context";
 import { CartDrawer } from "@/components/headkit-ui/cart-drawer";
@@ -26,6 +27,8 @@ const urbanist = Urbanist({
 
 async function getBranding() {
   "use cache";
+  cacheLife("max");
+  cacheTag("headkit:branding");
   try {
     const apiKey = env.HEADKIT_PRIVATE_KEY;
     if (!apiKey) return null;

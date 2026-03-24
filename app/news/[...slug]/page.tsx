@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cacheLife, cacheTag } from "next/cache";
 import sanitize from "sanitize-html";
 import { headkit as sdk } from "@/lib/sdk";
 import { FeaturedImageHeader } from "@/components/headkit-ui/post/featured-image-header";
@@ -13,12 +14,19 @@ interface Props {
   params: Promise<{ slug: string[] }>;
 }
 
+async function getPost(postSlug: string) {
+  "use cache";
+  cacheLife("max");
+  cacheTag(`headkit:post:${postSlug}`, "headkit:posts");
+  return sdk.posts.get(postSlug);
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const postSlug = slug[slug.length - 1];
   if (!postSlug) return {};
   try {
-    const post = await sdk.posts.get(postSlug);
+    const post = await getPost(postSlug);
     if (!post) return {};
     return makeSeoMetadata(post.seo, {
       title: post.title,
@@ -35,7 +43,7 @@ export default async function Page({ params }: Props) {
   if (!postSlug) return notFound();
 
   try {
-    const post = await sdk.posts.get(postSlug);
+    const post = await getPost(postSlug);
     if (!post) return notFound();
 
     const breadcrumbs = [

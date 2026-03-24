@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cacheLife, cacheTag } from "next/cache";
 import sanitize from "sanitize-html";
 import { headkit as sdk } from "@/lib/sdk";
 import { GravityForm } from "@/components/gravity-form";
@@ -10,9 +11,16 @@ const WHOLESALE_SLUG = "wholesale";
 /** Gravity Forms form ID for the wholesale inquiry form. */
 const WHOLESALE_FORM_ID = "2";
 
+async function getWholesalePage() {
+  "use cache";
+  cacheLife("max");
+  cacheTag("headkit:page:wholesale", "headkit:pages");
+  return sdk.pages.get(WHOLESALE_SLUG);
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   try {
-    const page = await sdk.pages.get(WHOLESALE_SLUG);
+    const page = await getWholesalePage();
     if (!page?.seo) {
       return {
         title: "Wholesale",
@@ -32,7 +40,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function Page() {
-  const page = await sdk.pages.get(WHOLESALE_SLUG);
+  const page = await getWholesalePage();
 
   if (!page) {
     return notFound();
