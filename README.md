@@ -1,3 +1,13 @@
+<p align="center">
+  <a href="https://headkit.io">
+    <img src="https://storage.googleapis.com/headkit-storage/HeadKit.png" height="96">
+  </a>
+</p>
+
+<p align="center">
+  Build complex headless commerce stores...fast
+</p>
+
 # HeadKit Starter
 
 **Reference storefront template** for the HeadKit commerce platform — a production-ready Next.js 16 storefront powered by WooCommerce.
