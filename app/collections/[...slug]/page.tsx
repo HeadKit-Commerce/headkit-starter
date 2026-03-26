@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { Suspense } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
@@ -8,6 +8,9 @@ import { CollectionPage } from "@/components/headkit-ui/collection/collection-pa
 import {
   buildProductListFilter,
   buildBreadcrumbFromCategory,
+  encodeFilterSlug,
+  decodeFilterSlug,
+  DEFAULT_FILTER_VALUES,
 } from "@/components/headkit-ui/collection/utils";
 import { makeSeoMetadata } from "@/lib/make-metadata";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
@@ -18,6 +21,34 @@ import type { ProductFilters } from "@headkit/sdk";
 interface Props {
   params: Promise<{ slug: string[] }>;
   searchParams: Promise<Record<string, string>>;
+}
+
+/**
+ * Parse the catch-all slug into category path and optional filter slug.
+ * URL formats:
+ *   /collections/hoodies                            → no filter
+ *   /collections/hoodies/f/color.blue.red_size.l   → filtered
+ *   /collections/clothing/hoodies/f/color.red       → nested category + filter
+ */
+function parseCollectionSlug(slug: string[]): {
+  categorySlug: string;
+  filterSlug: string | undefined;
+  categoryBasePath: string;
+} {
+  const fIndex = slug.indexOf("f");
+  if (fIndex > 0 && slug[fIndex + 1]) {
+    const categorySegments = slug.slice(0, fIndex);
+    return {
+      categorySlug: categorySegments[categorySegments.length - 1]!,
+      filterSlug: slug[fIndex + 1]!,
+      categoryBasePath: `/collections/${categorySegments.join("/")}`,
+    };
+  }
+  return {
+    categorySlug: slug[slug.length - 1]!,
+    filterSlug: undefined,
+    categoryBasePath: `/collections/${slug.join("/")}`,
+  };
 }
 
 async function getCategoryData(categorySlug: string) {
@@ -49,22 +80,31 @@ async function CollectionProductsServer({
   categorySlug,
   productFilter,
   searchParams,
+  filterSlug,
+  categoryBasePath,
   perPage,
 }: {
   categorySlug: string;
   productFilter: ProductFilters;
   searchParams: Promise<Record<string, string>>;
+  filterSlug: string | undefined;
+  categoryBasePath: string;
   perPage: number;
 }) {
   const sp = await searchParams;
   const page = sp.page ? parseInt(sp.page) : 1;
 
-  const attributes: Record<string, string[]> = {};
-  productFilter.attributes?.forEach((attr) => {
-    if (!attr?.slug) return;
-    const values = sp[attr.slug]?.split(",").filter(Boolean) ?? [];
-    if (values.length) attributes[attr.slug] = values;
-  });
+  // Path-decoded attributes take precedence over legacy search params.
+  const initialFilterValues = filterSlug ? decodeFilterSlug(filterSlug) : undefined;
+  const attributes: Record<string, string[]> = initialFilterValues ?? (() => {
+    const spAttrs: Record<string, string[]> = {};
+    productFilter.attributes?.forEach((attr) => {
+      if (!attr?.slug) return;
+      const values = sp[attr.slug]?.split(",").filter(Boolean) ?? [];
+      if (values.length) spAttrs[attr.slug] = values;
+    });
+    return spAttrs;
+  })();
 
   const productsResult = await getCategoryProducts(
     categorySlug,
@@ -91,6 +131,8 @@ async function CollectionProductsServer({
       initialPage={page}
       itemsPerPage={perPage}
       categorySlug={categorySlug}
+      categoryBasePath={categoryBasePath}
+      {...(initialFilterValues ? { initialFilterValues } : {})}
     />
   );
 }
@@ -122,15 +164,21 @@ function CollectionProductsSkeleton() {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const categorySlug = slug[slug.length - 1];
+  const { categorySlug, filterSlug, categoryBasePath } =
+    parseCollectionSlug(slug);
   if (!categorySlug) return {};
   try {
     const { category } = await getCategoryData(categorySlug);
     if (!category) return {};
-    return makeSeoMetadata(category.seo, {
+    const metadata = makeSeoMetadata(category.seo, {
       title: category.name,
       description: category.description,
     });
+    // Filtered URLs point back to the unfiltered collection as canonical.
+    if (filterSlug) {
+      metadata.alternates = { canonical: categoryBasePath };
+    }
+    return metadata;
   } catch {
     return {};
   }
@@ -138,44 +186,69 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function Page({ params, searchParams }: Props) {
   const { slug } = await params;
-  const categorySlug = slug[slug.length - 1];
+  const { categorySlug, filterSlug, categoryBasePath } =
+    parseCollectionSlug(slug);
   if (!categorySlug) return notFound();
 
+  let category, productFilter;
   try {
-    const { category, productFilter } = await getCategoryData(categorySlug);
-    if (!category) return notFound();
-
-    const breadcrumbs = buildBreadcrumbFromCategory(category);
-    const perPage = 24;
-
-    return (
-      <>
-        <BreadcrumbJsonLD
-          items={breadcrumbs.map((b) => ({
-            name: b.name,
-            href: b.uri,
-          }))}
-        />
-        <CollectionHeader
-          name={category.name}
-          description={category.description}
-          breadcrumbs={breadcrumbs}
-          {...(category.thumbnail ? { thumbnail: category.thumbnail } : {})}
-          {...(category.children?.length
-            ? { children: category.children }
-            : {})}
-        />
-        <Suspense fallback={<CollectionProductsSkeleton />}>
-          <CollectionProductsServer
-            categorySlug={categorySlug}
-            productFilter={productFilter}
-            searchParams={searchParams}
-            perPage={perPage}
-          />
-        </Suspense>
-      </>
-    );
+    const data = await getCategoryData(categorySlug);
+    if (!data.category) return notFound();
+    category = data.category;
+    productFilter = data.productFilter;
   } catch {
     return notFound();
   }
+
+  // Legacy redirect: ?pa_color=red,blue → /collections/hoodies/f/color.blue.red (308)
+  // Must run outside try/catch since permanentRedirect throws internally.
+  if (!filterSlug) {
+    const sp = await searchParams;
+    const legacyAttributes: Record<string, string[]> = {};
+    productFilter.attributes?.forEach((attr) => {
+      if (!attr?.slug) return;
+      const values = sp[attr.slug]?.split(",").filter(Boolean) ?? [];
+      if (values.length) legacyAttributes[attr.slug] = values;
+    });
+    const legacySlug = encodeFilterSlug({
+      ...DEFAULT_FILTER_VALUES,
+      attributes: legacyAttributes,
+    });
+    if (legacySlug) {
+      permanentRedirect(`${categoryBasePath}/f/${legacySlug}`);
+    }
+  }
+
+  const breadcrumbs = buildBreadcrumbFromCategory(category);
+  const perPage = 24;
+
+  return (
+    <>
+      <BreadcrumbJsonLD
+        items={breadcrumbs.map((b) => ({
+          name: b.name,
+          href: b.uri,
+        }))}
+      />
+      <CollectionHeader
+        name={category.name}
+        description={category.description}
+        breadcrumbs={breadcrumbs}
+        {...(category.thumbnail ? { thumbnail: category.thumbnail } : {})}
+        {...(category.children?.length
+          ? { children: category.children }
+          : {})}
+      />
+      <Suspense fallback={<CollectionProductsSkeleton />}>
+        <CollectionProductsServer
+          categorySlug={categorySlug}
+          productFilter={productFilter}
+          searchParams={searchParams}
+          filterSlug={filterSlug}
+          categoryBasePath={categoryBasePath}
+          perPage={perPage}
+        />
+      </Suspense>
+    </>
+  );
 }

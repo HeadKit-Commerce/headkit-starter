@@ -16,6 +16,7 @@ import type {
 } from "@headkit/sdk";
 import {
   buildProductListFilter,
+  encodeFilterSlug,
   DEFAULT_FILTER_VALUES,
   type FilterValues,
   type SortKeyType,
@@ -51,6 +52,13 @@ interface CollectionProviderProps {
   search?: string | undefined;
   brandSlug?: string | undefined;
   categorySlug?: string | undefined;
+  /** Base path for the collection (e.g. `/collections/hoodies`). When provided, attribute
+   *  filters are encoded into the URL path as `/f/{slug}` and URL updates use
+   *  `window.history.replaceState` instead of the Next.js router to avoid server re-renders. */
+  categoryBasePath?: string | undefined;
+  /** Attribute filter values decoded from the URL path by the server component. Takes
+   *  precedence over search-param attributes when present. */
+  initialFilterValues?: Record<string, string[]> | undefined;
 }
 
 const CollectionContext = createContext<CollectionContextType | null>(null);
@@ -67,6 +75,8 @@ export function CollectionProvider({
   search,
   brandSlug,
   categorySlug,
+  categoryBasePath,
+  initialFilterValues,
 }: CollectionProviderProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -88,12 +98,17 @@ export function CollectionProvider({
     if (categories.length) vals.categories = categories;
     const brands = searchParams.get("brands")?.split(",").filter(Boolean) ?? [];
     if (brands.length) vals.brands = brands;
-    productFilter.attributes?.forEach((attr) => {
-      if (!attr?.slug) return;
-      const values =
-        searchParams.get(attr.slug)?.split(",").filter(Boolean) ?? [];
-      if (values.length) vals.attributes[attr.slug] = values;
-    });
+    // Path-decoded attributes take precedence; fall back to search params for legacy URLs.
+    if (initialFilterValues && Object.keys(initialFilterValues).length > 0) {
+      vals.attributes = initialFilterValues;
+    } else {
+      productFilter.attributes?.forEach((attr) => {
+        if (!attr?.slug) return;
+        const values =
+          searchParams.get(attr.slug)?.split(",").filter(Boolean) ?? [];
+        if (values.length) vals.attributes[attr.slug] = values;
+      });
+    }
     vals.instock = searchParams.get("instock") === "true";
     vals.sort = (searchParams.get("sort") ?? "") as SortKeyType | "";
     return vals;
@@ -111,15 +126,29 @@ export function CollectionProvider({
       if (filters.categories.length)
         params.set("categories", filters.categories.join(","));
       if (filters.brands.length) params.set("brands", filters.brands.join(","));
-      for (const [slug, vals] of Object.entries(filters.attributes)) {
-        if (vals.length) params.set(slug, vals.join(","));
-      }
       if (filters.instock) params.set("instock", "true");
       if (filters.sort) params.set("sort", filters.sort);
       const qs = params.toString();
-      router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+
+      if (categoryBasePath) {
+        // Path-based mode: encode attribute filters into the URL path, keep other state in
+        // search params. Use replaceState to avoid server re-renders on every filter toggle.
+        const filterSlug = encodeFilterSlug(filters);
+        const filterPath = filterSlug ? `/f/${filterSlug}` : "";
+        window.history.replaceState(
+          null,
+          "",
+          `${categoryBasePath}${filterPath}${qs ? `?${qs}` : ""}`,
+        );
+      } else {
+        // Fallback: keep everything in search params (used outside collection routes).
+        for (const [slug, vals] of Object.entries(filters.attributes)) {
+          if (vals.length) params.set(slug, vals.join(","));
+        }
+        router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+      }
     },
-    [pathname, router, search],
+    [categoryBasePath, pathname, router, search],
   );
 
   const fetchProducts = useCallback(
@@ -183,10 +212,7 @@ export function CollectionProvider({
   );
 
   useEffect(() => {
-    const hasAttributeFilters = Object.values(filterValues.attributes).some(
-      (v) => v.length > 0,
-    );
-    if (!isInitialLoad || hasAttributeFilters) {
+    if (!isInitialLoad) {
       fetchProducts(filterValues.page, "middle");
     }
     setIsInitialLoad(false);
