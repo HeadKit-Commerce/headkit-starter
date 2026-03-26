@@ -63,8 +63,13 @@ export default async function Page({ params, searchParams }: Props) {
 
   const billingEmailFromCookie = storedData.email;
 
-  // Fetch order first — needed for status gate and render
+  // Fetch order first — needed for status gate and render.
+  // Draft orders (checkout-draft) return 401 from the WooCommerce REST API;
+  // when that happens with a sessionId present (payment confirmed), we defer
+  // to the session-based processing path below which will transition the order
+  // out of draft and then redirect to a clean URL where it becomes readable.
   let order: Awaited<ReturnType<typeof getOrderAction>> = null;
+  let orderFetchFailed = false;
   try {
     order = await getOrderAction(orderId, orderKey, billingEmailFromCookie);
   } catch (orderErr) {
@@ -77,9 +82,16 @@ export default async function Page({ params, searchParams }: Props) {
     ) {
       redirect("/checkout?reason=order_expired");
     }
-    throw orderErr;
+    // Draft orders return 401/cannot_view — defer to session processing below.
+    const isDraftError =
+      msg.includes("cannot_view") || msg.includes("status 401");
+    if (isDraftError && sessionId) {
+      orderFetchFailed = true;
+    } else {
+      throw orderErr;
+    }
   }
-  if (!order) return notFound();
+  if (!order && !orderFetchFailed) return notFound();
 
   let effectiveOrderId = orderId;
   let effectiveOrderKey = orderKey;
@@ -118,12 +130,16 @@ export default async function Page({ params, searchParams }: Props) {
         effectiveOrderKey = session.orderKey;
       }
 
-      const needsProcessing = needsCheckoutOrderProcessing(
-        order.status,
-        session.cartToken,
-        session.orderId,
-        session.orderKey,
-      );
+      // When the order is still a draft (orderFetchFailed), treat it as needing
+      // processing — the 401 from the REST API confirms it hasn't been processed yet.
+      const needsProcessing =
+        orderFetchFailed ||
+        needsCheckoutOrderProcessing(
+          order?.status ?? "checkout-draft",
+          session.cartToken,
+          session.orderId,
+          session.orderKey,
+        );
 
       if (needsProcessing) {
         const cookie = storedData.shippingAddress;
@@ -243,6 +259,8 @@ export default async function Page({ params, searchParams }: Props) {
       }
     }
   }
+
+  if (!order) return notFound();
 
   const currency = order.currency.code;
   const billing = order.billingAddress;

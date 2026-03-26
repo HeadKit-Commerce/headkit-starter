@@ -90,8 +90,6 @@ export async function getCartAction(): Promise<CartFieldsFragment | null> {
     const cart = await createServerHeadkit(cartToken).cart.get();
     return cart as unknown as CartFieldsFragment;
   } catch {
-    const { name: cookieName } = cartTokenCookieOptions();
-    (await cookies()).delete(cookieName);
     return null;
   }
 }
@@ -102,8 +100,6 @@ export async function getFullCartAction(): Promise<FullCart | null> {
     if (!cartToken) return null;
     return await createServerHeadkit(cartToken).cart.get();
   } catch {
-    const { name: cookieName } = cartTokenCookieOptions();
-    (await cookies()).delete(cookieName);
     return null;
   }
 }
