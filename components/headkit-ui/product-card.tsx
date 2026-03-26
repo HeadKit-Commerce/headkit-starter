@@ -7,7 +7,7 @@ import type {
   ProductAttribute,
 } from "@headkit/sdk";
 import { cn } from "@/lib/utils";
-import { convertToRelativePath } from "@/lib/convert-uri";
+import { productUrl } from "@/lib/convert-uri";
 import { FeaturedImage } from "@/components/headkit-ui/featured-image";
 import { ProductPrice } from "@/components/headkit-ui/product-price";
 import { BadgeList } from "@/components/headkit-ui/badge-list";
@@ -35,12 +35,12 @@ export const ProductCard = ({
   const [imageSelected, setImageSelected] = useState<string>(
     product?.image?.src ?? "",
   );
-  const [uri, setUri] = useState<string>(convertToRelativePath(product?.uri));
+  const [uri, setUri] = useState<string>(productUrl(product?.slug ?? ""));
 
   useEffect(() => {
     if (!product) return;
 
-    setUri(convertToRelativePath(product.uri));
+    setUri(productUrl(product.slug));
 
     if (isVariableProduct(product)) {
       const colourAttr = product.attributes.find(
@@ -65,14 +65,10 @@ export const ProductCard = ({
     );
 
     if (selectedVariation) {
-      const params = selectedVariation.attributes
-        .filter((attr) => attr.key !== "pa_size")
-        .map(
-          (attr) =>
-            `${encodeURIComponent(attr.key)}=${encodeURIComponent(attr.value)}`,
-        )
-        .join("&");
-      setUri(`${convertToRelativePath(product.uri)}?${params}`);
+      const colorAttr = selectedVariation.attributes.find(
+        (attr) => attr.key === "pa_color" || attr.key === "pa_colour",
+      );
+      setUri(productUrl(product.slug, colorAttr?.value));
       setImageSelected(selectedVariation.image?.src ?? "");
     }
   }, [colourSelected, product]);

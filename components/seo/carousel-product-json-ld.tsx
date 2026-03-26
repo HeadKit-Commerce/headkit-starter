@@ -32,7 +32,7 @@ export function CarouselProductJsonLD({
               : "https://schema.org/InStock",
           priceCurrency: currency ?? "AUD",
         },
-        url: `${siteUrl}${product.uri ?? `/shop/${product.slug}/`}`,
+        url: `${siteUrl}/products/${product.slug}`,
       },
     })),
   };

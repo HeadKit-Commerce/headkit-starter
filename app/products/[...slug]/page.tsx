@@ -5,6 +5,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import type { Product, RelatedProduct } from "@headkit/sdk";
 import { headkit } from "@/lib/sdk";
 import { ProductDetail } from "@/components/headkit-ui/product-detail";
+import { ProductStock } from "@/components/headkit-ui/product-stock";
 import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
 import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { ProductJsonLD } from "@/components/seo/product-json-ld";
@@ -14,7 +15,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 type Props = {
   params: Promise<{ slug: string[] }>;
-  searchParams: Promise<Record<string, string>>;
 };
 
 async function getProduct(slug: string) {
@@ -24,26 +24,8 @@ async function getProduct(slug: string) {
   return headkit.products.get(slug);
 }
 
-// Dynamic inner component — awaits searchParams for variant pre-selection only
-async function ProductDetailServer({
-  product,
-  breadcrumbItems,
-  searchParams,
-}: {
-  product: Product;
-  breadcrumbItems: { name: string; uri: string; current: boolean }[];
-  searchParams: Promise<Record<string, string>>;
-}) {
-  const sp = await searchParams;
-  return (
-    <div className="px-5 py-8 md:px-10">
-      <ProductDetail
-        product={product}
-        initialSearchParams={sp}
-        breadcrumbItems={breadcrumbItems}
-      />
-    </div>
-  );
+function StockSkeleton() {
+  return <div className="h-5 w-24 animate-pulse rounded bg-gray-200" />;
 }
 
 function ProductDetailSkeleton() {
@@ -65,9 +47,34 @@ function ProductDetailSkeleton() {
   );
 }
 
+export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
+  const params: { slug: string[] }[] = [];
+  let page = 1;
+  let hasMore = true;
+
+  while (hasMore) {
+    const result = await headkit.products.list({}, page, 100);
+    for (const product of result.products) {
+      params.push({ slug: [product.slug] });
+      const colorAttr = product.attributes.find(
+        (a) => a.slug === "pa_color" || a.slug === "pa_colour",
+      );
+      if (colorAttr) {
+        for (const opt of colorAttr.fullOptions) {
+          params.push({ slug: [product.slug, opt.slug] });
+        }
+      }
+    }
+    hasMore = page < result.totalPages;
+    page++;
+  }
+
+  return params;
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const productSlug = slug[slug.length - 1]!;
+  const productSlug = slug[0]!;
 
   try {
     const product = await getProduct(productSlug);
@@ -85,9 +92,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-export default async function ProductPage({ params, searchParams }: Props) {
+export default async function ProductPage({ params }: Props) {
   const { slug } = await params;
-  const productSlug = slug[slug.length - 1]!;
+  const productSlug = slug[0]!;
+  const colorSlug = slug[1]; // undefined for simple products or base variable URL
 
   const product = await getProduct(productSlug);
 
@@ -126,7 +134,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
 
   const breadcrumbs = [
     { name: "Home", href: "/" },
-    { name: "Shop", href: "/shop" },
+    { name: "Products", href: "/products" },
     ...(product.categories?.length
       ? [
           {
@@ -135,7 +143,12 @@ export default async function ProductPage({ params, searchParams }: Props) {
           },
         ]
       : []),
-    { name: product.name, href: `/shop/${product.slug}` },
+    {
+      name: product.name,
+      href: colorSlug
+        ? `/products/${product.slug}/${colorSlug}`
+        : `/products/${product.slug}`,
+    },
   ];
 
   const breadcrumbItems = breadcrumbs.map((b, i) => ({
@@ -144,17 +157,30 @@ export default async function ProductPage({ params, searchParams }: Props) {
     current: i === breadcrumbs.length - 1,
   }));
 
+  const stockSlot = (
+    <Suspense fallback={<StockSkeleton />}>
+      <ProductStock
+        productSlug={productSlug}
+        {...(colorSlug !== undefined ? { colorSlug } : {})}
+      />
+    </Suspense>
+  );
+
   return (
     <div>
       <ProductJsonLD product={product} />
       <BreadcrumbJsonLD items={breadcrumbs} />
 
       <Suspense fallback={<ProductDetailSkeleton />}>
-        <ProductDetailServer
-          product={product}
-          breadcrumbItems={breadcrumbItems}
-          searchParams={searchParams}
-        />
+        <div className="px-5 py-8 md:px-10">
+          <ProductDetail
+            product={product}
+            {...(colorSlug !== undefined ? { initialColor: colorSlug } : {})}
+            productBasePath={`/products/${productSlug}`}
+            breadcrumbItems={breadcrumbItems}
+            stockSlot={stockSlot}
+          />
+        </div>
       </Suspense>
 
       {relatedAsProducts.length > 0 && (
@@ -163,7 +189,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
             title="You might also like"
             description=""
             allButton="View All"
-            allButtonPath="/shop"
+            allButtonPath="/products"
             className="px-5 md:px-10"
           />
           <div className="mt-5">
