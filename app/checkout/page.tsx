@@ -9,7 +9,12 @@ import { createServerHeadkit } from "@/lib/sdk.server";
 export default async function CheckoutPage() {
   let cart = await getFullCartAction();
 
-  if (!cart || cart.itemsCount === 0) {
+  // null  = no cookie, or WooCommerce session expired (stale cookie was cleared)
+  // empty = user genuinely has an empty cart
+  if (!cart) {
+    redirect("/checkout/error?reason=session_expired");
+  }
+  if (cart.itemsCount === 0) {
     redirect("/checkout/error?reason=empty_cart");
   }
 
