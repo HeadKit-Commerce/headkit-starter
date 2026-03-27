@@ -7,6 +7,7 @@ import type {
   UpdateCustomerInput,
   GetCartQuery,
 } from "@headkit/sdk";
+import { GraphQLError } from "@headkit/sdk";
 import type { ServerSDK } from "@headkit/sdk/server";
 import { createServerHeadkit } from "@/lib/sdk.server";
 import { getCartToken, cartTokenCookieOptions } from "@/lib/cart";
@@ -69,13 +70,20 @@ async function withCartRetry(
     }
   };
 
+  const isSessionError = (err: unknown): boolean =>
+    err instanceof GraphQLError &&
+    (err.hasCode("CART_SESSION_EXPIRED") || err.hasCode("CART_NOT_FOUND"));
+
   try {
     const result = await operation(createServerHeadkit(cartToken, klaviyoId));
     persistToken(result.token);
     return result;
   } catch (err) {
-    if (!cartToken) throw err;
+    // Only retry on session errors. For any other error (stock, validation,
+    // network) propagate immediately so the caller surfaces a real message.
+    if (!isSessionError(err)) throw err;
 
+    // Clear the stale cookie (if any) and retry with a fresh session.
     cookieStore.delete(cookieName);
     const result = await operation(createServerHeadkit(undefined, klaviyoId));
     persistToken(result.token);
