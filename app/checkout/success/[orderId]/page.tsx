@@ -83,9 +83,11 @@ export default async function Page({ params, searchParams }: Props) {
       redirect("/checkout?reason=order_expired");
     }
     // Draft orders return 401/cannot_view — defer to session processing below.
+    // When no sessionId is present (e.g. redirect after processCheckoutOrderAction
+    // or direct navigation) we still surface a fallback rather than crashing.
     const isDraftError =
       msg.includes("cannot_view") || msg.includes("status 401");
-    if (isDraftError && sessionId) {
+    if (isDraftError) {
       orderFetchFailed = true;
     } else {
       throw orderErr;
@@ -260,7 +262,35 @@ export default async function Page({ params, searchParams }: Props) {
     }
   }
 
-  if (!order) return notFound();
+  if (!order) {
+    if (orderFetchFailed) {
+      // Order is still transitioning (checkout-draft) or credentials are restricted —
+      // show a minimal confirmation so the user isn't left with a crash.
+      return (
+        <>
+          <ClearCart />
+          <div className="mt-5 px-5 md:px-10">
+            <h1 className="font-bold text-3xl mb-[10px] text-transparent bg-clip-text bg-linear-to-r from-purple-500 to-pink-500">
+              Your order is confirmed.
+            </h1>
+            <p className="text-lg">
+              Order <span className="font-bold">#{orderId}</span> has been
+              received. You will receive a confirmation email shortly.
+            </p>
+            <div className="mt-8">
+              <Link
+                href="/"
+                className="inline-block rounded-lg bg-purple-500 px-6 py-2.5 text-center text-sm font-medium text-white hover:bg-purple-600"
+              >
+                Continue Shopping
+              </Link>
+            </div>
+          </div>
+        </>
+      );
+    }
+    return notFound();
+  }
 
   const currency = order.currency.code;
   const billing = order.billingAddress;
