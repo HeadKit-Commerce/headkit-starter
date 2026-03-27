@@ -8,33 +8,53 @@ import { env } from "@/lib/env";
  * WordPress webhook endpoint for on-demand cache invalidation.
  * Triggered by the HeadKit WooCommerce plugin after content changes.
  *
- * Body: { secret: string, path?: string, tag?: string }
+ * Supports both legacy (singular) and current (array) body formats:
+ *   Legacy:  { secret, path?: string, tag?: string }
+ *   Current: { secret, paths?: string[], tags?: string[] }
  */
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as {
       path?: string;
       tag?: string;
+      paths?: string[];
+      tags?: string[];
       secret?: string;
     };
-    const { path, tag, secret } = body;
+    const { path, tag, paths, tags, secret } = body;
 
     if (secret !== env.REVALIDATION_SECRET) {
       return NextResponse.json({ message: "Invalid secret" }, { status: 401 });
     }
 
-    if (path) {
-      revalidatePath(path);
+    const revalidatedPaths: string[] = [];
+    const revalidatedTags: string[] = [];
+
+    // Current format: arrays
+    for (const p of paths ?? []) {
+      revalidatePath(p);
+      revalidatedPaths.push(p);
+    }
+    for (const t of tags ?? []) {
+      revalidateTag(t, "default");
+      revalidatedTags.push(t);
     }
 
-    if (tag) {
+    // Legacy format: singular values (backwards-compat with older plugin versions)
+    if (path && !revalidatedPaths.includes(path)) {
+      revalidatePath(path);
+      revalidatedPaths.push(path);
+    }
+    if (tag && !revalidatedTags.includes(tag)) {
       revalidateTag(tag, "default");
+      revalidatedTags.push(tag);
     }
 
     return NextResponse.json(
       {
         revalidated: true,
-        message: `Revalidated ${path ? `path: ${path}` : ""} ${tag ? `tag: ${tag}` : ""}`.trim(),
+        paths: revalidatedPaths,
+        tags: revalidatedTags,
       },
       { status: 200 },
     );

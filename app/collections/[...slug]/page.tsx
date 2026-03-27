@@ -53,7 +53,10 @@ function parseCollectionSlug(slug: string[]): {
 
 async function getCategoryData(categorySlug: string) {
   "use cache";
-  cacheLife("max");
+  // 2-week stale / 1h revalidate — safety net if webhooks fail.
+  cacheLife({ stale: 60 * 60 * 24 * 14, revalidate: 60 * 60, expire: 60 * 60 * 24 * 14 });
+  // headkit:collections is sent by WordPress on any product or category change.
+  // headkit:collection:${categorySlug} is sent on category-specific changes.
   cacheTag(`headkit:collection:${categorySlug}`, "headkit:collections");
 
   const [category, productFilter] = await Promise.all([
@@ -71,8 +74,14 @@ async function getCategoryProducts(
   perPage: number,
 ) {
   "use cache";
-  cacheLife("max");
-  cacheTag(`headkit:collection:${categorySlug}:products`, "headkit:products");
+  // 2-week stale / 5m revalidate — products change more frequently than category structure.
+  cacheLife({ stale: 60 * 60 * 24 * 14, revalidate: 5 * 60, expire: 60 * 60 * 24 * 14 });
+  // headkit:collections is sent by WordPress on product save/delete, covering all collection caches.
+  // headkit:collection:${categorySlug}:products allows targeted per-category invalidation.
+  cacheTag(
+    `headkit:collection:${categorySlug}:products`,
+    "headkit:collections",
+  );
   return sdk.collections.list(filter, page, perPage);
 }
 
@@ -160,6 +169,21 @@ function CollectionProductsSkeleton() {
       </div>
     </div>
   );
+}
+
+export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
+  try {
+    const categories = await sdk.collections.getCategories();
+    return categories.flatMap((cat) => {
+      const paths: { slug: string[] }[] = [{ slug: [cat.slug] }];
+      cat.children?.forEach((child) => {
+        if (child?.slug) paths.push({ slug: [cat.slug, child.slug] });
+      });
+      return paths;
+    });
+  } catch {
+    return [];
+  }
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

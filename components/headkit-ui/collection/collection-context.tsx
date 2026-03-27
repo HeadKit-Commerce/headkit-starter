@@ -4,6 +4,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   useCallback,
   useMemo,
@@ -90,6 +91,7 @@ export function CollectionProvider({
   const [isLoadingAfter, setIsLoadingAfter] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [hasFirstPage, setHasFirstPage] = useState(initialPage === 1);
+  const prevAttributeSlugRef = useRef<string | undefined>(undefined);
 
   const [filterValues, setFilterValues] = useState<FilterValues>(() => {
     const vals: FilterValues = { ...DEFAULT_FILTER_VALUES, page: initialPage };
@@ -213,6 +215,25 @@ export function CollectionProvider({
 
   useEffect(() => {
     if (!isInitialLoad) {
+      const newAttributeSlug = encodeFilterSlug(filterValues);
+      if (categoryBasePath && newAttributeSlug !== prevAttributeSlugRef.current) {
+        // Attribute filters changed — navigate to the new filter path so the server
+        // renders the correct products from cache (static per filter combination).
+        prevAttributeSlugRef.current = newAttributeSlug;
+        const filterPath = newAttributeSlug ? `/f/${newAttributeSlug}` : "";
+        const params = new URLSearchParams();
+        if (search) params.set("q", search);
+        if (filterValues.categories.length)
+          params.set("categories", filterValues.categories.join(","));
+        if (filterValues.brands.length)
+          params.set("brands", filterValues.brands.join(","));
+        if (filterValues.instock) params.set("instock", "true");
+        if (filterValues.sort) params.set("sort", filterValues.sort);
+        const qs = params.toString();
+        router.push(`${categoryBasePath}${filterPath}${qs ? `?${qs}` : ""}`);
+        return;
+      }
+      prevAttributeSlugRef.current = newAttributeSlug;
       fetchProducts(filterValues.page, "middle");
     }
     setIsInitialLoad(false);
