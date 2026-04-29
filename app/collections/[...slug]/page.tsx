@@ -18,6 +18,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { SortKeyType } from "@/components/headkit-ui/collection/utils";
 import type { ProductFilters } from "@headkit/sdk";
 
+/** Satisfies Cache Components: `generateStaticParams` must not return []. Never a real category slug. */
+const STATIC_GEN_PLACEHOLDER_SLUG = "__hk_static_placeholder";
+
 interface Props {
   params: Promise<{ slug: string[] }>;
   searchParams: Promise<Record<string, string>>;
@@ -174,20 +177,23 @@ function CollectionProductsSkeleton() {
 export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
   try {
     const categories = await sdk.collections.getCategories();
-    return categories.flatMap((cat) => {
+    const paths = categories.flatMap((cat) => {
       const paths: { slug: string[] }[] = [{ slug: [cat.slug] }];
       cat.children?.forEach((child) => {
         if (child?.slug) paths.push({ slug: [cat.slug, child.slug] });
       });
       return paths;
     });
+    if (paths.length > 0) return paths;
   } catch {
-    return [];
+    /* API unreachable at build — fall through */
   }
+  return [{ slug: [STATIC_GEN_PLACEHOLDER_SLUG] }];
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
+  if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) return {};
   const { categorySlug, filterSlug, categoryBasePath } =
     parseCollectionSlug(slug);
   if (!categorySlug) return {};
@@ -210,6 +216,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function Page({ params, searchParams }: Props) {
   const { slug } = await params;
+  if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) return notFound();
   const { categorySlug, filterSlug, categoryBasePath } =
     parseCollectionSlug(slug);
   if (!categorySlug) return notFound();
