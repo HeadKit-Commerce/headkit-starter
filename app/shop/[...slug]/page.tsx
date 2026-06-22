@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import type { Product, RelatedProduct } from "@headkit/sdk";
+import type { Product, RelatedProduct, SeoData } from "@headkit/sdk";
 import { headkit } from "@/lib/sdk";
 import { ProductDetail } from "@/components/headkit-ui/product-detail";
 import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
@@ -9,7 +9,7 @@ import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { Breadcrumb } from "@/components/headkit-ui/breadcrumb";
 import { ProductJsonLD } from "@/components/seo/product-json-ld";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
-import { makeSeoMetadata } from "@/lib/make-metadata";
+import { makeSeoMetadata, seoFallbackDescription } from "@/lib/make-metadata";
 
 type Props = {
   params: Promise<{ slug: string[] }>;
@@ -26,15 +26,26 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const productSlug = slug[slug.length - 1]!;
 
   try {
-    const product = await headkit.products.get(productSlug);
+    // The SDK Product type does not yet expose Yoast SEOData (the GetProduct
+    // GraphQL fragment selects no `seo` field — see deferred-items.md / future
+    // SDK-layer plan). Widen the fetched product so `product.seo` is read
+    // defensively: once the schema + codegen add `Product.seo`, the real
+    // SEOData flows through here with no further change. Until then it resolves
+    // to null and the templated per-entity fallback (FE-09 / D-04) is the floor.
+    const product = (await headkit.products.get(productSlug)) as
+      | (Product & { seo?: SeoData | null })
+      | null;
     if (!product) {
       return { robots: { index: false, follow: false } };
     }
 
-    const desc = product.shortDescription || product.description;
-    return makeSeoMetadata(null, {
+    const productSeo: SeoData | null = product.seo ?? null;
+    return makeSeoMetadata(productSeo, {
       title: product.name,
-      ...(desc ? { description: desc } : {}),
+      description:
+        product.shortDescription ||
+        product.description ||
+        seoFallbackDescription("product", product.name),
     });
   } catch {
     return { robots: { index: false, follow: false } };
