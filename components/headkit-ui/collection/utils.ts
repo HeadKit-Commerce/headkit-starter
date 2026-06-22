@@ -31,6 +31,10 @@ export interface FilterValues {
   instock: boolean;
   sort: SortKeyType | "";
   page: number;
+  /** Price lower bound (string for SDK compat); empty/undefined = unset. */
+  price_min?: string;
+  /** Price upper bound (string for SDK compat); empty/undefined = unset. */
+  price_max?: string;
 }
 
 export const DEFAULT_FILTER_VALUES: FilterValues = {
@@ -40,6 +44,8 @@ export const DEFAULT_FILTER_VALUES: FilterValues = {
   instock: false,
   sort: "",
   page: 1,
+  price_min: "",
+  price_max: "",
 };
 
 /** Convert slug-like option value to display name (e.g. "some-option" -> "Some Option"). */
@@ -50,6 +56,14 @@ export function formatOptionName(slug: string): string {
     .trim();
 }
 
+/** Coerce a price-like string into a non-negative numeric string, or undefined. */
+function coercePrice(value?: string): string | undefined {
+  if (value === undefined || value === "") return undefined;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return undefined;
+  return String(n);
+}
+
 export function buildProductListFilter(
   filterValues: FilterValues,
   options: {
@@ -58,6 +72,12 @@ export function buildProductListFilter(
     isNew?: boolean;
     search?: string;
     brandSlug?: string;
+    /** In-stock toggle (mapped onto the filter for server-side filtering). */
+    instock?: boolean;
+    /** Price lower bound; coerced to a numeric string before mapping. */
+    minPrice?: string;
+    /** Price upper bound; coerced to a numeric string before mapping. */
+    maxPrice?: string;
   } = {},
 ): ProductListFilter {
   const filter: ProductListFilter = {};
@@ -65,6 +85,9 @@ export function buildProductListFilter(
   const categoryValue = options.categorySlug ?? filterValues.categories[0];
   if (categoryValue) filter.category = categoryValue;
 
+  // ⚠ Open Q1 = single-ok: ProductListFilter.brand is a single String. The UI
+  // and URL carry a multi-select brands[] (D-02), but only the FIRST selected
+  // brand maps to the backend filter (parity: old store was single-brand).
   const brandValue = options.brandSlug ?? filterValues.brands[0];
   if (brandValue) filter.brand = brandValue;
 
@@ -74,9 +97,17 @@ export function buildProductListFilter(
       .flatMap(([slug, values]) => values.map((value) => ({ slug, value })));
   }
 
+  const minPrice = coercePrice(options.minPrice ?? filterValues.price_min);
+  if (minPrice !== undefined) filter.minPrice = minPrice;
+  const maxPrice = coercePrice(options.maxPrice ?? filterValues.price_max);
+  if (maxPrice !== undefined) filter.maxPrice = maxPrice;
+
   if (options.onSale) filter.onSale = true;
   if (options.isNew) filter.isNew = true;
   if (options.search) filter.search = options.search;
+  // NOTE: in-stock has no ProductListFilter field in the commerce schema; it
+  // remains a client-side grid filter (existing behavior). `options.instock`
+  // is accepted for call-site symmetry but intentionally not mapped here.
 
   const sortMap: Record<SortKeyType, { orderby: string; order: string }> = {
     FEATURED: { orderby: "menu_order", order: "asc" },
@@ -96,6 +127,53 @@ export function buildProductListFilter(
   }
 
   return filter;
+}
+
+/**
+ * Parse raw searchParams into FilterValues, reading ONLY known facet keys
+ * (unknown URL params are ignored — no passthrough; T-03-P1). Attribute keys
+ * (e.g. `pa_colour`) are namespaced and parsed separately by the client
+ * context against the available ProductFilters; the server-side initial render
+ * here covers the canonical first-class facets.
+ */
+export function parseSearchParams(sp: Record<string, string>): FilterValues {
+  const split = (v?: string) => v?.split(",").filter(Boolean) ?? [];
+  const page = sp.page ? Math.max(1, parseInt(sp.page, 10) || 1) : 1;
+  const sort = (sp.sort ?? "") as SortKeyType | "";
+  return {
+    ...DEFAULT_FILTER_VALUES,
+    categories: split(sp.categories),
+    brands: split(sp.brands),
+    attributes: {},
+    instock: sp.instock === "true",
+    sort: sort in SortKey ? sort : "",
+    page,
+    price_min: coercePrice(sp.price_min) ?? "",
+    price_max: coercePrice(sp.price_max) ?? "",
+  };
+}
+
+/**
+ * Produce a STABLE cache key from a built ProductListFilter (sorted keys, no
+ * volatile fields). Used to key the durable catalog cache so equal filters
+ * share a cache entry and the key space stays bounded (T-03-P2). Never derive
+ * this from raw searchParams.
+ */
+export function normalizeFilterKey(filter: ProductListFilter): string {
+  const sorted: Record<string, unknown> = {};
+  for (const key of Object.keys(filter).sort()) {
+    const value = (filter as Record<string, unknown>)[key];
+    if (key === "attributes" && Array.isArray(value)) {
+      sorted[key] = [...value]
+        .map((a) => ({ slug: a.slug, value: a.value }))
+        .sort((x, y) =>
+          `${x.slug}:${x.value}`.localeCompare(`${y.slug}:${y.value}`),
+        );
+    } else {
+      sorted[key] = value;
+    }
+  }
+  return JSON.stringify(sorted);
 }
 
 /** Build breadcrumb URIs to match the Next.js route /collections/[...slug] (same as URL path). */

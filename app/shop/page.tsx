@@ -1,9 +1,15 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
+import { unstable_cacheLife as cacheLife, unstable_cacheTag as cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
 import { CollectionHeader } from "@/components/headkit-ui/collection/collection-header";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
-import { buildProductListFilter } from "@/components/headkit-ui/collection/utils";
-import type { SortKeyType } from "@/components/headkit-ui/collection/utils";
+import { CollectionPageSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
+import {
+  buildProductListFilter,
+  normalizeFilterKey,
+  parseSearchParams,
+} from "@/components/headkit-ui/collection/utils";
 
 export const metadata: Metadata = {
   title: "Shop",
@@ -16,29 +22,67 @@ interface Props {
   searchParams: Promise<Record<string, string>>;
 }
 
-export default async function Page({ searchParams }: Props) {
+const PER_PAGE = 24;
+
+/**
+ * Durable, shared catalog read for the PLP. Keyed on a STABLE normalized
+ * filter key + page (never raw searchParams — that would explode the cache
+ * key and re-evaluate per request on Fluid Compute). Filters are public
+ * catalog reads (no PII/auth), so a remote cache is safe.
+ */
+async function getCatalogPage(filterKey: string, page: number) {
+  "use cache: remote";
+  cacheLife("minutes");
+  cacheTag(`catalog:${filterKey}`);
+  const filter = JSON.parse(filterKey) as Parameters<
+    typeof sdk.collections.list
+  >[0];
+  return sdk.collections.list(filter, page, PER_PAGE);
+}
+
+/** Aggregated facet options (categories/attributes/price bounds). Shared + durable. */
+async function getFilters() {
+  "use cache: remote";
+  cacheLife("minutes");
+  cacheTag("catalog:filters");
+  return sdk.collections.getFilters();
+}
+
+/**
+ * Dynamic island: reads searchParams (must live inside <Suspense> under
+ * cacheComponents). Builds the filter, derives a stable cache key, fetches
+ * the cached catalog page, and hands the initial products to the client grid.
+ */
+async function ProductResults({ searchParams }: Props) {
   const sp = await searchParams;
-  const page = sp.page ? parseInt(sp.page) : 1;
-  const perPage = 24;
+  const parsed = parseSearchParams(sp);
+  const page = parsed.page;
+
+  // price_min/price_max + instock are read directly off `parsed` by
+  // buildProductListFilter; no need to re-pass them as options.
+  const filter = buildProductListFilter(parsed);
+  const filterKey = normalizeFilterKey(filter);
 
   const [productsResult, productFilter] = await Promise.all([
-    sdk.collections.list(
-      buildProductListFilter({
-        categories: [],
-        brands: [],
-        attributes: {},
-        instock: sp.instock === "true",
-        sort: (sp.sort ?? "") as SortKeyType | "",
-        page,
-      }),
-      page,
-      perPage,
-    ),
-    sdk.collections.getFilters(),
+    getCatalogPage(filterKey, page),
+    getFilters(),
   ]);
 
   return (
+    <CollectionPage
+      initialProducts={productsResult.products}
+      initialTotal={productsResult.total}
+      productFilter={productFilter}
+      initialPage={page}
+      itemsPerPage={PER_PAGE}
+    />
+  );
+}
+
+export default function Page({ searchParams }: Props) {
+  return (
     <>
+      {/* Static shell — outside <Suspense>, cacheable */}
       <CollectionHeader
         name="Shop"
         breadcrumbs={[
@@ -46,13 +90,10 @@ export default async function Page({ searchParams }: Props) {
           { name: "Shop", uri: "/shop", current: true },
         ]}
       />
-      <CollectionPage
-        initialProducts={productsResult.products}
-        initialTotal={productsResult.total}
-        productFilter={productFilter}
-        initialPage={page}
-        itemsPerPage={perPage}
-      />
+      {/* Dynamic grid — reads searchParams, streamed under Suspense */}
+      <Suspense fallback={<CollectionPageSkeleton variant="collection" />}>
+        <ProductResults searchParams={searchParams} />
+      </Suspense>
     </>
   );
 }
