@@ -10,7 +10,9 @@
     "check-types": "tsc --noEmit",
     "format": "prettier --write .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:smoke": "bash scripts/smoke/boundary.sh"
   },
   "dependencies": {
     "@headkit/sdk": "workspace:*",
