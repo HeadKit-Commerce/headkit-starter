@@ -40,6 +40,20 @@ async function fetchMenu(location: MenuLocation): Promise<NavMenuItem[]> {
   }
 }
 
+/**
+ * Fetch the CMS FOOTER menu (FE-01) via the same SDK menu transport as the
+ * PRIMARY/SECONDARY navigation. The `FOOTER` MenuLocation was added to the SDK
+ * enum in plan 03-02; when no WP footer menu is registered this resolves to an
+ * empty list and the `Footer` falls back to its branding/static layout.
+ *
+ * Exported (rather than consumed inside `NavigationWrapper`) because the
+ * `Footer` is rendered by the root layout, not the nav bar — but it shares the
+ * exact same `fetchMenu("FOOTER")` SDK path established here.
+ */
+export async function getFooterMenu(): Promise<NavMenuItem[]> {
+  return fetchMenu("FOOTER");
+}
+
 async function fetchCartCount(): Promise<number> {
   try {
     const cartToken = await getCartToken();
