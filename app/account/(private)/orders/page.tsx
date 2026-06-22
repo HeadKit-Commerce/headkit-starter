@@ -25,7 +25,10 @@ export default function Page() {
         const result = await headkit.orders.listOrders(user.token, 1, 50);
         setOrders(result.orders);
       } catch {
-        setError("Failed to load orders. Please try again later.");
+        // IDOR-safe, UI-SPEC generic copy — never surface a raw error/stack.
+        setError(
+          "We couldn't load this right now. Refresh the page, or try again in a moment.",
+        );
       } finally {
         setLoading(false);
       }
@@ -63,11 +66,12 @@ export default function Page() {
       <div className="max-w-4xl">
         <h1 className="text-2xl font-bold mb-6">My Orders</h1>
         <div className="bg-white rounded-lg shadow-sm p-6 text-center">
+          <h2 className="text-xl font-semibold mb-2">No orders yet</h2>
           <p className="text-gray-500 mb-4">
-            You haven&apos;t placed any orders yet.
+            When you place an order it&apos;ll show up here.
           </p>
           <Button asChild>
-            <Link href="/shop">Start Shopping</Link>
+            <Link href="/shop">Start shopping</Link>
           </Button>
         </div>
       </div>
