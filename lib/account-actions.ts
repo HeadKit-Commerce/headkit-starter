@@ -4,7 +4,7 @@
  * Account server actions — thin wrappers around the HeadKit SDK auth domain.
  */
 
-import { createClientSDK } from "@headkit/sdk";
+import { createClientSDK, type AddressInput } from "@headkit/sdk";
 
 import { env } from "./env";
 
@@ -25,7 +25,7 @@ function getErrorMessage(err: unknown, fallback: string): string {
   return (
     msg
       .replace(
-        /^(login|registerCustomer|sendPasswordResetEmail|resetUserPassword|updateCustomerProfile|getCustomer):\s*/i,
+        /^(login|registerCustomer|sendPasswordResetEmail|resetUserPassword|updateCustomerProfile|getCustomer|updateCustomerAddress):\s*/i,
         "",
       )
       .trim() || fallback
@@ -215,6 +215,168 @@ export async function updateCustomer(
       error: getErrorMessage(
         err,
         "Failed to update profile. Please try again.",
+      ),
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// FE-04 — address book
+//
+// Both actions are scoped ONLY by the authenticated customer's JWT (authToken).
+// They never accept or forward a client-supplied customer id — the commerce
+// resolver derives the customer from the validated token (Phase-2 IDOR-safe
+// path; threat T-03-AB1). The shape returned to the client is normalized to a
+// safe subset; failures return the UI-SPEC generic error (no raw error/stack).
+
+/** Editable address fields surfaced in the address book (read + write). */
+export interface AddressData {
+  firstName: string;
+  lastName: string;
+  company: string;
+  address1: string;
+  address2: string;
+  city: string;
+  state: string;
+  postcode: string;
+  country: string;
+  email: string;
+  phone: string;
+}
+
+export interface CustomerAddresses {
+  billing: AddressData;
+  shipping: AddressData;
+  /** Whether the customer has any saved address (drives the empty state). */
+  hasAddress: boolean;
+}
+
+const EMPTY_ADDRESS: AddressData = {
+  firstName: "",
+  lastName: "",
+  company: "",
+  address1: "",
+  address2: "",
+  city: "",
+  state: "",
+  postcode: "",
+  country: "",
+  email: "",
+  phone: "",
+};
+
+/** Normalize a nullable SDK Address into the form-friendly AddressData shape. */
+function toAddressData(
+  addr:
+    | {
+        firstName?: string | null;
+        lastName?: string | null;
+        company?: string | null;
+        address1?: string | null;
+        address2?: string | null;
+        city?: string | null;
+        state?: string | null;
+        postcode?: string | null;
+        country?: string | null;
+        email?: string | null;
+        phone?: string | null;
+      }
+    | null
+    | undefined,
+): AddressData {
+  if (!addr) return { ...EMPTY_ADDRESS };
+  return {
+    firstName: addr.firstName ?? "",
+    lastName: addr.lastName ?? "",
+    company: addr.company ?? "",
+    address1: addr.address1 ?? "",
+    address2: addr.address2 ?? "",
+    city: addr.city ?? "",
+    state: addr.state ?? "",
+    postcode: addr.postcode ?? "",
+    country: addr.country ?? "",
+    email: addr.email ?? "",
+    phone: addr.phone ?? "",
+  };
+}
+
+/** True if any meaningful address field is populated. */
+function isAddressPopulated(a: AddressData): boolean {
+  return Boolean(
+    a.firstName ||
+      a.lastName ||
+      a.address1 ||
+      a.city ||
+      a.postcode ||
+      a.country,
+  );
+}
+
+/**
+ * Read the authenticated customer's billing + shipping addresses (FE-04).
+ * JWT-scoped only — no client-supplied customer id (IDOR-safe, T-03-AB1).
+ */
+export async function getAddresses(
+  authToken: string,
+): Promise<ActionResult<CustomerAddresses>> {
+  try {
+    const sdk = getSDK();
+    const customer = await sdk.auth.getCustomer(authToken);
+    if (!customer) {
+      return { success: false, error: "Customer not found" };
+    }
+    const billing = toAddressData(customer.billingAddress);
+    const shipping = toAddressData(customer.shippingAddress);
+    return {
+      success: true,
+      data: {
+        billing,
+        shipping,
+        hasAddress: isAddressPopulated(billing) || isAddressPopulated(shipping),
+      },
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: getErrorMessage(
+        err,
+        "We couldn't load this right now. Refresh the page, or try again in a moment.",
+      ),
+    };
+  }
+}
+
+/**
+ * Update the authenticated customer's billing and/or shipping address (FE-04).
+ * JWT-scoped only — no client-supplied customer id (IDOR-safe, T-03-AB1). The
+ * commerce mutation re-validates the typed AddressInput server-side.
+ */
+export async function updateAddress(
+  authToken: string,
+  input: { billing?: AddressInput; shipping?: AddressInput },
+): Promise<ActionResult<CustomerAddresses>> {
+  try {
+    const sdk = getSDK();
+    const variables: { billing?: AddressInput; shipping?: AddressInput } = {};
+    if (input.billing !== undefined) variables.billing = input.billing;
+    if (input.shipping !== undefined) variables.shipping = input.shipping;
+    const customer = await sdk.auth.updateAddress(authToken, variables);
+    const billing = toAddressData(customer.billingAddress);
+    const shipping = toAddressData(customer.shippingAddress);
+    return {
+      success: true,
+      data: {
+        billing,
+        shipping,
+        hasAddress: isAddressPopulated(billing) || isAddressPopulated(shipping),
+      },
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: getErrorMessage(
+        err,
+        "We couldn't save your address right now. Please try again in a moment.",
       ),
     };
   }
