@@ -8,7 +8,7 @@ import {
   buildProductListFilter,
   buildBreadcrumbFromCategory,
 } from "@/components/headkit-ui/collection/utils";
-import { makeSeoMetadata } from "@/lib/make-metadata";
+import { makeSeoMetadata, seoFallbackDescription } from "@/lib/make-metadata";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import type { SortKeyType } from "@/components/headkit-ui/collection/utils";
 
@@ -37,7 +37,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     if (!category) return {};
     return makeSeoMetadata(category.seo, {
       title: category.name,
-      description: category.description,
+      // Templated per-entity floor when both Yoast SEO and the category's own
+      // description are absent (FE-09 / D-04). Real category.seo still wins.
+      description:
+        category.description ||
+        seoFallbackDescription("category", category.name),
     });
   } catch {
     return {};
