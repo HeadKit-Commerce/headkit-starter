@@ -6,10 +6,12 @@
 
 import { createClientSDK } from "@headkit/sdk";
 
-const GQL_URL =
-  process.env.HEADKIT_GRAPHQL_URL ??
-  process.env.NEXT_PUBLIC_HEADKIT_GRAPHQL_URL ??
-  "http://localhost:4000/graphql";
+import { env } from "./env";
+
+// Canonical gateway URL (FE-11) — single source of truth from the validated
+// env schema. The previous divergent fallback chain (server-only var,
+// public alias, and a hardcoded localhost gateway) has been removed.
+const GQL_URL = env.NEXT_PUBLIC_GRAPHQL_URL;
 
 const PUBLIC_KEY = process.env.NEXT_PUBLIC_HEADKIT_PUBLIC_KEY ?? "";
 

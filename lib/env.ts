@@ -4,7 +4,9 @@ const clientSchema = z.object({
   NEXT_PUBLIC_HEADKIT_PUBLIC_KEY: z.string().min(1),
   NEXT_PUBLIC_FRONTEND_URL: z.string().url().optional(),
   NEXT_PUBLIC_GTM_ID: z.string().optional(),
-  NEXT_PUBLIC_GRAPHQL_URL: z.string().url().optional(),
+  // Canonical Hive gateway URL (FE-11). REQUIRED — a missing/invalid gateway
+  // URL fails loudly at boot rather than silently falling back at request time.
+  NEXT_PUBLIC_GRAPHQL_URL: z.string().url(),
 });
 
 const serverSchema = clientSchema.extend({
@@ -25,7 +27,7 @@ function createEnv(): ClientEnv & Partial<ServerEnv> {
     NEXT_PUBLIC_HEADKIT_PUBLIC_KEY: process.env.NEXT_PUBLIC_HEADKIT_PUBLIC_KEY,
     NEXT_PUBLIC_FRONTEND_URL: process.env.NEXT_PUBLIC_FRONTEND_URL || undefined,
     NEXT_PUBLIC_GTM_ID: process.env.NEXT_PUBLIC_GTM_ID || undefined,
-    NEXT_PUBLIC_GRAPHQL_URL: process.env.NEXT_PUBLIC_GRAPHQL_URL || undefined,
+    NEXT_PUBLIC_GRAPHQL_URL: process.env.NEXT_PUBLIC_GRAPHQL_URL,
   });
 }
 
