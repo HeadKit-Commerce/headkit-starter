@@ -96,6 +96,10 @@ export function CollectionProvider({
     });
     vals.instock = searchParams.get("instock") === "true";
     vals.sort = (searchParams.get("sort") ?? "") as SortKeyType | "";
+    const priceMin = searchParams.get("price_min");
+    if (priceMin) vals.price_min = priceMin;
+    const priceMax = searchParams.get("price_max");
+    if (priceMax) vals.price_max = priceMax;
     return vals;
   });
 
@@ -116,6 +120,8 @@ export function CollectionProvider({
       }
       if (filters.instock) params.set("instock", "true");
       if (filters.sort) params.set("sort", filters.sort);
+      if (filters.price_min) params.set("price_min", filters.price_min);
+      if (filters.price_max) params.set("price_max", filters.price_max);
       const qs = params.toString();
       router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
     },
