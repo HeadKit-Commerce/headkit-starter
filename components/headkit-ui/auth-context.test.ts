@@ -56,7 +56,7 @@ describe("runSilentRefresh", () => {
     );
   });
 
-  it("signs out when the backend returns an incomplete token pair", async () => {
+  it("signs out when the authToken refresh fails (no usable new authToken)", async () => {
     const refreshAuthToken = vi.fn(async () => ({
       authToken: "",
       refreshToken: "",
@@ -65,6 +65,42 @@ describe("runSilentRefresh", () => {
     const outcome = await runSilentRefresh("refresh-1", refreshAuthToken);
 
     expect(outcome.status).toBe("signed-out");
+  });
+
+  it("retains the session when authToken is refreshed but refreshToken is omitted (WR-02)", async () => {
+    // WP /auth/refresh may return only a fresh authToken (refreshToken ==
+    // accessToken today, field can be omitted). A fresh authToken alone is a
+    // successful refresh: keep the session, carry the prior refresh token
+    // forward, and stay signed in (the effect reschedules the timer).
+    const refreshAuthToken = vi.fn(async () => ({
+      authToken: "new-jwt",
+      // refreshToken intentionally omitted by the WP contract
+    }));
+
+    const outcome = await runSilentRefresh("refresh-1", refreshAuthToken);
+
+    expect(refreshAuthToken).toHaveBeenCalledOnce();
+    expect(outcome).toEqual({
+      status: "refreshed",
+      authToken: "new-jwt",
+      // Prior refresh token retained (not signed out, not blanked).
+      refreshToken: "refresh-1",
+    });
+  });
+
+  it("carries the prior refresh token forward when a null refreshToken is returned (WR-02)", async () => {
+    const refreshAuthToken = vi.fn(async () => ({
+      authToken: "new-jwt",
+      refreshToken: null,
+    }));
+
+    const outcome = await runSilentRefresh("refresh-prior", refreshAuthToken);
+
+    expect(outcome.status).toBe("refreshed");
+    if (outcome.status === "refreshed") {
+      expect(outcome.authToken).toBe("new-jwt");
+      expect(outcome.refreshToken).toBe("refresh-prior");
+    }
   });
 
   it("fires only after the scheduled delay (fake timers)", async () => {

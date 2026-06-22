@@ -66,22 +66,34 @@ export type SilentRefreshOutcome =
  * on success, or a `signed-out` outcome carrying the UI-SPEC copy on any
  * failure. It NEVER logs the token (T-03-R1) and never touches the cart-token
  * boundary — it only swaps the auth JWT/refresh pair.
+ *
+ * Refresh-token rotation is OPTIONAL (WR-02): the WP `/auth/refresh` contract
+ * may return only a fresh `authToken` (today refreshToken == accessToken and
+ * the field can be omitted). A fresh authToken alone is a successful refresh —
+ * we keep the session and carry the prior refresh token forward. Only an
+ * actual authToken-refresh failure (no usable new authToken, or a thrown error)
+ * signs the user out. This prevents FE-05 from force-signing-out on every
+ * refresh when WP omits the rotated refresh token.
  */
 export async function runSilentRefresh(
   refreshToken: string,
   refreshAuthToken: (
     token: string,
-  ) => Promise<{ authToken: string; refreshToken: string }>,
+  ) => Promise<{ authToken: string; refreshToken?: string | null }>,
 ): Promise<SilentRefreshOutcome> {
   try {
     const result = await refreshAuthToken(refreshToken);
-    if (!result?.authToken || !result?.refreshToken) {
+    // Hard failure only when the authToken refresh itself fails (no usable new
+    // authToken). A missing/omitted refreshToken is NOT a failure.
+    if (!result?.authToken) {
       return { status: "signed-out", message: SESSION_EXPIRED_MESSAGE };
     }
     return {
       status: "refreshed",
       authToken: result.authToken,
-      refreshToken: result.refreshToken,
+      // Keep the prior refresh token when the response omits a rotated one
+      // (WR-02). Never empty: falls back to the token we just used.
+      refreshToken: result.refreshToken || refreshToken,
     };
   } catch {
     // Swallow the error detail (no token/internal leakage, T-03-R1/R3) — the
