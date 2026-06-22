@@ -1,4 +1,8 @@
 import type { MenuLocation } from "@headkit/sdk";
+import {
+  unstable_cacheLife as cacheLife,
+  unstable_cacheTag as cacheTag,
+} from "next/cache";
 import { headkit } from "@/lib/sdk";
 import { createServerHeadkit } from "@/lib/sdk.server";
 import { getCartToken } from "@/lib/cart";
@@ -49,8 +53,20 @@ async function fetchMenu(location: MenuLocation): Promise<NavMenuItem[]> {
  * Exported (rather than consumed inside `NavigationWrapper`) because the
  * `Footer` is rendered by the root layout, not the nav bar — but it shares the
  * exact same `fetchMenu("FOOTER")` SDK path established here.
+ *
+ * Cached (Cache Components, `'use cache'`): the FOOTER menu is a per-deploy CMS
+ * read via the PK-only SDK singleton — no per-request runtime API (cookies/
+ * headers/searchParams), so it is deterministic and cacheable. Because the
+ * `Footer` is NOT Suspense-wrapped in the root layout, an UNCACHED read here
+ * poisoned every route's static prerender under Cache Components; caching it
+ * moves the layout's footer read into the cached static shell. The stable
+ * `'footer-menu'` cacheTag lets a future `/api/revalidate` invalidate it when
+ * the WP footer menu changes.
  */
 export async function getFooterMenu(): Promise<NavMenuItem[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("footer-menu");
   return fetchMenu("FOOTER");
 }
 

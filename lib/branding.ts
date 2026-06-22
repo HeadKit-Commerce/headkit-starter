@@ -24,6 +24,10 @@
  */
 
 import "server-only";
+import {
+  unstable_cacheLife as cacheLife,
+  unstable_cacheTag as cacheTag,
+} from "next/cache";
 
 // ---------------------------------------------------------------------------
 // Types — mirror the dashboard-api schema (schema.graphqls)
@@ -159,8 +163,20 @@ function coerce(data: NonNullable<BrandingResponse["data"]>): BrandingBundle {
  * Never throws: callers (e.g. the root layout) can rely on always receiving a
  * complete bundle, so the storefront never crashes if dashboard-api is down
  * (threat T-03-B4).
+ *
+ * Cached (Cache Components, `'use cache'`): branding is a per-tenant-per-DEPLOY
+ * read — the tenant resolves from build/deploy env (`DASHBOARD_API_URL`), NOT a
+ * per-request runtime API (no cookies()/headers()/searchParams), so the read is
+ * deterministic and cacheable. Caching it here keeps the ROOT LAYOUT's branding
+ * read out of the uncached set, so it no longer poisons every route's static
+ * prerender under Cache Components. The stable `'branding'` cacheTag lets a
+ * future `/api/revalidate` invalidate it when dashboard-api branding changes.
  */
 export async function getBranding(): Promise<BrandingBundle> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("branding");
+
   const endpoint = process.env.DASHBOARD_API_URL;
   // No local dashboard-api transport configured → documented defaults.
   if (!endpoint) return DEFAULT_BUNDLE;
@@ -173,8 +189,8 @@ export async function getBranding(): Promise<BrandingBundle> {
         Accept: "application/json",
       },
       body: JSON.stringify({ query: BRANDING_QUERY }),
-      // Revalidate periodically; branding rarely changes per request.
-      next: { revalidate: 300 },
+      // Caching is governed by the enclosing `'use cache'` + cacheLife("hours")
+      // above (Cache Components), so no fetch-level `next.revalidate` here.
     });
 
     if (!res.ok) return DEFAULT_BUNDLE;
