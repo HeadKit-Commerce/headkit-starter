@@ -1,7 +1,10 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { createClientSDK } from "@headkit/sdk";
+
+import { refreshDelayMs } from "@/lib/jwt-exp";
 
 export interface AuthUser {
   id: string;
@@ -9,6 +12,14 @@ export interface AuthUser {
   firstName?: string | null | undefined;
   lastName?: string | null | undefined;
   token?: string | null | undefined;
+  /**
+   * Refresh token (FE-05) issued alongside the JWT on login/register. Held
+   * with the auth JWT (sessionStorage `hk_auth_user`) — NEVER in the
+   * `hk-cart-token` cookie. The silent-refresh timer exchanges it for a fresh
+   * {authToken, refreshToken} pair shortly before the JWT expires. Optional so
+   * a backend that has not yet minted one degrades to an inert timer.
+   */
+  refreshToken?: string | null | undefined;
 }
 
 interface AuthContextType {
@@ -34,10 +45,60 @@ const STORAGE_KEY = "hk_auth_user";
 /** Auth token cookie. Client-set (no httpOnly) so token can be sent in Authorization header. */
 const COOKIE_NAME = "hk-auth-token";
 
+/** UI-SPEC session-expired copy (FE-05). Shown on a hard refresh failure. */
+export const SESSION_EXPIRED_MESSAGE =
+  "Your session expired. Please sign in again.";
+
+/**
+ * Outcome of a silent-refresh attempt, surfaced so the effect (and tests) can
+ * branch without the function reaching into React/router internals itself.
+ */
+export type SilentRefreshOutcome =
+  | { status: "refreshed"; authToken: string; refreshToken: string }
+  | { status: "signed-out"; message: string };
+
+/**
+ * Pure orchestration for one silent-refresh attempt (FE-05), extracted so the
+ * success and hard-failure paths are unit-testable in the node vitest env
+ * (the app has no jsdom/testing-library setup; the provider can't render here).
+ *
+ * It calls `auth.refreshAuthToken(refreshToken)` and returns the new token pair
+ * on success, or a `signed-out` outcome carrying the UI-SPEC copy on any
+ * failure. It NEVER logs the token (T-03-R1) and never touches the cart-token
+ * boundary — it only swaps the auth JWT/refresh pair.
+ */
+export async function runSilentRefresh(
+  refreshToken: string,
+  refreshAuthToken: (
+    token: string,
+  ) => Promise<{ authToken: string; refreshToken: string }>,
+): Promise<SilentRefreshOutcome> {
+  try {
+    const result = await refreshAuthToken(refreshToken);
+    if (!result?.authToken || !result?.refreshToken) {
+      return { status: "signed-out", message: SESSION_EXPIRED_MESSAGE };
+    }
+    return {
+      status: "refreshed",
+      authToken: result.authToken,
+      refreshToken: result.refreshToken,
+    };
+  } catch {
+    // Swallow the error detail (no token/internal leakage, T-03-R1/R3) — the
+    // user only ever sees the generic session-expired copy.
+    return { status: "signed-out", message: SESSION_EXPIRED_MESSAGE };
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUserState] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
+  // Latest pathname, read inside the timer callback without re-arming the timer
+  // on every navigation (the effect is keyed on the token, not the path).
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -69,6 +130,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       firstName: partial?.firstName ?? null,
       lastName: partial?.lastName ?? null,
       token,
+      // Preserve/accept the refresh token alongside the JWT (FE-05). Stored in
+      // sessionStorage with the rest of AuthUser — NOT in hk-cart-token.
+      refreshToken: partial?.refreshToken ?? null,
     };
     persistUser(u);
     document.cookie = `${COOKIE_NAME}=${token}; path=/; SameSite=Lax`;
@@ -81,6 +145,69 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       router.push("/account");
     }
   };
+
+  // FE-05 — silent token refresh. Re-armed whenever the JWT changes. The effect
+  // schedules a single refresh ~30s before the token's `exp`; on success it
+  // swaps in the new {authToken, refreshToken}; on hard failure it signs out
+  // and routes to sign-in preserving the return path with the UI-SPEC copy.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const token = user?.token;
+    const refreshToken = user?.refreshToken;
+    // No token, or backend never minted a refresh token (03-02 deferred):
+    // the timer is inert — do not crash, do not schedule.
+    if (!token || !refreshToken) {
+      if (token && !refreshToken) {
+        // Visible-but-quiet signal that refresh is pending the backend, without
+        // ever logging the token itself.
+        console.warn(
+          "[auth] silent refresh inert: no refreshToken on the session (backend has not minted one)",
+        );
+      }
+      return;
+    }
+
+    const delay = refreshDelayMs(token);
+    if (delay === null) return; // unparsable exp → can't schedule safely
+
+    const sdk = createClientSDK({
+      publicKey: process.env.NEXT_PUBLIC_HEADKIT_PUBLIC_KEY ?? "",
+      url: process.env.NEXT_PUBLIC_GRAPHQL_URL ?? "",
+    });
+
+    const timer = setTimeout(() => {
+      void (async () => {
+        const outcome = await runSilentRefresh(refreshToken, (t) =>
+          sdk.auth.refreshAuthToken(t),
+        );
+        if (outcome.status === "refreshed") {
+          setAuthToken(outcome.authToken, {
+            ...user,
+            refreshToken: outcome.refreshToken,
+          });
+        } else {
+          signOut(false);
+          const returnPath = pathnameRef.current || "/account/profile";
+          router.push(`/account?return=${encodeURIComponent(returnPath)}`);
+          // Surface the UI-SPEC session-expired copy (toast infra is mounted in
+          // the account layout). Kept generic — reveals nothing about tokens.
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(
+              new CustomEvent("hk:session-expired", {
+                detail: { message: outcome.message },
+              }),
+            );
+          }
+        }
+      })();
+    }, delay);
+
+    return () => clearTimeout(timer);
+    // Re-arm only when the JWT changes (router/pathname read via refs so a
+    // navigation does not reset the timer). setAuthToken/signOut are stable
+    // closures defined in this provider.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.token, user?.refreshToken]);
 
   return (
     <AuthContext.Provider
