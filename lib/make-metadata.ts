@@ -2,9 +2,47 @@ import type { Metadata } from "next";
 import type { SeoData } from "@headkit/sdk";
 
 const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
+const SITE_NAME = "HeadKit";
 
 function stripTags(html?: string | null): string {
   return (html ?? "").replace(/<[^>]*>/g, "");
+}
+
+export type SeoEntityType = "product" | "category" | "page";
+
+/**
+ * Templated per-entity SEO description fallback (FE-09 / D-04).
+ *
+ * When Yoast / SDK SEOData is absent, every entity route still needs a
+ * non-empty, sensible description. This returns a distinct templated default
+ * per entity type built only from the public entity name — no sensitive data.
+ */
+export function seoFallbackDescription(
+  entityType: SeoEntityType,
+  name: string,
+): string {
+  const trimmed = (name ?? "").trim();
+  const label = trimmed.length > 0 ? trimmed : SITE_NAME;
+  switch (entityType) {
+    case "product":
+      return `Shop ${label} at ${SITE_NAME}. View details, pricing, and availability.`;
+    case "category":
+      return `Browse ${label} at ${SITE_NAME}. Discover products in the ${label} collection.`;
+    case "page":
+      return `${label} — read more on ${SITE_NAME}.`;
+  }
+}
+
+/**
+ * Templated per-entity SEO title fallback (FE-09 / D-04).
+ *
+ * When Yoast / SDK SEOData is absent, the title floor is the entity name
+ * suffixed with the site name (e.g. "Widgets | HeadKit"). When the entity
+ * name itself is empty, fall back to the bare site name.
+ */
+function seoFallbackTitle(name?: string | null): string {
+  const trimmed = (name ?? "").trim();
+  return trimmed.length > 0 ? `${trimmed} | ${SITE_NAME}` : SITE_NAME;
 }
 
 function normalizeUrl(url?: string | null): string | undefined {
@@ -37,7 +75,10 @@ export function makeSeoMetadata(
 ): Metadata {
   const isProduction = process.env.VERCEL_ENV === "production";
 
-  const title = seo?.title ?? fallback?.title ?? "HeadKit";
+  // Real SEO title wins verbatim; otherwise emit the templated per-entity
+  // fallback ("{name} | HeadKit") so Yoast-less entities still get a sane
+  // title floor (FE-09 / D-04).
+  const title = seo?.title ?? seoFallbackTitle(fallback?.title);
   const description = stripTags(
     seo?.metaDesc ?? seo?.opengraphDescription ?? fallback?.description,
   );

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { makeSeoMetadata } from "./make-metadata";
+import { makeSeoMetadata, seoFallbackDescription } from "./make-metadata";
 
 /**
  * make-metadata fallback coverage — FE-09 precursor (plan 03-06).
@@ -40,5 +40,31 @@ describe("makeSeoMetadata fallback chain (FE-09)", () => {
 
     expect(meta.title).toBe("Premium Widgets");
     expect(meta.description).toBe("Our finest widgets");
+  });
+});
+
+describe("seoFallbackDescription per-entity templates (FE-09 / D-04)", () => {
+  it("returns distinct, non-empty defaults for product / category / page", () => {
+    const product = seoFallbackDescription("product", "Widgets");
+    const category = seoFallbackDescription("category", "Widgets");
+    const page = seoFallbackDescription("page", "About Us");
+
+    expect(product).not.toBe("");
+    expect(category).not.toBe("");
+    expect(page).not.toBe("");
+
+    // Each entity type produces a distinct template.
+    expect(new Set([product, category, page]).size).toBe(3);
+
+    // Each default mentions the entity name.
+    expect(product).toContain("Widgets");
+    expect(category).toContain("Widgets");
+    expect(page).toContain("About Us");
+  });
+
+  it("falls back to the site name when the entity name is empty", () => {
+    const desc = seoFallbackDescription("product", "");
+    expect(desc).not.toBe("");
+    expect(desc).toContain("HeadKit");
   });
 });
