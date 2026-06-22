@@ -8,6 +8,7 @@ import { CartDrawer } from "@/components/headkit-ui/cart-drawer";
 import { AuthProvider } from "@/components/headkit-ui/auth-context";
 import { Footer } from "@/components/headkit-ui/footer";
 import { WebsiteJsonLD } from "@/components/seo/website-json-ld";
+import { OrganizationJsonLD } from "@/components/seo/organization-json-ld";
 import { makeRootMetadata } from "@/lib/make-metadata";
 import { GoogleTagManager } from "@next/third-parties/google";
 
@@ -47,6 +48,10 @@ export default async function RootLayout({
         {GTM_ID && <GoogleTagManager gtmId={GTM_ID} />}
 
         <WebsiteJsonLD siteName="HeadKit" siteUrl={SITE_URL} />
+        {/* Global Organization JSON-LD (D-04 core type) — rendered once at the
+            site-wide altitude so every entity page inherits it without
+            per-route duplication. */}
+        <OrganizationJsonLD name="HeadKit" url={SITE_URL} />
 
         <AuthProvider>
           <CartProvider>
