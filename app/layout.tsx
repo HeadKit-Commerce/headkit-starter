@@ -123,28 +123,39 @@ export default async function RootLayout({
             per-route duplication. */}
         <OrganizationJsonLD name={siteName} url={SITE_URL} />
 
-        <AuthProvider>
-          <CartProvider>
-            <CartDrawer />
-            <Suspense fallback={<div className="h-20 bg-white/80" />}>
+        {/* Client providers read uncached, request-scoped data (AuthProvider's
+            usePathname()/useRouter(); CartProvider/CartDrawer cart-token state).
+            Under Cache Components an uncached read in the root-layout body
+            outside <Suspense> poisons every route's static prerender. Wrapping
+            the entire interactive subtree (providers + nav + page children +
+            footer) in a single <Suspense> boundary lets the cached static shell
+            (html/head, brand-color <style>, JSON-LD above) prerender while this
+            request-scoped island streams. The branding/footer reads feeding the
+            Footer are now cached ('use cache'), so the Footer itself is part of
+            the static shell content even though it streams inside this island. */}
+        <Suspense fallback={null}>
+          <AuthProvider>
+            <CartProvider>
+              <CartDrawer />
               <NavigationWrapper />
-            </Suspense>
-            {children}
-            <Footer
-              siteName={siteName}
-              description="HeadKit is the cloud platform making it easy to build headless commerce stores."
-              menus={footerMenus}
-              iconUrl={branding.iconUrl}
-              socialLinks={{
-                instagram: "https://www.instagram.com/headkitcommerce",
-                discord: "https://discord.gg/bSNe29JtsX",
-                github: "https://github.com/headkit-commerce",
-                linkedin: "https://www.linkedin.com/company/headkit-commerce/",
-                youtube: "https://www.youtube.com/@headkit-commerce",
-              }}
-            />
-          </CartProvider>
-        </AuthProvider>
+              {children}
+              <Footer
+                siteName={siteName}
+                description="HeadKit is the cloud platform making it easy to build headless commerce stores."
+                menus={footerMenus}
+                iconUrl={branding.iconUrl}
+                socialLinks={{
+                  instagram: "https://www.instagram.com/headkitcommerce",
+                  discord: "https://discord.gg/bSNe29JtsX",
+                  github: "https://github.com/headkit-commerce",
+                  linkedin:
+                    "https://www.linkedin.com/company/headkit-commerce/",
+                  youtube: "https://www.youtube.com/@headkit-commerce",
+                }}
+              />
+            </CartProvider>
+          </AuthProvider>
+        </Suspense>
       </body>
     </html>
   );

@@ -1,8 +1,5 @@
 import type { MenuLocation } from "@headkit/sdk";
-import {
-  unstable_cacheLife as cacheLife,
-  unstable_cacheTag as cacheTag,
-} from "next/cache";
+import { cacheLife, cacheTag } from "next/cache";
 import { headkit } from "@/lib/sdk";
 import { createServerHeadkit } from "@/lib/sdk.server";
 import { getCartToken } from "@/lib/cart";
