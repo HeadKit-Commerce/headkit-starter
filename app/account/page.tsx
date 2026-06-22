@@ -77,6 +77,7 @@ export default function Page() {
         email: result.data.email,
         firstName: result.data.firstName,
         lastName: result.data.lastName,
+        refreshToken: result.data.refreshToken,
       });
       setTimeout(() => router.push("/account/profile"), 100);
     } else {
@@ -98,6 +99,7 @@ export default function Page() {
         email: result.data.email,
         firstName: result.data.firstName,
         lastName: result.data.lastName,
+        refreshToken: result.data.refreshToken,
       });
       setTimeout(() => router.push("/account/profile"), 100);
     } else {

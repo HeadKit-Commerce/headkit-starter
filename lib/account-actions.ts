@@ -49,6 +49,11 @@ export interface ActionResult<T = unknown> {
 
 export interface AuthData {
   token: string;
+  /**
+   * Refresh token (FE-05) returned alongside the JWT. Surfaced so the auth
+   * context can store it and silently refresh the session before expiry.
+   */
+  refreshToken: string;
   userId: string;
   email: string;
   firstName?: string | null;
@@ -70,6 +75,7 @@ export async function login(
       success: true,
       data: {
         token: result.authToken,
+        refreshToken: result.refreshToken,
         userId: result.user?.id ?? "",
         email: result.user?.email ?? email,
         firstName: result.user?.firstName ?? null,
@@ -103,6 +109,7 @@ export async function registerUser(input: {
       success: true,
       data: {
         token: result.authToken,
+        refreshToken: result.refreshToken,
         userId: result.customer?.id ?? "",
         email: result.customer?.email ?? input.email,
         firstName: result.customer?.firstName ?? null,
