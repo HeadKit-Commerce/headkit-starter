@@ -89,6 +89,17 @@ export default async function ProductPage({ params, searchParams }: Props) {
       attributes: r.attributes ?? [],
       variations: r.variations ?? [],
       related: [],
+      // The lighter RelatedProduct shape (product.related) does not carry these
+      // Product fields, and the related-products carousel does not read them.
+      // Default them type-correctly so the map satisfies the widened Product
+      // type without unsafe casts: rating/review absent → empty/zero; no brand
+      // or cross/upsell data on related → empty lists; never a gift card here.
+      averageRating: "",
+      reviewCount: 0,
+      brands: [],
+      crossSells: [],
+      upsells: [],
+      isGiftCard: false,
     }),
   );
 
