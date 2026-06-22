@@ -30,38 +30,40 @@ function addr(a: StoreOrder["billingAddress"] | StoreOrder["shippingAddress"]) {
   );
 }
 
+/**
+ * IDOR-safe failure view (T-03-O2 / T-03-O3, FE-07, D-03).
+ *
+ * Every guest-order failure case — missing order id, missing `?key=`, wrong
+ * key, or order-not-found — renders the SAME message. This prevents an
+ * order-existence oracle: a caller can never distinguish "wrong key" from
+ * "no such order" from the copy. Never reveal whether an order exists.
+ */
+function OrderUnavailable() {
+  return (
+    <div className="max-w-4xl">
+      <p className="text-gray-500">
+        This order link is invalid or has expired. Check the link in your
+        confirmation email, or contact support.
+      </p>
+      <Link
+        href="/account/orders"
+        className="text-primary hover:underline mt-4 block"
+      >
+        Back to orders
+      </Link>
+    </div>
+  );
+}
+
 export default async function Page({ params, searchParams }: Props) {
   const { orderId } = await params;
   const { key: orderKey } = await searchParams;
 
-  if (!orderId) {
-    return (
-      <div className="max-w-4xl">
-        <p className="text-gray-500">Order not found.</p>
-        <Link
-          href="/account/orders"
-          className="text-primary hover:underline mt-4 block"
-        >
-          Back to orders
-        </Link>
-      </div>
-    );
-  }
-
-  if (!orderKey) {
-    return (
-      <div className="max-w-4xl">
-        <p className="text-gray-500">
-          Please open this order from your orders list to view details.
-        </p>
-        <Link
-          href="/account/orders"
-          className="text-primary hover:underline mt-4 block"
-        >
-          Back to orders
-        </Link>
-      </div>
-    );
+  // Key-gate (D-03): the page refuses to resolve without both the id and the
+  // emailed order key. Missing either yields the same IDOR-safe view as a
+  // wrong key or a non-existent order.
+  if (!orderId || !orderKey) {
+    return <OrderUnavailable />;
   }
 
   let order: StoreOrder | null = null;
@@ -72,17 +74,7 @@ export default async function Page({ params, searchParams }: Props) {
   }
 
   if (!order) {
-    return (
-      <div className="max-w-4xl">
-        <p className="text-gray-500">Order not found.</p>
-        <Link
-          href="/account/orders"
-          className="text-primary hover:underline mt-4 block"
-        >
-          Back to orders
-        </Link>
-      </div>
-    );
+    return <OrderUnavailable />;
   }
 
   const displayId = order.databaseId ?? order.id ?? orderId;
