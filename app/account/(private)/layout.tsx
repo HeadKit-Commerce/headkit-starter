@@ -4,10 +4,12 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/headkit-ui/auth-context";
+import { Toaster } from "@/components/ui/toaster";
 import { useEffect, useState } from "react";
 
 const navigation = [
   { name: "Profile", href: "/account/profile" },
+  { name: "Addresses", href: "/account/addresses" },
   { name: "Orders", href: "/account/orders" },
   { name: "Wishlist", href: "/account/wishlist" },
 ];
@@ -82,6 +84,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {/* Content */}
         <div className="flex-1">{children}</div>
       </div>
+      <Toaster />
     </div>
   );
 }
