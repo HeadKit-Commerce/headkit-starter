@@ -1,5 +1,6 @@
 import type { MenuLocation } from "@headkit/sdk";
 import { cacheLife, cacheTag } from "next/cache";
+import { convertToRelativePath } from "@/lib/convert-uri";
 import { headkit } from "@/lib/sdk";
 import { createServerHeadkit } from "@/lib/sdk.server";
 import { getCartToken } from "@/lib/cart";
@@ -24,7 +25,10 @@ function normalizeMenuItems(items: MenuItemLike[]): NavMenuItem[] {
   return items.map((item) => ({
     id: item.id,
     label: item.label,
-    uri: item.uri,
+    // Defensive host-strip (belt-and-suspenders for the WP theme fix): even if a
+    // menu item arrives as an absolute WP permalink, render it as a storefront-
+    // relative path so <Link> never bounces the user to the WP backend.
+    uri: convertToRelativePath(item.uri),
     description: item.description ?? null,
     children: Array.isArray(item.children)
       ? normalizeMenuItems(item.children)
