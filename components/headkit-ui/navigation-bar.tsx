@@ -249,14 +249,36 @@ function DesktopMenuSection({
         <NavigationMenuItem key={item.id}>
           {item.children.length > 0 ? (
             <>
-              <NavigationMenuTrigger
-                className={cn(
-                  isHighlightedItem(item, highlightedLinks) &&
-                    "text-pink-500 hover:!text-pink-600",
-                )}
-              >
-                {item.label}
-              </NavigationMenuTrigger>
+              {/* Label navigates to the parent's own URL; the caret toggles
+                  the mega menu (opening on hover/focus is handled by Radix). */}
+              <div className="flex items-center">
+                <NavigationMenuLink asChild>
+                  <Link
+                    href={removeTrailingSlash(item.uri)}
+                    className={cn(
+                      navigationMenuTriggerStyle(),
+                      "pr-1",
+                      isHighlightedItem(item, highlightedLinks) &&
+                        "text-pink-500 hover:!text-pink-600",
+                    )}
+                  >
+                    {item.label}
+                  </Link>
+                </NavigationMenuLink>
+                <NavigationMenuTrigger
+                  aria-label={`Toggle ${item.label} submenu`}
+                  className={cn(
+                    "group w-auto px-1.5",
+                    isHighlightedItem(item, highlightedLinks) &&
+                      "text-pink-500 hover:!text-pink-600",
+                  )}
+                >
+                  <ChevronDownIcon
+                    size={16}
+                    className="transition-transform duration-200 group-data-[state=open]:rotate-180"
+                  />
+                </NavigationMenuTrigger>
+              </div>
               <NavigationMenuContent className="w-screen! rounded-none!">
                 <MegaMenu items={item.children} />
               </NavigationMenuContent>
@@ -359,17 +381,32 @@ function MobileMenuItem({
   if (item.children.length > 0) {
     return (
       <Collapsible>
-        <CollapsibleTrigger className="text-xl font-semibold flex w-full justify-between items-center group focus-visible:outline-none">
-          <span className="group-data-[state=open]:text-purple-400">
+        {/* Label navigates to the parent's own URL; the caret toggles
+            the submenu so both are reachable. */}
+        <div className="flex w-full justify-between items-center group">
+          <Link
+            href={removeTrailingSlash(item.uri)}
+            className={cn(
+              "text-xl font-semibold hover:text-purple-500",
+              isHighlightedItem(item, highlightedLinks) &&
+                "text-pink-500 hover:!text-pink-600",
+            )}
+            {...(onSelect ? { onClick: onSelect } : {})}
+          >
             {item.label}
-          </span>
-          <span className="group-data-[state=open]:hidden text-purple-800">
-            <ChevronDownIcon size={20} />
-          </span>
-          <span className="hidden group-data-[state=open]:block rotate-180 text-purple-400">
-            <ChevronDownIcon size={20} />
-          </span>
-        </CollapsibleTrigger>
+          </Link>
+          <CollapsibleTrigger
+            aria-label={`Toggle ${item.label} submenu`}
+            className="group/caret flex items-center focus-visible:outline-none p-1 -mr-1"
+          >
+            <span className="group-data-[state=open]/caret:hidden text-purple-800">
+              <ChevronDownIcon size={20} />
+            </span>
+            <span className="hidden group-data-[state=open]/caret:block rotate-180 text-purple-400">
+              <ChevronDownIcon size={20} />
+            </span>
+          </CollapsibleTrigger>
+        </div>
         <CollapsibleContent className="flex flex-col gap-2 pt-2">
           {item.children.map((child) => (
             <div key={child.id}>
