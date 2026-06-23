@@ -99,12 +99,16 @@ export function CheckoutPageContent({
   const refreshSession = useCallback(
     async (newEmail: string, nextStep: string) => {
       if (!returnUrl) throw new Error("Return URL not configured");
-      // Cart is already updated by ContactFormStep before calling this
+      // Cart is already updated by ContactFormStep before calling this.
+      // Only request shipping-address collection when the cart needs shipping —
+      // otherwise the recreated session would require a shipping address that the
+      // billing-only UI never sets, breaking confirm().
+      const shippingCountries = cartData?.needsShipping ? allowedCountries : [];
       const session = await createCheckoutSessionAction(
         returnUrl,
         newEmail,
         undefined,
-        allowedCountries,
+        shippingCountries,
         successBaseUrl,
       );
       if (
@@ -124,7 +128,7 @@ export function CheckoutPageContent({
       setRestoreStep(nextStep);
       setRestoredEmail(newEmail);
     },
-    [returnUrl, successBaseUrl, allowedCountries],
+    [returnUrl, successBaseUrl, allowedCountries, cartData?.needsShipping],
   );
 
   useEffect(() => {

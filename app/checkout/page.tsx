@@ -43,11 +43,15 @@ export default async function CheckoutPage() {
     }> | null;
   };
   try {
+    // Only request shipping-address collection when the cart actually needs
+    // shipping. For digital/no-shipping carts the session must NOT require a
+    // shipping address (the billing-only UI never sets one → confirm() would fail).
+    const shippingCountries = cart.needsShipping ? ["AU", "NZ"] : [];
     const session = await createCheckoutSessionAction(
       returnUrl,
       undefined,
       undefined,
-      ["AU", "NZ"],
+      shippingCountries,
       successBaseUrl,
     );
     if (

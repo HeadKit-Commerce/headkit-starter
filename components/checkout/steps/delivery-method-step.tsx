@@ -27,6 +27,7 @@ import {
 } from "@/components/checkout/utils";
 import { updateCustomerAddressAction } from "@/lib/cart-actions";
 import { useCheckoutActions } from "@/app/checkout/checkout-actions-context";
+import { useToast } from "@/hooks/use-toast";
 
 interface PickupLocation {
   address: string;
@@ -151,6 +152,7 @@ const DeliveryMethodStep: React.FC<DeliveryMethodStepProps> = ({
   isLoading = false,
 }) => {
   const { actions } = useCheckoutActions();
+  const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   /** When using Stripe ShippingAddressElement, track completion and last value so we can enable submit and pass data even if form sync is delayed or value shape differs. */
   const [shippingElementComplete, setShippingElementComplete] = useState(false);
@@ -264,6 +266,19 @@ const DeliveryMethodStep: React.FC<DeliveryMethodStepProps> = ({
               "Failed to update shipping address",
           );
         }
+      }
+      // Fail safe: for Ship to Home we MUST set a shipping address on the Stripe
+      // session before advancing. If the address never made it into the payload
+      // (Stripe element value not captured), do NOT proceed to Payment — surface a
+      // clear error instead of silently advancing to a confirm() that Stripe rejects
+      // with "A shipping address is required to confirm this Checkout Session".
+      if (
+        payload.deliveryMethod === DeliveryStepEnum.SHIPPING_TO_HOME &&
+        !payload.shippingAddress?.line1
+      ) {
+        throw new Error(
+          "Please enter a complete shipping address before continuing.",
+        );
       }
       if (
         payload.deliveryMethod === DeliveryStepEnum.SHIPPING_TO_HOME &&
@@ -381,8 +396,17 @@ const DeliveryMethodStep: React.FC<DeliveryMethodStepProps> = ({
       }
       onNext(payload);
     } catch (err) {
-      console.error("[Delivery] onSubmit error", err);
-      throw err;
+      // Surface the error to the user (e.g. missing shipping address) and do NOT
+      // advance to Payment — leaving the step active so they can correct it.
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Something went wrong. Please try again.";
+      toast({
+        title: "Could not continue",
+        description: message,
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }

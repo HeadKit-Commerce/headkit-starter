@@ -49,9 +49,18 @@ export async function createCheckoutSessionAction(
 ): Promise<CheckoutSessionResult> {
   const cartToken = await getCartToken();
   if (!cartToken) throw new Error("No active cart session.");
+  // Only request Stripe shipping-address collection when the caller passes
+  // allowedShippingCountries (i.e. the cart needs shipping). Passing a non-empty
+  // list makes Stripe set shipping_address_collection, which REQUIRES a shipping
+  // address to confirm(). For digital/no-shipping carts the caller passes an empty
+  // array (or omits it) so the session does not require a shipping address that the
+  // billing-only UI never sets. Empty array => omit the field entirely.
+  const shippingCountries = allowedShippingCountries ?? [];
   return createServerHeadkit(cartToken).payments.createCheckoutSession({
     returnUrl,
-    allowedShippingCountries: allowedShippingCountries ?? ["AU", "NZ"],
+    ...(shippingCountries.length > 0
+      ? { allowedShippingCountries: shippingCountries }
+      : {}),
     ...(customerId ? { customer: customerId } : {}),
     ...(customerEmail ? { customerEmail } : {}),
     ...(successBaseUrl ? { successBaseUrl } : {}),
