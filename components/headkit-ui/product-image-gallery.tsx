@@ -19,23 +19,35 @@ interface Props {
   isNew?: boolean;
 }
 
+const FALLBACK_IMAGE_SRC = "/assets/fallback-image.webp";
+
 export function ProductImageGallery({
-  images,
+  images: rawImages,
   isSale = false,
   isNew = false,
 }: Props) {
   const [mobileIndex, setMobileIndex] = useState(0);
 
+  // A product with no images still renders a placeholder rather than an
+  // endless skeleton; downstream image src is always non-empty.
+  const images: GalleryImage[] = rawImages?.length
+    ? rawImages.filter((img) => img.src)
+    : [];
+  const galleryImages: GalleryImage[] = images.length
+    ? images
+    : [{ src: FALLBACK_IMAGE_SRC, alt: "No product image available" }];
+
   const prevMobile = () =>
-    setMobileIndex((i) => (i - 1 + images.length) % images.length);
-  const nextMobile = () => setMobileIndex((i) => (i + 1) % images.length);
+    setMobileIndex((i) => (i - 1 + galleryImages.length) % galleryImages.length);
+  const nextMobile = () =>
+    setMobileIndex((i) => (i + 1) % galleryImages.length);
 
   return (
     <div>
       {/* Desktop: masonry-style two-column grid */}
       <div className="hidden gap-5 md:grid md:grid-cols-2">
-        {images?.length ? (
-          images.map((item, index) => (
+        {
+          galleryImages.map((item, index) => (
             <Dialog key={index}>
               <DialogTrigger
                 className={cn(
@@ -60,12 +72,10 @@ export function ProductImageGallery({
                   />
                 </div>
               </DialogTrigger>
-              <Lightbox images={images} initialSelectedIndex={index} />
+              <Lightbox images={galleryImages} initialSelectedIndex={index} />
             </Dialog>
           ))
-        ) : (
-          <div className="col-span-2 aspect-square w-full animate-pulse rounded-[8px] bg-gray-200" />
-        )}
+        }
       </div>
 
       {/* Mobile: simple arrow carousel */}
@@ -74,27 +84,30 @@ export function ProductImageGallery({
           <BadgeList isSale={isSale} isNewIn={isNew} />
         </div>
 
-        {images?.length ? (
+        {
           <>
             <Dialog>
               <DialogTrigger className="w-full">
                 <div className="relative aspect-square bg-gray-100">
-                  {images[mobileIndex]?.src && (
-                    <Image
-                      src={images[mobileIndex].src}
-                      alt={images[mobileIndex].alt || "Product image"}
-                      fill
-                      className="object-cover object-center"
-                      sizes="100vw"
-                      priority={mobileIndex === 0}
-                    />
-                  )}
+                  <Image
+                    src={
+                      galleryImages[mobileIndex]?.src ?? FALLBACK_IMAGE_SRC
+                    }
+                    alt={galleryImages[mobileIndex]?.alt || "Product image"}
+                    fill
+                    className="object-cover object-center"
+                    sizes="100vw"
+                    priority={mobileIndex === 0}
+                  />
                 </div>
               </DialogTrigger>
-              <Lightbox images={images} initialSelectedIndex={mobileIndex} />
+              <Lightbox
+                images={galleryImages}
+                initialSelectedIndex={mobileIndex}
+              />
             </Dialog>
 
-            {images.length > 1 && (
+            {galleryImages.length > 1 && (
               <>
                 <button
                   type="button"
@@ -115,7 +128,7 @@ export function ProductImageGallery({
 
                 {/* Pagination dots */}
                 <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
-                  {images.map((_, i) => (
+                  {galleryImages.map((_, i) => (
                     <button
                       key={i}
                       type="button"
@@ -133,9 +146,7 @@ export function ProductImageGallery({
               </>
             )}
           </>
-        ) : (
-          <div className="aspect-square w-full animate-pulse bg-gray-200" />
-        )}
+        }
       </div>
     </div>
   );
