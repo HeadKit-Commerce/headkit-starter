@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { createClientSDK } from "@headkit/sdk";
 
 import { refreshDelayMs } from "@/lib/jwt-exp";
+import { getCustomer } from "@/lib/account-actions";
 
 export interface AuthUser {
   id: string;
@@ -44,6 +45,22 @@ const AuthContext = createContext<AuthContextType | null>(null);
 const STORAGE_KEY = "hk_auth_user";
 /** Auth token cookie. Client-set (no httpOnly) so token can be sent in Authorization header. */
 const COOKIE_NAME = "hk-auth-token";
+
+/**
+ * Read the auth JWT from the `hk-auth-token` cookie. Returns `null` when the
+ * cookie is absent or empty. Used to rehydrate the session in a fresh tab,
+ * where the cookie (shared across tabs) survives but the per-tab
+ * sessionStorage copy does not.
+ */
+function getCookieToken(): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie
+    .split("; ")
+    .find((c) => c.startsWith(`${COOKIE_NAME}=`));
+  if (!match) return null;
+  const token = match.slice(COOKIE_NAME.length + 1);
+  return token.length > 0 ? token : null;
+}
 
 /** UI-SPEC session-expired copy (FE-05). Shown on a hard refresh failure. */
 export const SESSION_EXPIRED_MESSAGE =
@@ -118,11 +135,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (stored) {
       try {
         setUserState(JSON.parse(stored) as AuthUser);
+        setIsLoading(false);
+        return;
       } catch {
         sessionStorage.removeItem(STORAGE_KEY);
       }
     }
-    setIsLoading(false);
+
+    // New-tab path: sessionStorage is per-tab and starts empty in a fresh tab,
+    // but the `hk-auth-token` cookie is shared across tabs. Treat the cookie as
+    // the source of truth — rehydrate the session from it so a logged-in user
+    // doesn't see an empty/signed-out account in a new tab. Without this, `user`
+    // stays null and the profile form (which reads `user.token`) renders blank.
+    const token = getCookieToken();
+    if (!token) {
+      setIsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const result = await getCustomer(token);
+      if (cancelled) return;
+      if (result.success && result.data) {
+        const rehydrated: AuthUser = {
+          id: result.data.id,
+          email: result.data.email,
+          firstName: result.data.firstName ?? null,
+          lastName: result.data.lastName ?? null,
+          token,
+          // The refresh token is not recoverable from the cookie. Current
+          // backend uses the access token as the refresh token (see note above
+          // runSilentRefresh), so carrying it forward keeps silent-refresh armed.
+          refreshToken: token,
+        };
+        setUserState(rehydrated);
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(rehydrated));
+      } else {
+        // Cookie token is invalid/expired — clear it so the route guard can
+        // redirect to sign-in instead of showing a half-authenticated page.
+        document.cookie = `${COOKIE_NAME}=; Max-Age=0; path=/`;
+      }
+      setIsLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const persistUser = (u: AuthUser | null) => {
