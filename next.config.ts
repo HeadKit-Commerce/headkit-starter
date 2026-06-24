@@ -21,6 +21,10 @@ import type { NextConfig } from "next";
 const remotePatterns: NonNullable<NextConfig["images"]>["remotePatterns"] = [
   { protocol: "https", hostname: "storage.googleapis.com" },
   { protocol: "http", hostname: "localhost" },
+  // Local WP media is served on :8090 — an explicit-port URL does not match a
+  // portless remotePattern in Next 16, so the optimizer 400s without this entry
+  // (gray placeholders for every product/hero/brand image in local dev).
+  { protocol: "http", hostname: "localhost", port: "8090" },
 ];
 
 if (process.env.IMAGE_DOMAIN) {
@@ -39,6 +43,11 @@ const nextConfig: NextConfig = {
   images: {
     qualities: [50, 75, 100],
     remotePatterns,
+    // Next 16 blocks image URLs that resolve to a private/loopback IP (SSRF
+    // protection, default false). Local WP media is on http://localhost:8090,
+    // which resolves to 127.0.0.1, so the optimizer 400s ("url is not allowed")
+    // in local dev. Allow it ONLY in dev — production keeps the safe default.
+    dangerouslyAllowLocalIP: process.env.NODE_ENV !== "production",
   },
 };
 
