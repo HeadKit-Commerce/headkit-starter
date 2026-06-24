@@ -156,13 +156,26 @@ export function CheckoutPageContent({
       }
       // Server-side zero-total bypass: finalizes the WC order, no Stripe.
       // Free orders never need shipping-address collection by Stripe.
-      await createCheckoutSessionAction(
+      const res = await createCheckoutSessionAction(
         returnUrl,
         undefined,
         undefined,
         [],
         successBaseUrl,
       );
+      // HI-02 (code review): trust the SERVER's zero-total decision, not the
+      // client's possibly-stale cart total. If the cart total changed between
+      // render and server eval, the server takes the PAID branch and returns a
+      // real Stripe session (non-empty clientSecret/sessionId) expecting payment.
+      // Routing such a result to /success would place an order with NO payment
+      // collected, so stop and ask the user to refresh instead.
+      if (res?.clientSecret || res?.sessionId) {
+        setErrorMessage(
+          "Your cart total changed and now requires payment. Please refresh and try again.",
+        );
+        setIsPlacingFreeOrder(false);
+        return;
+      }
       router.push(
         `/checkout/success/${encodeURIComponent(
           draft.orderId,
