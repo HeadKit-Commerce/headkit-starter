@@ -26,6 +26,13 @@ export default async function CheckoutSuccessPage({
     redirect("/");
   }
 
+  // Resolved order is set inside the try; the redirect() happens AFTER the
+  // try/catch. Next's redirect() signals by throwing NEXT_REDIRECT — a catch{}
+  // around it would swallow that throw and send every resolved order to home
+  // instead of the confirmation page (the ISSUE-001 bug).
+  let resolvedOrderId: string | undefined;
+  let resolvedOrderKey: string | undefined;
+
   try {
     const session = await getCheckoutSessionAction(sessionId);
 
@@ -148,13 +155,18 @@ export default async function CheckoutSuccessPage({
     }
 
     if (orderId && orderId !== "0" && orderKey) {
-      redirect(
-        `/checkout/success/${orderId}?key=${encodeURIComponent(orderKey)}&session_id=${encodeURIComponent(sessionId)}`,
-      );
+      resolvedOrderId = orderId;
+      resolvedOrderKey = orderKey;
     }
   } catch {
-    /* Session fetch failed */
+    /* Session fetch / processCheckout failed — fall through to home below. */
   }
 
+  // redirect() OUTSIDE the try/catch (it throws NEXT_REDIRECT; a catch would eat it).
+  if (resolvedOrderId && resolvedOrderKey) {
+    redirect(
+      `/checkout/success/${resolvedOrderId}?key=${encodeURIComponent(resolvedOrderKey)}&session_id=${encodeURIComponent(sessionId)}`,
+    );
+  }
   redirect("/");
 }
