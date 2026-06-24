@@ -117,7 +117,33 @@ export default async function CheckoutSuccessPage({
           orderKey = checkout.orderKey;
         }
       } catch {
-        /* processCheckout failed — webhook may still finalize asynchronously */
+        /* processCheckout failed — almost always woocommerce_rest_cart_empty: the
+           Stripe webhook won the race, already placed the order, and emptied the
+           cart. The webhook writes the real order_id/order_key back onto the session
+           metadata after creating the order, so poll the session below to resolve it. */
+      }
+
+      // Lost the create race (or our own POST hasn't reflected yet): poll the Stripe
+      // session metadata, which the webhook updates with the real order_id/order_key
+      // once it finishes creating the order. Bounded so we never hang the page.
+      if (!orderId || orderId === "0" || !orderKey) {
+        for (let attempt = 0; attempt < 6; attempt++) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          try {
+            const refreshed = await getCheckoutSessionAction(sessionId);
+            if (
+              refreshed.orderId &&
+              refreshed.orderId !== "0" &&
+              refreshed.orderKey
+            ) {
+              orderId = refreshed.orderId;
+              orderKey = refreshed.orderKey;
+              break;
+            }
+          } catch {
+            /* transient — keep polling */
+          }
+        }
       }
     }
 
