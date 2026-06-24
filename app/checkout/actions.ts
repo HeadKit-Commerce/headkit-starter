@@ -8,6 +8,7 @@ import type {
   ProcessCheckoutMutation,
   CreateCheckoutSessionMutation,
   GetCheckoutSessionQuery,
+  GetCheckoutQuery,
   GetStoreOrderQuery,
   UpdateCustomerInput,
   CartFieldsFragment,
@@ -27,6 +28,8 @@ export type CheckoutSessionDetails =
 
 export type CheckoutOrder =
   ProcessCheckoutMutation["commerce"]["processCheckout"];
+
+export type DraftCheckout = GetCheckoutQuery["commerce"]["checkout"];
 
 export type StoreOrder = NonNullable<
   GetStoreOrderQuery["commerce"]["storeOrder"]
@@ -65,6 +68,19 @@ export async function createCheckoutSessionAction(
     ...(customerEmail ? { customerEmail } : {}),
     ...(successBaseUrl ? { successBaseUrl } : {}),
   });
+}
+
+/**
+ * Fetches the current draft checkout (WooCommerce draft order) for the active
+ * cart, returning its orderId / orderKey. Used by the free-order (zero-total)
+ * flow to capture the order identifiers BEFORE the server-side zero-total
+ * bypass finalizes the order, so the storefront can route to the success page
+ * without a Stripe session (PAY-05). Resolves cart token from cookies.
+ */
+export async function getCheckoutAction(): Promise<DraftCheckout> {
+  const cartToken = await getCartToken();
+  if (!cartToken) throw new Error("No active cart session.");
+  return createServerHeadkit(cartToken).checkout.get();
 }
 
 /**

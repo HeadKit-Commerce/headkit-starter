@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CheckoutForm } from "@/app/checkout/CheckoutForm";
 import { Button } from "@/components/ui/button";
 import { Cart } from "@/components/checkout/cart";
@@ -10,7 +10,10 @@ import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { getFloatVal, formatPrice, cn } from "@/lib/utils";
 import { ChevronDownIcon } from "@/components/icon";
 import type { CartFieldsFragment } from "@headkit/sdk";
-import { createCheckoutSessionAction } from "@/app/checkout/actions";
+import {
+  createCheckoutSessionAction,
+  getCheckoutAction,
+} from "@/app/checkout/actions";
 import type { Step } from "@/app/checkout/CheckoutForm";
 function CheckoutErrorHandler({
   onError,
@@ -88,6 +91,7 @@ export function CheckoutPageContent({
   successBaseUrl,
   allowedCountries = ["AU", "NZ"],
 }: CheckoutPageContentProps) {
+  const router = useRouter();
   const { cartData, setCartData, toggleCart } = useCartContext();
   const [showCart, setShowCart] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -95,6 +99,7 @@ export function CheckoutPageContent({
     useState<CheckoutSessionProp | null>(initialCheckoutSession ?? null);
   const [restoreStep, setRestoreStep] = useState<string | null>(null);
   const [restoredEmail, setRestoredEmail] = useState<string | null>(null);
+  const [isPlacingFreeOrder, setIsPlacingFreeOrder] = useState(false);
 
   const refreshSession = useCallback(
     async (newEmail: string, nextStep: string) => {
@@ -131,6 +136,48 @@ export function CheckoutPageContent({
     [returnUrl, successBaseUrl, allowedCountries, cartData?.needsShipping],
   );
 
+  // PAY-05: free-order (zero-total) confirm. A cart with items but a $0 total
+  // (100%-off coupon, gift, free sample) has no payment step. We capture the
+  // draft order id/key, then trigger the SERVER-SIDE zero-total bypass
+  // (createCheckoutSession finalizes the WC order WITHOUT a Stripe session),
+  // then route to the existing success page. No Stripe / CheckoutProvider.
+  const placeFreeOrder = useCallback(async () => {
+    if (!returnUrl) {
+      setErrorMessage("Return URL not configured");
+      return;
+    }
+    setIsPlacingFreeOrder(true);
+    setErrorMessage("");
+    try {
+      // Capture order identifiers from the draft order BEFORE finalizing.
+      const draft = await getCheckoutAction();
+      if (!draft?.orderId || !draft?.orderKey) {
+        throw new Error("Could not resolve the draft order.");
+      }
+      // Server-side zero-total bypass: finalizes the WC order, no Stripe.
+      // Free orders never need shipping-address collection by Stripe.
+      await createCheckoutSessionAction(
+        returnUrl,
+        undefined,
+        undefined,
+        [],
+        successBaseUrl,
+      );
+      router.push(
+        `/checkout/success/${encodeURIComponent(
+          draft.orderId,
+        )}?key=${encodeURIComponent(draft.orderKey)}`,
+      );
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error
+          ? err.message
+          : "Could not complete your free order. Please try again.",
+      );
+      setIsPlacingFreeOrder(false);
+    }
+  }, [returnUrl, successBaseUrl, router]);
+
   useEffect(() => {
     toggleCart(false);
     window.scrollTo(0, 0);
@@ -154,7 +201,8 @@ export function CheckoutPageContent({
   const currency = cartData?.currency.code ?? "AUD";
   const itemCount = cartData?.itemsCount ?? 0;
 
-  if (!cartData || !hasItems || cartTotal <= 0) {
+  // Genuinely-empty cart: no cart, or no items. NOT a $0-total cart-with-items.
+  if (!cartData || !hasItems) {
     return (
       <div className="min-h-[700px] py-10 px-[20px] md:px-32 pb-[30px] md:py-[60px] text-center">
         <div className="w-[500px] max-w-full mx-auto">
@@ -167,6 +215,36 @@ export function CheckoutPageContent({
               Start shopping
             </Button>
           </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // PAY-05: free order — has items but a $0 total. No payment step; confirm
+  // routes through the server-side zero-total bypass (no Stripe), distinct from
+  // the empty-cart message above.
+  if (cartTotal <= 0) {
+    return (
+      <div className="min-h-[700px] py-10 px-[20px] md:px-32 pb-[30px] md:py-[60px] text-center">
+        <div className="w-[500px] max-w-full mx-auto">
+          <p className="mb-4 font-bold leading-10">No payment required</p>
+          <p className="mb-2">
+            Your order total is {formatPrice(0, currency)}. There&apos;s nothing
+            to pay — confirm to place your order.
+          </p>
+          <p className="mb-10 text-sm text-gray-500">
+            {itemCount} {itemCount === 1 ? "item" : "items"} in your order.
+          </p>
+          {errorMessage && (
+            <div className="text-red-500 text-center mb-4">{errorMessage}</div>
+          )}
+          <Button
+            fullWidth
+            onClick={placeFreeOrder}
+            disabled={isPlacingFreeOrder}
+          >
+            {isPlacingFreeOrder ? "Placing order…" : "Place order"}
+          </Button>
         </div>
       </div>
     );
