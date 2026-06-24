@@ -102,8 +102,18 @@ export default async function Page({ params, searchParams }: Props) {
       if (session.status === "open") return notFound();
       if (session.paymentStatus !== "paid") return notFound();
 
-      // Guard: session order must match URL (reject tampered requests)
-      if (session.orderId && session.orderId !== orderId) {
+      // Guard: session order must match URL (reject tampered requests).
+      // Skip the deferred sentinel "0": in the WC 10.8 deferred-order flow the
+      // session metadata order_id stays "0" when the SUCCESS PAGE (not the
+      // webhook) wins the create race — it creates the real order but does not
+      // write order_id back to the session metadata. "0" is not a real order to
+      // compare against, so it must not trip the tamper check (was 404ing valid
+      // orders).
+      if (
+        session.orderId &&
+        session.orderId !== "0" &&
+        session.orderId !== orderId
+      ) {
         return notFound();
       }
 
