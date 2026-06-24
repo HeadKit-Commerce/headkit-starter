@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import {
   PaymentElement,
+  ExpressCheckoutElement,
   useCheckout,
   CurrencySelectorElement,
 } from "@stripe/react-stripe-js/checkout";
@@ -61,6 +62,22 @@ export function StripePaymentStep() {
 
   return (
     <div className="space-y-4">
+      {/*
+        PAY-06: express / wallet checkout (Apple Pay / Google Pay). Mounted in
+        the SAME useCheckout (CheckoutProvider) context as PaymentElement, so its
+        confirm flows through the same checkout.confirm() path. The buttons only
+        render when the buyer's browser/device supports a wallet AND the domain
+        is verified with Stripe (manual dashboard prereq, INFRA-06) — otherwise
+        the element renders empty. No new package / no version bump: this ships
+        in the installed @stripe/react-stripe-js@5.6.x /checkout subpath.
+      */}
+      <div data-testid="express-checkout">
+        <ExpressCheckoutElement
+          onConfirm={() => {
+            void handleSubmit();
+          }}
+        />
+      </div>
       <CurrencySelectorElement />
       <PaymentElement
         options={{
