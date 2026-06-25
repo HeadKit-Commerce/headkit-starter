@@ -73,10 +73,10 @@ export function ActiveFilters() {
           key={i}
           type="button"
           onClick={chip.onRemove}
-          className="inline-flex items-center gap-1 rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:border-purple-400 hover:text-purple-700"
+          className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:border-purple-400 hover:text-purple-700"
         >
-          {chip.label}
-          <XIcon className="h-3 w-3" />
+          <span className="truncate">{chip.label}</span>
+          <XIcon className="h-3 w-3 shrink-0" />
         </button>
       ))}
 

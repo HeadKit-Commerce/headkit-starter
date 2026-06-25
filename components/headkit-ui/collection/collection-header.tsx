@@ -59,7 +59,7 @@ export function CollectionHeader({
                 <Link
                   key={child.id}
                   href={uri}
-                  className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-purple-300 hover:text-purple-700"
+                  className="inline-flex min-w-0 max-w-full items-center gap-2 rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-purple-300 hover:text-purple-700"
                 >
                   {child.thumbnail ? (
                     <span className="relative block h-6 w-6 shrink-0 overflow-hidden rounded">
@@ -72,7 +72,7 @@ export function CollectionHeader({
                       />
                     </span>
                   ) : null}
-                  {child.name}
+                  <span className="truncate">{child.name}</span>
                 </Link>
               );
             })}

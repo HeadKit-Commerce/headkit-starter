@@ -116,14 +116,24 @@ export const ProductCard = ({
         <FeaturedImage src={imageSelected} alt={product?.name ?? "Product"} />
       </Link>
       <div className="pt-3">
-        <div className={cn("flex justify-between", mobileCol && "flex-col")}>
-          <div>
+        <div
+          className={cn(
+            "flex justify-between gap-2",
+            mobileCol && "flex-col",
+          )}
+        >
+          <div className="min-w-0">
             <Link href={uri}>
-              <h3 className={cn("font-semibold", dark && "text-white")}>
+              <h3
+                className={cn(
+                  "font-semibold line-clamp-2 break-words",
+                  dark && "text-white",
+                )}
+              >
                 {product?.name}
               </h3>
             </Link>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
               {isVariableProduct(product) &&
                 product.attributes.map(
                   (attribute: ProductAttribute) =>
@@ -155,7 +165,7 @@ export const ProductCard = ({
             </div>
           </div>
 
-          <div className="flex justify-between">
+          <div className="flex justify-between shrink-0">
             <ProductPrice
               price={displayPrice}
               regularPrice={displayRegularPrice}

@@ -112,18 +112,18 @@ export function CartItemRow({
       )}
 
       {/* Product info */}
-      <div className="flex flex-1 flex-col justify-between px-2 md:px-5">
+      <div className="flex min-w-0 flex-1 flex-col justify-between px-2 md:px-5">
         <div>
           {productHref ? (
             <Link
               href={productHref}
               onClick={() => toggleCart(false)}
-              className="font-semibold capitalize text-[#343A40] hover:underline"
+              className="block line-clamp-2 font-semibold capitalize text-[#343A40] hover:underline"
             >
               {item.name}
             </Link>
           ) : (
-            <p className="font-semibold capitalize text-[#343A40]">
+            <p className="line-clamp-2 font-semibold capitalize text-[#343A40]">
               {item.name}
             </p>
           )}
@@ -173,7 +173,7 @@ export function CartItemRow({
       </div>
 
       {/* Price + remove */}
-      <div className="flex flex-col items-end justify-between">
+      <div className="flex shrink-0 flex-col items-end justify-between">
         <div className="flex flex-col items-end">
           {isOnSale && (
             <p className="font-medium line-through">

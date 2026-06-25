@@ -226,7 +226,9 @@ export function Footer({
               </Link>
             </div>
             {description && (
-              <div className="leading-5 text-purple-800">{description}</div>
+              <div className="min-w-0 leading-5 text-purple-800">
+                {description}
+              </div>
             )}
           </div>
 
@@ -297,7 +299,7 @@ export function Footer({
               © 2026 {policyMenu?.name ?? siteName}
             </div>
             {policyMenu && (
-              <div className="mb-2 flex items-center gap-[6px]">
+              <div className="mb-2 flex flex-wrap items-center gap-[6px]">
                 {policyMenu.items?.map((item) => (
                   <Link
                     key={item.id}

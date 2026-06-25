@@ -27,7 +27,7 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                       <HeaderTag className="text-primary text-3xl font-semibold leading-[1.3]! md:text-5xl">
                         {carousel?.header}
                       </HeaderTag>
-                      <p className="mt-8 text-3xl font-semibold text-black md:text-white">
+                      <p className="mt-8 text-base font-semibold text-black md:text-3xl md:text-white">
                         {carousel?.description}
                       </p>
                       <div className="mt-8">
