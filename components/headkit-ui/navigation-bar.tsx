@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { ChevronDownIcon, MenuIcon, XIcon } from "@/components/icon";
 import {
@@ -40,13 +40,13 @@ export interface NavMenuItem {
 interface NavigationBarProps {
   primaryMenuItems: NavMenuItem[];
   secondaryMenuItems?: NavMenuItem[];
-  logo: ReactNode;
+  logo: React.ReactNode;
   /** Right-side icons for desktop (Search, Wishlist, Account, Cart). */
-  actions?: ReactNode;
+  actions?: React.ReactNode;
   /** Pre-fetched cart count for HeaderActions when actions is not provided. */
   initialCartCount?: number;
   /** Icons shown in the mobile sheet nav footer. */
-  mobileActions?: ReactNode;
+  mobileActions?: React.ReactNode;
   preheader?: {
     title?: string;
     message?: string;
@@ -117,7 +117,8 @@ export function NavigationBar({
           <NavigationMenuItem className="mr-4 hover:opacity-75">
             <NavigationMenuLink asChild>
               <Link href="/" aria-label="Home" className="cursor-pointer">
-                {logo}
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                {logo as any}
               </Link>
             </NavigationMenuLink>
           </NavigationMenuItem>

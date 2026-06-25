@@ -14,11 +14,6 @@ import {
 } from "@stripe/react-stripe-js/checkout";
 import { AccordionWrapper } from "@/components/checkout/accordion-wrapper";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
   CheckoutFormStepEnum,
   DeliveryStepEnum,
 } from "@/components/checkout/utils";
@@ -39,53 +34,15 @@ import {
   updateCustomerAddressAction,
 } from "@/lib/cart-actions";
 import type { AddressInput } from "@headkit/sdk";
+import { useDebugRegister } from "@headkit/sdk/debug";
 import { SpinnerIcon } from "@/components/icon";
+import { ExpressCheckoutSection } from "@/components/checkout/express-checkout-section";
 
 export type Step =
   | CheckoutFormStepEnum.CONTACT
   | CheckoutFormStepEnum.DELIVERY_METHOD
   | CheckoutFormStepEnum.ADDRESS
   | CheckoutFormStepEnum.PAYMENT;
-
-function CheckoutDebugPanel({ session }: { session: CheckoutSessionProp }) {
-  const checkoutState = useCheckout();
-  const { cartData } = useCartContext();
-  return (
-    <Collapsible>
-      <CollapsibleTrigger className="w-full text-left text-xs font-mono text-gray-500 hover:text-gray-700 py-2 px-4 bg-gray-50 rounded-t-md border border-b-0 border-gray-200">
-        Debug: Stripe session (left) | useCheckout state (center) | cart (right)
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-gray-200 rounded-b-md overflow-hidden">
-          <div className="border-r border-gray-200">
-            <div className="text-xs font-medium text-gray-600 px-3 py-2 bg-gray-100 border-b border-gray-200">
-              Stripe session
-            </div>
-            <pre className="text-xs overflow-auto max-h-64 p-4 bg-gray-50 font-mono">
-              {JSON.stringify(session, null, 2)}
-            </pre>
-          </div>
-          <div className="border-r border-gray-200">
-            <div className="text-xs font-medium text-gray-600 px-3 py-2 bg-gray-100 border-b border-gray-200">
-              useCheckout()
-            </div>
-            <pre className="text-xs overflow-auto max-h-64 p-4 bg-gray-50 font-mono">
-              {JSON.stringify(checkoutState, null, 2)}
-            </pre>
-          </div>
-          <div>
-            <div className="text-xs font-medium text-gray-600 px-3 py-2 bg-gray-100 border-b border-gray-200">
-              Cart
-            </div>
-            <pre className="text-xs overflow-auto max-h-64 p-4 bg-gray-50 font-mono">
-              {JSON.stringify(cartData, null, 2)}
-            </pre>
-          </div>
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
-  );
-}
 
 interface PickupLocationItem {
   address: string;
@@ -743,6 +700,20 @@ function CheckoutSteps({
   );
 }
 
+/** Registers checkout debug data into HeadKitDevTools without any UI. */
+function CheckoutDebugRegistrar({
+  session,
+}: {
+  session: CheckoutSessionProp;
+}) {
+  const checkoutState = useCheckout();
+  const { cartData } = useCartContext();
+  useDebugRegister("Stripe Session", session);
+  useDebugRegister("Checkout State", checkoutState);
+  useDebugRegister("Cart", cartData);
+  return null;
+}
+
 /**
  * Wraps the form and cart in CheckoutProvider so all child components
  * (including CouponBox in the cart sidebar) can access useCheckout() and
@@ -869,12 +840,11 @@ export function CheckoutForm({
       }}
     >
       <CheckoutActionsProvider>
+        <CheckoutDebugRegistrar session={checkoutSession} />
         <div className="px-[20px] md:px-[40px] mx-auto grid grid-cols-12 gap-[20px]">
-          <div className="col-span-12 mb-4">
-            <CheckoutDebugPanel session={checkoutSession} />
-          </div>
           {/* Checkout form — left on desktop */}
           <div className="order-2 md:order-1 col-span-12 md:col-span-6">
+            <ExpressCheckoutSection />
             <CheckoutSteps
               sessionId={checkoutSession.sessionId}
               pickupLocationsFromApi={pickupLocationsFromApi}

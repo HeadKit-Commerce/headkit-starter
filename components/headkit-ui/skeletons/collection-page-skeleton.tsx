@@ -46,9 +46,9 @@ export function CollectionPageSkeleton({
         <Skeleton className="h-10 w-32 rounded-md" />
       </div>
 
-      {/* Product grid — px-5 md:px-10, grid-cols-2 md:grid-cols-3 */}
+      {/* Product grid — px-5 md:px-10, grid-cols-1 md:grid-cols-3 */}
       <div className="px-5 md:px-10">
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {Array.from({ length: 12 }).map((_, i) => (
             <div key={i} className="space-y-3">
               <Skeleton className="aspect-square w-full rounded-lg" />

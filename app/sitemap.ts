@@ -9,7 +9,7 @@ async function makeProductSitemap(): Promise<SitemapItem[]> {
   try {
     const result = await headkit.collections.list({}, 1, 500);
     return result.products.map((p) => ({
-      url: `${SITE_URL}/shop/${p.slug}`,
+      url: `${SITE_URL}/products/${p.slug}`,
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 1,

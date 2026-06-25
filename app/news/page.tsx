@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
 import { PostHeader } from "@/components/headkit-ui/post/post-header";
 import { PostPage } from "@/components/headkit-ui/post/post-page";
@@ -14,7 +16,18 @@ interface Props {
   searchParams: Promise<Record<string, string>>;
 }
 
-export default async function Page({ searchParams }: Props) {
+async function getPostFilters() {
+  "use cache";
+  cacheLife("max");
+  cacheTag("headkit:posts");
+  return sdk.posts.getFilters();
+}
+
+async function PostsServer({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
   const sp = await searchParams;
   const activeCategory = sp.category ?? "";
 
@@ -23,9 +36,19 @@ export default async function Page({ searchParams }: Props) {
       perPage: 12,
       ...(activeCategory ? { category: activeCategory } : {}),
     }),
-    sdk.posts.getFilters(),
+    getPostFilters(),
   ]);
 
+  return (
+    <PostPage
+      initialPosts={postsResult.posts}
+      postFilters={postFilters}
+      activeCategory={activeCategory}
+    />
+  );
+}
+
+export default async function Page({ searchParams }: Props) {
   return (
     <>
       <PostHeader
@@ -36,11 +59,9 @@ export default async function Page({ searchParams }: Props) {
           { name: "News", uri: "/news", current: true },
         ]}
       />
-      <PostPage
-        initialPosts={postsResult.posts}
-        postFilters={postFilters}
-        activeCategory={activeCategory}
-      />
+      <Suspense>
+        <PostsServer searchParams={searchParams} />
+      </Suspense>
     </>
   );
 }

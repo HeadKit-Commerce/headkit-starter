@@ -2,8 +2,6 @@ import type { MenuLocation } from "@headkit/sdk";
 import { cacheLife, cacheTag } from "next/cache";
 import { convertToRelativePath } from "@/lib/convert-uri";
 import { headkit } from "@/lib/sdk";
-import { createServerHeadkit } from "@/lib/sdk.server";
-import { getCartToken } from "@/lib/cart";
 import {
   NavigationBar,
   type NavMenuItem,
@@ -37,6 +35,9 @@ function normalizeMenuItems(items: MenuItemLike[]): NavMenuItem[] {
 }
 
 async function fetchMenu(location: MenuLocation): Promise<NavMenuItem[]> {
+  "use cache";
+  cacheLife("max");
+  cacheTag("headkit:navigation");
   try {
     const tree = await headkit.menu.get(location);
     return normalizeMenuItems(tree);
@@ -71,22 +72,14 @@ export async function getFooterMenu(): Promise<NavMenuItem[]> {
   return fetchMenu("FOOTER");
 }
 
-async function fetchCartCount(): Promise<number> {
-  try {
-    const cartToken = await getCartToken();
-    if (!cartToken) return 0;
-    const cart = await createServerHeadkit(cartToken).cart.get();
-    return cart?.itemsCount ?? 0;
-  } catch {
-    return 0;
-  }
-}
-
 export async function NavigationWrapper() {
-  const [primaryItems, secondaryItems, cartCount] = await Promise.all([
+  "use cache";
+  cacheLife("max");
+  cacheTag("headkit:navigation");
+
+  const [primaryItems, secondaryItems] = await Promise.all([
     fetchMenu("PRIMARY"),
     fetchMenu("SECONDARY"),
-    fetchCartCount(),
   ]);
 
   return (
@@ -94,7 +87,6 @@ export async function NavigationWrapper() {
       primaryMenuItems={primaryItems}
       secondaryMenuItems={secondaryItems}
       logo={<Logo />}
-      initialCartCount={cartCount}
       mobileActions={<MobileHeaderActions />}
     />
   );

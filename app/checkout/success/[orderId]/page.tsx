@@ -63,8 +63,13 @@ export default async function Page({ params, searchParams }: Props) {
 
   const billingEmailFromCookie = storedData.email;
 
-  // Fetch order first — needed for status gate and render
+  // Fetch order first — needed for status gate and render.
+  // Draft orders (checkout-draft) return 401 from the WooCommerce REST API;
+  // when that happens with a sessionId present (payment confirmed), we defer
+  // to the session-based processing path below which will transition the order
+  // out of draft and then redirect to a clean URL where it becomes readable.
   let order: Awaited<ReturnType<typeof getOrderAction>> = null;
+  let orderFetchFailed = false;
   try {
     order = await getOrderAction(orderId, orderKey, billingEmailFromCookie);
   } catch (orderErr) {
@@ -77,9 +82,18 @@ export default async function Page({ params, searchParams }: Props) {
     ) {
       redirect("/checkout?reason=order_expired");
     }
-    throw orderErr;
+    // Draft orders return 401/cannot_view — defer to session processing below.
+    // When no sessionId is present (e.g. redirect after processCheckoutOrderAction
+    // or direct navigation) we still surface a fallback rather than crashing.
+    const isDraftError =
+      msg.includes("cannot_view") || msg.includes("status 401");
+    if (isDraftError) {
+      orderFetchFailed = true;
+    } else {
+      throw orderErr;
+    }
   }
-  if (!order) return notFound();
+  if (!order && !orderFetchFailed) return notFound();
 
   let effectiveOrderId = orderId;
   let effectiveOrderKey = orderKey;
@@ -128,12 +142,16 @@ export default async function Page({ params, searchParams }: Props) {
         effectiveOrderKey = session.orderKey;
       }
 
-      const needsProcessing = needsCheckoutOrderProcessing(
-        order.status,
-        session.cartToken,
-        session.orderId,
-        session.orderKey,
-      );
+      // When the order is still a draft (orderFetchFailed), treat it as needing
+      // processing — the 401 from the REST API confirms it hasn't been processed yet.
+      const needsProcessing =
+        orderFetchFailed ||
+        needsCheckoutOrderProcessing(
+          order?.status ?? "checkout-draft",
+          session.cartToken,
+          session.orderId,
+          session.orderKey,
+        );
 
       if (needsProcessing) {
         const cookie = storedData.shippingAddress;
@@ -252,6 +270,36 @@ export default async function Page({ params, searchParams }: Props) {
         }
       }
     }
+  }
+
+  if (!order) {
+    if (orderFetchFailed) {
+      // Order is still transitioning (checkout-draft) or credentials are restricted —
+      // show a minimal confirmation so the user isn't left with a crash.
+      return (
+        <>
+          <ClearCart />
+          <div className="mt-5 px-5 md:px-10">
+            <h1 className="font-bold text-3xl mb-[10px] text-transparent bg-clip-text bg-linear-to-r from-purple-500 to-pink-500">
+              Your order is confirmed.
+            </h1>
+            <p className="text-lg">
+              Order <span className="font-bold">#{orderId}</span> has been
+              received. You will receive a confirmation email shortly.
+            </p>
+            <div className="mt-8">
+              <Link
+                href="/"
+                className="inline-block rounded-lg bg-purple-500 px-6 py-2.5 text-center text-sm font-medium text-white hover:bg-purple-600"
+              >
+                Continue Shopping
+              </Link>
+            </div>
+          </div>
+        </>
+      );
+    }
+    return notFound();
   }
 
   const currency = order.currency.code;

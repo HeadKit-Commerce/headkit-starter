@@ -34,6 +34,25 @@ if (process.env.IMAGE_DOMAIN) {
   });
 }
 
+const securityHeaders = [
+  {
+    key: "X-Frame-Options",
+    value: "SAMEORIGIN",
+  },
+  {
+    key: "X-Content-Type-Options",
+    value: "nosniff",
+  },
+  {
+    key: "Referrer-Policy",
+    value: "strict-origin-when-cross-origin",
+  },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=()",
+  },
+];
+
 const nextConfig: NextConfig = {
   transpilePackages: ["@headkit/sdk"],
   cacheComponents: true,
@@ -48,6 +67,14 @@ const nextConfig: NextConfig = {
     // which resolves to 127.0.0.1, so the optimizer 400s ("url is not allowed")
     // in local dev. Allow it ONLY in dev — production keeps the safe default.
     dangerouslyAllowLocalIP: process.env.NODE_ENV !== "production",
+  },
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: securityHeaders,
+      },
+    ];
   },
 };
 

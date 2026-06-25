@@ -176,6 +176,43 @@ export function normalizeFilterKey(filter: ProductListFilter): string {
   return JSON.stringify(sorted);
 }
 
+/**
+ * Encode attribute filter values into a path-safe slug.
+ * Format: `{attrName}.{val1}.{val2}_{attrName2}.{val1}` — dots join names+values within a
+ * group, underscores separate groups. Attributes and values are sorted for determinism.
+ * Returns an empty string when no attributes are selected.
+ */
+export function encodeFilterSlug(filters: FilterValues): string {
+  const parts: string[] = [];
+  const sortedAttrs = Object.entries(filters.attributes)
+    .filter(([, vals]) => vals.length > 0)
+    .sort(([a], [b]) => a.localeCompare(b));
+  for (const [slug, vals] of sortedAttrs) {
+    const attrName = slug.replace(/^pa_/, "");
+    parts.push(`${attrName}.${[...vals].sort().join(".")}`);
+  }
+  return parts.join("_");
+}
+
+/**
+ * Decode a filter slug produced by {@link encodeFilterSlug} back into attribute key→values map.
+ * Restores `pa_` prefix on attribute names. Returns an empty object for an empty slug.
+ */
+export function decodeFilterSlug(slug: string): Record<string, string[]> {
+  if (!slug) return {};
+  const attributes: Record<string, string[]> = {};
+  for (const group of slug.split("_")) {
+    const dotIdx = group.indexOf(".");
+    if (dotIdx === -1) continue;
+    const attrName = group.slice(0, dotIdx);
+    const values = group.slice(dotIdx + 1).split(".");
+    if (attrName && values.length > 0) {
+      attributes[`pa_${attrName}`] = values;
+    }
+  }
+  return attributes;
+}
+
 /** Build breadcrumb URIs to match the Next.js route /collections/[...slug] (same as URL path). */
 export function buildBreadcrumbFromCategory(
   category: ProductCategoryDetail,

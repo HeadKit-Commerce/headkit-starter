@@ -15,8 +15,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchIcon } from "@/components/icon";
 import { ProductCard } from "@/components/headkit-ui/product-card";
-import { createClientSDK } from "@headkit/sdk";
 import type { ProductSummaryFieldsFragment } from "@headkit/sdk";
+import { searchProducts } from "@/lib/search-actions";
 
 interface SearchDrawerProps {
   /** Custom trigger element. If not provided, uses default search icon button. */
@@ -59,9 +59,8 @@ export function SearchDrawer({ trigger }: SearchDrawerProps) {
       }
       setIsLoading(true);
       try {
-        const sdk = createClientSDK();
-        const result = await sdk.collections.list({ search: q }, 1, 4);
-        setProducts(result.products as ProductSummaryFieldsFragment[]);
+        const products = await searchProducts(q, 4);
+        setProducts(products);
       } catch (err) {
         console.error("Search error:", err);
       } finally {

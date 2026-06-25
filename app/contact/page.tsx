@@ -1,11 +1,19 @@
 import type { Metadata } from "next";
+import { cacheLife, cacheTag } from "next/cache";
 import sanitize from "sanitize-html";
 import { headkit as sdk } from "@/lib/sdk";
 import { makeSeoMetadata } from "@/lib/make-metadata";
 
+async function getContactPage() {
+  "use cache";
+  cacheLife("max");
+  cacheTag("headkit:page:contact", "headkit:pages");
+  return sdk.pages.get("contact");
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   try {
-    const page = await sdk.pages.get("contact");
+    const page = await getContactPage();
     if (!page?.seo) {
       return {
         title: "Contact Us",
@@ -22,7 +30,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ContactPage() {
-  const page = await sdk.pages.get("contact").catch(() => null);
+  const page = await getContactPage().catch(() => null);
 
   return (
     <div className="px-5 md:px-10 py-10 md:py-16">

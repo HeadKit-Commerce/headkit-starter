@@ -1,11 +1,12 @@
 "use client";
 
 import {
-  useEffect,
   useMemo,
   useState,
   useTransition,
   useCallback,
+  useEffect,
+  type ReactNode,
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import type { Product, ProductAttribute, ProductVariation } from "@headkit/sdk";
@@ -18,17 +19,33 @@ import { MinusIcon, PlusIcon } from "@/components/icon";
 import { addToCartAction } from "@/lib/cart-actions";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { cn } from "@/lib/utils";
+import { GiftCardForm, type GiftCardFormValues, DeliveryType } from "@/components/gift-card-form";
+import { Breadcrumb } from "@/components/headkit-ui/breadcrumb";
 
 interface Props {
   product: Product;
   initialSearchParams?: Record<string, string>;
+  breadcrumbItems?: { name: string; uri: string; current: boolean }[];
+  /** Color slug from URL path segment — enables path-based routing mode */
+  initialColor?: string;
+  /** Base path for the product, e.g. "/products/shirt" — triggers path-based routing */
+  productBasePath?: string;
+  /** Slot for dynamic stock rendering (e.g. PPR Suspense boundary). Replaces inline AvailabilityStatus. */
+  stockSlot?: ReactNode;
 }
 
 const VARIABLE = "VARIABLE";
 
 type TabKey = "description" | "additional" | "reviews";
 
-export function ProductDetail({ product, initialSearchParams }: Props) {
+export function ProductDetail({
+  product,
+  initialSearchParams,
+  breadcrumbItems,
+  initialColor,
+  productBasePath,
+  stockSlot,
+}: Props) {
   const router = useRouter();
   const pathname = usePathname();
 
@@ -41,6 +58,9 @@ export function ProductDetail({ product, initialSearchParams }: Props) {
   const { cartData, setCartData, toggleCart } = useCartContext();
 
   const isVariable = product.type?.toUpperCase() === VARIABLE;
+  const isGiftCard = product.type?.toLowerCase() === "giftcard";
+  const [giftCardValues, setGiftCardValues] = useState<GiftCardFormValues | null>(null);
+  const [isGiftCardFormValid, setIsGiftCardFormValid] = useState(false);
 
   const variationAttributes = useMemo(
     () => product.attributes.filter((a: ProductAttribute) => a.variation),
@@ -52,6 +72,33 @@ export function ProductDetail({ product, initialSearchParams }: Props) {
   >(() => {
     if (!isVariable) return {};
 
+    // Path-based mode: color comes from URL segment, size defaults from first matching variation.
+    // localStorage is read in a useEffect to avoid SSR/hydration mismatch.
+    if (productBasePath) {
+      const colorKey = variationAttributes.find(
+        (a) => a.slug === "pa_color" || a.slug === "pa_colour",
+      )?.slug;
+      const attrs: Record<string, string> = {};
+      if (colorKey && initialColor) attrs[colorKey] = initialColor;
+
+      const firstMatch = product.variations.find(
+        (v) =>
+          !initialColor ||
+          v.attributes.some(
+            (a) =>
+              (a.key === "pa_color" || a.key === "pa_colour") &&
+              a.value === initialColor,
+          ),
+      );
+      if (firstMatch) {
+        for (const a of firstMatch.attributes) {
+          if (!attrs[a.key]) attrs[a.key] = a.value;
+        }
+      }
+      return attrs;
+    }
+
+    // Search-params mode (existing behavior)
     const fromParams: Record<string, string> = {};
     if (initialSearchParams) {
       for (const attr of variationAttributes) {
@@ -70,6 +117,21 @@ export function ProductDetail({ product, initialSearchParams }: Props) {
     return defaults;
   });
 
+  // In path-based mode, restore the saved size from localStorage after mount
+  // (deferred to avoid SSR/hydration mismatch).
+  useEffect(() => {
+    if (!productBasePath || !isVariable) return;
+    const sizeKey = variationAttributes.find((a) => a.slug === "pa_size")?.slug;
+    if (!sizeKey) return;
+    const saved = localStorage.getItem(`headkit:size:${product.slug}`);
+    if (!saved) return;
+    setSelectedAttributes((prev) => {
+      if (prev[sizeKey] === saved) return prev;
+      return { ...prev, [sizeKey]: saved };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally run once on mount only
+
   const syncUrlWithAttributes = useCallback(
     (attrs: Record<string, string>) => {
       const params = new URLSearchParams();
@@ -84,10 +146,43 @@ export function ProductDetail({ product, initialSearchParams }: Props) {
 
   const updateAttributes = useCallback(
     (next: Record<string, string>) => {
+      if (productBasePath) {
+        const colorKey = variationAttributes.find(
+          (a) => a.slug === "pa_color" || a.slug === "pa_colour",
+        )?.slug;
+        const sizeKey = variationAttributes.find(
+          (a) => a.slug === "pa_size",
+        )?.slug;
+
+        // Persist size to localStorage on every change
+        if (sizeKey && next[sizeKey]) {
+          localStorage.setItem(`headkit:size:${product.slug}`, next[sizeKey]);
+        }
+
+        // Navigate when color changes; otherwise just update state
+        if (colorKey && next[colorKey] !== selectedAttributes[colorKey]) {
+          router.push(`${productBasePath}/${next[colorKey]}`, {
+            scroll: false,
+          });
+          // Don't update state — new page will initialize correctly
+          return;
+        }
+
+        setSelectedAttributes(next);
+        return;
+      }
+
       setSelectedAttributes(next);
       syncUrlWithAttributes(next);
     },
-    [syncUrlWithAttributes],
+    [
+      productBasePath,
+      product.slug,
+      variationAttributes,
+      selectedAttributes,
+      router,
+      syncUrlWithAttributes,
+    ],
   );
 
   const selectedVariation = useMemo<ProductVariation | null>(() => {
@@ -110,7 +205,7 @@ export function ProductDetail({ product, initialSearchParams }: Props) {
         ...base.filter((b) => b.src !== selectedVariation.image.src),
       ];
     }
-    return base.length > 0 ? base : [{ src: "", alt: product.name }];
+    return base.length > 0 ? base : [{ src: "/placeholder.png", alt: product.name }];
   }, [product.images, product.name, selectedVariation]);
 
   const displayPrice =
@@ -132,9 +227,10 @@ export function ProductDetail({ product, initialSearchParams }: Props) {
   const maxStock = (selectedVariation ?? product).stockQuantity ?? null;
   const isAtStockLimit = maxStock !== null && cartItemQty + quantity > maxStock;
 
-  const canAddToCart = isVariable
+  const canAddToCart = (isVariable
     ? selectedVariation !== null && !isOutOfStock && !isAtStockLimit
-    : !isOutOfStock && !isAtStockLimit;
+    : !isOutOfStock && !isAtStockLimit)
+    && (!isGiftCard || isGiftCardFormValid);
 
   function handleAddToCart() {
     setCartFeedback("idle");
@@ -149,8 +245,21 @@ export function ProductDetail({ product, initialSearchParams }: Props) {
         ([attribute, value]) => ({ attribute, value }),
       );
 
+      const giftConfig = isGiftCard && giftCardValues ? {
+        sendAsGift: true,
+        toMultiple: [giftCardValues.wc_gc_giftcard_to_multiple],
+        from: giftCardValues.wc_gc_giftcard_from,
+        message: giftCardValues.wc_gc_giftcard_message ?? "",
+        deliveryDate:
+          giftCardValues.wc_gc_giftcard_select_delivery === DeliveryType.Later
+            ? giftCardValues.wc_gc_giftcard_delivery
+            : new Date().toISOString().split("T")[0]!,
+      } : undefined;
+
       const result = await addToCartAction(
-        hasVariation ? { id, quantity, variation } : { id, quantity },
+        hasVariation
+          ? { id, quantity, variation, ...(giftConfig ? { giftConfig } : {}) }
+          : { id, quantity, ...(giftConfig ? { giftConfig } : {}) },
       );
       if (result.success) {
         setCartData(result.cart);
@@ -188,6 +297,7 @@ export function ProductDetail({ product, initialSearchParams }: Props) {
 
       {/* Right: product info */}
       <div className="flex flex-col">
+        {breadcrumbItems && <div className="mb-4"><Breadcrumb items={breadcrumbItems} /></div>}
         <h1 className="mb-3 text-2xl font-bold leading-tight text-purple-900 md:text-3xl">
           {product.name}
         </h1>
@@ -297,12 +407,22 @@ export function ProductDetail({ product, initialSearchParams }: Props) {
           </div>
         )}
 
+        {/* Gift card recipient form */}
+        {isGiftCard && (
+          <GiftCardForm
+            emitClickEvent={(values) => setGiftCardValues(values)}
+            onFormValid={(valid) => setIsGiftCardFormValid(valid)}
+          />
+        )}
+
         {/* Availability status */}
         <div className="mb-4">
-          <AvailabilityStatus
-            stockStatus={stockStatus}
-            stockQuantity={(selectedVariation ?? product).stockQuantity ?? null}
-          />
+          {stockSlot ?? (
+            <AvailabilityStatus
+              stockStatus={stockStatus}
+              stockQuantity={(selectedVariation ?? product).stockQuantity ?? null}
+            />
+          )}
         </div>
 
         {/* Price */}

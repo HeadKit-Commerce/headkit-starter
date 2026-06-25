@@ -1,5 +1,4 @@
 import type { CartItem } from "@headkit/sdk";
-import { createServerHeadkit } from "@/lib/sdk.server";
 import { removeCartItemAction, updateCartItemAction } from "./cart-actions";
 
 /** Backorder stock status constant matching WooCommerce/provider values. */

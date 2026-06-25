@@ -30,6 +30,8 @@ const getErrorMessage = (reason?: string): string => {
       return "We couldn't create your order. Please try again.";
     case "payment_failed":
       return "Your payment was not successful. Please check your payment details and try again.";
+    case "session_expired":
+      return "Your cart session has expired. Please add items to your cart and try again.";
     case "no_session":
       return "Your cart session has expired. Please start a new checkout.";
     case "processing_error":

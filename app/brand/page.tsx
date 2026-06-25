@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
 import { BrandPage } from "@/components/headkit-ui/brand/brand-page";
 import { BrandHeader } from "@/components/headkit-ui/brand/brand-header";
@@ -10,8 +11,15 @@ export const metadata: Metadata = {
   },
 };
 
+async function getBrands() {
+  "use cache";
+  cacheLife("max");
+  cacheTag("headkit:brands");
+  return sdk.brands.list();
+}
+
 export default async function Page() {
-  const result = await sdk.brands.list();
+  const result = await getBrands();
 
   return (
     <>

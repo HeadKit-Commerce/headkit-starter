@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { cacheLife, cacheTag } from "next/cache";
 import { headkit } from "@/lib/sdk";
 import type {
   Product,
@@ -22,7 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export async function generateMetadata(): Promise<Metadata> {
   try {
-    const homepage = await headkit.homepage.get();
+    const { homepage } = await getHomepageData();
     return makeRootMetadata({
       title: homepage?.page?.seo?.title ?? "HeadKit — Headless Commerce",
       description:
@@ -40,6 +41,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
 async function getHomepageData() {
   "use cache";
+  cacheLife("max");
+  cacheTag("headkit:homepage", "headkit:products");
 
   try {
     const [homepage, newArrivals, onSaleProducts] = await Promise.all([
@@ -81,6 +84,10 @@ function ProductGridSkeleton() {
 }
 
 async function HomeContent() {
+  "use cache";
+  cacheLife("max");
+  cacheTag("headkit:homepage");
+
   const { homepage, newArrivals, onSaleProducts } = await getHomepageData();
 
   const carousels = (homepage?.carousels ??

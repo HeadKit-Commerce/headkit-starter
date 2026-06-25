@@ -17,10 +17,10 @@ export function AttributeFilter({ attribute }: AttributeFilterProps) {
     <div className="grid grid-cols-2 gap-4">
       {attribute.options?.map((option) => {
         if (!option) return null;
-        const isSelected = current.includes(option);
+        const isSelected = current.includes(option.slug);
         return (
           <label
-            key={option}
+            key={option.slug}
             className="flex items-center space-x-2 cursor-pointer"
           >
             <input
@@ -29,8 +29,8 @@ export function AttributeFilter({ attribute }: AttributeFilterProps) {
               checked={isSelected}
               onChange={(e) => {
                 const newVals = e.target.checked
-                  ? [...current, option]
-                  : current.filter((v) => v !== option);
+                  ? [...current, option.slug]
+                  : current.filter((v) => v !== option.slug);
                 setFilterValues({
                   ...filterValues,
                   attributes: {
@@ -42,7 +42,12 @@ export function AttributeFilter({ attribute }: AttributeFilterProps) {
               }}
             />
             <span className={cn("text-sm", isSelected && "font-bold")}>
-              {formatOptionName(option)}
+              {formatOptionName(option.name)}
+              {option.count > 0 && (
+                <span className="ml-1 text-muted-foreground font-normal">
+                  ({option.count})
+                </span>
+              )}
             </span>
           </label>
         );

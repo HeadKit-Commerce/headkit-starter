@@ -7,6 +7,7 @@ import type {
   UpdateCustomerInput,
   GetCartQuery,
 } from "@headkit/sdk";
+import { GraphQLError } from "@headkit/sdk";
 import type { ServerSDK } from "@headkit/sdk/server";
 import { createServerHeadkit } from "@/lib/sdk.server";
 import { getCartToken, cartTokenCookieOptions } from "@/lib/cart";
@@ -46,12 +47,17 @@ const isTokenExpiringSoon = (
   }
 };
 
+function getKlaviyoId(cookieStore: Awaited<ReturnType<typeof cookies>>): string | undefined {
+  return cookieStore.get("__kla_id")?.value ?? undefined;
+}
+
 async function withCartRetry(
   operation: (sdk: ServerSDK) => Promise<CartFieldsFragment>,
 ): Promise<CartFieldsFragment> {
   const cartToken = await getCartToken();
   const { name: cookieName, ...cookieOpts } = cartTokenCookieOptions();
   const cookieStore = await cookies();
+  const klaviyoId = getKlaviyoId(cookieStore);
 
   const persistToken = (newToken: string) => {
     if (!newToken) return;
@@ -64,15 +70,22 @@ async function withCartRetry(
     }
   };
 
+  const isSessionError = (err: unknown): boolean =>
+    err instanceof GraphQLError &&
+    (err.hasCode("CART_SESSION_EXPIRED") || err.hasCode("CART_NOT_FOUND"));
+
   try {
-    const result = await operation(createServerHeadkit(cartToken));
+    const result = await operation(createServerHeadkit(cartToken, klaviyoId));
     persistToken(result.token);
     return result;
   } catch (err) {
-    if (!cartToken) throw err;
+    // Only retry on session errors. For any other error (stock, validation,
+    // network) propagate immediately so the caller surfaces a real message.
+    if (!isSessionError(err)) throw err;
 
+    // Clear the stale cookie (if any) and retry with a fresh session.
     cookieStore.delete(cookieName);
-    const result = await operation(createServerHeadkit(undefined));
+    const result = await operation(createServerHeadkit(undefined, klaviyoId));
     persistToken(result.token);
     return result;
   }
@@ -85,8 +98,6 @@ export async function getCartAction(): Promise<CartFieldsFragment | null> {
     const cart = await createServerHeadkit(cartToken).cart.get();
     return cart as unknown as CartFieldsFragment;
   } catch {
-    const { name: cookieName } = cartTokenCookieOptions();
-    (await cookies()).delete(cookieName);
     return null;
   }
 }
@@ -97,8 +108,6 @@ export async function getFullCartAction(): Promise<FullCart | null> {
     if (!cartToken) return null;
     return await createServerHeadkit(cartToken).cart.get();
   } catch {
-    const { name: cookieName } = cartTokenCookieOptions();
-    (await cookies()).delete(cookieName);
     return null;
   }
 }

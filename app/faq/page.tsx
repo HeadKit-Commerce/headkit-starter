@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cacheLife, cacheTag } from "next/cache";
 import sanitize from "sanitize-html";
 import { headkit as sdk } from "@/lib/sdk";
 import {
@@ -10,9 +11,19 @@ import {
 import { FAQPageJsonLD } from "@/components/seo/faq-page-json-ld";
 import { makeSeoMetadata } from "@/lib/make-metadata";
 
+async function getFaqPage() {
+  "use cache";
+  cacheLife("max");
+  cacheTag("headkit:page:faq", "headkit:pages");
+  return Promise.all([
+    sdk.pages.get("faq").catch(() => null),
+    sdk.faq.list().catch(() => []),
+  ]);
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   try {
-    const page = await sdk.pages.get("faq");
+    const [page] = await getFaqPage();
     if (!page?.seo) {
       return {
         title: "FAQ",
@@ -29,10 +40,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function FAQPage() {
-  const [page, faqs] = await Promise.all([
-    sdk.pages.get("faq").catch(() => null),
-    sdk.faq.list().catch(() => []),
-  ]);
+  const [page, faqs] = await getFaqPage();
 
   return (
     <>

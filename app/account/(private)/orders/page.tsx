@@ -1,53 +1,24 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/components/headkit-ui/auth-context";
 import { headkit } from "@/lib/sdk";
 import type { GetOrdersQuery } from "@headkit/sdk";
+import { cookies } from "next/headers";
 
 type OrderItem = GetOrdersQuery["commerce"]["orders"]["orders"][number];
 
-export default function Page() {
-  const [orders, setOrders] = useState<OrderItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
+export default async function Page() {
+  const token = (await cookies()).get("hk-auth-token")?.value ?? "";
 
-  useEffect(() => {
-    const fetchOrders = async () => {
-      if (!user?.token) {
-        setLoading(false);
-        return;
-      }
-      try {
-        const result = await headkit.orders.listOrders(user.token, 1, 50);
-        setOrders(result.orders);
-      } catch {
-        // IDOR-safe, UI-SPEC generic copy — never surface a raw error/stack.
-        setError(
-          "We couldn't load this right now. Refresh the page, or try again in a moment.",
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
+  let orders: OrderItem[] = [];
+  let error: string | null = null;
 
-    fetchOrders();
-  }, [user?.token]);
-
-  if (loading) {
-    return (
-      <div className="max-w-4xl">
-        <h1 className="text-2xl font-bold mb-6">My Orders</h1>
-        <div className="animate-pulse space-y-4">
-          <div className="h-16 bg-gray-200 rounded" />
-          <div className="h-16 bg-gray-200 rounded" />
-          <div className="h-16 bg-gray-200 rounded" />
-        </div>
-      </div>
-    );
+  try {
+    const result = await headkit.orders.listOrders(token, 1, 50);
+    orders = result.orders;
+  } catch {
+    // IDOR-safe, UI-SPEC generic copy — never surface a raw error/stack.
+    error =
+      "We couldn't load this right now. Refresh the page, or try again in a moment.";
   }
 
   if (error) {

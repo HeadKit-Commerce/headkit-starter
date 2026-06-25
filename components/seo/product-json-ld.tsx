@@ -42,13 +42,10 @@ function collectImages(product: Product): string[] {
 }
 
 function buildVariantUrl(baseUrl: string, variation: ProductVariation): string {
-  const queryParts = variation.attributes
-    .filter((attr) => attr.key && attr.value)
-    .map(
-      (attr) =>
-        `${encodeURIComponent(attr.key)}=${encodeURIComponent(attr.value)}`,
-    );
-  return queryParts.length > 0 ? `${baseUrl}?${queryParts.join("&")}` : baseUrl;
+  const colorAttr = variation.attributes.find(
+    (attr) => attr.key === "pa_color" || attr.key === "pa_colour",
+  );
+  return colorAttr?.value ? `${baseUrl}/${colorAttr.value}` : baseUrl;
 }
 
 function buildVariantProduct(
@@ -94,7 +91,7 @@ export function ProductJsonLD({
 }: ProductJsonLDProps) {
   const siteUrl = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
   const productUrl =
-    url ?? `${siteUrl}${product.uri || `/shop/${product.slug}/`}`;
+    url ?? `${siteUrl}/products/${product.slug}`;
   const resolvedCurrency = currency ?? "AUD";
   const description = product.seo?.metaDesc ?? product.shortDescription;
   const images = collectImages(product);

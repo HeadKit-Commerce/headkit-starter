@@ -1,6 +1,9 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { unstable_cacheLife as cacheLife, unstable_cacheTag as cacheTag } from "next/cache";
+import {
+  unstable_cacheLife as cacheLife,
+  unstable_cacheTag as cacheTag,
+} from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
 import { CollectionHeader } from "@/components/headkit-ui/collection/collection-header";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";

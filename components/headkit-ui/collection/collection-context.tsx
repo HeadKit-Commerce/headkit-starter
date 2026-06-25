@@ -4,6 +4,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   useCallback,
   useMemo,
@@ -16,6 +17,7 @@ import type {
 } from "@headkit/sdk";
 import {
   buildProductListFilter,
+  encodeFilterSlug,
   DEFAULT_FILTER_VALUES,
   type FilterValues,
   type SortKeyType,
@@ -51,6 +53,13 @@ interface CollectionProviderProps {
   search?: string | undefined;
   brandSlug?: string | undefined;
   categorySlug?: string | undefined;
+  /** Base path for the collection (e.g. `/collections/hoodies`). When provided, attribute
+   *  filters are encoded into the URL path as `/f/{slug}` and URL updates use
+   *  `window.history.replaceState` instead of the Next.js router to avoid server re-renders. */
+  categoryBasePath?: string | undefined;
+  /** Attribute filter values decoded from the URL path by the server component. Takes
+   *  precedence over search-param attributes when present. */
+  initialFilterValues?: Record<string, string[]> | undefined;
 }
 
 const CollectionContext = createContext<CollectionContextType | null>(null);
@@ -67,6 +76,8 @@ export function CollectionProvider({
   search,
   brandSlug,
   categorySlug,
+  categoryBasePath,
+  initialFilterValues,
 }: CollectionProviderProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -80,6 +91,7 @@ export function CollectionProvider({
   const [isLoadingAfter, setIsLoadingAfter] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [hasFirstPage, setHasFirstPage] = useState(initialPage === 1);
+  const prevAttributeSlugRef = useRef<string | undefined>(undefined);
 
   const [filterValues, setFilterValues] = useState<FilterValues>(() => {
     const vals: FilterValues = { ...DEFAULT_FILTER_VALUES, page: initialPage };
@@ -88,12 +100,17 @@ export function CollectionProvider({
     if (categories.length) vals.categories = categories;
     const brands = searchParams.get("brands")?.split(",").filter(Boolean) ?? [];
     if (brands.length) vals.brands = brands;
-    productFilter.attributes?.forEach((attr) => {
-      if (!attr?.slug) return;
-      const values =
-        searchParams.get(attr.slug)?.split(",").filter(Boolean) ?? [];
-      if (values.length) vals.attributes[attr.slug] = values;
-    });
+    // Path-decoded attributes take precedence; fall back to search params for legacy URLs.
+    if (initialFilterValues && Object.keys(initialFilterValues).length > 0) {
+      vals.attributes = initialFilterValues;
+    } else {
+      productFilter.attributes?.forEach((attr) => {
+        if (!attr?.slug) return;
+        const values =
+          searchParams.get(attr.slug)?.split(",").filter(Boolean) ?? [];
+        if (values.length) vals.attributes[attr.slug] = values;
+      });
+    }
     vals.instock = searchParams.get("instock") === "true";
     vals.sort = (searchParams.get("sort") ?? "") as SortKeyType | "";
     const priceMin = searchParams.get("price_min");
@@ -115,17 +132,31 @@ export function CollectionProvider({
       if (filters.categories.length)
         params.set("categories", filters.categories.join(","));
       if (filters.brands.length) params.set("brands", filters.brands.join(","));
-      for (const [slug, vals] of Object.entries(filters.attributes)) {
-        if (vals.length) params.set(slug, vals.join(","));
-      }
       if (filters.instock) params.set("instock", "true");
       if (filters.sort) params.set("sort", filters.sort);
       if (filters.price_min) params.set("price_min", filters.price_min);
       if (filters.price_max) params.set("price_max", filters.price_max);
       const qs = params.toString();
-      router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+
+      if (categoryBasePath) {
+        // Path-based mode: encode attribute filters into the URL path, keep other state in
+        // search params. Use replaceState to avoid server re-renders on every filter toggle.
+        const filterSlug = encodeFilterSlug(filters);
+        const filterPath = filterSlug ? `/f/${filterSlug}` : "";
+        window.history.replaceState(
+          null,
+          "",
+          `${categoryBasePath}${filterPath}${qs ? `?${qs}` : ""}`,
+        );
+      } else {
+        // Fallback: keep everything in search params (used outside collection routes).
+        for (const [slug, vals] of Object.entries(filters.attributes)) {
+          if (vals.length) params.set(slug, vals.join(","));
+        }
+        router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+      }
     },
-    [pathname, router, search],
+    [categoryBasePath, pathname, router, search],
   );
 
   const fetchProducts = useCallback(
@@ -189,7 +220,28 @@ export function CollectionProvider({
   );
 
   useEffect(() => {
-    if (!isInitialLoad) fetchProducts(1, "middle");
+    if (!isInitialLoad) {
+      const newAttributeSlug = encodeFilterSlug(filterValues);
+      if (categoryBasePath && newAttributeSlug !== prevAttributeSlugRef.current) {
+        // Attribute filters changed — navigate to the new filter path so the server
+        // renders the correct products from cache (static per filter combination).
+        prevAttributeSlugRef.current = newAttributeSlug;
+        const filterPath = newAttributeSlug ? `/f/${newAttributeSlug}` : "";
+        const params = new URLSearchParams();
+        if (search) params.set("q", search);
+        if (filterValues.categories.length)
+          params.set("categories", filterValues.categories.join(","));
+        if (filterValues.brands.length)
+          params.set("brands", filterValues.brands.join(","));
+        if (filterValues.instock) params.set("instock", "true");
+        if (filterValues.sort) params.set("sort", filterValues.sort);
+        const qs = params.toString();
+        router.push(`${categoryBasePath}${filterPath}${qs ? `?${qs}` : ""}`);
+        return;
+      }
+      prevAttributeSlugRef.current = newAttributeSlug;
+      fetchProducts(filterValues.page, "middle");
+    }
     setIsInitialLoad(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterValues]);
