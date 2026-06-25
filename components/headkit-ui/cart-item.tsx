@@ -118,7 +118,7 @@ export function CartItemRow({
             <Link
               href={productHref}
               onClick={() => toggleCart(false)}
-              className="block line-clamp-2 font-semibold capitalize text-[#343A40] hover:underline"
+              className="line-clamp-2 font-semibold capitalize text-[#343A40] hover:underline"
             >
               {item.name}
             </Link>

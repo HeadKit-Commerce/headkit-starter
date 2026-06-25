@@ -118,7 +118,7 @@ export const ProductCard = ({
       <div className="pt-3">
         <div
           className={cn(
-            "flex justify-between gap-2",
+            "flex flex-col gap-1 md:flex-row md:justify-between md:gap-2",
             mobileCol && "flex-col",
           )}
         >
