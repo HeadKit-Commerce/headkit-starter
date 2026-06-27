@@ -9,7 +9,7 @@ import {
 } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
-  CheckoutProvider,
+  CheckoutElementsProvider,
   useCheckout,
 } from "@stripe/react-stripe-js/checkout";
 import { AccordionWrapper } from "@/components/checkout/accordion-wrapper";
@@ -36,7 +36,6 @@ import {
 import type { AddressInput } from "@headkit/sdk";
 import { useDebugRegister } from "@headkit/sdk/debug";
 import { SpinnerIcon } from "@/components/icon";
-import { ExpressCheckoutSection } from "@/components/checkout/express-checkout-section";
 
 export type Step =
   | CheckoutFormStepEnum.CONTACT
@@ -538,7 +537,7 @@ function CheckoutSteps({
         briefValue={getBriefValue(CheckoutFormStepEnum.CONTACT)}
       >
         <ContactFormStep
-          enableStripe={false} // LinkAuthenticationElement is not supported in Stripe Checkout Session yet
+          enableStripe={true} // Stripe ContactDetailsElement (Checkout Sessions native) collects email + drives Link (ENG-748)
           onNext={handleContactNext}
           defaultValues={{
             email: formData.email,
@@ -800,7 +799,7 @@ export function CheckoutForm({
   }
 
   return (
-    <CheckoutProvider
+    <CheckoutElementsProvider
       key={checkoutSession.sessionId}
       stripe={stripePromise}
       options={{
@@ -844,7 +843,10 @@ export function CheckoutForm({
         <div className="px-[20px] md:px-[40px] mx-auto grid grid-cols-12 gap-[20px]">
           {/* Checkout form — left on desktop */}
           <div className="order-2 md:order-1 col-span-12 md:col-span-6">
-            <ExpressCheckoutSection />
+            {/* Express/wallet checkout is mounted once inside the Payment step
+                (stripe-checkout-step). A second ExpressCheckoutElement here threw
+                "cannot create multiple instances" and crashed the Payment step to
+                the error boundary. */}
             <CheckoutSteps
               sessionId={checkoutSession.sessionId}
               pickupLocationsFromApi={pickupLocationsFromApi}
@@ -870,6 +872,6 @@ export function CheckoutForm({
           </div>
         </div>
       </CheckoutActionsProvider>
-    </CheckoutProvider>
+    </CheckoutElementsProvider>
   );
 }

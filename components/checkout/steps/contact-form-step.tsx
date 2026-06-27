@@ -3,8 +3,10 @@
 import React, { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { LinkAuthenticationElement } from "@stripe/react-stripe-js";
-import { useCheckout } from "@stripe/react-stripe-js/checkout";
+import {
+  ContactDetailsElement,
+  useCheckout,
+} from "@stripe/react-stripe-js/checkout";
 import { z } from "zod";
 import {
   Form,
@@ -139,7 +141,7 @@ const ContactFormStep: React.FC<ContactFormStepProps> = ({
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
           {enableStripe ? (
-            <LinkAuthenticationElement
+            <ContactDetailsElement
               options={{
                 defaultValues: {
                   email: defaultValues.email ?? "",
