@@ -103,11 +103,19 @@ export async function getCartAction(): Promise<CartFieldsFragment | null> {
 }
 
 export async function getFullCartAction(): Promise<FullCart | null> {
+  const cartToken = await getCartToken();
+  if (!cartToken) {
+    console.error("[getFullCartAction] no cart token cookie → session_expired");
+    return null;
+  }
   try {
-    const cartToken = await getCartToken();
-    if (!cartToken) return null;
     return await createServerHeadkit(cartToken).cart.get();
-  } catch {
+  } catch (err) {
+    const code = err instanceof GraphQLError ? err.message : String(err);
+    console.error("[getFullCartAction] cart.get() failed → session_expired", {
+      tokenUserId: decodeTokenUserId(cartToken),
+      error: code,
+    });
     return null;
   }
 }
