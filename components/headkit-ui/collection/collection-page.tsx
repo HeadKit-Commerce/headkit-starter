@@ -20,6 +20,7 @@ interface CollectionPageProps {
   categorySlug?: string;
   categoryBasePath?: string;
   initialFilterValues?: Record<string, string[]>;
+  initialBrands?: string[];
 }
 
 export function CollectionPage({
@@ -35,6 +36,7 @@ export function CollectionPage({
   categorySlug,
   categoryBasePath,
   initialFilterValues,
+  initialBrands,
 }: CollectionPageProps) {
   return (
     <CollectionProvider
@@ -50,6 +52,7 @@ export function CollectionPage({
       categorySlug={categorySlug}
       categoryBasePath={categoryBasePath}
       initialFilterValues={initialFilterValues}
+      initialBrands={initialBrands}
     >
       <div className="flex flex-col gap-4">
         <Filter />

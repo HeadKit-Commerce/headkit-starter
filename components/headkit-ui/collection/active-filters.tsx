@@ -35,7 +35,13 @@ export function ActiveFilters() {
   }
 
   for (const [slug, values] of Object.entries(filterValues.attributes)) {
-    const attr = productFilter.attributes?.find((a) => a?.slug === slug);
+    if (values.length === 0) continue;
+    // FilterValues keys attributes by the backend `pa_`-prefixed convention,
+    // but productFilter.attributes carries the stripped SDK slug — match either.
+    const strippedSlug = slug.replace(/^pa_/, "");
+    const attr = productFilter.attributes?.find(
+      (a) => a?.slug === slug || a?.slug === strippedSlug,
+    );
     for (const val of values) {
       chips.push({
         label: `${attr?.name ?? slug}: ${formatOptionName(val)}`,

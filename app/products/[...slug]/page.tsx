@@ -11,7 +11,10 @@ import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { ProductJsonLD } from "@/components/seo/product-json-ld";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { makeSeoMetadata } from "@/lib/make-metadata";
+import { isColorAttrSlug } from "@/components/headkit-ui/collection/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+
+const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 
 type Props = {
   params: Promise<{ slug: string[] }>;
@@ -75,6 +78,7 @@ export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const productSlug = slug[0]!;
+  const colorSlug = slug[1]; // undefined for simple/base; a color slug for a colorway URL
 
   try {
     const product = await getProduct(productSlug);
@@ -83,8 +87,40 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     }
 
     const desc = product.shortDescription || product.description;
+    const baseCanonical = `${SITE_URL}/products/${productSlug}`;
+
+    // Base product URL (no color in path): self-canonical, index in prod (S2).
+    if (!colorSlug) {
+      return makeSeoMetadata(null, {
+        title: product.name,
+        canonical: baseCanonical,
+        ...(desc ? { description: desc } : {}),
+      });
+    }
+
+    // Colorway URL: resolve the color attribute + its valid option slugs/labels.
+    const colorAttr = product.attributes.find((a) => isColorAttrSlug(a.slug));
+    const colorOption = colorAttr?.fullOptions.find(
+      (opt) => opt.slug === colorSlug,
+    );
+
+    // Invalid color path (not a real variation option) → noindex junk URL.
+    if (!colorOption) {
+      return { robots: { index: false, follow: false } };
+    }
+
+    // Valid colorway: own title (Name – Color), self-canonical (S1), variant OG.
+    const variation = product.variations.find((v) =>
+      v.attributes.some(
+        (a) => isColorAttrSlug(a.key) && a.value === colorSlug,
+      ),
+    );
+    const ogImage = variation?.image?.src ?? product.image?.src;
+
     return makeSeoMetadata(null, {
-      title: product.name,
+      title: `${product.name} – ${colorOption.name}`,
+      canonical: `${baseCanonical}/${colorSlug}`,
+      ...(ogImage ? { ogImage } : {}),
       ...(desc ? { description: desc } : {}),
     });
   } catch {

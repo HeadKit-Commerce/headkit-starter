@@ -9,9 +9,23 @@ interface AttributeFilterProps {
   attribute: ProductFilterAttribute & { slug: string };
 }
 
+/**
+ * Resolve the canonical FilterValues key for an SDK attribute slug. The backend
+ * (and decodeFilterSlug) use the `pa_`-prefixed convention (`pa_color`), but the
+ * SDK getFilters() returns the prefix STRIPPED (`color`). FilterValues.attributes
+ * is keyed by the backend `pa_` form so the grid filter is correct; the sidebar
+ * must look up / write that same key to stay in sync (06.1 hydration fix).
+ */
+function attrKey(sdkSlug: string): string {
+  return sdkSlug.startsWith("pa_") ? sdkSlug : `pa_${sdkSlug}`;
+}
+
 export function AttributeFilter({ attribute }: AttributeFilterProps) {
   const { filterValues, setFilterValues } = useCollection();
-  const current = filterValues.attributes[attribute.slug] ?? [];
+  const key = attrKey(attribute.slug);
+  // Tolerate either keying form already present in state.
+  const current =
+    filterValues.attributes[key] ?? filterValues.attributes[attribute.slug] ?? [];
 
   return (
     <div className="grid grid-cols-2 gap-4">
@@ -35,7 +49,10 @@ export function AttributeFilter({ attribute }: AttributeFilterProps) {
                   ...filterValues,
                   attributes: {
                     ...filterValues.attributes,
-                    [attribute.slug]: newVals,
+                    // Drop any legacy stripped-slug entry; write the canonical
+                    // `pa_`-prefixed key so backend filter + URL stay correct.
+                    [attribute.slug]: [],
+                    [key]: newVals,
                   },
                   page: 1,
                 });

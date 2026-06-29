@@ -127,7 +127,13 @@ export function Filter() {
                 <FilterMenuItem
                   key={attr.slug}
                   label={attr.name}
-                  count={filterValues.attributes[attr.slug]?.length ?? 0}
+                  count={
+                    (
+                      filterValues.attributes[`pa_${attr.slug}`] ??
+                      filterValues.attributes[attr.slug] ??
+                      []
+                    ).length
+                  }
                 >
                   <AttributeFilter attribute={attr} />
                 </FilterMenuItem>

@@ -48,6 +48,92 @@ export const DEFAULT_FILTER_VALUES: FilterValues = {
   price_max: "",
 };
 
+const SITE_NAME = "HeadKit";
+
+/**
+ * Attribute slugs treated as the indexable "color" facet (Tier-1).
+ *
+ * The URL/filter convention is `pa_color`/`pa_colour` (decodeFilterSlug re-adds
+ * the `pa_` prefix; the backend ProductListFilter expects `pa_color`). But the
+ * SDK's getFilters() returns DISPLAY attribute slugs with the prefix STRIPPED
+ * (`color`/`colour`). Both forms must be recognised so the predicate works on
+ * decoded filter values AND raw filter-option slugs.
+ */
+const COLOR_ATTR_SLUGS = [
+  "pa_color",
+  "pa_colour",
+  "color",
+  "colour",
+] as const;
+
+/** True if an attribute slug is the color facet, in either pa_/stripped form. */
+export function isColorAttrSlug(slug: string): boolean {
+  return COLOR_ATTR_SLUGS.includes(slug as (typeof COLOR_ATTR_SLUGS)[number]);
+}
+
+/**
+ * Tier-1 SEO predicate. Returns true ONLY for a "Nike-style" single-color
+ * collection URL: exactly one attribute, that attribute is the color facet
+ * (`pa_color`/`pa_colour`), it carries exactly one value, AND no other filter
+ * is engaged (no brand, category, price, in-stock, non-default sort/page).
+ *
+ * This is the single source of truth gating index-vs-canonical-to-base. It runs
+ * at request time too, so on-demand single-color pages are also SEO-correct.
+ */
+export function isIndexableFacet(filters: FilterValues): boolean {
+  // No non-facet filter may be engaged. Brand is now an indexable facet (06.1)
+  // so it is NOT rejected up-front — it is one of the two allowed dimensions.
+  if (filters.categories.length > 0) return false;
+  if (filters.instock) return false;
+  if (filters.price_min) return false;
+  if (filters.price_max) return false;
+  if (filters.sort && filters.sort !== DEFAULT_FILTER_VALUES.sort) return false;
+  if (filters.page && filters.page !== DEFAULT_FILTER_VALUES.page) return false;
+
+  // Active attribute groups (ignore stray empty-array keys) and brand values.
+  const activeAttrs = Object.entries(filters.attributes).filter(
+    ([, vals]) => vals.length > 0,
+  );
+  const hasBrand = filters.brands.length > 0;
+
+  // Indexable iff EXACTLY ONE facet dimension is engaged:
+  //   (a) one color attribute with one value, AND no brand, OR
+  //   (b) one brand with one value, AND no attribute.
+  if (hasBrand) {
+    // Brand path: no attribute groups may be engaged, single brand value only.
+    if (activeAttrs.length > 0) return false;
+    return filters.brands.length === 1;
+  }
+
+  // Color path: exactly one attribute group, the color facet, single value.
+  if (activeAttrs.length !== 1) return false;
+  const [slug, values] = activeAttrs[0]!;
+  if (!COLOR_ATTR_SLUGS.includes(slug as (typeof COLOR_ATTR_SLUGS)[number]))
+    return false;
+  if (values.length !== 1) return false;
+
+  return true;
+}
+
+/**
+ * Tier-1 SEO title: "{FacetLabel} {categoryName}" — works for a color label
+ * (e.g. "Red Lifestyle Shoes") OR a brand label (e.g. "Velocity Apparel").
+ */
+export function facetTitle(categoryName: string, facetLabel: string): string {
+  return `${facetLabel} ${categoryName}`.trim();
+}
+
+/**
+ * Tier-1 SEO description: a templated sentence for a single-facet collection.
+ * `facetLabel` is a color or a brand label.
+ */
+export function facetDescription(
+  categoryName: string,
+  facetLabel: string,
+): string {
+  return `Shop ${facetLabel} ${categoryName} at ${SITE_NAME}. Browse the latest ${facetLabel.toLowerCase()} ${categoryName.toLowerCase()} with prices and availability.`;
+}
+
 /** Convert slug-like option value to display name (e.g. "some-option" -> "Some Option"). */
 export function formatOptionName(slug: string): string {
   return slug
@@ -177,40 +263,119 @@ export function normalizeFilterKey(filter: ProductListFilter): string {
 }
 
 /**
- * Encode attribute filter values into a path-safe slug.
- * Format: `{attrName}.{val1}.{val2}_{attrName2}.{val1}` — dots join names+values within a
- * group, underscores separate groups. Attributes and values are sorted for determinism.
- * Returns an empty string when no attributes are selected.
+ * Reserved facet-name token for the brand group in the path slug. Attribute
+ * groups are keyed by their stripped attribute name (e.g. `color`); the brand
+ * group is keyed by this literal. `brand` is the taxonomy `product_brand`,
+ * never a WC product attribute, so there is no collision with attribute names.
  */
-export function encodeFilterSlug(filters: FilterValues): string {
-  const parts: string[] = [];
-  const sortedAttrs = Object.entries(filters.attributes)
-    .filter(([, vals]) => vals.length > 0)
-    .sort(([a], [b]) => a.localeCompare(b));
-  for (const [slug, vals] of sortedAttrs) {
-    const attrName = slug.replace(/^pa_/, "");
-    parts.push(`${attrName}.${[...vals].sort().join(".")}`);
+const BRAND_GROUP_KEY = "brand";
+
+/**
+ * Escape introducer for delimiter-safe value encoding. The readable scheme uses
+ * `.` to join values within a facet group and `_` to separate facet groups; a
+ * value that itself contains `.`, `_`, or the introducer `~` would corrupt the
+ * round-trip. We escape those three characters as `~XX` (two lowercase hex
+ * digits of the char code). The introducer is escaped FIRST so the transform is
+ * reversible. All three are URL-path-safe both raw and escaped.
+ */
+const ESC = "~";
+
+/** Escape a single filter value so it round-trips through the readable slug scheme. */
+function escapeValue(value: string): string {
+  let out = "";
+  for (const ch of value) {
+    if (ch === ESC || ch === "." || ch === "_") {
+      out += ESC + ch.charCodeAt(0).toString(16).padStart(2, "0");
+    } else {
+      out += ch;
+    }
   }
-  return parts.join("_");
+  return out;
+}
+
+/** Reverse {@link escapeValue}: turn `~XX` sequences back into their characters. */
+function unescapeValue(value: string): string {
+  let out = "";
+  for (let i = 0; i < value.length; i++) {
+    if (value[i] === ESC && i + 2 < value.length) {
+      const hex = value.slice(i + 1, i + 3);
+      const code = parseInt(hex, 16);
+      if (!Number.isNaN(code)) {
+        out += String.fromCharCode(code);
+        i += 2;
+        continue;
+      }
+    }
+    out += value[i];
+  }
+  return out;
 }
 
 /**
- * Decode a filter slug produced by {@link encodeFilterSlug} back into attribute key→values map.
- * Restores `pa_` prefix on attribute names. Returns an empty object for an empty slug.
+ * Encode attribute + brand filter values into a path-safe slug.
+ * Format: `{group}.{val1}.{val2}_{group2}.{val1}` — dots join names+values within
+ * a group, underscores separate groups. Groups are: attribute names (stripped of
+ * `pa_`, e.g. `color`) and the reserved `brand` group. Groups and values are
+ * sorted for determinism. Every value is delimiter-safe escaped (see
+ * {@link escapeValue}). Returns an empty string when nothing is selected.
  */
-export function decodeFilterSlug(slug: string): Record<string, string[]> {
-  if (!slug) return {};
+export function encodeFilterSlug(filters: FilterValues): string {
+  const groups: { key: string; values: string[] }[] = [];
+
+  for (const [slug, vals] of Object.entries(filters.attributes)) {
+    if (vals.length === 0) continue;
+    groups.push({ key: slug.replace(/^pa_/, ""), values: vals });
+  }
+  if (filters.brands.length > 0) {
+    groups.push({ key: BRAND_GROUP_KEY, values: filters.brands });
+  }
+
+  return groups
+    .sort((a, b) => a.key.localeCompare(b.key))
+    .map(
+      ({ key, values }) =>
+        `${key}.${[...values].sort().map(escapeValue).join(".")}`,
+    )
+    .join("_");
+}
+
+/**
+ * Decoded filter slug: attribute key→values map (with `pa_` prefix restored)
+ * plus the brand values. Replaces the prior flat `Record<string, string[]>`
+ * shape so brand round-trips out of the path (06.1).
+ */
+export interface DecodedFilterSlug {
+  attributes: Record<string, string[]>;
+  brands: string[];
+}
+
+/**
+ * Decode a filter slug produced by {@link encodeFilterSlug} back into attributes
+ * + brands. Restores the `pa_` prefix on attribute names; routes the reserved
+ * `brand` group into `brands`. Every value is unescaped. Returns empty
+ * attributes + brands for an empty slug.
+ */
+export function decodeFilterSlug(slug: string): DecodedFilterSlug {
   const attributes: Record<string, string[]> = {};
+  const brands: string[] = [];
+  if (!slug) return { attributes, brands };
+
   for (const group of slug.split("_")) {
     const dotIdx = group.indexOf(".");
     if (dotIdx === -1) continue;
-    const attrName = group.slice(0, dotIdx);
-    const values = group.slice(dotIdx + 1).split(".");
-    if (attrName && values.length > 0) {
-      attributes[`pa_${attrName}`] = values;
+    const key = group.slice(0, dotIdx);
+    const values = group
+      .slice(dotIdx + 1)
+      .split(".")
+      .map(unescapeValue);
+    if (!key || values.length === 0) continue;
+    if (key === BRAND_GROUP_KEY) {
+      brands.push(...values);
+    } else {
+      attributes[`pa_${key}`] = values;
     }
   }
-  return attributes;
+  return { attributes, brands };
 }
 
 /** Build breadcrumb URIs to match the Next.js route /collections/[...slug] (same as URL path). */

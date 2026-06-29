@@ -60,6 +60,9 @@ interface CollectionProviderProps {
   /** Attribute filter values decoded from the URL path by the server component. Takes
    *  precedence over search-param attributes when present. */
   initialFilterValues?: Record<string, string[]> | undefined;
+  /** Brand values decoded from the URL path by the server component (06.1). When
+   *  present, seeds `filterValues.brands` so the brand sidebar hydrates checked. */
+  initialBrands?: string[] | undefined;
 }
 
 const CollectionContext = createContext<CollectionContextType | null>(null);
@@ -78,6 +81,7 @@ export function CollectionProvider({
   categorySlug,
   categoryBasePath,
   initialFilterValues,
+  initialBrands,
 }: CollectionProviderProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -98,8 +102,16 @@ export function CollectionProvider({
     const categories =
       searchParams.get("categories")?.split(",").filter(Boolean) ?? [];
     if (categories.length) vals.categories = categories;
-    const brands = searchParams.get("brands")?.split(",").filter(Boolean) ?? [];
-    if (brands.length) vals.brands = brands;
+    // Brand is path-encoded (06.1): the server decodes it from the `/f/` slug and
+    // passes it via initialBrands. That takes precedence over the legacy
+    // `?brands=` query param (still read as a fallback for old/in-flight URLs).
+    if (initialBrands && initialBrands.length > 0) {
+      vals.brands = initialBrands;
+    } else {
+      const brands =
+        searchParams.get("brands")?.split(",").filter(Boolean) ?? [];
+      if (brands.length) vals.brands = brands;
+    }
     // Path-decoded attributes take precedence; fall back to search params for legacy URLs.
     if (initialFilterValues && Object.keys(initialFilterValues).length > 0) {
       vals.attributes = initialFilterValues;
@@ -131,7 +143,8 @@ export function CollectionProvider({
       if (page > 1) params.set("page", page.toString());
       if (filters.categories.length)
         params.set("categories", filters.categories.join(","));
-      if (filters.brands.length) params.set("brands", filters.brands.join(","));
+      // Brand is path-encoded (06.1) — NEVER a query param. It rides in the
+      // `/f/` slug via encodeFilterSlug below. price/sort/page stay query.
       if (filters.instock) params.set("instock", "true");
       if (filters.sort) params.set("sort", filters.sort);
       if (filters.price_min) params.set("price_min", filters.price_min);
@@ -139,8 +152,9 @@ export function CollectionProvider({
       const qs = params.toString();
 
       if (categoryBasePath) {
-        // Path-based mode: encode attribute filters into the URL path, keep other state in
-        // search params. Use replaceState to avoid server re-renders on every filter toggle.
+        // Path-based mode: encode attribute + brand filters into the URL path, keep
+        // other state in search params. Use replaceState to avoid server re-renders
+        // on every filter toggle.
         const filterSlug = encodeFilterSlug(filters);
         const filterPath = filterSlug ? `/f/${filterSlug}` : "";
         window.history.replaceState(
@@ -223,16 +237,17 @@ export function CollectionProvider({
     if (!isInitialLoad) {
       const newAttributeSlug = encodeFilterSlug(filterValues);
       if (categoryBasePath && newAttributeSlug !== prevAttributeSlugRef.current) {
-        // Attribute filters changed — navigate to the new filter path so the server
-        // renders the correct products from cache (static per filter combination).
+        // Attribute/brand filters changed — navigate to the new filter path so the
+        // server renders the correct products from cache (static per filter combo).
+        // Brand is part of newAttributeSlug now (06.1), so toggling a brand drives
+        // a path change, not a query param.
         prevAttributeSlugRef.current = newAttributeSlug;
         const filterPath = newAttributeSlug ? `/f/${newAttributeSlug}` : "";
         const params = new URLSearchParams();
         if (search) params.set("q", search);
         if (filterValues.categories.length)
           params.set("categories", filterValues.categories.join(","));
-        if (filterValues.brands.length)
-          params.set("brands", filterValues.brands.join(","));
+        // Brand omitted from query (06.1) — it lives in filterPath.
         if (filterValues.instock) params.set("instock", "true");
         if (filterValues.sort) params.set("sort", filterValues.sort);
         const qs = params.toString();
