@@ -13,6 +13,11 @@ const clientSchema = z.object({
 const serverSchema = clientSchema.extend({
   HEADKIT_PRIVATE_KEY: z.string().min(1),
   REVALIDATION_SECRET: z.string().optional(),
+  // Stripe Apple Pay domain-association token, served at
+  // /.well-known/apple-developer-merchantid-domain-association (see that route).
+  // Downloaded from the Stripe Dashboard per deploy domain; optional so local /
+  // unregistered deploys boot fine (Apple Pay just stays hidden).
+  APPLE_PAY_DOMAIN_ASSOCIATION: z.string().optional(),
 });
 
 type ClientEnv = z.infer<typeof clientSchema>;

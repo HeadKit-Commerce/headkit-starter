@@ -423,16 +423,14 @@ export default async function Page({ params, searchParams }: Props) {
   if (!categorySlug) return notFound();
 
   // Params-only cached read drives the STATIC shell (no searchParams here).
-  // Fetch failure (SDK/transport) degrades to a 404, same as a missing
-  // category — the try/catch wraps only the data read, not JSX, so it avoids
-  // the "construct JSX within try/catch" lint rule.
-  let data: Awaited<ReturnType<typeof getCategoryData>>;
-  try {
-    data = await getCategoryData(categorySlug);
-  } catch {
-    return notFound();
-  }
-  const { category, productFilter } = data;
+  // Do NOT catch→notFound here: the SDK returns null (never throws) for a
+  // genuinely missing category, so a *thrown* error is always transport/infra
+  // — e.g. a transient WooCommerce 429. Swallowing it into notFound() bakes a
+  // sticky 404 into the route cache (14-day stale), which is exactly how nested
+  // category pages 404'd while their data was fine. Let it propagate: Next then
+  // serves the last good render and retries instead of caching a not-found
+  // (mirrors the PDP route). Genuine 404s are still handled by the null check.
+  const { category, productFilter } = await getCategoryData(categorySlug);
   if (!category) return notFound();
 
   // Legacy redirect: fold query-string facets into the path form (308).

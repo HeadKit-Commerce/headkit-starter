@@ -58,6 +58,15 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   experimental: {
     optimizePackageImports: ["react-icons"],
+    // Build-time throttle. Prerendering the full category×colour×brand +
+    // product×colour matrix fires bursts of reads at the gateway → WooCommerce
+    // REST; managed WP (Pressable) rate-limits aggressively and stays 429 for
+    // longer than a few seconds, exhausting the SDK retry budget. Serialize the
+    // export — one worker, one page at a time — so at most a single page's
+    // fan-out (≤2 reads) hits WP at once. Slower build, but green against a
+    // rate-limited backend; the SDK retry handles any incidental 429.
+    cpus: 1,
+    staticGenerationMaxConcurrency: 1,
   },
   images: {
     qualities: [50, 75, 100],
@@ -67,6 +76,18 @@ const nextConfig: NextConfig = {
     // which resolves to 127.0.0.1, so the optimizer 400s ("url is not allowed")
     // in local dev. Allow it ONLY in dev — production keeps the safe default.
     dangerouslyAllowLocalIP: process.env.NODE_ENV !== "production",
+  },
+  async rewrites() {
+    return [
+      // Apple Pay domain verification. Without this, the dotted `.well-known`
+      // path falls through to the /[...slug] catch-all and returns the HTML app
+      // shell, so Stripe's verification fetch fails and Apple Pay stays hidden.
+      // Map it to a route handler that serves the Stripe-issued token.
+      {
+        source: "/.well-known/apple-developer-merchantid-domain-association",
+        destination: "/api/apple-pay-domain-association",
+      },
+    ];
   },
   async headers() {
     return [
