@@ -29,10 +29,13 @@ import { test, expect } from "@playwright/test";
  * no-payment confirm renders), they do not silently pass.
  *
  * ── PAY-06 (express / wallet) ────────────────────────────────────────────
- * The checkout payment step mounts an <ExpressCheckoutElement> (Apple Pay /
- * Google Pay) inside the same CheckoutProvider context as PaymentElement
- * (components/checkout/steps/stripe-checkout-step.tsx). The element is wrapped
- * in a `[data-testid="express-checkout"]` container that is ALWAYS in the DOM.
+ * The checkout mounts a single <ExpressCheckoutElement> (Apple Pay / Google Pay
+ * / Link) at the TOP of the page, above the contact step, inside the
+ * CheckoutProvider context (components/checkout/express-checkout-top.tsx). It is
+ * wrapped in a `[data-testid="express-checkout"]` container that is in the DOM
+ * from page load for a paid cart (no longer gated behind reaching the payment
+ * step). Stripe allows only ONE ExpressCheckoutElement per CheckoutProvider, so
+ * it is NOT also mounted in the payment step.
  *
  * IMPORTANT — MANUAL GATE: the actual Apple/Google Pay BUTTON only renders when
  * BOTH (a) the buyer's browser/device advertises a wallet AND (b) the storefront
@@ -132,7 +135,7 @@ test.describe("Express / wallet checkout presence (PAY-06)", () => {
     ).not.toBe("");
   });
 
-  test("the express/wallet mount point is present in the payment step (button visibility is a manual gate)", async ({
+  test("the express/wallet mount point is present at the top of checkout (button visibility is a manual gate)", async ({
     page,
     context,
   }) => {
@@ -146,12 +149,12 @@ test.describe("Express / wallet checkout presence (PAY-06)", () => {
 
     await page.goto(`${BASE_URL}/checkout`);
 
-    // Advance to the payment step is flow-dependent; once there, the express
-    // checkout container must be wired into the DOM.
+    // Mounted at the top of the page from load (no step navigation needed): the
+    // express checkout container must be wired into the DOM for a paid cart.
     const express = page.locator('[data-testid="express-checkout"]');
     await expect(
       express,
-      "express/wallet checkout mount point is missing from the payment step (PAY-06 — ExpressCheckoutElement not wired)",
+      "express/wallet checkout mount point is missing from the top of checkout (PAY-06 — ExpressCheckoutElement not wired)",
     ).toBeAttached({ timeout: 30_000 });
 
     // MANUAL GATE (INFRA-06): the actual Apple/Google Pay button only renders

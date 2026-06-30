@@ -22,6 +22,7 @@ import { DeliveryMethodStep } from "@/components/checkout/steps/delivery-method-
 import { ShippingOptionsStep } from "@/components/checkout/steps/shipping-options-step";
 import { BillingAddressStep } from "@/components/checkout/steps/billing-address-step";
 import { StripePaymentStep } from "@/components/checkout/steps/stripe-checkout-step";
+import { ExpressCheckoutTop } from "@/components/checkout/express-checkout-top";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import type { CheckoutSessionProp } from "@/app/checkout/checkout-page-content";
 import {
@@ -843,10 +844,12 @@ export function CheckoutForm({
         <div className="px-[20px] md:px-[40px] mx-auto grid grid-cols-12 gap-[20px]">
           {/* Checkout form — left on desktop */}
           <div className="order-2 md:order-1 col-span-12 md:col-span-6">
-            {/* Express/wallet checkout is mounted once inside the Payment step
-                (stripe-checkout-step). A second ExpressCheckoutElement here threw
-                "cannot create multiple instances" and crashed the Payment step to
-                the error boundary. */}
+            {/* Express/wallet checkout (Apple Pay / Google Pay / Link) — the
+                single ExpressCheckoutElement instance, mounted at the top so a
+                buyer can pay in one tap and skip the form. It self-hides when no
+                wallet is available. Stripe allows only ONE per CheckoutProvider,
+                so it must NOT also appear in the Payment step. */}
+            <ExpressCheckoutTop />
             <CheckoutSteps
               sessionId={checkoutSession.sessionId}
               pickupLocationsFromApi={pickupLocationsFromApi}

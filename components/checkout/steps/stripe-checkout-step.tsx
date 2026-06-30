@@ -3,7 +3,6 @@
 import { useCallback, useState } from "react";
 import {
   PaymentElement,
-  ExpressCheckoutElement,
   useCheckout,
   CurrencySelectorElement,
 } from "@stripe/react-stripe-js/checkout";
@@ -63,21 +62,13 @@ export function StripePaymentStep() {
   return (
     <div className="space-y-4">
       {/*
-        PAY-06: express / wallet checkout (Apple Pay / Google Pay). Mounted in
-        the SAME useCheckout (CheckoutProvider) context as PaymentElement, so its
-        confirm flows through the same checkout.confirm() path. The buttons only
-        render when the buyer's browser/device supports a wallet AND the domain
-        is verified with Stripe (manual dashboard prereq, INFRA-06) — otherwise
-        the element renders empty. No new package / no version bump: this ships
-        in the installed @stripe/react-stripe-js@5.6.x /checkout subpath.
+        PAY-06: express / wallet checkout (Apple Pay / Google Pay / Link) is NOT
+        here — it lives in <ExpressCheckoutTop /> at the top of the checkout page
+        (components/checkout/express-checkout-top.tsx). Stripe allows only ONE
+        ExpressCheckoutElement per CheckoutProvider; a second instance here threw
+        "cannot create multiple instances" and crashed to the error boundary.
+        This step is the card / Payment Element path only.
       */}
-      <div data-testid="express-checkout">
-        <ExpressCheckoutElement
-          onConfirm={() => {
-            void handleSubmit();
-          }}
-        />
-      </div>
       <CurrencySelectorElement />
       <PaymentElement
         options={{
