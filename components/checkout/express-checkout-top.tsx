@@ -71,6 +71,26 @@ export function ExpressCheckoutTop(): React.ReactElement {
           (zero height) when no wallet is supported on this device/browser. */}
       <div data-testid="express-checkout">
         <ExpressCheckoutElement
+          options={{
+            // Force the wallet buttons to render whenever the platform supports
+            // them, instead of the default "auto" (which only shows when the
+            // buyer is already signed in / Stripe deems it advantageous, and
+            // never shows Apple Pay on desktop Chromium). "always" shows the
+            // button even when the buyer isn't logged in, opening a sign-in /
+            // add-card flow on tap.
+            // https://docs.stripe.com/js/elements_object/create_express_checkout_element
+            paymentMethods: {
+              applePay: "always",
+              googlePay: "always",
+            },
+            // The Checkout-subpath options type requires every key; leave the
+            // rest at their Stripe defaults.
+            buttonHeight: undefined,
+            buttonTheme: undefined,
+            buttonType: undefined,
+            layout: undefined,
+            paymentMethodOrder: undefined,
+          }}
           onConfirm={handleConfirm}
           onAvailablePaymentMethodsChange={handleAvailablePaymentMethodsChange}
         />
