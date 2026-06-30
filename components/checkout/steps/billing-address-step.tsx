@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BillingAddressElement } from "@stripe/react-stripe-js/checkout";
@@ -15,8 +15,6 @@ import {
 } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import {
-  cartAddressToStripeContacts,
-  getCheckoutAllowedCountries,
   isValidCheckoutPhone,
   CHECKOUT_PHONE_MESSAGE,
 } from "@/components/checkout/utils";
@@ -84,11 +82,6 @@ const BillingAddressStep: React.FC<BillingAddressStepProps> = ({
     resolver: zodResolver(addressSchema),
     defaultValues,
   });
-
-  const billingContacts = useMemo(
-    () => cartAddressToStripeContacts(defaultValues?.billingAddress),
-    [defaultValues?.billingAddress],
-  );
 
   const onSubmit = async (data: z.infer<typeof addressSchema>) => {
     const billingToUse = data.billingAddress?.line1
@@ -165,7 +158,15 @@ const BillingAddressStep: React.FC<BillingAddressStepProps> = ({
       <Form {...form}>
         <div className="space-y-4">
           <BillingAddressElement
-            options={billingContacts ? { contacts: billingContacts } : {}}
+            // ENG-755: `contacts` is a create-only option on the Checkout
+            // Sessions BillingAddressElement. When a saved address loads async,
+            // React's <BillingAddressElement> forwards the changed `contacts` to
+            // element.update(), which Stripe.js rejects ("Unrecognized
+            // addressElement.update() parameter: contacts") and the
+            // /v1/payment_pages session-update 400s. Returning-customer prefill
+            // is handled the Sessions-native way via actions.updateBillingAddress
+            // (onSubmit below) — not a client element option.
+            options={{}}
             onChange={(event) => {
               if (event.complete && event.value) {
                 const { address, phone, firstName, lastName, name } =

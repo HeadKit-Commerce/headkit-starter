@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ShippingAddressElement } from "@stripe/react-stripe-js/checkout";
@@ -19,7 +19,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SpinnerIcon } from "@/components/icon";
 import { cn } from "@/lib/utils";
 import {
-  cartAddressToStripeContacts,
   DeliveryStepEnum,
   getCheckoutAllowedCountries,
   isValidCheckoutPhone,
@@ -189,11 +188,6 @@ const DeliveryMethodStep: React.FC<DeliveryMethodStepProps> = ({
   });
 
   const deliveryMethod = form.watch("deliveryMethod");
-
-  const shippingContacts = useMemo(
-    () => cartAddressToStripeContacts(defaultValues?.shippingAddress),
-    [defaultValues?.shippingAddress],
-  );
 
   const isDisabled =
     isSubmitting ||
@@ -523,7 +517,13 @@ const DeliveryMethodStep: React.FC<DeliveryMethodStepProps> = ({
             <>
               <ShippingAddressElement
                 key={deliveryMethod}
-                options={shippingContacts ? { contacts: shippingContacts } : {}}
+                // ENG-755: `contacts` is create-only on the Checkout Sessions
+                // ShippingAddressElement; forwarding it to element.update() on an
+                // async saved-address load triggers the "Unrecognized
+                // addressElement.update() parameter: contacts" warning and a
+                // /v1/payment_pages 400. Prefill is set the Sessions-native way
+                // via actions.updateShippingAddress (onSubmit below).
+                options={{}}
                 onChange={(event) => {
                   if (event.complete && event.value) {
                     const { address, phone, firstName, lastName, name } =

@@ -42,52 +42,8 @@ export function isValidCheckoutPhone(value: string): boolean {
 export const CHECKOUT_PHONE_MESSAGE =
   "Enter a valid phone number (at least 8 digits)";
 
-/** Stripe ContactOption shape for Address Element options.contacts */
-export type StripeContactOption = {
-  name: string;
-  address: {
-    line1: string;
-    city: string;
-    state: string;
-    postal_code: string;
-    country: string;
-    line2?: string;
-  };
-};
-
-/**
- * Converts cart/defaultValues address to Stripe Address Element contacts array.
- * Returns undefined when addr has no line1; otherwise returns one-element array for options.contacts.
- */
-export function cartAddressToStripeContacts(
-  addr:
-    | {
-        firstName?: string | undefined;
-        lastName?: string | undefined;
-        line1?: string | undefined;
-        line2?: string | undefined;
-        city?: string | undefined;
-        state?: string | undefined;
-        country?: string | undefined;
-        postalCode?: string | undefined;
-      }
-    | null
-    | undefined,
-): StripeContactOption[] | undefined {
-  if (!addr?.line1?.trim()) return undefined;
-  const name =
-    [addr.firstName, addr.lastName].filter(Boolean).join(" ").trim() || "";
-  return [
-    {
-      name,
-      address: {
-        line1: addr.line1 ?? "",
-        city: addr.city ?? "",
-        state: addr.state ?? "",
-        postal_code: addr.postalCode ?? "",
-        country: addr.country ?? "",
-        ...(addr.line2?.trim() ? { line2: addr.line2 } : {}),
-      },
-    },
-  ];
-}
+// ENG-755: removed `StripeContactOption` + `cartAddressToStripeContacts`.
+// `contacts` is a create-only option on the Checkout Sessions address elements;
+// passing it caused element.update() to reject it and 400 the session update.
+// Returning-customer prefill is set via the Sessions-native
+// actions.updateBillingAddress / actions.updateShippingAddress on step submit.
