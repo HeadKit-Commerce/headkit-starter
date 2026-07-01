@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import sanitize from "sanitize-html";
 import { headkit as sdk } from "@/lib/sdk";
 import { makeSeoMetadata, seoFallbackDescription } from "@/lib/make-metadata";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
+import { EditorialContent } from "@/components/headkit-ui/editorial-content";
 
 interface Props {
   params: Promise<{ slug: string[] }>;
@@ -11,8 +11,10 @@ interface Props {
 }
 
 async function getPageData(slug: string[]) {
-  const uri = `/${slug.join("/")}`;
-  return sdk.pages.get(uri).catch(() => null);
+  // content() resolves PAGE by bare slug/path (no leading slash) — the WP
+  // /content/page/{slug} route + provider look up by path, so `/foo` 404s.
+  const contentSlug = slug.join("/");
+  return sdk.content.get(contentSlug, "PAGE").catch(() => null);
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -46,10 +48,10 @@ export default async function Page({ params }: Props) {
     <div className="px-5 md:px-10 my-10 min-h-[50vh]">
       <BreadcrumbJsonLD items={breadcrumbItems} />
       <h1 className="font-extrabold text-3xl text-purple-800">{page.title}</h1>
-      <div className="mt-5 grid grid-cols-12">
-        <div className="prose col-span-12 md:col-span-9">
-          <div dangerouslySetInnerHTML={{ __html: sanitize(page.content) }} />
-        </div>
+      {/* Full-width symmetric wrapper: EditorialContent centers its own blocks
+          at content width; .alignwide/.alignfull break out from viewport centre. */}
+      <div className="mt-5">
+        <EditorialContent html={page.content} />
       </div>
     </div>
   );

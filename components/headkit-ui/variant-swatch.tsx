@@ -73,7 +73,7 @@ const VariantSwatch = ({
       type="button"
       onClick={onClick}
       className={cn(
-        "relative h-8 max-w-full cursor-pointer truncate rounded-md border px-[10px] py-1 text-center outline-2 outline-solid -outline-offset-1 transition-all hover:outline-purple-500",
+        "relative inline-flex h-8 max-w-full cursor-pointer items-center justify-center truncate rounded-md border px-[10px] leading-none outline-2 outline-solid -outline-offset-1 transition-all hover:outline-purple-500",
         isUnavailable ? "border-gray-500 text-gray-500" : "border-gray-700",
         isSelected ? "font-semibold outline-purple-800" : "outline-transparent",
         isIncompatible && !isSelected && "opacity-50",

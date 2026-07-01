@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import { cacheLife, cacheTag } from "next/cache";
-import sanitize from "sanitize-html";
 import { headkit as sdk } from "@/lib/sdk";
 import { makeSeoMetadata } from "@/lib/make-metadata";
+import { EditorialContent } from "@/components/headkit-ui/editorial-content";
 
 async function getContactPage() {
   "use cache";
   cacheLife("max");
   cacheTag("headkit:page:contact", "headkit:pages");
-  return sdk.pages.get("contact");
+  return sdk.content.get("contact", "PAGE");
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -40,10 +40,9 @@ export default async function ContactPage() {
             {page?.title ?? "Contact Us"}
           </h1>
           {page?.content && (
-            <div
-              className="prose text-purple-800 max-w-none"
-              dangerouslySetInnerHTML={{ __html: sanitize(page.content) }}
-            />
+            <div className="text-purple-800">
+              <EditorialContent html={page.content} />
+            </div>
           )}
         </div>
 

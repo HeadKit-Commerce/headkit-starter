@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cacheLife, cacheTag } from "next/cache";
-import sanitize from "sanitize-html";
 import { headkit as sdk } from "@/lib/sdk";
 import { GravityForm } from "@/components/gravity-form";
 import { makeSeoMetadata } from "@/lib/make-metadata";
+import { EditorialContent } from "@/components/headkit-ui/editorial-content";
 
 const WHOLESALE_SLUG = "wholesale";
 
@@ -15,7 +15,7 @@ async function getWholesalePage() {
   "use cache";
   cacheLife("max");
   cacheTag("headkit:page:wholesale", "headkit:pages");
-  return sdk.pages.get(WHOLESALE_SLUG);
+  return sdk.content.get(WHOLESALE_SLUG, "PAGE");
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -52,12 +52,7 @@ export default async function Page() {
         {/* Left Column — Content */}
         <div>
           <h1 className="mb-6 text-3xl font-bold">{page.title}</h1>
-          <div
-            className="prose max-w-none"
-            dangerouslySetInnerHTML={{
-              __html: sanitize(page.content ?? ""),
-            }}
-          />
+          <EditorialContent html={page.content} />
         </div>
 
         {/* Right Column — Inquiry Form */}

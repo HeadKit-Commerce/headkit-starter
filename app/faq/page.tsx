@@ -10,13 +10,14 @@ import {
 } from "@/components/ui/accordion";
 import { FAQPageJsonLD } from "@/components/seo/faq-page-json-ld";
 import { makeSeoMetadata } from "@/lib/make-metadata";
+import { EditorialContent } from "@/components/headkit-ui/editorial-content";
 
 async function getFaqPage() {
   "use cache";
   cacheLife("max");
   cacheTag("headkit:page:faq", "headkit:pages");
   return Promise.all([
-    sdk.pages.get("faq").catch(() => null),
+    sdk.content.get("faq", "PAGE").catch(() => null),
     sdk.faq.list().catch(() => []),
   ]);
 }
@@ -53,10 +54,9 @@ export default async function FAQPage() {
               {page?.title ?? "Frequently Asked Questions"}
             </h1>
             {page?.content && (
-              <div
-                className="prose text-purple-800 max-w-none"
-                dangerouslySetInnerHTML={{ __html: sanitize(page.content) }}
-              />
+              <div className="text-purple-800">
+                <EditorialContent html={page.content} />
+              </div>
             )}
           </div>
 
