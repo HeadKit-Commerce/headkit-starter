@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChevronDownIcon, MenuIcon, XIcon } from "@/components/icon";
 import {
   NavigationMenu,
@@ -244,6 +245,7 @@ function DesktopMenuSection({
   items: NavMenuItem[];
   highlightedLinks: string[];
 }) {
+  const router = useRouter();
   return (
     <>
       {items.map((item) => (
@@ -251,12 +253,27 @@ function DesktopMenuSection({
           {item.children.length > 0 ? (
             <>
               <NavigationMenuTrigger
+                asChild
                 className={cn(
                   isHighlightedItem(item, highlightedLinks) &&
                     "text-pink-500 hover:!text-pink-600",
                 )}
               >
-                {item.label}
+                {/*
+                  Radix Trigger's onClick preventDefault()s before Next Link's
+                  navigation, so a plain <Link> only toggles the dropdown.
+                  Drive navigation explicitly so click → parent uri while the
+                  href stays for SEO/a11y and hover still opens the MegaMenu.
+                */}
+                <Link
+                  href={removeTrailingSlash(item.uri)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    router.push(removeTrailingSlash(item.uri));
+                  }}
+                >
+                  {item.label}
+                </Link>
               </NavigationMenuTrigger>
               <NavigationMenuContent className="w-screen! rounded-none!">
                 <MegaMenu items={item.children} />
