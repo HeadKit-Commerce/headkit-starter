@@ -23,7 +23,7 @@ import { AttributeFilter } from "./attribute-filter";
 import { BrandFilter } from "./brand-filter";
 import { PriceFilter } from "./price-filter";
 import { ClearFiltersButton } from "./clear-filters-button";
-import { SortMenu } from "./sort-menu";
+import { SortMenu, MobileSortMenu } from "./sort-menu";
 import type { ProductFilterAttribute } from "@headkit/sdk";
 
 /** Shared count of active facets — drives the mobile drawer badge. */
@@ -96,7 +96,7 @@ export function Filter() {
             "opacity-50 pointer-events-none": isLoading,
           })}
         >
-          <div className="flex w-full items-center justify-between overflow-x-auto py-5 scrollbar-hide">
+          <div className="flex w-full items-center justify-between overflow-x-auto py-5 pr-4 scrollbar-hide">
             <NavigationMenuList className="flex items-center gap-0 -ml-4">
               {categories.length > 0 && (
                 <FilterMenuItem
@@ -206,19 +206,8 @@ export function Filter() {
           </SheetContent>
         </Sheet>
 
-        <SortMenuWrapper />
+        <MobileSortMenu />
       </div>
     </>
-  );
-}
-
-/** SortMenu needs a NavigationMenu context to render its dropdown. */
-function SortMenuWrapper() {
-  return (
-    <NavigationMenu className="flex items-center">
-      <NavigationMenuList className="flex items-center">
-        <SortMenu />
-      </NavigationMenuList>
-    </NavigationMenu>
   );
 }
