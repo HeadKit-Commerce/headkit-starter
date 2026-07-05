@@ -24,6 +24,46 @@ async function getProduct(slug: string) {
   return headkit.products.get(slug);
 }
 
+function mapRelatedToProduct(r: RelatedProduct): Product {
+  return {
+    id: r.id,
+    name: r.name,
+    slug: r.slug,
+    uri: `/products/${r.slug}`,
+    isNew: false,
+    description: "",
+    shortDescription: "",
+    price: r.price,
+    regularPrice: r.regularPrice,
+    salePrice: r.salePrice,
+    onSale: r.onSale,
+    available: r.stockStatus?.toLowerCase() !== "outofstock",
+    sku: "",
+    type: r.type,
+    stockStatus: r.stockStatus,
+    stockQuantity: null,
+    permalink: r.permalink,
+    image: r.image ?? null,
+    images: r.image ? [r.image] : [],
+    categories: [],
+    tags: [],
+    attributes: r.attributes ?? [],
+    variations: r.variations ?? [],
+    related: [],
+    // The lighter RelatedProduct shape (product.related) does not carry these
+    // Product fields, and the related-products carousel does not read them.
+    // Default them type-correctly so the map satisfies the widened Product
+    // type without unsafe casts: rating/review absent → empty/zero; no brand
+    // or cross/upsell data on related → empty lists; never a gift card here.
+    averageRating: "",
+    reviewCount: 0,
+    brands: [],
+    crossSells: [],
+    upsells: [],
+    isGiftCard: false,
+  };
+}
+
 // Dynamic inner component — awaits searchParams for variant pre-selection only
 async function ProductDetailServer({
   product,
@@ -106,45 +146,8 @@ export default async function ProductPage({ params, searchParams }: Props) {
     notFound();
   }
 
-  const relatedAsProducts: Product[] = product.related.map(
-    (r: RelatedProduct) => ({
-      id: r.id,
-      name: r.name,
-      slug: r.slug,
-      uri: `/products/${r.slug}`,
-      isNew: false,
-      description: "",
-      shortDescription: "",
-      price: r.price,
-      regularPrice: r.regularPrice,
-      salePrice: r.salePrice,
-      onSale: r.onSale,
-      available: r.stockStatus?.toLowerCase() !== "outofstock",
-      sku: "",
-      type: r.type,
-      stockStatus: r.stockStatus,
-      stockQuantity: null,
-      permalink: r.permalink,
-      image: r.image ?? null,
-      images: r.image ? [r.image] : [],
-      categories: [],
-      tags: [],
-      attributes: r.attributes ?? [],
-      variations: r.variations ?? [],
-      related: [],
-      // The lighter RelatedProduct shape (product.related) does not carry these
-      // Product fields, and the related-products carousel does not read them.
-      // Default them type-correctly so the map satisfies the widened Product
-      // type without unsafe casts: rating/review absent → empty/zero; no brand
-      // or cross/upsell data on related → empty lists; never a gift card here.
-      averageRating: "",
-      reviewCount: 0,
-      brands: [],
-      crossSells: [],
-      upsells: [],
-      isGiftCard: false,
-    }),
-  );
+  const relatedAsProducts: Product[] = product.related.map(mapRelatedToProduct);
+  const upsellsAsProducts: Product[] = product.upsells.map(mapRelatedToProduct);
 
   const breadcrumbs = [
     { name: "Home", href: "/" },
@@ -179,13 +182,27 @@ export default async function ProductPage({ params, searchParams }: Props) {
         />
       </Suspense>
 
+      {upsellsAsProducts.length > 0 && (
+        <section className="overflow-hidden py-10">
+          <SectionHeader
+            title="You might also like…"
+            description=""
+            className="px-5 md:px-10"
+          />
+          <div className="mt-5">
+            <ProductCarousel
+              products={upsellsAsProducts}
+              id="upsell-products"
+            />
+          </div>
+        </section>
+      )}
+
       {relatedAsProducts.length > 0 && (
         <section className="overflow-hidden py-10">
           <SectionHeader
-            title="You might also like"
+            title="Something similar"
             description=""
-            allButton="View All"
-            allButtonPath="/shop"
             className="px-5 md:px-10"
           />
           <div className="mt-5">
