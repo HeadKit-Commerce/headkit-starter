@@ -105,6 +105,9 @@ export default async function CheckoutSuccessPage({
         if (session.cardLast4) {
           paymentData.push({ key: "card_last4", value: session.cardLast4 });
         }
+        if (session.walletType) {
+          paymentData.push({ key: "wallet_type", value: session.walletType });
+        }
         if (session.livemode !== undefined) {
           paymentData.push({
             key: "payment_mode",
