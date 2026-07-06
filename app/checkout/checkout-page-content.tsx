@@ -27,7 +27,8 @@ function CheckoutErrorHandler({
     if (error) {
       switch (error) {
         case "payment_failed":
-          onError("Payment failed. Please try again.");
+          // Rendered by the dismissible <PaymentFailedBanner> on the checkout
+          // page (ENG-789) — no inline duplicate here.
           break;
         case "checkout_failed":
           onError(

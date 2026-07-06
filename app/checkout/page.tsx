@@ -5,8 +5,20 @@ import { CheckoutPageContent } from "./checkout-page-content";
 import type { CartFieldsFragment } from "@headkit/sdk";
 import { getFullCartAction } from "@/lib/cart-actions";
 import { createServerHeadkit } from "@/lib/sdk.server";
+import { PaymentFailedBanner } from "@/components/checkout/payment-failed-banner";
 
-export default async function CheckoutPage() {
+export default async function CheckoutPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  // ENG-789: the checkout return page redirects failed/canceled payments
+  // (e.g. Afterpay declines) back here with ?error=payment_failed for an
+  // in-place retry. Reading searchParams keeps the page dynamic — it already
+  // is (cookie-based cart fetch).
+  const { error } = await searchParams;
+  const paymentFailed = error === "payment_failed";
+
   let cart = await getFullCartAction();
 
   // null  = no cookie, or WooCommerce session expired (stale cookie was cleared)
@@ -113,6 +125,8 @@ export default async function CheckoutPage() {
 
   return (
     <main className="min-h-screen bg-gray-50">
+      {/* Payment failed banner (ENG-789: retry after Afterpay/BNPL decline) */}
+      {paymentFailed && <PaymentFailedBanner />}
       {/* Stock correction banner */}
       {stockCorrectionMessage && (
         <div className="mx-auto max-w-6xl px-4 pt-6">

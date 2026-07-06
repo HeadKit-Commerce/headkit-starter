@@ -30,6 +30,12 @@ import type {
  * but the surrounding label + divider only render once
  * `onAvailablePaymentMethodsChange` reports at least one method — so unsupported
  * browsers see no empty gap or dangling "Or" divider.
+ *
+ * Failure signaling (ENG-789): every confirm failure path calls
+ * `event.paymentFailed({ reason: "fail" })` so the wallet sheet itself shows
+ * the failure state instead of silently closing while the error only appears
+ * inline on the page beneath. The inline message is kept as the on-page
+ * fallback.
  */
 export function ExpressCheckoutTop(): React.ReactElement {
   const checkoutState = useCheckout();
@@ -39,17 +45,24 @@ export function ExpressCheckoutTop(): React.ReactElement {
   const handleConfirm = (
     event: StripeExpressCheckoutElementConfirmEvent,
   ): void => {
-    if (checkoutState.type !== "success") return;
+    if (checkoutState.type !== "success") {
+      // Checkout state not ready — confirm cannot proceed at all. Signal the
+      // wallet sheet so it shows a failure instead of silently closing.
+      event.paymentFailed({ reason: "fail" });
+      return;
+    }
     const { checkout } = checkoutState;
     setError(null);
     void checkout
       .confirm({ expressCheckoutConfirmEvent: event })
       .then((result) => {
         if (result.type === "error") {
+          event.paymentFailed({ reason: "fail" });
           setError(result.error.message ?? "Payment failed. Please try again.");
         }
       })
       .catch((err: unknown) => {
+        event.paymentFailed({ reason: "fail" });
         setError(
           err instanceof Error ? err.message : "An unexpected error occurred.",
         );

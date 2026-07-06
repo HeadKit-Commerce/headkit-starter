@@ -8,6 +8,7 @@ import {
   processCheckoutOrderAction,
 } from "@/app/checkout/actions";
 import { ClearCart } from "@/components/checkout/clear-cart";
+import { PaymentProcessing } from "@/components/checkout/payment-processing";
 import { LineItemDisplay } from "@/components/checkout/line-item-display";
 import { PaymentMethodDisplay } from "@/components/checkout/payment-method-display";
 import { needsCheckoutOrderProcessing } from "@/lib/checkout-success-utils";
@@ -112,9 +113,24 @@ export default async function Page({ params, searchParams }: Props) {
     }
 
     if (session) {
-      if (session.status === "expired") return notFound();
-      if (session.status === "open") return notFound();
-      if (session.paymentStatus !== "paid") return notFound();
+      // ENG-789: the backend rewrites the Stripe return_url to this
+      // order-based URL once the draft order exists, so redirect-BNPL
+      // failures (e.g. Afterpay "Fail test payment") land HERE — not on
+      // /checkout/success. Mirror its status branching instead of 404ing:
+      // - open    → payment failed/canceled; cart + draft order are intact,
+      //             send the shopper back to checkout for an in-place retry.
+      // - expired → session no longer payable.
+      // - complete + unpaid → async method still settling; show pending UI,
+      //             the webhook (async_payment_succeeded) finalizes the order.
+      if (session.status === "open") {
+        redirect("/checkout?error=payment_failed");
+      }
+      if (session.status === "expired") {
+        redirect("/checkout/error?reason=session_expired");
+      }
+      if (session.paymentStatus === "unpaid") {
+        return <PaymentProcessing />;
+      }
 
       // Guard: session order must match URL (reject tampered requests).
       // Skip the deferred sentinel "0": in the WC 10.8 deferred-order flow the

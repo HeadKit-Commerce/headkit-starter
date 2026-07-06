@@ -1,10 +1,23 @@
 import { redirect } from "next/navigation";
 import { getCheckoutSessionAction, processCheckoutAction } from "../actions";
+import { PaymentProcessing } from "@/components/checkout/payment-processing";
 
 /**
- * Legacy success entry: when user lands with only session_id (e.g. old bookmark
- * or successBaseUrl not set), fetch session to get orderId/orderKey and redirect
- * to the order-based URL.
+ * Checkout return page: Stripe sends the shopper here (with only session_id)
+ * after the embedded/redirect payment flow completes — success OR failure.
+ * The page branches on the Stripe session status (ENG-789):
+ *
+ * - status "open"                       → payment failed or was canceled
+ *   (redirect BNPL methods like Afterpay return here on decline/cancel).
+ *   Redirect to /checkout?error=payment_failed — the checkout page creates a
+ *   fresh Stripe session on load and the cart is preserved, so this is an
+ *   in-place retry.
+ * - status "expired"                    → /checkout/error?reason=session_expired
+ * - status "complete" + unpaid          → async payment method still processing
+ *   (e.g. bank debits). Render a pending screen; the webhook finalizes the
+ *   order on checkout.session.async_payment_succeeded.
+ * - status "complete" + paid            → resolve the order and redirect to the
+ *   order confirmation page (existing path, unchanged).
  *
  * WC 10.8+ compatibility: when session.orderId is "0" or empty (deferred draft
  * order creation), the Stripe session was created before the WC draft order
@@ -14,6 +27,18 @@ import { getCheckoutSessionAction, processCheckoutAction } from "../actions";
  * asynchronously; whichever runs first wins (WC POST /checkout is safe to call
  * once the cart is active).
  */
+
+/** Where the page should send (or render) the shopper, computed inside the
+ * try block and acted on AFTER the try/catch — Next's redirect() signals by
+ * throwing NEXT_REDIRECT, and a catch{} around it would swallow that throw
+ * (the ISSUE-001 bug). */
+type Disposition =
+  | "order" // paid + order resolved → confirmation page
+  | "retry" // session open (failed/canceled) → /checkout?error=payment_failed
+  | "expired" // session expired → /checkout/error?reason=session_expired
+  | "pending" // async payment processing (or paid but unresolved) → render UI
+  | "error"; // session fetch threw → /checkout/error?reason=processing_error
+
 export default async function CheckoutSuccessPage({
   searchParams,
 }: {
@@ -26,147 +51,171 @@ export default async function CheckoutSuccessPage({
     redirect("/");
   }
 
-  // Resolved order is set inside the try; the redirect() happens AFTER the
-  // try/catch. Next's redirect() signals by throwing NEXT_REDIRECT — a catch{}
-  // around it would swallow that throw and send every resolved order to home
-  // instead of the confirmation page (the ISSUE-001 bug).
+  let disposition: Disposition = "error";
   let resolvedOrderId: string | undefined;
   let resolvedOrderKey: string | undefined;
 
   try {
     const session = await getCheckoutSessionAction(sessionId);
 
-    // Only proceed for paid sessions.
-    if (session.paymentStatus !== "paid") {
-      redirect("/");
-    }
+    if (session.status === "open") {
+      // Payment failed or canceled (Afterpay decline/cancel returns here with
+      // the session still open and remountable). Send the shopper back to
+      // /checkout for an in-place retry with a fresh session + preserved cart.
+      disposition = "retry";
+    } else if (session.status === "expired") {
+      disposition = "expired";
+    } else if (session.paymentStatus === "unpaid") {
+      // Session complete but the async payment method (delayed-notification
+      // BNPL / bank debit) hasn't settled. The webhook finalizes the order on
+      // checkout.session.async_payment_succeeded — do NOT processCheckout here.
+      disposition = "pending";
+    } else {
+      // Session complete and paid (or no_payment_required): existing
+      // order-resolution path, unchanged.
+      let orderId = session.orderId;
+      let orderKey = session.orderKey;
 
-    let orderId = session.orderId;
-    let orderKey = session.orderKey;
-
-    // WC 10.8+ deferred draft order: session.orderId is "0" or empty because
-    // GET /checkout returned order_id=0 at session creation time. The webhook
-    // finalizes the order asynchronously, but the success page may arrive before
-    // the webhook completes. Call processCheckout to create-and-finalize the
-    // order immediately so the user can see their order confirmation.
-    if ((!orderId || orderId === "0") && session.cartToken) {
-      const paymentData: { key: string; value: string }[] = [
-        { key: "checkout_session_id", value: sessionId },
-        { key: "payment_status", value: "paid" },
-        { key: "payment_provider", value: "stripe" },
-      ];
-      if (session.paymentIntentId) {
-        paymentData.push({
-          key: "payment_intent_id",
-          value: session.paymentIntentId,
-        });
-      }
-      if (session.paymentMethod) {
-        paymentData.push({
-          key: "payment_method",
-          value: session.paymentMethod,
-        });
-      }
-      if (session.cardBrand) {
-        paymentData.push({ key: "card_brand", value: session.cardBrand });
-      }
-      if (session.cardLast4) {
-        paymentData.push({ key: "card_last4", value: session.cardLast4 });
-      }
-      if (session.livemode !== undefined) {
-        paymentData.push({
-          key: "payment_mode",
-          value: session.livemode ? "live" : "test",
-        });
-      }
-      if (session.stripeCustomerId) {
-        paymentData.push({
-          key: "stripe_customer_id",
-          value: session.stripeCustomerId,
-        });
-      }
-
-      const stripeAddr =
-        session.shippingAddress ?? session.billingAddress ?? null;
-      const billingAddress = {
-        firstName: stripeAddr?.firstName ?? "",
-        lastName: stripeAddr?.lastName ?? "",
-        address1: stripeAddr?.address1 ?? "",
-        ...(stripeAddr?.address2 ? { address2: stripeAddr.address2 } : {}),
-        city: stripeAddr?.city ?? "",
-        state: stripeAddr?.state ?? "",
-        postcode: stripeAddr?.postcode ?? "",
-        country: stripeAddr?.country ?? "",
-        email: session.customerEmail ?? "",
-        phone: stripeAddr?.phone ?? "",
-      };
-      const shippingAddress = {
-        firstName: stripeAddr?.firstName ?? "",
-        lastName: stripeAddr?.lastName ?? "",
-        address1: stripeAddr?.address1 ?? "",
-        ...(stripeAddr?.address2 ? { address2: stripeAddr.address2 } : {}),
-        city: stripeAddr?.city ?? "",
-        state: stripeAddr?.state ?? "",
-        postcode: stripeAddr?.postcode ?? "",
-        country: stripeAddr?.country ?? "",
-        phone: stripeAddr?.phone ?? "",
-      };
-
-      try {
-        const checkout = await processCheckoutAction({
-          paymentMethod: "headkit-payments",
-          billingAddress,
-          shippingAddress,
-          paymentData,
-        });
-        if (checkout?.orderId && checkout.orderId !== "0") {
-          orderId = checkout.orderId;
-          orderKey = checkout.orderKey;
+      // WC 10.8+ deferred draft order: session.orderId is "0" or empty because
+      // GET /checkout returned order_id=0 at session creation time. The webhook
+      // finalizes the order asynchronously, but the success page may arrive before
+      // the webhook completes. Call processCheckout to create-and-finalize the
+      // order immediately so the user can see their order confirmation.
+      if ((!orderId || orderId === "0") && session.cartToken) {
+        const paymentData: { key: string; value: string }[] = [
+          { key: "checkout_session_id", value: sessionId },
+          { key: "payment_status", value: "paid" },
+          { key: "payment_provider", value: "stripe" },
+        ];
+        if (session.paymentIntentId) {
+          paymentData.push({
+            key: "payment_intent_id",
+            value: session.paymentIntentId,
+          });
         }
-      } catch {
-        /* processCheckout failed — almost always woocommerce_rest_cart_empty: the
-           Stripe webhook won the race, already placed the order, and emptied the
-           cart. The webhook writes the real order_id/order_key back onto the session
-           metadata after creating the order, so poll the session below to resolve it. */
-      }
+        if (session.paymentMethod) {
+          paymentData.push({
+            key: "payment_method",
+            value: session.paymentMethod,
+          });
+        }
+        if (session.cardBrand) {
+          paymentData.push({ key: "card_brand", value: session.cardBrand });
+        }
+        if (session.cardLast4) {
+          paymentData.push({ key: "card_last4", value: session.cardLast4 });
+        }
+        if (session.livemode !== undefined) {
+          paymentData.push({
+            key: "payment_mode",
+            value: session.livemode ? "live" : "test",
+          });
+        }
+        if (session.stripeCustomerId) {
+          paymentData.push({
+            key: "stripe_customer_id",
+            value: session.stripeCustomerId,
+          });
+        }
 
-      // Lost the create race (or our own POST hasn't reflected yet): poll the Stripe
-      // session metadata, which the webhook updates with the real order_id/order_key
-      // once it finishes creating the order. Bounded so we never hang the page.
-      if (!orderId || orderId === "0" || !orderKey) {
-        for (let attempt = 0; attempt < 6; attempt++) {
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          try {
-            const refreshed = await getCheckoutSessionAction(sessionId);
-            if (
-              refreshed.orderId &&
-              refreshed.orderId !== "0" &&
-              refreshed.orderKey
-            ) {
-              orderId = refreshed.orderId;
-              orderKey = refreshed.orderKey;
-              break;
+        const stripeAddr =
+          session.shippingAddress ?? session.billingAddress ?? null;
+        const billingAddress = {
+          firstName: stripeAddr?.firstName ?? "",
+          lastName: stripeAddr?.lastName ?? "",
+          address1: stripeAddr?.address1 ?? "",
+          ...(stripeAddr?.address2 ? { address2: stripeAddr.address2 } : {}),
+          city: stripeAddr?.city ?? "",
+          state: stripeAddr?.state ?? "",
+          postcode: stripeAddr?.postcode ?? "",
+          country: stripeAddr?.country ?? "",
+          email: session.customerEmail ?? "",
+          phone: stripeAddr?.phone ?? "",
+        };
+        const shippingAddress = {
+          firstName: stripeAddr?.firstName ?? "",
+          lastName: stripeAddr?.lastName ?? "",
+          address1: stripeAddr?.address1 ?? "",
+          ...(stripeAddr?.address2 ? { address2: stripeAddr.address2 } : {}),
+          city: stripeAddr?.city ?? "",
+          state: stripeAddr?.state ?? "",
+          postcode: stripeAddr?.postcode ?? "",
+          country: stripeAddr?.country ?? "",
+          phone: stripeAddr?.phone ?? "",
+        };
+
+        try {
+          const checkout = await processCheckoutAction({
+            paymentMethod: "headkit-payments",
+            billingAddress,
+            shippingAddress,
+            paymentData,
+          });
+          if (checkout?.orderId && checkout.orderId !== "0") {
+            orderId = checkout.orderId;
+            orderKey = checkout.orderKey;
+          }
+        } catch {
+          /* processCheckout failed — almost always woocommerce_rest_cart_empty: the
+             Stripe webhook won the race, already placed the order, and emptied the
+             cart. The webhook writes the real order_id/order_key back onto the session
+             metadata after creating the order, so poll the session below to resolve it. */
+        }
+
+        // Lost the create race (or our own POST hasn't reflected yet): poll the Stripe
+        // session metadata, which the webhook updates with the real order_id/order_key
+        // once it finishes creating the order. Bounded so we never hang the page.
+        if (!orderId || orderId === "0" || !orderKey) {
+          for (let attempt = 0; attempt < 6; attempt++) {
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            try {
+              const refreshed = await getCheckoutSessionAction(sessionId);
+              if (
+                refreshed.orderId &&
+                refreshed.orderId !== "0" &&
+                refreshed.orderKey
+              ) {
+                orderId = refreshed.orderId;
+                orderKey = refreshed.orderKey;
+                break;
+              }
+            } catch {
+              /* transient — keep polling */
             }
-          } catch {
-            /* transient — keep polling */
           }
         }
       }
-    }
 
-    if (orderId && orderId !== "0" && orderKey) {
-      resolvedOrderId = orderId;
-      resolvedOrderKey = orderKey;
+      if (orderId && orderId !== "0" && orderKey) {
+        disposition = "order";
+        resolvedOrderId = orderId;
+        resolvedOrderKey = orderKey;
+      } else {
+        // Paid session but the order id/key never resolved after the poll loop.
+        // Render the processing screen — the webhook will finalize; never bounce
+        // a paid customer to the homepage.
+        disposition = "pending";
+      }
     }
   } catch {
-    /* Session fetch / processCheckout failed — fall through to home below. */
+    /* Session fetch failed — handled via the "error" disposition below. */
   }
 
   // redirect() OUTSIDE the try/catch (it throws NEXT_REDIRECT; a catch would eat it).
-  if (resolvedOrderId && resolvedOrderKey) {
+  if (disposition === "order" && resolvedOrderId && resolvedOrderKey) {
     redirect(
       `/checkout/success/${resolvedOrderId}?key=${encodeURIComponent(resolvedOrderKey)}&session_id=${encodeURIComponent(sessionId)}`,
     );
   }
-  redirect("/");
+  if (disposition === "retry") {
+    redirect("/checkout?error=payment_failed");
+  }
+  if (disposition === "expired") {
+    redirect("/checkout/error?reason=session_expired");
+  }
+  if (disposition === "error") {
+    redirect("/checkout/error?reason=processing_error");
+  }
+
+  return <PaymentProcessing />;
 }
