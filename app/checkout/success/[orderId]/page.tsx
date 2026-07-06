@@ -102,6 +102,7 @@ export default async function Page({ params, searchParams }: Props) {
   let paymentCardBrand: string | undefined;
   let paymentCardLast4: string | undefined;
   let paymentMethod: string | undefined;
+  let paymentWalletType: string | undefined;
 
   if (sessionId) {
     let session: Awaited<ReturnType<typeof getCheckoutSessionAction>> | null =
@@ -152,6 +153,7 @@ export default async function Page({ params, searchParams }: Props) {
       paymentCardBrand = session.cardBrand ?? undefined;
       paymentCardLast4 = session.cardLast4 ?? undefined;
       paymentMethod = session.paymentMethod ?? undefined;
+      paymentWalletType = session.walletType ?? undefined;
 
       if (session.orderId && session.orderKey) {
         effectiveOrderId = session.orderId;
@@ -248,6 +250,7 @@ export default async function Page({ params, searchParams }: Props) {
           { key: "payment_provider", value: "stripe" },
           { key: "card_brand", value: session.cardBrand ?? "" },
           { key: "card_last4", value: session.cardLast4 ?? "" },
+          { key: "wallet_type", value: session.walletType ?? "" },
         ];
         if (session.stripeCustomerId) {
           paymentData.push({
@@ -450,6 +453,7 @@ export default async function Page({ params, searchParams }: Props) {
                     cardBrand={paymentCardBrand}
                     cardLast4={paymentCardLast4}
                     paymentMethod={paymentMethod}
+                    walletType={paymentWalletType}
                     paymentMethodTitle={order.paymentMethodTitle}
                     fallback={order.status}
                   />

@@ -54,3 +54,44 @@ export { FaApplePay as ApplePayIcon } from "react-icons/fa6";
 export { FaGooglePay as GooglePayIcon } from "react-icons/fa6";
 export { FaPaypal as PayPalIcon } from "react-icons/fa6";
 export { FaCreditCard as CreditCardIcon } from "react-icons/fa6";
+
+/**
+ * Stripe Link wallet mark (ENG-788). react-icons ships no Link icon, so this
+ * is a minimal monochrome inline-SVG pill following the same IconType contract
+ * as the react-icons exports (size/color/title props, currentColor default).
+ */
+export const LinkPayIcon: IconType = ({ size, color, title, ...rest }) => (
+  <svg
+    viewBox="0 0 40 24"
+    width={size ?? "1em"}
+    height={size ?? "1em"}
+    fill={color ?? "currentColor"}
+    role="img"
+    xmlns="http://www.w3.org/2000/svg"
+    {...rest}
+  >
+    {title ? <title>{title}</title> : null}
+    <rect
+      x="1"
+      y="1"
+      width="38"
+      height="22"
+      rx="6"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    />
+    <text
+      x="20"
+      y="16.5"
+      textAnchor="middle"
+      fontSize="12"
+      fontWeight="700"
+      fontFamily="inherit"
+      fill="currentColor"
+      stroke="none"
+    >
+      link
+    </text>
+  </svg>
+);
