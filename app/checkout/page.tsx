@@ -87,6 +87,7 @@ export default async function CheckoutPage() {
     address: string;
     city: string;
     state: string;
+    stateCode: string;
     postcode: string;
     country: string;
     countryCode: string;
@@ -100,6 +101,7 @@ export default async function CheckoutPage() {
       address: l.address,
       city: l.city,
       state: l.state,
+      stateCode: l.stateCode ?? "",
       postcode: l.postcode,
       country: l.country,
       countryCode: l.countryCode ?? "",

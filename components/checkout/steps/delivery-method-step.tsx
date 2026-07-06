@@ -133,7 +133,7 @@ type DeliveryFormData = z.infer<typeof deliverySchema>;
 
 interface DeliveryMethodStepProps {
   enableStripe: boolean;
-  onNext: (data: DeliveryFormData) => void;
+  onNext: (data: DeliveryFormData) => void | Promise<void>;
   defaultValues?: Partial<DeliveryFormData> | undefined;
   onChange?: ((data: Partial<DeliveryFormData>) => void) | undefined;
   buttonLabel?: string | undefined;
@@ -388,7 +388,10 @@ const DeliveryMethodStep: React.FC<DeliveryMethodStepProps> = ({
           if (!result.success) throw new Error(result.error);
         }
       }
-      onNext(payload);
+      // Await so async parent handlers (cart rate selection, address sync)
+      // reject into this catch and surface a toast instead of an unhandled
+      // rejection that leaves the step silently stuck.
+      await onNext(payload);
     } catch (err) {
       // Surface the error to the user (e.g. missing shipping address) and do NOT
       // advance to Payment — leaving the step active so they can correct it.

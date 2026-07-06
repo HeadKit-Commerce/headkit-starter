@@ -53,6 +53,7 @@ interface PickupLocationItem {
   postcode: string;
   shippingMethodId: string;
   state: string;
+  stateCode: string;
 }
 
 interface FormData {
@@ -88,6 +89,7 @@ function CheckoutSteps({
     address: string;
     city: string;
     state: string;
+    stateCode: string;
     postcode: string;
     country: string;
     countryCode: string;
@@ -122,6 +124,7 @@ function CheckoutSteps({
             address: apiLoc?.address ?? "",
             city: apiLoc?.city ?? "",
             state: apiLoc?.state ?? "",
+            stateCode: apiLoc?.stateCode ?? "",
             postcode: apiLoc?.postcode ?? "",
             country: apiLoc?.country ?? "",
             countryCode: apiLoc?.countryCode ?? "",
@@ -357,9 +360,11 @@ function CheckoutSteps({
               address1: loc.address?.trim() || loc.name,
               address2: "",
               city: loc.city ?? "Pickup",
-              state: loc.state ?? "",
+              // WooCommerce update-customer validates ISO codes — the display
+              // names in `state`/`country` ("New South Wales"/"Australia") 400.
+              state: loc.stateCode ?? "",
               postcode: loc.postcode ?? "",
-              country: loc.country ?? "",
+              country: loc.countryCode ?? "",
               phone: "",
             },
           });
@@ -736,6 +741,7 @@ export function CheckoutForm({
     address: string;
     city: string;
     state: string;
+    stateCode: string;
     postcode: string;
     country: string;
     countryCode: string;

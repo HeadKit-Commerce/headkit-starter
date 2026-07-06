@@ -67,6 +67,8 @@ export type PickupLocationItem = {
   address: string;
   city: string;
   state: string;
+  /** ISO state code (e.g. NSW) — required for WooCommerce update-customer */
+  stateCode: string;
   postcode: string;
   country: string;
   /** ISO 2-letter country code (e.g. AU) — required for Stripe */
