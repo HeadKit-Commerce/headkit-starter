@@ -32,14 +32,11 @@ import {
   submitGravityForm,
   type GravityFormData,
 } from "@/lib/gravity-form-actions";
-
-/** Convert a label like "First Name" to "first_name" for form field keys. */
-function snakeCase(str: string): string {
-  return str
-    .toLowerCase()
-    .replace(/\s+/g, "_")
-    .replace(/[^a-z0-9_]/g, "");
-}
+import {
+  snakeCase,
+  buildFieldIdByName,
+  buildFieldValues,
+} from "@/lib/gravity-form-utils";
 
 interface GravityFormProps {
   id?: string;
@@ -49,6 +46,12 @@ interface GravityFormProps {
   extraFields?: React.ReactNode;
   buttonClassName?: string;
   disabled?: boolean;
+  /**
+   * Rendered when the form can't load — Gravity Forms not installed, form id
+   * missing, or a fetch error. Lets the storefront degrade gracefully instead
+   * of showing a broken/empty form when the plugin is absent.
+   */
+  fallback?: React.ReactNode;
 }
 
 type FieldType =
@@ -262,6 +265,7 @@ export const GravityForm = ({
   extraFields,
   buttonClassName,
   disabled = false,
+  fallback,
 }: GravityFormProps) => {
   const [message, setMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -284,7 +288,7 @@ export const GravityForm = ({
     void fetchForm();
   }, [formId]);
 
-  const formFields = formData?.gfForm?.formFields?.nodes
+  const formFields = (formData?.gfForm?.formFields?.nodes ?? [])
     .map((node) => {
       if (!node?.type || !node?.label) return null;
 
@@ -319,6 +323,11 @@ export const GravityForm = ({
           ?.includes(snakeCase(field.label)),
     );
 
+  // Resolve every field's databaseId by snakeCased label across ALL fields —
+  // including hidden/injected ones filtered out of the rendered `formFields` —
+  // so injected product context submits with its numeric id (ENG-794).
+  const fieldIdByName = buildFieldIdByName(formData?.gfForm?.formFields?.nodes);
+
   const validationSchema = generateValidationSchema(formFields ?? []);
 
   const form = useForm<z.infer<typeof validationSchema>>({
@@ -329,9 +338,17 @@ export const GravityForm = ({
     ) ?? {},
   });
 
-  if (!isLoading && !formData) {
+  // No form available (Gravity Forms not installed, form id missing, or fetch
+  // failed) — render the caller's fallback, or a neutral default.
+  if (!isLoading && !formData?.gfForm) {
     return (
-      <div className="p-4 text-center">Form not found for this formId</div>
+      <>
+        {fallback ?? (
+          <div className="rounded-lg border border-gray-200 p-6 text-center text-sm text-gray-600">
+            This form is currently unavailable.
+          </div>
+        )}
+      </>
     );
   }
 
@@ -354,12 +371,7 @@ export const GravityForm = ({
       const response = await submitGravityForm({
         id: formId,
         saveAsDraft: false,
-        fieldValues: Object.entries(allValues).map(([key, value]) => {
-          const databaseId = formFields?.find((f) => snakeCase(f.label) === key)?.databaseId;
-          return databaseId !== undefined
-            ? { id: databaseId, value: value?.toString() ?? "" }
-            : { value: value?.toString() ?? "" };
-        }),
+        fieldValues: buildFieldValues(allValues, fieldIdByName),
       });
 
       if (onSubmit) {

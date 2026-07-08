@@ -1,57 +1,54 @@
 import type { Metadata } from "next";
-import { cacheLife, cacheTag } from "next/cache";
-import { headkit as sdk } from "@/lib/sdk";
-import { makeSeoMetadata } from "@/lib/make-metadata";
-import { EditorialContent } from "@/components/headkit-ui/editorial-content";
+import { GravityForm } from "@/components/gravity-form";
 
-async function getContactPage() {
-  "use cache";
-  cacheLife("max");
-  cacheTag("headkit:page:contact", "headkit:pages");
-  return sdk.content.get("contact", "PAGE");
-}
+/**
+ * Contact form's Gravity Forms id. Hardcoded so this page is self-contained and
+ * ships in the starter template without requiring a matching WordPress page.
+ * Point it at whichever GF form the store uses for contact enquiries.
+ */
+const CONTACT_FORM_ID = "1";
 
-export async function generateMetadata(): Promise<Metadata> {
-  try {
-    const page = await getContactPage();
-    if (!page?.seo) {
-      return {
-        title: "Contact Us",
-        robots: { index: false, follow: false },
-      };
-    }
-    return makeSeoMetadata(page.seo, { title: page.title });
-  } catch {
-    return {
-      title: "Contact Us",
-      robots: { index: false, follow: false },
-    };
-  }
-}
+export const metadata: Metadata = {
+  title: "Contact Us",
+  description: "Get in touch with our team.",
+};
 
-export default async function ContactPage() {
-  const page = await getContactPage().catch(() => null);
-
+/**
+ * Shown when Gravity Forms isn't installed or the form can't load, so the
+ * contact page still gives visitors a way to reach the store.
+ */
+function ContactFallback(): React.ReactElement {
   return (
-    <div className="px-5 md:px-10 py-10 md:py-16">
+    <div className="rounded-lg border border-gray-200 p-6 text-sm text-gray-600">
+      <p>Our contact form is currently unavailable.</p>
+      <p className="mt-2">
+        Please email us at{" "}
+        <a
+          className="font-medium text-purple-800 underline"
+          href="mailto:hello@example.com"
+        >
+          hello@example.com
+        </a>{" "}
+        and we&apos;ll get back to you.
+      </p>
+    </div>
+  );
+}
+
+export default function ContactPage(): React.ReactElement {
+  return (
+    <div className="px-5 py-10 md:px-10 md:py-16">
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <div>
-          <h1 className="mb-6 text-3xl font-bold text-purple-800">
-            {page?.title ?? "Contact Us"}
-          </h1>
-          {page?.content && (
-            <div className="text-purple-800">
-              <EditorialContent html={page.content} />
-            </div>
-          )}
+          <h1 className="mb-6 text-3xl font-bold text-purple-800">Contact Us</h1>
+          <p className="text-purple-800">
+            Have a question? Fill in the form and our team will get back to you
+            shortly.
+          </p>
         </div>
 
         <div>
-          <div className="rounded-lg border border-gray-200 p-6">
-            <p className="text-sm text-muted-foreground">
-              Contact form powered by Gravity Forms plugin.
-            </p>
-          </div>
+          <GravityForm formId={CONTACT_FORM_ID} fallback={<ContactFallback />} />
         </div>
       </div>
     </div>

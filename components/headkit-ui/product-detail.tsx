@@ -21,6 +21,8 @@ import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { cn } from "@/lib/utils";
 import { GiftCardForm, type GiftCardFormValues, DeliveryType } from "@/components/gift-card-form";
 import { Breadcrumb } from "@/components/headkit-ui/breadcrumb";
+import { ProductEnquiry } from "@/components/headkit-ui/product-enquiry";
+import { isColorAttrSlug } from "@/components/headkit-ui/collection/utils";
 
 interface Props {
   product: Product;
@@ -35,6 +37,12 @@ interface Props {
 }
 
 const VARIABLE = "VARIABLE";
+
+/**
+ * Gravity Forms form id for the PDP product-enquiry form. Hardcoded per the same
+ * convention as the contact page's CONTACT_FORM_ID.
+ */
+const ENQUIRY_FORM_ID = "3";
 
 type TabKey = "description" | "additional" | "reviews";
 
@@ -193,6 +201,37 @@ export function ProductDetail({
       ) ?? null
     );
   }, [isVariable, product.variations, selectedAttributes]);
+
+  // Hidden product context injected into the enquiry form so the WordPress entry
+  // captures which product/variant the shopper asked about. The fieldNames must
+  // match the snakeCased labels of the enquiry form's hidden fields (ENG-794).
+  const enquiryInitialValues = useMemo<
+    { fieldName: string; value: string }[]
+  >(() => {
+    const values: { fieldName: string; value: string }[] = [
+      { fieldName: "product_name", value: product.name },
+    ];
+    if (typeof window !== "undefined") {
+      values.push({
+        fieldName: "product_url",
+        value: `${window.location.origin}${pathname}`,
+      });
+    }
+    for (const attr of variationAttributes) {
+      const selectedSlug = selectedAttributes[attr.slug];
+      if (!selectedSlug) continue;
+      const optionName =
+        attr.fullOptions.find((o) => o.slug === selectedSlug)?.name ??
+        selectedSlug;
+      const fieldName = isColorAttrSlug(attr.slug)
+        ? "product_colour"
+        : attr.slug.includes("size")
+          ? "product_size"
+          : attr.slug;
+      values.push({ fieldName, value: optionName });
+    }
+    return values;
+  }, [product.name, pathname, variationAttributes, selectedAttributes]);
 
   const galleryImages = useMemo(() => {
     const base = product.images.map((img) => ({
@@ -498,6 +537,16 @@ export function ProductDetail({
                       : "Add to cart"}
           </Button>
         </div>
+
+        {!isGiftCard && (
+          <div className="mb-6">
+            <ProductEnquiry
+              formId={ENQUIRY_FORM_ID}
+              productName={product.name}
+              initialValues={enquiryInitialValues}
+            />
+          </div>
+        )}
 
         {/* SKU */}
         {product.sku && (
