@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BillingAddressElement } from "@stripe/react-stripe-js/checkout";
+import { buildStripeAddressSeed } from "@/lib/checkout-address-seed";
 import { z } from "zod";
 import {
   Form,
@@ -83,6 +84,16 @@ const BillingAddressStep: React.FC<BillingAddressStepProps> = ({
     defaultValues,
   });
 
+  // CKA-04 (visible prefill): seed the Stripe BillingAddressElement from the
+  // saved WP billing address via `contacts` at element CREATION (create-only —
+  // ENG-755). The element key flips seeded↔empty so it remounts once (never
+  // update()) when the async saved address arrives.
+  const billingSeed = buildStripeAddressSeed(defaultValues.billingAddress);
+  // Stripe ContactOption requires a `name` (string); default to "" when absent.
+  const billingContacts = billingSeed
+    ? [{ name: billingSeed.name ?? "", address: billingSeed.address }]
+    : undefined;
+
   const onSubmit = async (data: z.infer<typeof addressSchema>) => {
     const billingToUse = data.billingAddress?.line1
       ? data.billingAddress
@@ -158,15 +169,14 @@ const BillingAddressStep: React.FC<BillingAddressStepProps> = ({
       <Form {...form}>
         <div className="space-y-4">
           <BillingAddressElement
-            // ENG-755: `contacts` is a create-only option on the Checkout
-            // Sessions BillingAddressElement. When a saved address loads async,
-            // React's <BillingAddressElement> forwards the changed `contacts` to
-            // element.update(), which Stripe.js rejects ("Unrecognized
-            // addressElement.update() parameter: contacts") and the
-            // /v1/payment_pages session-update 400s. Returning-customer prefill
-            // is handled the Sessions-native way via actions.updateBillingAddress
-            // (onSubmit below) — not a client element option.
-            options={{}}
+            // CKA-04: `contacts` at CREATION visibly prefills + auto-selects the
+            // saved WP billing address (editable). Create-only (ENG-755 — passing
+            // it to element.update() after mount 400s), so the key flips
+            // seeded↔empty to force a fresh mount (never update()) once the async
+            // saved address resolves. updateBillingAddress (onSubmit) still syncs
+            // the session.
+            key={billingContacts ? "seeded" : "empty"}
+            options={billingContacts ? { contacts: billingContacts } : {}}
             onChange={(event) => {
               if (event.complete && event.value) {
                 const { address, phone, firstName, lastName, name } =

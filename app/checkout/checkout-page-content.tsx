@@ -83,6 +83,12 @@ interface CheckoutPageContentProps {
   pickupLocations?: PickupLocationItem[];
   returnUrl?: string;
   successBaseUrl?: string;
+  /**
+   * Logged-in shopper's email resolved server-side (CKA-04). Seeds the Contact
+   * step's default email immediately on load so prefill does not wait on the
+   * async cart fetch. Undefined for guests (unchanged).
+   */
+  customerEmail?: string;
   allowedCountries?: string[];
 }
 
@@ -92,6 +98,7 @@ export function CheckoutPageContent({
   pickupLocations: pickupLocationsFromApi = [],
   returnUrl,
   successBaseUrl,
+  customerEmail,
   allowedCountries = ["AU", "NZ"],
 }: CheckoutPageContentProps) {
   const router = useRouter();
@@ -204,7 +211,10 @@ export function CheckoutPageContent({
   }, []);
 
   const initialStep = restoreStep;
-  const initialEmail = restoredEmail;
+  // Prefer a restored email (after a session refresh); otherwise seed the
+  // server-resolved logged-in email (CKA-04) so the Contact step prefills on
+  // first paint. Guest → null (unchanged).
+  const initialEmail = restoredEmail ?? customerEmail ?? null;
   useEffect(() => {
     if (restoreStep) {
       setRestoreStep(null);

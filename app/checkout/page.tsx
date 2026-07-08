@@ -1,9 +1,13 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { validateCartStock, autoCorrectCart } from "@/lib/cart-validation";
 import { createCheckoutSessionAction } from "./actions";
 import { CheckoutPageContent } from "./checkout-page-content";
 import type { CartFieldsFragment } from "@headkit/sdk";
 import { getFullCartAction } from "@/lib/cart-actions";
+import { getCustomer } from "@/lib/account-actions";
+import { getAuthToken } from "@/lib/auth-cookie";
+import { resolveCheckoutEmail } from "@/lib/checkout-email";
 import { createServerHeadkit } from "@/lib/sdk.server";
 import { PaymentFailedBanner } from "@/components/checkout/payment-failed-banner";
 
@@ -49,6 +53,24 @@ export default async function CheckoutPage({
   const returnUrl = `${process.env.NEXT_PUBLIC_FRONTEND_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`;
   const successBaseUrl = process.env.NEXT_PUBLIC_FRONTEND_URL;
 
+  // Reload root #1 (CKA-04): resolve the logged-in shopper's email server-side
+  // so the recreated Stripe session carries a real `customer_email` — this
+  // prefills the ContactDetailsElement, initiates Link, and survives a page
+  // reload (the value lives in the server-recreated session, not client state).
+  // A1: the authed Store API cart natively surfaces the WP billing email;
+  // `getCustomer(authToken)` is a defensive fallback only when the cart has
+  // none. Guest (no cookie / no email) → undefined → session stays guest
+  // (unchanged). The token/email are never logged (T-04.1-15).
+  const authToken = getAuthToken(await cookies());
+  let fallbackEmail: string | undefined;
+  if (authToken && !cart.billingAddress?.email?.trim()) {
+    const customer = await getCustomer(authToken);
+    if (customer.success && customer.data?.email) {
+      fallbackEmail = customer.data.email;
+    }
+  }
+  const customerEmail = resolveCheckoutEmail(cart, fallbackEmail);
+
   let checkoutSession: {
     clientSecret: string;
     sessionId: string;
@@ -66,7 +88,7 @@ export default async function CheckoutPage({
     const shippingCountries = cart.needsShipping ? ["AU", "NZ"] : [];
     const session = await createCheckoutSessionAction(
       returnUrl,
-      undefined,
+      customerEmail,
       undefined,
       shippingCountries,
       successBaseUrl,
@@ -153,6 +175,7 @@ export default async function CheckoutPage({
         pickupLocations={pickupLocations}
         returnUrl={returnUrl}
         {...(successBaseUrl && { successBaseUrl })}
+        {...(customerEmail && { customerEmail })}
         allowedCountries={["AU", "NZ"]}
       />
     </main>

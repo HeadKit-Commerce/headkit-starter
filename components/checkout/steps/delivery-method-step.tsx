@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ShippingAddressElement } from "@stripe/react-stripe-js/checkout";
@@ -25,6 +25,7 @@ import {
   CHECKOUT_PHONE_MESSAGE,
 } from "@/components/checkout/utils";
 import { updateCustomerAddressAction } from "@/lib/cart-actions";
+import { buildStripeAddressSeed } from "@/lib/checkout-address-seed";
 import { useCheckoutActions } from "@/app/checkout/checkout-actions-context";
 import { useToast } from "@/hooks/use-toast";
 
@@ -188,6 +189,42 @@ const DeliveryMethodStep: React.FC<DeliveryMethodStepProps> = ({
   });
 
   const deliveryMethod = form.watch("deliveryMethod");
+
+  // Reload prefill (CKA-04/CKA-05): seed the saved WP shipping/billing address
+  // into the Stripe Checkout Session on load via the Sessions-native
+  // updateShippingAddress/updateBillingAddress — the same calls proven on submit
+  // — so a logged-in shopper's address prefills and survives a page reload while
+  // staying fully editable (options={{}} is retained — never the create-only
+  // `contacts`, ENG-755). A4 guard: fired exactly once, and only after Stripe
+  // `actions` are ready (useCheckoutActions resolves them when the session
+  // mounts) and a seedable address is present. We do NOT re-seed afterward:
+  // account-first-then-Link (CKA-05) — once the email authenticates Link, Link's
+  // selected address wins in the UI and no WP<->Link sync is attempted.
+  const savedShippingAddress = defaultValues.shippingAddress;
+  // CKA-04 (visible prefill): the saved WP address (from the user-scoped cart)
+  // prefills the Stripe ShippingAddressElement VISIBLY via the `contacts` option
+  // passed at element CREATION (first contact auto-selected, still editable).
+  // `updateShippingAddress` alone only sets the Checkout Session (server-side) —
+  // it does NOT populate the element's inputs. `contacts` is create-only
+  // (ENG-755: forwarding it to element.update() after mount 400s), so the
+  // element `key` flips seeded↔empty and the element remounts once (never
+  // update()) when the async saved address resolves.
+  const shippingSeed = buildStripeAddressSeed(savedShippingAddress);
+  // Stripe ContactOption requires a `name` (string); default to "" when absent.
+  const shippingContacts = shippingSeed
+    ? [{ name: shippingSeed.name ?? "", address: shippingSeed.address }]
+    : undefined;
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (!enableStripe || seededRef.current || !actions) return;
+    if (deliveryMethod !== DeliveryStepEnum.SHIPPING_TO_HOME) return;
+    const seed = buildStripeAddressSeed(savedShippingAddress);
+    if (!seed) return;
+    seededRef.current = true;
+    // Session-side sync for rate/tax calc; visual prefill is via `contacts`.
+    void actions.updateShippingAddress(seed);
+    void actions.updateBillingAddress(seed);
+  }, [enableStripe, actions, deliveryMethod, savedShippingAddress]);
 
   const isDisabled =
     isSubmitting ||
@@ -519,14 +556,13 @@ const DeliveryMethodStep: React.FC<DeliveryMethodStepProps> = ({
           (enableStripe ? (
             <>
               <ShippingAddressElement
-                key={deliveryMethod}
-                // ENG-755: `contacts` is create-only on the Checkout Sessions
-                // ShippingAddressElement; forwarding it to element.update() on an
-                // async saved-address load triggers the "Unrecognized
-                // addressElement.update() parameter: contacts" warning and a
-                // /v1/payment_pages 400. Prefill is set the Sessions-native way
-                // via actions.updateShippingAddress (onSubmit below).
-                options={{}}
+                // CKA-04: `contacts` at element CREATION visibly prefills +
+                // auto-selects the saved WP address (editable). It is create-only
+                // (ENG-755 — passing it to element.update() after mount 400s), so
+                // the key flips seeded↔empty to force a fresh mount (never an
+                // update()) once the async saved address resolves.
+                key={`${deliveryMethod}:${shippingContacts ? "seeded" : "empty"}`}
+                options={shippingContacts ? { contacts: shippingContacts } : {}}
                 onChange={(event) => {
                   if (event.complete && event.value) {
                     const { address, phone, firstName, lastName, name } =

@@ -1,6 +1,8 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { getCartToken } from "@/lib/cart";
+import { getAuthToken } from "@/lib/auth-cookie";
 import { createServerHeadkit } from "@/lib/sdk.server";
 import type {
   ProcessCheckoutInput,
@@ -52,6 +54,10 @@ export async function createCheckoutSessionAction(
 ): Promise<CheckoutSessionResult> {
   const cartToken = await getCartToken();
   if (!cartToken) throw new Error("No active cart session.");
+  // CKA-06: forward the logged-in shopper's JWT so the WC draft order this
+  // session creates is stamped with the real customer_id (not 0). Guest (no
+  // cookie) → undefined → guest path unchanged. Never logged (T-04.1-15).
+  const authToken = getAuthToken(await cookies());
   // Only request Stripe shipping-address collection when the caller passes
   // allowedShippingCountries (i.e. the cart needs shipping). Passing a non-empty
   // list makes Stripe set shipping_address_collection, which REQUIRES a shipping
@@ -59,7 +65,7 @@ export async function createCheckoutSessionAction(
   // array (or omits it) so the session does not require a shipping address that the
   // billing-only UI never sets. Empty array => omit the field entirely.
   const shippingCountries = allowedShippingCountries ?? [];
-  return createServerHeadkit(cartToken).payments.createCheckoutSession({
+  return createServerHeadkit(cartToken, undefined, authToken).payments.createCheckoutSession({
     returnUrl,
     ...(shippingCountries.length > 0
       ? { allowedShippingCountries: shippingCountries }
@@ -80,7 +86,8 @@ export async function createCheckoutSessionAction(
 export async function getCheckoutAction(): Promise<DraftCheckout> {
   const cartToken = await getCartToken();
   if (!cartToken) throw new Error("No active cart session.");
-  return createServerHeadkit(cartToken).checkout.get();
+  const authToken = getAuthToken(await cookies());
+  return createServerHeadkit(cartToken, undefined, authToken).checkout.get();
 }
 
 /**
@@ -103,7 +110,10 @@ export async function updateCustomerAction(
 ): Promise<CartFieldsFragment> {
   const cartToken = await getCartToken();
   if (!cartToken) throw new Error("No active cart session.");
-  return createServerHeadkit(cartToken).cart.updateCustomer(input);
+  const authToken = getAuthToken(await cookies());
+  return createServerHeadkit(cartToken, undefined, authToken).cart.updateCustomer(
+    input,
+  );
 }
 
 /**
@@ -116,7 +126,11 @@ export async function selectShippingRateAction(
 ): Promise<CartFieldsFragment> {
   const cartToken = await getCartToken();
   if (!cartToken) throw new Error("No active cart session.");
-  return createServerHeadkit(cartToken).cart.selectShipping(packageId, rateId);
+  const authToken = getAuthToken(await cookies());
+  return createServerHeadkit(cartToken, undefined, authToken).cart.selectShipping(
+    packageId,
+    rateId,
+  );
 }
 
 /**
@@ -132,9 +146,12 @@ export async function syncCheckoutSessionLineItemsAction(
 ): Promise<void> {
   const cartToken = await getCartToken();
   if (!cartToken) throw new Error("No active cart session.");
-  await createServerHeadkit(cartToken).payments.syncCheckoutSessionLineItems(
-    sessionId,
-  );
+  const authToken = getAuthToken(await cookies());
+  await createServerHeadkit(
+    cartToken,
+    undefined,
+    authToken,
+  ).payments.syncCheckoutSessionLineItems(sessionId);
 }
 
 /**
@@ -147,7 +164,10 @@ export async function processCheckoutAction(
 ): Promise<CheckoutOrder> {
   const cartToken = await getCartToken();
   if (!cartToken) throw new Error("No active cart session.");
-  return createServerHeadkit(cartToken).checkout.process(input);
+  const authToken = getAuthToken(await cookies());
+  return createServerHeadkit(cartToken, undefined, authToken).checkout.process(
+    input,
+  );
 }
 
 /**
@@ -160,10 +180,12 @@ export async function processCheckoutOrderAction(
   orderKey: string,
   input: ProcessCheckoutOrderInput,
 ): Promise<CheckoutOrder> {
-  return createServerHeadkit(cartToken).checkout.processCheckoutOrder(
-    orderId,
-    input,
-  );
+  const authToken = getAuthToken(await cookies());
+  return createServerHeadkit(
+    cartToken,
+    undefined,
+    authToken,
+  ).checkout.processCheckoutOrder(orderId, input);
 }
 
 /**

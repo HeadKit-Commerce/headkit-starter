@@ -183,7 +183,11 @@ function CheckoutSteps({
                 state: shipping.state,
                 postcode: shipping.postcode,
                 country: shipping.country,
-                phone: shipping.phone,
+                // WC's primary phone is billing_phone; shipping_phone is often
+                // blank. Fall back to the billing phone so the delivery
+                // PhoneInput prefills (it derives country from the E.164 prefix,
+                // else the saved address country). Guest → both empty → "".
+                phone: shipping.phone || billing?.phone || "",
               }
             : null),
         billingAddress:

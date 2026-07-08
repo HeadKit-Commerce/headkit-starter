@@ -11,6 +11,7 @@ import { GraphQLError } from "@headkit/sdk";
 import type { ServerSDK } from "@headkit/sdk/server";
 import { createServerHeadkit } from "@/lib/sdk.server";
 import { getCartToken, cartTokenCookieOptions } from "@/lib/cart";
+import { getAuthToken } from "@/lib/auth-cookie";
 
 export type FullCart = NonNullable<GetCartQuery["commerce"]["cart"]>;
 
@@ -51,6 +52,10 @@ function getKlaviyoId(cookieStore: Awaited<ReturnType<typeof cookies>>): string 
   return cookieStore.get("__kla_id")?.value ?? undefined;
 }
 
+// getAuthToken (reads the `hk-auth-token` cookie, forwarded as
+// `Authorization: Bearer`) is shared from `@/lib/auth-cookie` so the cart and
+// checkout server actions use a single cookie-name literal (no divergence).
+
 async function withCartRetry(
   operation: (sdk: ServerSDK) => Promise<CartFieldsFragment>,
 ): Promise<CartFieldsFragment> {
@@ -58,6 +63,7 @@ async function withCartRetry(
   const { name: cookieName, ...cookieOpts } = cartTokenCookieOptions();
   const cookieStore = await cookies();
   const klaviyoId = getKlaviyoId(cookieStore);
+  const authToken = getAuthToken(cookieStore);
 
   const persistToken = (newToken: string) => {
     if (!newToken) return;
@@ -75,7 +81,9 @@ async function withCartRetry(
     (err.hasCode("CART_SESSION_EXPIRED") || err.hasCode("CART_NOT_FOUND"));
 
   try {
-    const result = await operation(createServerHeadkit(cartToken, klaviyoId));
+    const result = await operation(
+      createServerHeadkit(cartToken, klaviyoId, authToken),
+    );
     persistToken(result.token);
     return result;
   } catch (err) {
@@ -85,7 +93,9 @@ async function withCartRetry(
 
     // Clear the stale cookie (if any) and retry with a fresh session.
     cookieStore.delete(cookieName);
-    const result = await operation(createServerHeadkit(undefined, klaviyoId));
+    const result = await operation(
+      createServerHeadkit(undefined, klaviyoId, authToken),
+    );
     persistToken(result.token);
     return result;
   }
@@ -95,7 +105,13 @@ export async function getCartAction(): Promise<CartFieldsFragment | null> {
   try {
     const cartToken = await getCartToken();
     if (!cartToken) return null;
-    const cart = await createServerHeadkit(cartToken).cart.get();
+    const cookieStore = await cookies();
+    const authToken = getAuthToken(cookieStore);
+    const cart = await createServerHeadkit(
+      cartToken,
+      undefined,
+      authToken,
+    ).cart.get();
     return cart as unknown as CartFieldsFragment;
   } catch {
     return null;
@@ -109,7 +125,9 @@ export async function getFullCartAction(): Promise<FullCart | null> {
     return null;
   }
   try {
-    return await createServerHeadkit(cartToken).cart.get();
+    const cookieStore = await cookies();
+    const authToken = getAuthToken(cookieStore);
+    return await createServerHeadkit(cartToken, undefined, authToken).cart.get();
   } catch (err) {
     const code = err instanceof GraphQLError ? err.message : String(err);
     console.error("[getFullCartAction] cart.get() failed → session_expired", {
