@@ -330,11 +330,22 @@ export default async function Page({ params, searchParams }: Props) {
     getFloatVal(order.totals.totalShipping) +
     getFloatVal(order.totals.totalShippingTax);
 
+  // Click & Collect: WooCommerce copies the billing address into the order's
+  // shipping fields even for pickup, but native Woo hides that address and shows
+  // the pickup location instead (ShippingController: woocommerce_order_hide_shipping_address
+  // + woocommerce_order_shipping_to_display). Mirror that here — suppress the
+  // customer address on pickup orders and render the store collection address.
+  const isPickupLine = (methodId: string) =>
+    methodId === "pickup_location" || methodId === "local_pickup";
+  const isPickupOrder = shippingLines.some((l) => isPickupLine(l.methodId));
+
   const hasShippingMethod = shippingLines.length > 0;
-  const hasShippingAddress = !!(
-    shipping?.address1?.trim() ||
-    (shipping?.city?.trim() && shipping?.country?.trim())
-  );
+  const hasShippingAddress =
+    !isPickupOrder &&
+    !!(
+      shipping?.address1?.trim() ||
+      (shipping?.city?.trim() && shipping?.country?.trim())
+    );
   const showShippingSection = hasShippingMethod || hasShippingAddress;
 
   return (
@@ -375,17 +386,37 @@ export default async function Page({ params, searchParams }: Props) {
               {showShippingSection && (
                 <div className="grid grid-cols-4 md:grid-cols-3 mb-5 items-baseline gap-1 md:gap-4 font-medium text-lg mt-[8px]">
                   <div className="col-span-1">
-                    <div className="font-extrabold">Shipping</div>
+                    <div className="font-extrabold">
+                      {isPickupOrder ? "Pickup" : "Shipping"}
+                    </div>
                   </div>
                   <div className="col-span-3 md:col-span-2 space-y-1">
                     {hasShippingMethod && (
                       <>
                         {shippingLines.map((line, i) => (
                           <div key={i}>
-                            {line.methodTitle} /{" "}
-                            {getFloatVal(line.total) === 0
-                              ? "Free"
-                              : formatPrice(getFloatVal(line.total), currency)}
+                            <div>
+                              {line.methodTitle} /{" "}
+                              {getFloatVal(line.total) === 0
+                                ? "Free"
+                                : formatPrice(
+                                    getFloatVal(line.total),
+                                    currency,
+                                  )}
+                            </div>
+                            {isPickupLine(line.methodId) &&
+                              (line.pickupAddress || line.pickupDetails) && (
+                                <div className="mt-1 text-base text-gray-600">
+                                  {line.pickupAddress && (
+                                    <div>{line.pickupAddress}</div>
+                                  )}
+                                  {line.pickupDetails && (
+                                    <div className="text-sm">
+                                      {line.pickupDetails}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                           </div>
                         ))}
                       </>

@@ -85,6 +85,14 @@ export default async function Page({ params, searchParams }: Props) {
         getFloatVal(order.totals.totalShippingTax)
       : 0;
 
+  // Click & Collect: mirror native Woo — hide the (billing-copied) shipping
+  // address for pickup orders and show the store collection address instead.
+  const shippingLines = order.shippingLines ?? [];
+  const pickupLine = shippingLines.find(
+    (l) => l.methodId === "pickup_location" || l.methodId === "local_pickup",
+  );
+  const isPickupOrder = !!pickupLine;
+
   return (
     <div className="max-w-4xl">
       <div className="mb-4">
@@ -193,14 +201,31 @@ export default async function Page({ params, searchParams }: Props) {
         </div>
       )}
 
-      {(order.shippingAddress ?? order.billingAddress) && (
+      {(isPickupOrder || order.shippingAddress || order.billingAddress) && (
         <div className="bg-white rounded-lg shadow-sm p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {order.shippingAddress && (
+            {isPickupOrder ? (
               <div>
-                <h2 className="font-medium mb-4">Shipping Address</h2>
-                {addr(order.shippingAddress)}
+                <h2 className="font-medium mb-4">Pickup</h2>
+                <p className="text-gray-600">
+                  {pickupLine?.pickupLocation ?? pickupLine?.methodTitle}
+                </p>
+                {pickupLine?.pickupAddress && (
+                  <p className="text-gray-600">{pickupLine.pickupAddress}</p>
+                )}
+                {pickupLine?.pickupDetails && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    {pickupLine.pickupDetails}
+                  </p>
+                )}
               </div>
+            ) : (
+              order.shippingAddress && (
+                <div>
+                  <h2 className="font-medium mb-4">Shipping Address</h2>
+                  {addr(order.shippingAddress)}
+                </div>
+              )
             )}
             {order.billingAddress && (
               <div>
