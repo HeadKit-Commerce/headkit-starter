@@ -50,6 +50,7 @@ const Cart = ({ showDisplayShipping }: Props) => {
             quantity={item.quantity}
             lineSubtotal={item.totals.lineSubtotal}
             currency={currency}
+            giftCard={item.giftCard ?? null}
           />
         ))}
       </div>
