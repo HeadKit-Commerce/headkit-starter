@@ -54,8 +54,10 @@ const Cart = ({ showDisplayShipping }: Props) => {
         ))}
       </div>
 
-      {/* Coupon box */}
-      <div className="mt-[32px] mb-[20px]">
+      {/* Unified coupon / gift-card redemption. One input discriminates on the
+          gift-card format; applying either re-syncs the Stripe session amount
+          via the shared checkout-actions context. */}
+      <div className="mt-[32px] mb-[20px] space-y-[16px]">
         <CouponBox cart={cartData as CartFieldsFragment} />
       </div>
 

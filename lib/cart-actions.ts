@@ -193,6 +193,21 @@ export async function applyCouponAction(
   }
 }
 
+export async function applyGiftCardAction(
+  code: string,
+): Promise<CartActionResult> {
+  try {
+    const cart = await withCartRetry((sdk) => sdk.cart.applyGiftCard(code));
+    return { success: true, cart };
+  } catch (err) {
+    // The gift-cards plugin surfaces invalid-code / non-19-char failures as a
+    // UserError; propagate its message verbatim. Never log the code (T-09-03).
+    const message =
+      err instanceof Error ? err.message : "Failed to apply gift card";
+    return { success: false, error: message };
+  }
+}
+
 export async function removeCouponAction(
   code: string,
 ): Promise<CartActionResult> {

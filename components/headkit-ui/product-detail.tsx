@@ -66,7 +66,7 @@ export function ProductDetail({
   const { cartData, setCartData, toggleCart } = useCartContext();
 
   const isVariable = product.type?.toUpperCase() === VARIABLE;
-  const isGiftCard = product.type?.toLowerCase() === "giftcard";
+  const isGiftCard = product.isGiftCard === true;
   const [giftCardValues, setGiftCardValues] = useState<GiftCardFormValues | null>(null);
   const [isGiftCardFormValid, setIsGiftCardFormValid] = useState(false);
 
@@ -266,10 +266,16 @@ export function ProductDetail({
   const maxStock = (selectedVariation ?? product).stockQuantity ?? null;
   const isAtStockLimit = maxStock !== null && cartItemQty + quantity > maxStock;
 
+  // For a gift card the button must stay disabled until BOTH the form is valid
+  // (isGiftCardFormValid, set on blur) AND the captured values have landed
+  // (giftCardValues, set asynchronously by the form's watch/trigger). Gating on
+  // validity alone let a fast click fire an add BEFORE giftConfig was captured,
+  // sending a bare gift-card line the WooCommerce plugin rejects with
+  // "some required data is missing" (GIFT-02 flake / race).
   const canAddToCart = (isVariable
     ? selectedVariation !== null && !isOutOfStock && !isAtStockLimit
     : !isOutOfStock && !isAtStockLimit)
-    && (!isGiftCard || isGiftCardFormValid);
+    && (!isGiftCard || (isGiftCardFormValid && giftCardValues !== null));
 
   function handleAddToCart() {
     setCartFeedback("idle");
@@ -289,10 +295,16 @@ export function ProductDetail({
         toMultiple: [giftCardValues.wc_gc_giftcard_to_multiple],
         from: giftCardValues.wc_gc_giftcard_from,
         message: giftCardValues.wc_gc_giftcard_message ?? "",
+        // "Now" (immediate) must OMIT the delivery date entirely — the
+        // WooCommerce Gift Cards plugin validates a supplied delivery_date as a
+        // future timestamp and rejects "today"/past (and empty) with "Invalid
+        // delivery date." Sending an empty string makes commerce drop the field
+        // (its `if DeliveryDate != ""` guard), so the plugin sends immediately.
+        // Only "Later" forwards the user-picked (future) date.
         deliveryDate:
           giftCardValues.wc_gc_giftcard_select_delivery === DeliveryType.Later
             ? giftCardValues.wc_gc_giftcard_delivery
-            : new Date().toISOString().split("T")[0]!,
+            : "",
       } : undefined;
 
       const result = await addToCartAction(
