@@ -7,7 +7,8 @@ import {
   type NavMenuItem,
 } from "@/components/headkit-ui/navigation-bar";
 import { MobileHeaderActions } from "@/components/headkit-ui/header-actions";
-import { Logo } from "@/components/icon/logo";
+import { BrandLogo } from "@/components/icon/brand-logo";
+import { getBranding, getBrandingAssets } from "@/lib/branding";
 
 /** Permissive shape for API menu nodes (GraphQL fragment stops at 3 levels, so innermost lacks children). */
 type MenuItemLike = {
@@ -77,16 +78,24 @@ export async function NavigationWrapper() {
   cacheLife("max");
   cacheTag("headkit:navigation");
 
-  const [primaryItems, secondaryItems] = await Promise.all([
-    fetchMenu("PRIMARY"),
-    fetchMenu("SECONDARY"),
-  ]);
+  // Per-store branding logo (ENG-572): dashboard-api logoUrl, falling back to
+  // the commerce branding icon (available locally), else the default <Logo/>.
+  // storeSettings.name drives the logo alt text.
+  const [primaryItems, secondaryItems, { logoUrl }, { storeSettings }] =
+    await Promise.all([
+      fetchMenu("PRIMARY"),
+      fetchMenu("SECONDARY"),
+      getBrandingAssets(),
+      getBranding(),
+    ]);
 
   return (
     <NavigationBar
       primaryMenuItems={primaryItems}
       secondaryMenuItems={secondaryItems}
-      logo={<Logo />}
+      logo={
+        <BrandLogo logoUrl={logoUrl} siteName={storeSettings.name ?? "HeadKit"} />
+      }
       mobileActions={<MobileHeaderActions />}
     />
   );

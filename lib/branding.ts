@@ -25,6 +25,12 @@
 
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
+import {
+  executeRequest,
+  HEADKIT_GRAPHQL_URL,
+  GetBrandingDocument,
+} from "@headkit/sdk";
+import { env } from "@/lib/env";
 
 // ---------------------------------------------------------------------------
 // Types — mirror the dashboard-api schema (schema.graphqls)
@@ -200,4 +206,80 @@ export async function getBranding(): Promise<BrandingBundle> {
     // Unreachable / timeout / parse error — degrade silently.
     return DEFAULT_BUNDLE;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Commerce-path branding icon (ENG-572)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch the store icon URL from the COMMERCE graph (`commerce.branding.iconUrl`)
+ * via the PK/SK SDK transport — the same path `app/api/icon` already uses.
+ *
+ * Why a second source: the commerce `StoreBranding` exposes `iconUrl` and is
+ * available on the LOCAL Docker supergraph (unlike dashboard-api, whose
+ * `DASHBOARD_API_URL` is unset locally — see {@link getBranding}). So the
+ * per-store icon that Branding settings persist in WordPress (`siteIcon`, or
+ * `logo` as fallback) reaches the storefront through this path both locally and
+ * in production.
+ *
+ * Never throws: returns `null` on any error / missing key so callers keep the
+ * file-convention favicon and the default `<Logo/>`.
+ */
+async function fetchCommerceBrandingIcon(): Promise<string | null> {
+  const apiKey = env.HEADKIT_PRIVATE_KEY;
+  if (!apiKey) return null;
+  try {
+    const url = env.NEXT_PUBLIC_GRAPHQL_URL ?? HEADKIT_GRAPHQL_URL;
+    const data = await executeRequest(
+      { url, apiKey },
+      GetBrandingDocument,
+      undefined,
+    );
+    return data.commerce.branding.iconUrl ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Per-store logo + icon URLs resolved for the storefront head + nav. */
+export interface BrandingAssets {
+  /** Nav/site logo URL, or null → render the default `<Logo/>`. */
+  logoUrl: string | null;
+  /** Favicon / OG-share icon URL, or null → keep the file-convention default. */
+  iconUrl: string | null;
+}
+
+/**
+ * Resolve the per-store logo + icon for head metadata and the nav (ENG-572).
+ *
+ * Merges the two branding transports so each asset comes from wherever it is
+ * actually available:
+ *  - `iconUrl` (favicon/OG): commerce `iconUrl` first (locally available), then
+ *    the dashboard-api `iconUrl` — so the favicon is testable on the local stack.
+ *  - `logoUrl` (nav logo): the dashboard-api `logoUrl` (the only real logo field)
+ *    first, falling back to the commerce `iconUrl` so a store that only set an
+ *    icon still gets a branded mark instead of the HeadKit default.
+ *
+ * Both branches degrade to `null` (never throw), leaving the built-in defaults.
+ *
+ * Cached (Cache Components): a per-tenant-per-deploy read (tenant resolves from
+ * the SDK key / dashboard-api env, not a per-request runtime API), so it is
+ * deterministic and cacheable. Shares the `'branding'` cacheTag with
+ * {@link getBranding} so a future `/api/revalidate` invalidates both together.
+ */
+export async function getBrandingAssets(): Promise<BrandingAssets> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("branding");
+
+  const [bundle, commerceIcon] = await Promise.all([
+    getBranding(),
+    fetchCommerceBrandingIcon(),
+  ]);
+
+  return {
+    iconUrl: commerceIcon ?? bundle.branding.iconUrl,
+    logoUrl: bundle.branding.logoUrl ?? commerceIcon,
+  };
 }

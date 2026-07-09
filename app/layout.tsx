@@ -12,8 +12,8 @@ import { AuthProvider } from "@/components/headkit-ui/auth-context";
 import { Footer } from "@/components/headkit-ui/footer";
 import { WebsiteJsonLD } from "@/components/seo/website-json-ld";
 import { OrganizationJsonLD } from "@/components/seo/organization-json-ld";
-import { makeRootMetadata } from "@/lib/make-metadata";
-import { getBranding } from "@/lib/branding";
+import { makeRootMetadata, brandingIcons } from "@/lib/make-metadata";
+import { getBranding, getBrandingAssets } from "@/lib/branding";
 import { GoogleTagManager } from "@next/third-parties/google";
 
 const urbanist = Urbanist({
@@ -46,14 +46,30 @@ export async function generateMetadata(): Promise<Metadata> {
   // Under the local "degrade" path getBranding() returns null SEO fields, so
   // this preserves the existing "HeadKit" defaults (and 03-06's behavior).
   try {
-    const { seoSettings, storeSettings } = await getBranding();
-    return makeRootMetadata({
-      title: seoSettings.title ?? "HeadKit",
-      description: seoSettings.description ?? "HeadKit",
-      siteName: storeSettings.name ?? "HeadKit",
-    });
+    // getBranding() feeds SEO/title; getBrandingAssets() resolves the per-store
+    // favicon/OG icon (ENG-572) — commerce iconUrl (available locally) with a
+    // dashboard-api fallback. Null iconUrl → makeRootMetadata omits icons, so
+    // the file-convention default favicon still applies.
+    const [{ seoSettings, storeSettings }, { iconUrl }] = await Promise.all([
+      getBranding(),
+      getBrandingAssets(),
+    ]);
+    return {
+      ...makeRootMetadata({
+        title: seoSettings.title ?? "HeadKit",
+        description: seoSettings.description ?? "HeadKit",
+        siteName: storeSettings.name ?? "HeadKit",
+        iconUrl,
+      }),
+      // Site-wide favicon (branding icon, or the bundled default). Owned by the
+      // layout so page metadata never overrides the per-store tab icon (ENG-572).
+      icons: brandingIcons(iconUrl),
+    };
   } catch {
-    return makeRootMetadata({ title: "HeadKit Starter" });
+    return {
+      ...makeRootMetadata({ title: "HeadKit Starter" }),
+      icons: brandingIcons(null),
+    };
   }
 }
 
