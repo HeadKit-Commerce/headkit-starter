@@ -177,7 +177,7 @@ function coerce(data: NonNullable<BrandingResponse["data"]>): BrandingBundle {
  * future `/api/revalidate` invalidate it when dashboard-api branding changes.
  */
 export async function getBranding(): Promise<BrandingBundle> {
-  "use cache";
+  "use cache: remote";
   cacheLife("days");
   cacheTag(TAG.branding);
 
@@ -270,7 +270,7 @@ export interface BrandingAssets {
  * {@link getBranding} so a future `/api/revalidate` invalidates both together.
  */
 export async function getBrandingAssets(): Promise<BrandingAssets> {
-  "use cache";
+  "use cache: remote";
   cacheLife("hours");
   cacheTag("branding");
 

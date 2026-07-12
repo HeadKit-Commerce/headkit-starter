@@ -59,7 +59,7 @@ async function loadMenu(location: MenuLocation): Promise<NavMenuItem[]> {
  * self-heals in ~1 day instead of `max` (~30d).
  */
 export async function fetchMenu(location: MenuLocation): Promise<NavMenuItem[]> {
-  "use cache";
+  "use cache: remote";
   cacheLife("days");
   cacheTag(TAG.menu(location));
   return loadMenu(location);
@@ -90,14 +90,14 @@ export async function fetchMenu(location: MenuLocation): Promise<NavMenuItem[]> 
  * Finite `days` backstop (D4).
  */
 export async function getFooterMenu(): Promise<NavMenuItem[]> {
-  "use cache";
+  "use cache: remote";
   cacheLife("days");
   cacheTag(TAG.footer);
   return loadMenu("FOOTER");
 }
 
 export async function NavigationWrapper() {
-  "use cache";
+  "use cache: remote";
   cacheLife("days");
   // Subscribe to exactly the menus this wrapper composes (primary + secondary)
   // — no single blanket tag. NEVER a route/page tag on chrome (D2 / T-09.5-09).
