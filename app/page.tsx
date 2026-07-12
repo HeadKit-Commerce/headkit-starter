@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { cacheLife, cacheTag } from "next/cache";
+import { TAG } from "@/lib/cache-tags";
 import { headkit } from "@/lib/sdk";
 import type {
   Product,
@@ -39,10 +40,26 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-async function getHomepageData() {
+/**
+ * Home cache-tag union (D7 / CACHE-04). Home is ONE monolithic cached entry, so
+ * both cached home fns carry the SAME union: editing any home source fires that
+ * source's WP tag and re-renders the single home entry. Per-module split (each
+ * `<HeroCarousel/>`/`<NewsRail/>`/… own-tagged) is DEFERRED — it needs new SDK
+ * methods + subgraph resolvers; the SDK exposes only aggregate `homepage.get()`.
+ */
+const HOME_TAGS: readonly string[] = [
+  TAG.route("home"),
+  TAG.module("carousel"),
+  TAG.module("news"),
+  TAG.module("brand"),
+  TAG.module("featured"),
+  TAG.products,
+];
+
+export async function getHomepageData() {
   "use cache";
-  cacheLife("max");
-  cacheTag("headkit:homepage", "headkit:products");
+  cacheLife("days");
+  cacheTag(...HOME_TAGS);
 
   try {
     const [homepage, newArrivals, onSaleProducts] = await Promise.all([
@@ -83,10 +100,10 @@ function ProductGridSkeleton() {
   );
 }
 
-async function HomeContent() {
+export async function HomeContent() {
   "use cache";
-  cacheLife("max");
-  cacheTag("headkit:homepage");
+  cacheLife("days");
+  cacheTag(...HOME_TAGS);
 
   const { homepage, newArrivals, onSaleProducts } = await getHomepageData();
 

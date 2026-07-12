@@ -25,6 +25,7 @@
 
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
+import { TAG } from "@/lib/cache-tags";
 import {
   executeRequest,
   HEADKIT_GRAPHQL_URL,
@@ -177,8 +178,8 @@ function coerce(data: NonNullable<BrandingResponse["data"]>): BrandingBundle {
  */
 export async function getBranding(): Promise<BrandingBundle> {
   "use cache";
-  cacheLife("hours");
-  cacheTag("branding");
+  cacheLife("days");
+  cacheTag(TAG.branding);
 
   const endpoint = process.env.DASHBOARD_API_URL;
   // No local dashboard-api transport configured → documented defaults.

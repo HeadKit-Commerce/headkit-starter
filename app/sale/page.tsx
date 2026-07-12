@@ -1,10 +1,8 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import {
-  unstable_cacheLife as cacheLife,
-  unstable_cacheTag as cacheTag,
-} from "next/cache";
+import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
+import { TAG } from "@/lib/cache-tags";
 import { CollectionHeader } from "@/components/headkit-ui/collection/collection-header";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
 import { CollectionPageSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
@@ -33,7 +31,11 @@ const PER_PAGE = 24;
 async function getCatalogPage(filterKey: string, page: number) {
   "use cache: remote";
   cacheLife("minutes");
-  cacheTag(`catalog:${filterKey}`);
+  // route:sale = the {onSale} FILTER landing (no collection entity). Use
+  // route:sale NOT collection:sale — a real category slug named "sale" must not
+  // cross-invalidate this landing (threat T-09.5-13). catalog:${filterKey} keeps
+  // the per-filter self-heal (internal, not a contract tag).
+  cacheTag(TAG.route("sale"), `catalog:${filterKey}`);
   const filter = JSON.parse(filterKey) as Parameters<
     typeof sdk.collections.list
   >[0];

@@ -1,6 +1,7 @@
 import type { MenuLocation } from "@headkit/sdk";
 import { cacheLife, cacheTag } from "next/cache";
 import { convertToRelativePath } from "@/lib/convert-uri";
+import { TAG } from "@/lib/cache-tags";
 import { headkit } from "@/lib/sdk";
 import {
   NavigationBar,
@@ -35,16 +36,33 @@ function normalizeMenuItems(items: MenuItemLike[]): NavMenuItem[] {
   }));
 }
 
-async function fetchMenu(location: MenuLocation): Promise<NavMenuItem[]> {
-  "use cache";
-  cacheLife("max");
-  cacheTag("headkit:navigation");
+/**
+ * Plain (uncached) SDK menu load + normalize. Kept separate from the cached
+ * entries below so each cached fn owns its OWN `cacheTag` — the by-location menu
+ * tag vs the isolated footer tag — without a nested `use cache` boundary (nested
+ * tags don't bubble, so the tag must sit on the data-producing cache entry).
+ */
+async function loadMenu(location: MenuLocation): Promise<NavMenuItem[]> {
   try {
     const tree = await headkit.menu.get(location);
     return normalizeMenuItems(tree);
   } catch {
     return [];
   }
+}
+
+/**
+ * Cached PRIMARY/SECONDARY menu read, tagged BY LOCATION
+ * (`TAG.menu(location)` → `headkit:menu:{location}`) so a menu edit for one
+ * location invalidates only that location's entry — not one blanket tag across
+ * every menu (09.5-03, CACHE-03). Finite `days` backstop (D4): a missed webhook
+ * self-heals in ~1 day instead of `max` (~30d).
+ */
+export async function fetchMenu(location: MenuLocation): Promise<NavMenuItem[]> {
+  "use cache";
+  cacheLife("days");
+  cacheTag(TAG.menu(location));
+  return loadMenu(location);
 }
 
 /**
@@ -62,21 +80,28 @@ async function fetchMenu(location: MenuLocation): Promise<NavMenuItem[]> {
  * headers/searchParams), so it is deterministic and cacheable. Because the
  * `Footer` is NOT Suspense-wrapped in the root layout, an UNCACHED read here
  * poisoned every route's static prerender under Cache Components; caching it
- * moves the layout's footer read into the cached static shell. The stable
- * `'footer-menu'` cacheTag lets a future `/api/revalidate` invalidate it when
- * the WP footer menu changes.
+ * moves the layout's footer read into the cached static shell.
+ *
+ * This IS the footer data-producing entry, so it carries `TAG.footer`
+ * (`headkit:footer`) directly (09.5-03, CACHE-03): nested tags don't bubble, so
+ * routing through the by-location `fetchMenu('FOOTER')` (tagged
+ * `headkit:menu:FOOTER`) would leave a footer edit unable to invalidate this
+ * read. Loading via the plain `loadMenu` helper keeps the tag on this entry.
+ * Finite `days` backstop (D4).
  */
 export async function getFooterMenu(): Promise<NavMenuItem[]> {
   "use cache";
-  cacheLife("hours");
-  cacheTag("footer-menu");
-  return fetchMenu("FOOTER");
+  cacheLife("days");
+  cacheTag(TAG.footer);
+  return loadMenu("FOOTER");
 }
 
 export async function NavigationWrapper() {
   "use cache";
-  cacheLife("max");
-  cacheTag("headkit:navigation");
+  cacheLife("days");
+  // Subscribe to exactly the menus this wrapper composes (primary + secondary)
+  // — no single blanket tag. NEVER a route/page tag on chrome (D2 / T-09.5-09).
+  cacheTag(TAG.menu("PRIMARY"), TAG.menu("SECONDARY"));
 
   // Per-store branding logo (ENG-572): dashboard-api logoUrl, falling back to
   // the commerce branding icon (available locally), else the default <Logo/>.

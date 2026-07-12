@@ -19,6 +19,7 @@ import {
   DEFAULT_FILTER_VALUES,
 } from "@/components/headkit-ui/collection/utils";
 import { makeSeoMetadata, seoFallbackDescription } from "@/lib/make-metadata";
+import { TAG } from "@/lib/cache-tags";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { SortKeyType } from "@/components/headkit-ui/collection/utils";
@@ -74,7 +75,7 @@ async function getCategoryData(categorySlug: string) {
   cacheLife({ stale: 60 * 60 * 24 * 14, revalidate: 60 * 60, expire: 60 * 60 * 24 * 14 });
   // headkit:collections is sent by WordPress on any product or category change.
   // headkit:collection:${categorySlug} is sent on category-specific changes.
-  cacheTag(`headkit:collection:${categorySlug}`, "headkit:collections");
+  cacheTag(TAG.collection(categorySlug), TAG.collections);
 
   const [category, productFilter] = await Promise.all([
     sdk.collections.getCategory(categorySlug),
@@ -97,11 +98,13 @@ async function getCatalogPage(
 ) {
   "use cache: remote";
   cacheLife("minutes");
-  // catalog:cat:<slug> lets a product/category edit invalidate exactly this
-  // category's PLP grid + its prebuilt Tier-1 color pages via
-  // revalidateTag('catalog:cat:<slug>') — bounded blast radius, no whole-catalog
-  // wildcard (important for slow WP). catalog:<filterKey> stays for per-filter granularity.
-  cacheTag(`catalog:cat:${categorySlug}`, `catalog:${filterKey}`);
+  // TAG.catalogCat(slug) (= headkit:catalog:cat:<slug>) lets a product/category
+  // edit invalidate exactly this category's PLP grid + its prebuilt Tier-1 color
+  // pages via revalidateTag('headkit:catalog:cat:<slug>') — bounded blast radius,
+  // no whole-catalog wildcard (important for slow WP). The inline
+  // catalog:<filterKey> grid key stays for per-filter granularity (not a contract
+  // tag — internal to the self-healing minutes remote cache).
+  cacheTag(TAG.catalogCat(categorySlug), `catalog:${filterKey}`);
   const filter = JSON.parse(filterKey) as Parameters<
     typeof sdk.collections.list
   >[0];

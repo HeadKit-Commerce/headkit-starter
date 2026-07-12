@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { cacheLife, cacheTag } from "next/cache";
 import type { Product, RelatedProduct } from "@headkit/sdk";
+import { TAG } from "@/lib/cache-tags";
 import { headkit } from "@/lib/sdk";
 import { ProductDetail } from "@/components/headkit-ui/product-detail";
 import { ProductStock } from "@/components/headkit-ui/product-stock";
@@ -20,10 +21,15 @@ type Props = {
   params: Promise<{ slug: string[] }>;
 };
 
-async function getProduct(slug: string) {
+// Exported so the PDP tag/life guard (page.test.ts) can assert this def and the
+// sibling shop PDP def produce the identical contract tag string — the invariant
+// that makes one revalidateTag('headkit:product:{slug}') hit both cached entries.
+export async function getProduct(slug: string) {
   "use cache";
-  cacheLife("max");
-  cacheTag(`headkit:product:${slug}`, "headkit:products");
+  // Finite `days` backstop (was `max`): a missed product webhook self-heals in
+  // ~1 day (threat T-09.5-12) instead of sticking until redeploy.
+  cacheLife("days");
+  cacheTag(TAG.product(slug), TAG.products);
   return headkit.products.get(slug);
 }
 
