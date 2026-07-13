@@ -13,6 +13,10 @@ import { LineItemDisplay } from "@/components/checkout/line-item-display";
 import { PaymentMethodDisplay } from "@/components/checkout/payment-method-display";
 import { needsCheckoutOrderProcessing } from "@/lib/checkout-success-utils";
 import { getFloatVal, formatPrice } from "@/lib/utils";
+import {
+  BILLING_ADDRESS_COOKIE,
+  parseBillingAddressCookie,
+} from "@/lib/checkout-billing-cookie";
 
 interface Props {
   params: Promise<{ orderId: string }>;
@@ -172,39 +176,56 @@ export default async function Page({ params, searchParams }: Props) {
         );
 
       if (needsProcessing) {
-        const cookie = storedData.shippingAddress;
-        const stripeAddr = session.shippingAddress ?? session.billingAddress;
-        const addr =
-          cookie || stripeAddr
-            ? {
-                firstName: cookie?.firstName || stripeAddr?.firstName || "",
-                lastName: cookie?.lastName || stripeAddr?.lastName || "",
-                address1: cookie?.address1 || stripeAddr?.address1 || "",
-                ...((cookie?.address2 ?? stripeAddr?.address2)
-                  ? { address2: cookie?.address2 ?? stripeAddr?.address2 ?? "" }
-                  : {}),
-                city: cookie?.city ?? stripeAddr?.city ?? "",
-                state: cookie?.state ?? stripeAddr?.state ?? "",
-                postcode: cookie?.postcode ?? stripeAddr?.postcode ?? "",
-                country: cookie?.country ?? stripeAddr?.country ?? "",
-                ...((cookie?.phone ?? stripeAddr?.phone)
-                  ? { phone: cookie?.phone ?? stripeAddr?.phone ?? "" }
-                  : {}),
+        // ENG-801: carry billing and shipping SEPARATELY. The hk-checkout-data
+        // cookie holds a SHIPPING address and must only feed shippingAddress
+        // (precedence: cookie, then session shipping_details, then billing
+        // fallback). Billing comes from the checkout-written hk-billing-address
+        // cookie first — the session's customer_details is STALE for up to
+        // tens of seconds after updateBillingAddress()/confirm(), so it is
+        // only the fallback (wallet/express flows write no billing cookie).
+        const billingCookie = parseBillingAddressCookie(
+          cookieStore.get(BILLING_ADDRESS_COOKIE)?.value,
+        );
+        // Bounded re-poll only when NO billing cookie and the session has no
+        // billing at all (e.g. wallet flows).
+        let sessionAddr = session;
+        if (!billingCookie && !sessionAddr.billingAddress?.address1) {
+          for (let attempt = 0; attempt < 6; attempt++) {
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            try {
+              const refreshed = await getCheckoutSessionAction(sessionId);
+              if (refreshed.billingAddress?.address1) {
+                sessionAddr = refreshed;
+                break;
               }
-            : undefined;
+            } catch {
+              /* transient — keep polling */
+            }
+          }
+        }
+        const cookie = storedData.shippingAddress;
+        const shippingSource =
+          cookie ??
+          sessionAddr.shippingAddress ??
+          sessionAddr.billingAddress ??
+          null;
+        const billingSource =
+          billingCookie ?? sessionAddr.billingAddress ?? shippingSource;
 
-        const billingAddress = addr
+        const billingAddress = billingSource
           ? {
-              firstName: addr.firstName,
-              lastName: addr.lastName,
-              address1: addr.address1,
-              ...(addr.address2 ? { address2: addr.address2 } : {}),
-              city: addr.city,
-              state: addr.state,
-              postcode: addr.postcode,
-              country: addr.country,
+              firstName: billingSource.firstName ?? "",
+              lastName: billingSource.lastName ?? "",
+              address1: billingSource.address1 ?? "",
+              ...(billingSource.address2
+                ? { address2: billingSource.address2 }
+                : {}),
+              city: billingSource.city ?? "",
+              state: billingSource.state ?? "",
+              postcode: billingSource.postcode ?? "",
+              country: billingSource.country ?? "",
               email: billingEmail ?? "",
-              ...(addr.phone ? { phone: addr.phone } : {}),
+              ...(billingSource.phone ? { phone: billingSource.phone } : {}),
             }
           : {
               firstName: "",
@@ -218,17 +239,19 @@ export default async function Page({ params, searchParams }: Props) {
               phone: "",
             };
 
-        const shippingAddress = addr
+        const shippingAddress = shippingSource
           ? {
-              firstName: addr.firstName,
-              lastName: addr.lastName,
-              address1: addr.address1,
-              ...(addr.address2 ? { address2: addr.address2 } : {}),
-              city: addr.city,
-              state: addr.state,
-              postcode: addr.postcode,
-              country: addr.country,
-              ...(addr.phone ? { phone: addr.phone } : {}),
+              firstName: shippingSource.firstName ?? "",
+              lastName: shippingSource.lastName ?? "",
+              address1: shippingSource.address1 ?? "",
+              ...(shippingSource.address2
+                ? { address2: shippingSource.address2 }
+                : {}),
+              city: shippingSource.city ?? "",
+              state: shippingSource.state ?? "",
+              postcode: shippingSource.postcode ?? "",
+              country: shippingSource.country ?? "",
+              ...(shippingSource.phone ? { phone: shippingSource.phone } : {}),
             }
           : {
               firstName: "",

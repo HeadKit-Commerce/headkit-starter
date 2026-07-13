@@ -67,10 +67,38 @@ afterEach(() => {
 describe("checkout actions forward hk-auth-token (CKA-06)", () => {
   it("createCheckoutSessionAction forwards the JWT as SDK arg #3", async () => {
     stubCookies({ "hk-auth-token": "jwt-x" });
-    await actions.createCheckoutSessionAction("https://return", undefined);
+    await actions.createCheckoutSessionAction("https://return");
     const call = createServerHeadkitMock.mock.calls[0];
     expect(call?.[0]).toBe("ct");
     expect(call?.[2]).toBe("jwt-x");
+  });
+
+  // ENG-801: guest sessions must be created email-LESS. Stripe renders a
+  // session's `customer_email` as "prefilled and not editable" — pinning the
+  // cart email at create locked the ContactDetailsElement input on reload /
+  // recreate. The email now reaches the session client-side via
+  // actions.updateEmail. This structurally proves the guest create input
+  // carries neither `customerEmail` nor an accidental positional-shift
+  // `customer` id, while the other options still land on the right keys.
+  it("guest create: SDK input has neither customerEmail nor customer (ENG-801)", async () => {
+    stubCookies({});
+    await actions.createCheckoutSessionAction(
+      "https://return",
+      undefined,
+      ["AU", "NZ"],
+      "https://base",
+    );
+    const sdk = createServerHeadkitMock.mock.results[0]?.value as {
+      payments: { createCheckoutSession: ReturnType<typeof vi.fn> };
+    };
+    const input = sdk.payments.createCheckoutSession.mock.calls[0]?.[0] as
+      | Record<string, unknown>
+      | undefined;
+    expect(input).toBeDefined();
+    expect(input).not.toHaveProperty("customerEmail");
+    expect(input).not.toHaveProperty("customer");
+    expect(input?.allowedShippingCountries).toEqual(["AU", "NZ"]);
+    expect(input?.successBaseUrl).toBe("https://base");
   });
 
   it("updateCustomerAction forwards the JWT (draft-order attribution path)", async () => {
@@ -105,7 +133,7 @@ describe("checkout actions forward hk-auth-token (CKA-06)", () => {
 
   it("guest: absent cookie → authToken undefined (guest path unchanged)", async () => {
     stubCookies({});
-    await actions.createCheckoutSessionAction("https://return", undefined);
+    await actions.createCheckoutSessionAction("https://return");
     const call = createServerHeadkitMock.mock.calls[0];
     expect(call?.[0]).toBe("ct");
     expect(call?.[2]).toBeUndefined();

@@ -5,6 +5,7 @@ import {
   useEffect,
   useMemo,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import { loadStripe } from "@stripe/stripe-js";
@@ -37,6 +38,10 @@ import {
 import type { AddressInput } from "@headkit/sdk";
 import { useDebugRegister } from "@headkit/sdk/debug";
 import { SpinnerIcon } from "@/components/icon";
+import {
+  writeBillingAddressCookie,
+  clearBillingAddressCookie,
+} from "@/lib/checkout-billing-cookie";
 
 export type Step =
   | CheckoutFormStepEnum.CONTACT
@@ -242,6 +247,41 @@ function CheckoutSteps({
       .catch(() => {});
   }, [cartData, sessionId, actions, onSyncComplete]);
 
+  // ENG-801 session-email push: sessions are created email-LESS so the Stripe
+  // email field stays editable (a `customer_email` set at create renders the
+  // field read-only). This effect guarantees the session has an email before
+  // payment WITHOUT re-submitting the contact step — critical for the
+  // recreate path (refreshSession swaps in a new session and resumes at
+  // DELIVERY, so the contact step never re-submits). Best-effort: failures
+  // are swallowed (the contact-step submit and Stripe confirm-time validation
+  // are the backstops); the email value is never logged (T-04.1-15). The
+  // guard ref is keyed by sessionId — NOT a boolean — because refreshSession
+  // replaces the session via state without remounting CheckoutSteps, and the
+  // recreated session is exactly the one that needs the push.
+  const checkoutState = useCheckout();
+  const emailPushStateRef = useRef<{
+    sessionId: string;
+    attempts: number;
+  } | null>(null);
+  useEffect(() => {
+    if (!actions || !sessionId) return;
+    if (checkoutState.type !== "success") return;
+    if (checkoutState.checkout.email?.trim()) return;
+    const email = formData.email.trim();
+    if (!email) return;
+    // Bounded per-session retry (NOT strictly one-shot): the mount-time
+    // line-items sync above races this push — runServerUpdate refreshes local
+    // Stripe state from a snapshot that can predate the updateEmail, clobbering
+    // the just-pushed email back to null. When that happens the effect re-runs
+    // (session email empty again) and pushes once more; the attempt cap keeps a
+    // genuinely-rejecting session from looping.
+    const prev = emailPushStateRef.current;
+    const attempts = prev?.sessionId === sessionId ? prev.attempts : 0;
+    if (attempts >= 3) return;
+    emailPushStateRef.current = { sessionId, attempts: attempts + 1 };
+    actions.updateEmail(email).catch(() => {});
+  }, [actions, checkoutState, formData.email, sessionId]);
+
   // Persist checkout data to a cookie so the success page can read it.
   useEffect(() => {
     const data = {
@@ -250,6 +290,14 @@ function CheckoutSteps({
     };
     document.cookie = `hk-checkout-data=${encodeURIComponent(JSON.stringify(data))};path=/;max-age=3600;SameSite=Lax`;
   }, [formData.email, formData.shippingAddress]);
+
+  // ENG-801: a billing cookie from a PREVIOUS checkout attempt must never
+  // leak into this one (e.g. a distinct-billing attempt followed by a fresh
+  // checkout paid via an express wallet, which writes no cookie). Clear it on
+  // mount; it is re-written at the billing step / Pay click of THIS checkout.
+  useEffect(() => {
+    clearBillingAddressCookie();
+  }, []);
 
   const markCompleted = (step: Step) => {
     setCompletedSteps((prev) => new Set([...prev, step]));
@@ -473,6 +521,20 @@ function CheckoutSteps({
       country: data.billingAddress.country,
       phone: data.billingAddress.phone,
     };
+    // ENG-801: persist the entered billing for the success pages (the
+    // session retrieve returns stale customer_details for a while after
+    // updates — the cookie is the deterministic finalize source).
+    writeBillingAddressCookie({
+      firstName: billingAddr.firstName ?? "",
+      lastName: billingAddr.lastName ?? "",
+      address1: billingAddr.address1 ?? "",
+      address2: billingAddr.address2 ?? "",
+      city: billingAddr.city ?? "",
+      state: billingAddr.state ?? "",
+      postcode: billingAddr.postcode ?? "",
+      country: billingAddr.country ?? "",
+      ...(billingAddr.phone ? { phone: billingAddr.phone } : {}),
+    });
     setFormData((prev) => ({ ...prev, billingAddress: billingAddr }));
     markCompleted(CheckoutFormStepEnum.ADDRESS);
     goToStep(CheckoutFormStepEnum.PAYMENT);
@@ -703,7 +765,13 @@ function CheckoutSteps({
           !isStepCompleted(CheckoutFormStepEnum.PAYMENT)
         }
       >
-        <StripePaymentStep />
+        <StripePaymentStep
+          showBillingSameAsShipping={
+            needsShipping &&
+            formData.deliveryMethod === DeliveryStepEnum.SHIPPING_TO_HOME
+          }
+          shippingAddress={formData.shippingAddress}
+        />
       </AccordionWrapper>
     </div>
   );
@@ -832,6 +900,9 @@ export function CheckoutForm({
               colorTextPlaceholder: "#76766B",
             },
             rules: {
+              ".AccordionItem": {
+                padding: "4px",
+              },
               ".Input": {
                 padding: "11px 10px",
                 outline: "1px solid #9572C0",

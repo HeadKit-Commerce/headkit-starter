@@ -1,6 +1,11 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { getCheckoutSessionAction, processCheckoutAction } from "../actions";
 import { PaymentProcessing } from "@/components/checkout/payment-processing";
+import {
+  BILLING_ADDRESS_COOKIE,
+  parseBillingAddressCookie,
+} from "@/lib/checkout-billing-cookie";
 
 /**
  * Checkout return page: Stripe sends the shopper here (with only session_id)
@@ -121,30 +126,68 @@ export default async function CheckoutSuccessPage({
           });
         }
 
-        const stripeAddr =
-          session.shippingAddress ?? session.billingAddress ?? null;
+        // ENG-801: carry billing and shipping SEPARATELY. The session's
+        // customer_details is STALE for up to tens of seconds after
+        // updateBillingAddress()/confirm() (the completed EVENT is fresh but
+        // this page reads via retrieve), so the checkout-written billing
+        // cookie is the authoritative billing source; the session is the
+        // fallback (wallet/express flows write no cookie). Shipping comes
+        // from shipping_details (collected pre-payment — not lagging), with
+        // billing as last resort for no-shipping carts.
+        const cookieStore = await cookies();
+        const billingCookie = parseBillingAddressCookie(
+          cookieStore.get(BILLING_ADDRESS_COOKIE)?.value,
+        );
+        // Bounded re-poll only when NO cookie and the session has no billing
+        // at all (e.g. wallet flows where customer_details hasn't landed yet).
+        let sessionAddr = session;
+        if (!billingCookie && !sessionAddr.billingAddress?.address1) {
+          for (let attempt = 0; attempt < 6; attempt++) {
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            try {
+              const refreshed = await getCheckoutSessionAction(sessionId);
+              if (refreshed.billingAddress?.address1) {
+                sessionAddr = refreshed;
+                break;
+              }
+            } catch {
+              /* transient — keep polling */
+            }
+          }
+        }
+        const sessionBilling =
+          sessionAddr.billingAddress ?? sessionAddr.shippingAddress ?? null;
+        const sessionShipping =
+          sessionAddr.shippingAddress ?? sessionAddr.billingAddress ?? null;
+        const billingSource = billingCookie ?? sessionBilling;
         const billingAddress = {
-          firstName: stripeAddr?.firstName ?? "",
-          lastName: stripeAddr?.lastName ?? "",
-          address1: stripeAddr?.address1 ?? "",
-          ...(stripeAddr?.address2 ? { address2: stripeAddr.address2 } : {}),
-          city: stripeAddr?.city ?? "",
-          state: stripeAddr?.state ?? "",
-          postcode: stripeAddr?.postcode ?? "",
-          country: stripeAddr?.country ?? "",
-          email: session.customerEmail ?? "",
-          phone: stripeAddr?.phone ?? "",
+          firstName: billingSource?.firstName ?? "",
+          lastName: billingSource?.lastName ?? "",
+          address1: billingSource?.address1 ?? "",
+          ...(billingSource?.address2
+            ? { address2: billingSource.address2 }
+            : {}),
+          city: billingSource?.city ?? "",
+          state: billingSource?.state ?? "",
+          postcode: billingSource?.postcode ?? "",
+          country: billingSource?.country ?? "",
+          email: sessionAddr.customerEmail ?? session.customerEmail ?? "",
+          // The payment-step billing element returns no phone — inherit the
+          // session phone (set from shipping at the delivery step).
+          phone: billingSource?.phone || sessionBilling?.phone || "",
         };
         const shippingAddress = {
-          firstName: stripeAddr?.firstName ?? "",
-          lastName: stripeAddr?.lastName ?? "",
-          address1: stripeAddr?.address1 ?? "",
-          ...(stripeAddr?.address2 ? { address2: stripeAddr.address2 } : {}),
-          city: stripeAddr?.city ?? "",
-          state: stripeAddr?.state ?? "",
-          postcode: stripeAddr?.postcode ?? "",
-          country: stripeAddr?.country ?? "",
-          phone: stripeAddr?.phone ?? "",
+          firstName: sessionShipping?.firstName ?? "",
+          lastName: sessionShipping?.lastName ?? "",
+          address1: sessionShipping?.address1 ?? "",
+          ...(sessionShipping?.address2
+            ? { address2: sessionShipping.address2 }
+            : {}),
+          city: sessionShipping?.city ?? "",
+          state: sessionShipping?.state ?? "",
+          postcode: sessionShipping?.postcode ?? "",
+          country: sessionShipping?.country ?? "",
+          phone: sessionShipping?.phone ?? "",
         };
 
         try {

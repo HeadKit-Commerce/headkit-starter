@@ -44,10 +44,19 @@ export type StoreOrder = NonNullable<
  * When successBaseUrl is provided, backend builds order-based return URL:
  * {successBaseUrl}/checkout/success/{orderId}?key={orderKey}&session_id={CHECKOUT_SESSION_ID}
  * Runs server-side — the secret key never reaches the browser.
+ *
+ * ENG-801: this action deliberately takes NO customer email. Stripe renders a
+ * session created with `customer_email` as "prefilled and not editable" —
+ * pinning the cart email at create locked the ContactDetailsElement input on
+ * every reload / session recreate. Guest sessions are created email-less; the
+ * shopper's email reaches the session client-side via `actions.updateEmail`
+ * (one-shot push in CheckoutSteps + the contact-step submit). Logged-in
+ * shoppers still pass `customerId` (cus_xxx) — the Customer-based email lock
+ * is correct behavior and unchanged. Emails/tokens are never logged
+ * (T-04.1-15).
  */
 export async function createCheckoutSessionAction(
   returnUrl: string,
-  customerEmail?: string,
   customerId?: string,
   allowedShippingCountries?: string[],
   successBaseUrl?: string,
@@ -71,7 +80,6 @@ export async function createCheckoutSessionAction(
       ? { allowedShippingCountries: shippingCountries }
       : {}),
     ...(customerId ? { customer: customerId } : {}),
-    ...(customerEmail ? { customerEmail } : {}),
     ...(successBaseUrl ? { successBaseUrl } : {}),
   });
 }

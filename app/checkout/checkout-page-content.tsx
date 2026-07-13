@@ -115,13 +115,18 @@ export function CheckoutPageContent({
     async (newEmail: string, nextStep: string) => {
       if (!returnUrl) throw new Error("Return URL not configured");
       // Cart is already updated by ContactFormStep before calling this.
+      // ENG-801 recreate-then-updateEmail model: the recreated session is
+      // created email-LESS by design (a `customer_email` set at create renders
+      // the Stripe email field read-only). `newEmail` is only used to seed the
+      // prefill (`setRestoredEmail` below → formData.email); the session
+      // receives it post-create via the one-shot updateEmail push effect in
+      // CheckoutSteps — no contact-step re-submit needed.
       // Only request shipping-address collection when the cart needs shipping —
       // otherwise the recreated session would require a shipping address that the
       // billing-only UI never sets, breaking confirm().
       const shippingCountries = cartData?.needsShipping ? allowedCountries : [];
       const session = await createCheckoutSessionAction(
         returnUrl,
-        newEmail,
         undefined,
         shippingCountries,
         successBaseUrl,
@@ -168,7 +173,6 @@ export function CheckoutPageContent({
       // Free orders never need shipping-address collection by Stripe.
       const res = await createCheckoutSessionAction(
         returnUrl,
-        undefined,
         undefined,
         [],
         successBaseUrl,

@@ -53,14 +53,17 @@ export default async function CheckoutPage({
   const returnUrl = `${process.env.NEXT_PUBLIC_FRONTEND_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`;
   const successBaseUrl = process.env.NEXT_PUBLIC_FRONTEND_URL;
 
-  // Reload root #1 (CKA-04): resolve the logged-in shopper's email server-side
-  // so the recreated Stripe session carries a real `customer_email` — this
-  // prefills the ContactDetailsElement, initiates Link, and survives a page
-  // reload (the value lives in the server-recreated session, not client state).
+  // CKA-04 prefill + ENG-801: resolve the shopper's email server-side SOLELY
+  // to seed the Contact step prefill via the `customerEmail` prop below. The
+  // session itself is created email-LESS — Stripe renders a session created
+  // with `customer_email` as "prefilled and not editable", which locked the
+  // ContactDetailsElement input on reload/recreate. The session receives the
+  // email post-create via `actions.updateEmail` (one-shot push effect in
+  // CheckoutSteps / contact-step submit), so the field stays editable.
   // A1: the authed Store API cart natively surfaces the WP billing email;
   // `getCustomer(authToken)` is a defensive fallback only when the cart has
-  // none. Guest (no cookie / no email) → undefined → session stays guest
-  // (unchanged). The token/email are never logged (T-04.1-15).
+  // none. Guest (no cookie / no email) → undefined → no prefill (unchanged).
+  // The token/email are never logged (T-04.1-15).
   const authToken = getAuthToken(await cookies());
   let fallbackEmail: string | undefined;
   if (authToken && !cart.billingAddress?.email?.trim()) {
@@ -86,9 +89,9 @@ export default async function CheckoutPage({
     // shipping. For digital/no-shipping carts the session must NOT require a
     // shipping address (the billing-only UI never sets one → confirm() would fail).
     const shippingCountries = cart.needsShipping ? ["AU", "NZ"] : [];
+    // ENG-801: no email at create — see comment above `customerEmail`.
     const session = await createCheckoutSessionAction(
       returnUrl,
-      customerEmail,
       undefined,
       shippingCountries,
       successBaseUrl,

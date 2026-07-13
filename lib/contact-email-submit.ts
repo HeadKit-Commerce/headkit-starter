@@ -1,0 +1,64 @@
+/** Which side-effect path the contact-step submit must take. */
+export type ContactSubmitDecision = "recreate" | "advance" | "update-email";
+
+/** Inputs to the contact-step submit branch decision. */
+export interface ContactSubmitInput {
+  /** The email the step started with (prefill / restored). Raw — normalized inside. */
+  initialEmail: string;
+  /** The email the shopper submitted. Raw — normalized inside. */
+  submittedEmail: string;
+  /**
+   * The email currently on the Stripe Checkout Session, or `null`/`undefined`
+   * when the checkout state is not "success" (session not readable).
+   */
+  sessionEmail: string | null | undefined;
+  /** Whether an onRefreshSession (session-recreate) path is available. */
+  hasRefreshSession: boolean;
+}
+
+/**
+ * Pure, node-testable extraction of the contact-step handleSubmit branch
+ * order (ENG-801). Reproduces the component's branches EXACTLY:
+ *
+ *   (a) "recreate"     — the email changed and a refresh path exists: the
+ *                        session must be recreated (Stripe render-locks a
+ *                        `customer_email` set at create; recreate-then-
+ *                        updateEmail is the ENG-801 model).
+ *   (b) "advance"      — the email is unchanged, a prefill exists, AND the
+ *                        session already carries an email: Stripe forbids
+ *                        `updateEmail` with an unchanged email, so just move
+ *                        to the next step.
+ *   (c) "update-email" — everything else: push the email onto the session
+ *                        (`actions.updateEmail`) and the cart before advancing.
+ *
+ * WHY branch (c) matters — the wipe repair: the contact step's "Use Link
+ * instead" toggle mounts a blank ContactDetailsElement, and in Checkout
+ * Sessions custom mode a freshly created EMPTY element asserts empty onto the
+ * session, WIPING any previously pushed email. When the shopper toggles back
+ * and submits the UNCHANGED prefill, branch (b) must NOT swallow the submit:
+ * `sessionEmail` reads empty, so branch (c) fires and repairs the session
+ * before the step advances. The bounded updateEmail retry in CheckoutSteps is
+ * only a loop-guarded best effort — this submit path is the safety net.
+ *
+ * Emails are normalized (trim + lowercase) before comparison, mirroring the
+ * component. A `null`/`undefined` sessionEmail means the checkout state is
+ * not "success"; that maps to `stripeHasNoEmail === false` in the component
+ * (the condition requires a successful state), so an unchanged prefill still
+ * advances. Pure: no I/O, no Stripe types.
+ */
+export function decideContactSubmit(
+  input: ContactSubmitInput,
+): ContactSubmitDecision {
+  const initial = input.initialEmail.trim().toLowerCase();
+  const submitted = input.submittedEmail.trim().toLowerCase();
+  const emailChanged = submitted !== initial;
+
+  if (input.hasRefreshSession && emailChanged) return "recreate";
+
+  const stripeHasNoEmail =
+    input.sessionEmail != null && !input.sessionEmail.trim();
+  const hasInitialEmail = initial.length > 0;
+  if (!stripeHasNoEmail && hasInitialEmail && !emailChanged) return "advance";
+
+  return "update-email";
+}
