@@ -85,8 +85,15 @@ const Carousel = <T,>({
       scrollWidth > clientWidth ? scrollLeft / (scrollWidth - clientWidth) : 0,
     );
     if (useScrollSnap) {
-      const itemWidth = clientWidth / filteredItems.length;
-      const newIndex = Math.round(scrollLeft / itemWidth);
+      // Each snap slide spans the full container, so a slide's width is the
+      // total scrollable width divided by the slide count. Clamp so the active
+      // index never overflows the pagination dots.
+      const itemWidth = scrollWidth / filteredItems.length;
+      const rawIndex = itemWidth > 0 ? Math.round(scrollLeft / itemWidth) : 0;
+      const newIndex = Math.min(
+        Math.max(rawIndex, 0),
+        filteredItems.length - 1,
+      );
       setCurrentIndex(newIndex);
       if (onSlideChange && newIndex !== currentIndex) {
         onSlideChange(newIndex);
@@ -218,7 +225,12 @@ const Carousel = <T,>({
           <div
             key={index}
             id={`${id}-item-${index}`}
-            className={cn("flex-none", itemSizeClasses, carouselItemClassName)}
+            className={cn(
+              "flex-none",
+              useScrollSnap && "snap-start",
+              itemSizeClasses,
+              carouselItemClassName,
+            )}
           >
             {renderItem(item, index)}
           </div>
@@ -298,15 +310,21 @@ const Carousel = <T,>({
       )}
 
       {showPagination && (
-        <div className={cn("flex justify-center mt-4", paginationClassName)}>
+        <div
+          className={cn(
+            "absolute inset-x-0 z-20 flex justify-center",
+            paginationClassName,
+          )}
+        >
           {filteredItems.map((_, index) => (
             <button
               key={index}
               onClick={() => scrollTo(index)}
+              aria-label={`Go to slide ${index + 1}`}
               className={cn(
-                "h-2 w-2 mx-1 rounded-full",
+                "h-2 w-2 mx-1 rounded-full transition-colors cursor-pointer",
                 paginationDotClassName,
-                currentIndex === index && "bg-blue-500",
+                currentIndex === index && "bg-white",
               )}
             />
           ))}

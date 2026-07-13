@@ -79,8 +79,10 @@ export const MainCarousel = ({ carouselItems }: Props) => {
           delay: 5000,
           stopOnInteraction: true,
         }}
+        showScrollbar={false}
         showPagination={carouselItems.length > 1}
-        paginationClassName="bottom-[240px]! md:bottom-6! flex"
+        paginationDotClassName="bg-white/50"
+        paginationClassName="top-[calc(40vh-2rem)] md:top-auto md:bottom-6"
         useScrollSnap={true}
         itemSizing={{ base: "w-full" }}
         gap="gap-0"
