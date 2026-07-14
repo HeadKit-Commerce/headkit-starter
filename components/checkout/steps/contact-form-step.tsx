@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -57,69 +57,34 @@ const ContactFormStep: React.FC<ContactFormStepProps> = ({
     },
   });
 
-  // ENG-801: whether the contact step starts with a known email (server/cart
-  // resolved prefill, or a restored email after a session recreate). When it
-  // does, the Stripe ContactDetailsElement CANNOT show it: in Checkout
-  // Sessions custom mode the element supports no options
-  // (StripeCheckoutContactDetailsElementOptions = Record<string, never>; the
-  // react wrapper additionally drops the options object at create), it never
-  // initializes its display from the session email, and a freshly created
-  // EMPTY element asserts empty onto the session — wiping any email pushed
-  // via actions.updateEmail. So with a prefill we render the native email
-  // input instead (prefilled AND editable); the Stripe element is kept for
-  // the no-prefill first visit, where it drives Link (ENG-748).
+  // ENG-801 (quick-260714-n0w): the Stripe path renders the
+  // ContactDetailsElement ALWAYS — single mode, no toggle. The returning-
+  // shopper prefill is delivered one level UP, via CheckoutElementsProvider
+  // `options.defaultValues.email` (stripe-js checkout.d.ts:40-50), which
+  // prefills the element's display, keeps it editable, and initiates Link
+  // auth for enrolled emails. Element-level options remain unsupported in
+  // Checkout Sessions custom mode (Record<string, never>) — the element
+  // itself takes no prefill prop. `hasPrefillEmail` only gates the
+  // mount-time validation below so Continue enables without interaction
+  // when a prefill exists.
   const hasPrefillEmail = !!(defaultValues.email ?? "").trim();
 
-  // ENG-801 (quick-260714-7iq): explicit input mode instead of a render-time
-  // ternary, so a returning shopper can opt back INTO Link. "native" renders
-  // the RHF email input (prefilled AND editable); "element" mounts the blank
-  // ContactDetailsElement whose typing drives Link (ENG-748). Toggling to the
-  // element WIPES the session email (blank element asserts empty) — the
-  // submit path (decideContactSubmit branch "update-email") repairs it.
-  const [emailMode, setEmailMode] = useState<"native" | "element">(
-    hasPrefillEmail ? "native" : "element",
-  );
-  // True once the shopper explicitly toggles — a late-arriving prefill must
-  // never yank them out of an explicitly chosen mode.
-  const userToggledRef = useRef(false);
-  // Restore target for "Enter email manually" after a toggle to the element.
-  const stashedEmailRef = useRef("");
-
-  const switchToElement = () => {
-    stashedEmailRef.current = form.getValues("email");
-    userToggledRef.current = true;
-    setEmailMode("element");
-    // Clear so Continue disables until the element's onChange syncs a typed
-    // email — form validation gates the submit button.
-    form.setValue("email", "", { shouldValidate: true });
-  };
-
-  const switchToNative = () => {
-    userToggledRef.current = true;
-    setEmailMode("native");
-    form.setValue(
-      "email",
-      stashedEmailRef.current || (defaultValues.email ?? ""),
-      { shouldValidate: true },
-    );
-  };
-
-  // Prefilled (native-input) path: validate once on mount so isValid reflects
-  // the seeded email and the submit button enables without user interaction.
+  // Prefill path: validate once on mount so isValid reflects the seeded
+  // email and the submit button enables without user interaction.
   useEffect(() => {
-    if ((defaultValues.email ?? "").trim()) {
+    if (hasPrefillEmail) {
       void form.trigger("email");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sync form when defaultValues.email is populated from cart (React Hook Form
-  // defaultValues only apply on mount). Guarded by mode: a late prefill only
-  // applies while in native mode, or on a not-yet-toggled element mount (where
-  // it also switches to native, matching the pre-toggle render behavior). It
-  // must NEVER override an explicit user toggle into the element (Link) mode.
+  // Sync RHF when defaultValues.email arrives late (React Hook Form
+  // defaultValues only apply on mount) — e.g. the async getFullCartAction
+  // fill in CheckoutSteps. A late (post-provider-mount) prefill reaches
+  // RHF/submit but NOT the element's display (provider defaultValues were
+  // read at provider mount); the submit path's update-email branch is the
+  // safety net that still lands it on the session.
   useEffect(() => {
-    if (emailMode === "element" && userToggledRef.current) return;
     const incoming = defaultValues.email ?? "";
     const current = form.getValues("email");
     if (incoming && !current) {
@@ -128,15 +93,15 @@ const ContactFormStep: React.FC<ContactFormStepProps> = ({
         newsletter: defaultValues.newsletter ?? false,
       });
       void form.trigger("email");
-      if (emailMode === "element") setEmailMode("native");
     }
-  }, [defaultValues.email, defaultValues.newsletter, form, emailMode]);
+  }, [defaultValues.email, defaultValues.newsletter, form]);
 
   const handleSubmit = async (data: z.infer<typeof contactSchema>) => {
     try {
       // Branch selection is extracted to a pure, unit-tested helper — the
-      // "update-email" branch is what repairs the session-email wipe caused
-      // by mounting a blank ContactDetailsElement (toggle roundtrip).
+      // "update-email" branch is the safety net for any session whose email
+      // is still empty at submit time (async-arriving prefill missed by the
+      // provider defaultValues, or the bounded push not yet landed).
       const decision = decideContactSubmit({
         initialEmail: defaultValues.email ?? "",
         submittedEmail: data.email,
@@ -208,57 +173,35 @@ const ContactFormStep: React.FC<ContactFormStepProps> = ({
     <div className="space-y-4">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-          {enableStripe && emailMode === "element" ? (
-            <>
-              {/* No options prop: in Checkout Sessions custom mode the element
-                  accepts none (Record<string, never>) and the react wrapper
-                  drops them anyway — it cannot prefill. Typing drives Link. */}
-              <ContactDetailsElement
-                onChange={(event) => {
-                  form.setValue("email", event.value.email);
-                  form.trigger("email");
-                }}
-              />
-              {hasPrefillEmail && (
-                <button
-                  type="button"
-                  onClick={switchToNative}
-                  className="underline font-medium cursor-pointer text-sm text-muted-foreground"
-                >
-                  Enter email manually
-                </button>
-              )}
-            </>
+          {/* Prefill lives at the provider (CheckoutElementsProvider
+              options.defaultValues.email); the element takes no options in
+              custom mode (Record<string, never>). Typing drives Link. */}
+          {enableStripe ? (
+            <ContactDetailsElement
+              onChange={(event) => {
+                form.setValue("email", event.value.email);
+                form.trigger("email");
+              }}
+            />
           ) : (
-            <>
-              <FormField
-                name="email"
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <input
-                        type="email"
-                        placeholder="Email"
-                        className="border rounded-md p-2 w-full"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              {enableStripe && hasPrefillEmail && (
-                <button
-                  type="button"
-                  onClick={switchToElement}
-                  className="underline font-medium cursor-pointer text-sm text-muted-foreground"
-                >
-                  Use Link instead
-                </button>
+            <FormField
+              name="email"
+              control={form.control}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <input
+                      type="email"
+                      placeholder="Email"
+                      className="border rounded-md p-2 w-full"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
               )}
-            </>
+            />
           )}
 
           <FormField

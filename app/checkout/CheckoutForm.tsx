@@ -258,6 +258,15 @@ function CheckoutSteps({
   // guard ref is keyed by sessionId — NOT a boolean — because refreshSession
   // replaces the session via state without remounting CheckoutSteps, and the
   // recreated session is exactly the one that needs the push.
+  //
+  // KEEP (quick-260714-n0w evidence): provider-level defaultValues.email does
+  // NOT land the email on the session record by itself on fresh page loads —
+  // boolean instrumentation showed the first success-state observation with
+  // an EMPTY session email and this push firing (both the reload/prefill path
+  // and the resume-past-contact path). Only on the fast recreate remount did
+  // the element assert the (frozen) prefill onto the session before this
+  // effect ran, making the push a self-noop. This push is therefore still
+  // LOAD-BEARING and must stay.
   const checkoutState = useCheckout();
   const emailPushStateRef = useRef<{
     sessionId: string;
@@ -827,6 +836,34 @@ export function CheckoutForm({
     typeof loadStripe
   > | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // ENG-801 (quick-260714-n0w): freeze the email prefill PER SESSION.
+  // `defaultValues` is an INIT-time Stripe option, but react-stripe-js
+  // re-runs its init effect whenever the options prop changes (inline object
+  // = every render) and the LAST closure wins the loadStripe race. So a
+  // post-mount flip of `initialEmail` — checkout-page-content clears
+  // `restoredEmail` right after a recreate, falling back to the STALE
+  // server-resolved customerEmail — would hand Stripe the OLD email, and the
+  // element asserts it onto the recreated session (observed in QA: the order
+  // carried the pre-edit email). Capture the prefill on the first render of
+  // each sessionId and never let it drift for that session ("adjust state
+  // during render" pattern).
+  const [frozenPrefill, setFrozenPrefill] = useState<{
+    sessionId: string;
+    email: string | null;
+  }>({
+    sessionId: checkoutSession.sessionId,
+    email: initialEmail?.trim() ? initialEmail : null,
+  });
+  if (frozenPrefill.sessionId !== checkoutSession.sessionId) {
+    setFrozenPrefill({
+      sessionId: checkoutSession.sessionId,
+      email: initialEmail?.trim() ? initialEmail : null,
+    });
+  }
+  const sessionPrefillEmail =
+    frozenPrefill.sessionId === checkoutSession.sessionId
+      ? frozenPrefill.email
+      : (initialEmail ?? null);
   /** Mapping from sync; Stripe recreates shipping rate IDs when line items change. */
   const [syncShippingMapping, setSyncShippingMapping] = useState<Array<{
     rateId: string;
@@ -886,6 +923,25 @@ export function CheckoutForm({
           allowed: true,
         },
         clientSecret: checkoutSession.clientSecret,
+        // ENG-801 (quick-260714-n0w): provider-level email prefill. Stripe's
+        // custom-checkout best practice: `defaultValues.email` prefills the
+        // ContactDetailsElement AND initiates Link auth, and stays MUTABLE
+        // (unlike `customer_email` at create, which render-locks the field —
+        // sessions are still created email-LESS). The provider mounts once
+        // per session (keyed by sessionId above), so this covers (a) first
+        // paint when the server resolved an email (page.tsx
+        // `resolveCheckoutEmail` — the reload path carries the cart billing
+        // email server-side) and (b) the recreate path (remount with
+        // `restoredEmail`). Residual gap: an email that only arrives via the
+        // ASYNC getFullCartAction fill inside CheckoutSteps AFTER provider
+        // mount is missed here — the contact submit's update-email branch
+        // and the bounded session-email push are the safety nets. Uses the
+        // per-session FROZEN prefill (see `frozenPrefill` above) so option
+        // drift can never feed Stripe a stale email. Spread conditionally:
+        // the key is optional + exactOptionalPropertyTypes.
+        ...(sessionPrefillEmail
+          ? { defaultValues: { email: sessionPrefillEmail } }
+          : {}),
         elementsOptions: {
           appearance: {
             theme: "flat",
@@ -946,7 +1002,9 @@ export function CheckoutForm({
                 : {})}
               onSyncComplete={onSyncComplete}
               {...(initialStep && { initialStep })}
-              {...(initialEmail && { initialEmail })}
+              {...(sessionPrefillEmail && {
+                initialEmail: sessionPrefillEmail,
+              })}
               {...(onRefreshSession && { onRefreshSession })}
             />
           </div>

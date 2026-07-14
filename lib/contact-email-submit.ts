@@ -31,14 +31,16 @@ export interface ContactSubmitInput {
  *   (c) "update-email" — everything else: push the email onto the session
  *                        (`actions.updateEmail`) and the cart before advancing.
  *
- * WHY branch (c) matters — the wipe repair: the contact step's "Use Link
- * instead" toggle mounts a blank ContactDetailsElement, and in Checkout
- * Sessions custom mode a freshly created EMPTY element asserts empty onto the
- * session, WIPING any previously pushed email. When the shopper toggles back
- * and submits the UNCHANGED prefill, branch (b) must NOT swallow the submit:
- * `sessionEmail` reads empty, so branch (c) fires and repairs the session
- * before the step advances. The bounded updateEmail retry in CheckoutSteps is
- * only a loop-guarded best effort — this submit path is the safety net.
+ * WHY branch (c) matters — the safety net: sessions are created email-LESS
+ * (ENG-801) and the returning-shopper prefill is applied at PROVIDER mount
+ * (CheckoutElementsProvider `options.defaultValues.email`). A session's
+ * email can therefore still be empty at submit time: the prefill arrived
+ * async (after provider mount, missed by defaultValues) or the bounded
+ * updateEmail push in CheckoutSteps has not landed yet. Submitting an
+ * UNCHANGED prefill against such a session must NOT be swallowed by branch
+ * (b): `sessionEmail` reads empty, so branch (c) fires and pushes the email
+ * onto the session before the step advances. The bounded push is only a
+ * loop-guarded best effort — this submit path is the guarantee.
  *
  * Emails are normalized (trim + lowercase) before comparison, mirroring the
  * component. A `null`/`undefined` sessionEmail means the checkout state is

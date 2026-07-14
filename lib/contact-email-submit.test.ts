@@ -3,13 +3,15 @@ import { describe, expect, it } from "vitest";
 import { decideContactSubmit } from "@/lib/contact-email-submit";
 
 /**
- * ENG-801 quick-260714-7iq — decideContactSubmit.
+ * ENG-801 quick-260714-n0w — decideContactSubmit.
  *
- * Pure extraction of the contact-step handleSubmit branch order, so the
- * session-email-wipe repair is unit-provable: toggling to the blank Stripe
- * ContactDetailsElement WIPES the Checkout Session email; when the shopper
- * toggles back and submits the UNCHANGED email, the submit path must observe
- * the wipe (empty session email) and choose "update-email" — not "advance".
+ * Pure extraction of the contact-step handleSubmit branch order. The Stripe
+ * path renders the ContactDetailsElement single-mode with a PROVIDER-level
+ * prefill (CheckoutElementsProvider options.defaultValues.email); sessions
+ * are created email-LESS, so a session's email can still be empty at submit
+ * time (async-arriving prefill missed by provider defaultValues, or the
+ * bounded push not yet landed). Submitting an UNCHANGED prefill against such
+ * a session must choose "update-email" — not "advance".
  *
  * Pure/node-testable, mirroring lib/checkout-email.test.ts (the app has no
  * jsdom/testing-library setup — logic is extracted for the node vitest env).
@@ -27,9 +29,10 @@ describe("decideContactSubmit (ENG-801)", () => {
     ).toBe("advance");
   });
 
-  it('THE GAP — wipe roundtrip: unchanged email but the session email was wiped → "update-email"', () => {
-    // Toggling to the blank ContactDetailsElement asserts empty onto the
-    // session. Submit of the UNCHANGED email must repair it.
+  it('THE GAP — session email empty at submit despite an unchanged prefill → "update-email"', () => {
+    // Sessions are created email-LESS; if neither the provider defaultValues
+    // prefill nor the bounded push has landed the email on the session yet,
+    // the unchanged-prefill submit must repair it rather than advance.
     expect(
       decideContactSubmit({
         initialEmail: "a@x.com",
