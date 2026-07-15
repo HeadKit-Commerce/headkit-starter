@@ -249,3 +249,18 @@ export async function updateCustomerAddressAction(
     return { success: false, error: message };
   }
 }
+
+/**
+ * Delete the httpOnly `hk-cart-token` cookie. Called from signOut
+ * (auth-context.tsx): the WP theme resolves the WP user from the Cart-Token
+ * itself (session identity unification — see
+ * .planning/debug/stripe-shipping-desync-logged-in.md), so a cart token left
+ * behind after logout would keep every wc/store request acting as the
+ * logged-out user. A fresh guest cart token is minted automatically by the
+ * backend on the next cart operation.
+ */
+export async function clearCartTokenAction(): Promise<void> {
+  const { name: cookieName } = cartTokenCookieOptions();
+  const cookieStore = await cookies();
+  cookieStore.delete(cookieName);
+}

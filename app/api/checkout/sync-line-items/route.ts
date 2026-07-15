@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { getCartToken } from "@/lib/cart";
+import { getAuthToken } from "@/lib/auth-cookie";
 import { createServerHeadkit } from "@/lib/sdk.server";
 
 /**
@@ -7,6 +9,13 @@ import { createServerHeadkit } from "@/lib/sdk.server";
  *
  * Called by Stripe's runServerUpdate during checkout. Syncs WooCommerce cart
  * line items to the Stripe Checkout Session. Cart token is read from cookies.
+ *
+ * The hk-auth-token cookie is forwarded as authToken so the underlying
+ * GetCart is AUTH-flavored: WC flavor-locks the session customer blob to the
+ * request's WP user, so a token-only read of a logged-in shopper's session
+ * would see (and destructively persist) the guest flavor — pushing the
+ * default-zone shipping rate to Stripe instead of the shopper's selection.
+ * Mechanism: .planning/debug/stripe-shipping-desync-logged-in.md
  */
 export async function POST(request: Request) {
   try {
@@ -27,10 +36,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const result =
-      await createServerHeadkit(
-        cartToken,
-      ).payments.syncCheckoutSessionLineItems(sessionId);
+    const authToken = getAuthToken(await cookies());
+    const result = await createServerHeadkit(
+      cartToken,
+      undefined,
+      authToken,
+    ).payments.syncCheckoutSessionLineItems(sessionId);
     return NextResponse.json({
       ok: result.ok,
       shippingOptionMapping: result.shippingOptionMapping ?? null,

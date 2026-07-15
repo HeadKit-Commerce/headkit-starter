@@ -6,6 +6,7 @@ import { createClientSDK } from "@headkit/sdk";
 
 import { refreshDelayMs } from "@/lib/jwt-exp";
 import { getCustomer } from "@/lib/account-actions";
+import { clearCartTokenAction } from "@/lib/cart-actions";
 
 export interface AuthUser {
   id: string;
@@ -212,6 +213,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = (redirect = false) => {
     persistUser(null);
     document.cookie = `${COOKIE_NAME}=; Max-Age=0; path=/`;
+    // Drop the httpOnly hk-cart-token too (server action — not reachable via
+    // document.cookie). The cart token now carries the user's identity in WP
+    // (theme resolves determine_current_user from it); leaving it behind would
+    // keep the browser acting as the logged-out user on wc/store requests. A
+    // fresh guest token is minted on the next cart op. Fire-and-forget: logout
+    // UX must not block on the roundtrip.
+    void clearCartTokenAction().catch(() => {});
     if (redirect) {
       router.push("/account");
     }
