@@ -107,6 +107,13 @@ function CheckoutSteps({
   initialStep?: Step;
   initialEmail?: string;
   onRefreshSession?: (email: string, nextStep: string) => Promise<void>;
+  /**
+   * ENG-783: logged-in shopper. Accepted (threading stays in place) but not
+   * consumed at the step level — the actual prefill gate lives one level up
+   * in CheckoutForm (provider `defaultValues.email` is suppressed for authed
+   * shoppers). Not destructured to avoid an unused-var warning.
+   */
+  isAuthenticated?: boolean;
 }) {
   const { cartData, setCartData } = useCartContext();
 
@@ -813,6 +820,7 @@ export function CheckoutForm({
   onRefreshSession,
   initialStep,
   initialEmail,
+  isAuthenticated = false,
 }: {
   checkoutSession: CheckoutSessionProp;
   cartSidebar: ReactNode;
@@ -831,6 +839,14 @@ export function CheckoutForm({
   onRefreshSession?: (email: string, nextStep: string) => Promise<void>;
   initialStep?: Step;
   initialEmail?: string;
+  /**
+   * True when the shopper is logged in (ENG-783). Gates the provider-level
+   * `defaultValues.email` prefill: an authed session may carry a bound
+   * email-ful customer, and the init-time prefill against it kills all
+   * elements (IntegrationError → loaderror). See the gate at the
+   * CheckoutElementsProvider options below.
+   */
+  isAuthenticated?: boolean;
 }) {
   const [stripePromise, setStripePromise] = useState<ReturnType<
     typeof loadStripe
@@ -939,7 +955,21 @@ export function CheckoutForm({
         // per-session FROZEN prefill (see `frozenPrefill` above) so option
         // drift can never feed Stripe a stale email. Spread conditionally:
         // the key is optional + exactOptionalPropertyTypes.
-        ...(sessionPrefillEmail
+        // ENG-783 fix2: NEVER pass defaultValues.email for an AUTHED shopper.
+        // `defaultValues.email` makes stripe.js internally call updateEmail at
+        // element init; when the session was created with a bound customer
+        // that has an email (logged-in reuse path) the API rejects it with
+        // IntegrationError "You cannot update the email because a
+        // `customer_email` or `customer` with an email is already set on the
+        // Checkout Session." — and that rejection fans out as `loaderror` on
+        // ALL elements and kills useCheckout (dead checkout). Empirical
+        // harness proved defaultValues.email × customer-with-email is the
+        // ONLY failing combination (bound customer alone loads fine). For
+        // authed shoppers the prefill is also redundant: an email-ful bound
+        // customer prefills the session's own email into the element; a
+        // first-time authed session lets the shopper type into the element.
+        // Guest prefill (restore-email flow, ENG-801) stays unchanged.
+        ...(sessionPrefillEmail && !isAuthenticated
           ? { defaultValues: { email: sessionPrefillEmail } }
           : {}),
         elementsOptions: {
@@ -990,6 +1020,7 @@ export function CheckoutForm({
             <CheckoutSteps
               sessionId={checkoutSession.sessionId}
               pickupLocationsFromApi={pickupLocationsFromApi}
+              isAuthenticated={isAuthenticated}
               {...((
                 syncShippingMapping ?? checkoutSession.shippingOptionMapping
               )?.length

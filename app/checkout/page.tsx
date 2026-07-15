@@ -65,6 +65,15 @@ export default async function CheckoutPage({
   // none. Guest (no cookie / no email) → undefined → no prefill (unchanged).
   // The token/email are never logged (T-04.1-15).
   const authToken = getAuthToken(await cookies());
+  // ENG-783: a logged-in shopper (WP auth cookie present) has a server-known
+  // identity. CheckoutForm uses this to suppress the provider-level
+  // `defaultValues.email` prefill — against a session with a bound email-ful
+  // customer the init-time prefill triggers IntegrationError → loaderror on
+  // all elements. The ContactDetailsElement itself always mounts; a bound
+  // email-ful session displays the fixed email inside it.
+  // Auth is the cookie ONLY — never inferred from `customerEmail` (a guest who
+  // typed a billing email also has one).
+  const isAuthenticated = !!authToken;
   let fallbackEmail: string | undefined;
   if (authToken && !cart.billingAddress?.email?.trim()) {
     const customer = await getCustomer(authToken);
@@ -179,6 +188,7 @@ export default async function CheckoutPage({
         returnUrl={returnUrl}
         {...(successBaseUrl && { successBaseUrl })}
         {...(customerEmail && { customerEmail })}
+        isAuthenticated={isAuthenticated}
         allowedCountries={["AU", "NZ"]}
       />
     </main>

@@ -89,6 +89,14 @@ interface CheckoutPageContentProps {
    * async cart fetch. Undefined for guests (unchanged).
    */
   customerEmail?: string;
+  /**
+   * True when the shopper is logged in (WP auth cookie present, resolved
+   * server-side in page.tsx). Threads to CheckoutForm, which suppresses the
+   * provider-level `defaultValues.email` prefill for authed shoppers — the
+   * init-time prefill against a bound email-ful customer kills all elements
+   * (ENG-783 fix2). Never derived from `customerEmail`.
+   */
+  isAuthenticated?: boolean;
   allowedCountries?: string[];
 }
 
@@ -99,6 +107,7 @@ export function CheckoutPageContent({
   returnUrl,
   successBaseUrl,
   customerEmail,
+  isAuthenticated = false,
   allowedCountries = ["AU", "NZ"],
 }: CheckoutPageContentProps) {
   const router = useRouter();
@@ -296,6 +305,7 @@ export function CheckoutPageContent({
         <CheckoutForm
           checkoutSession={checkoutSession}
           pickupLocationsFromApi={pickupLocationsFromApi}
+          isAuthenticated={isAuthenticated}
           {...(returnUrl && { onRefreshSession: refreshSession })}
           {...(initialStep && { initialStep: initialStep as Step })}
           {...(initialEmail && { initialEmail })}

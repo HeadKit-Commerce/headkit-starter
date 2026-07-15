@@ -176,6 +176,14 @@ const ContactFormStep: React.FC<ContactFormStepProps> = ({
           {/* Prefill lives at the provider (CheckoutElementsProvider
               options.defaultValues.email); the element takes no options in
               custom mode (Record<string, never>). Typing drives Link. */}
+          {/* ENG-783 fix2: ContactDetailsElement mounts ALWAYS (Callan
+              directive ENG-801/n0w) — including for logged-in shoppers. When
+              the session carries a bound email-ful customer, the element
+              displays the fixed (uneditable) email — Stripe-doc-sanctioned —
+              and Link stays available (session email presence is the Link
+              gate). The authed loaderror was never the element itself; it was
+              the provider-level defaultValues.email prefill colliding with the
+              bound customer's email (gated in CheckoutForm.tsx). */}
           {enableStripe ? (
             <ContactDetailsElement
               onChange={(event) => {
