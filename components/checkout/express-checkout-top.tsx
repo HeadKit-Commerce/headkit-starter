@@ -9,6 +9,7 @@ import type {
   StripeExpressCheckoutElementAvailablePaymentMethodsChangeEvent,
   StripeExpressCheckoutElementConfirmEvent,
 } from "@stripe/stripe-js";
+import { isCheckoutSessionDead } from "@/lib/checkout-session-status";
 
 /**
  * Express / wallet checkout (Apple Pay / Google Pay / Link) mounted at the TOP
@@ -37,10 +38,29 @@ import type {
  * inline on the page beneath. The inline message is kept as the on-page
  * fallback.
  */
-export function ExpressCheckoutTop(): React.ReactElement {
+export function ExpressCheckoutTop({
+  sessionId,
+  onSessionExpired,
+}: {
+  /** ENG-784: active Checkout Session id for confirm-time dead-session checks. */
+  sessionId?: string;
+  /** ENG-784: called when a confirm failure traces to a dead session (D7). */
+  onSessionExpired?: () => void;
+} = {}): React.ReactElement {
   const checkoutState = useCheckout();
   const [hasWallet, setHasWallet] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // ENG-784: a wallet confirm failure may mean the session was expired under
+  // us (cart mutated in another tab → mechanism 1). Ask the SERVER for the
+  // session status (D7 — never error-string sniffing); dead → one-shot
+  // auto-recreate via onSessionExpired, alive → keep inline error handling.
+  const recoverIfSessionDead = async (): Promise<boolean> => {
+    if (!sessionId || !onSessionExpired) return false;
+    if (!(await isCheckoutSessionDead(sessionId))) return false;
+    onSessionExpired();
+    return true;
+  };
 
   const handleConfirm = (
     event: StripeExpressCheckoutElementConfirmEvent,
@@ -55,14 +75,16 @@ export function ExpressCheckoutTop(): React.ReactElement {
     setError(null);
     void checkout
       .confirm({ expressCheckoutConfirmEvent: event })
-      .then((result) => {
+      .then(async (result) => {
         if (result.type === "error") {
           event.paymentFailed({ reason: "fail" });
+          if (await recoverIfSessionDead()) return;
           setError(result.error.message ?? "Payment failed. Please try again.");
         }
       })
-      .catch((err: unknown) => {
+      .catch(async (err: unknown) => {
         event.paymentFailed({ reason: "fail" });
+        if (await recoverIfSessionDead()) return;
         setError(
           err instanceof Error ? err.message : "An unexpected error occurred.",
         );
@@ -78,7 +100,9 @@ export function ExpressCheckoutTop(): React.ReactElement {
   return (
     <div data-testid="express-checkout-section">
       {hasWallet && (
-        <p className="mb-3 text-sm font-medium text-gray-700">Express checkout</p>
+        <p className="mb-3 text-sm font-medium text-gray-700">
+          Express checkout
+        </p>
       )}
       {/* Always mounted so Stripe can report wallet availability; renders empty
           (zero height) when no wallet is supported on this device/browser. */}

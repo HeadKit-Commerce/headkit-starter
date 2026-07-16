@@ -76,7 +76,11 @@ export const ShippingOptionsStep = ({
         const act = actions;
         if (act) {
           const updateResult = await act.runServerUpdate(async () => {
-            const result = await selectShippingAction(packageId, rateId);
+            // keepCheckoutSession: checkout-mounted — the inline sync below
+            // re-syncs the live session (ENG-784).
+            const result = await selectShippingAction(packageId, rateId, {
+              keepCheckoutSession: true,
+            });
             if (!result.success) throw new Error(result.error);
             setCartData(result.cart);
           });
@@ -112,7 +116,9 @@ export const ShippingOptionsStep = ({
             });
           }
         } else {
-          const result = await selectShippingAction(packageId, rateId);
+          const result = await selectShippingAction(packageId, rateId, {
+            keepCheckoutSession: true,
+          });
           if (result.success) setCartData(result.cart);
         }
       } finally {
@@ -132,6 +138,7 @@ export const ShippingOptionsStep = ({
         const result = await selectShippingAction(
           selectedRate.packageId,
           rateId,
+          { keepCheckoutSession: true },
         );
         if (!result.success) throw new Error(result.error);
         setCartData(result.cart);

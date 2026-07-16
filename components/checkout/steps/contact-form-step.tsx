@@ -114,9 +114,12 @@ const ContactFormStep: React.FC<ContactFormStepProps> = ({
 
       // Recreate session only when email actually changed (avoids unnecessary session creation)
       if (decision === "recreate" && onRefreshSession) {
-        const result = await updateCustomerAddressAction({
-          billingAddress: { email: data.email },
-        });
+        // keepCheckoutSession: checkout-mounted — refreshSession itself
+        // supersedes the old session deliberately (ENG-784).
+        const result = await updateCustomerAddressAction(
+          { billingAddress: { email: data.email } },
+          { keepCheckoutSession: true },
+        );
         if (!result.success) throw new Error(result.error);
         await onRefreshSession(
           data.email,
@@ -139,9 +142,10 @@ const ContactFormStep: React.FC<ContactFormStepProps> = ({
           throw new Error(res.error?.message ?? "Failed to update email");
 
         const updateResult = await actions.runServerUpdate(async () => {
-          const result = await updateCustomerAddressAction({
-            billingAddress: { email: data.email },
-          });
+          const result = await updateCustomerAddressAction(
+            { billingAddress: { email: data.email } },
+            { keepCheckoutSession: true },
+          );
           if (!result.success) throw new Error(result.error);
         });
         if (updateResult.type === "error") {
@@ -150,9 +154,10 @@ const ContactFormStep: React.FC<ContactFormStepProps> = ({
           );
         }
       } else {
-        const res = await updateCustomerAddressAction({
-          billingAddress: { email: data.email },
-        });
+        const res = await updateCustomerAddressAction(
+          { billingAddress: { email: data.email } },
+          { keepCheckoutSession: true },
+        );
         if (!res.success) throw new Error(res.error);
       }
       onNext(data);

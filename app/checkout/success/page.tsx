@@ -41,6 +41,7 @@ type Disposition =
   | "order" // paid + order resolved → confirmation page
   | "retry" // session open (failed/canceled) → /checkout?error=payment_failed
   | "expired" // session expired → /checkout/error?reason=session_expired
+  | "cart_changed" // deliberately expired: cart drifted (ENG-784) → /checkout?error=cart_changed
   | "pending" // async payment processing (or paid but unresolved) → render UI
   | "error"; // session fetch threw → /checkout/error?reason=processing_error
 
@@ -69,7 +70,13 @@ export default async function CheckoutSuccessPage({
       // /checkout for an in-place retry with a fresh session + preserved cart.
       disposition = "retry";
     } else if (session.status === "expired") {
-      disposition = "expired";
+      // ENG-784: expired_reason=cart_changed means mechanism 1 deliberately
+      // expired the session because the cart drifted while the shopper was
+      // off-site (BNPL redirect). The cart is intact and /checkout mints a
+      // fresh session on load — send them there with the cart-changed banner
+      // instead of the dead-end session_expired error page.
+      disposition =
+        session.expiredReason === "cart_changed" ? "cart_changed" : "expired";
     } else if (session.paymentStatus === "unpaid") {
       // Session complete but the async payment method (delayed-notification
       // BNPL / bank debit) hasn't settled. The webhook finalizes the order on
@@ -259,9 +266,14 @@ export default async function CheckoutSuccessPage({
   if (disposition === "expired") {
     redirect("/checkout/error?reason=session_expired");
   }
+  if (disposition === "cart_changed") {
+    redirect("/checkout?error=cart_changed");
+  }
   if (disposition === "error") {
     redirect("/checkout/error?reason=processing_error");
   }
 
-  return <PaymentProcessing />;
+  // ENG-784: sessionId enables the client poller (2.5s ≤ 60s) that routes to
+  // the confirmation once the webhook captures — poll-only, never captures (D4).
+  return <PaymentProcessing sessionId={sessionId} />;
 }

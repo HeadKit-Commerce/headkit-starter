@@ -100,12 +100,17 @@ export async function autoCorrectCart(
     const toReduce = issues.filter((i) => i.action === "reduce");
     const toRemove = issues.filter((i) => i.action === "remove");
 
+    // keepCheckoutSession: this runs during /checkout SSR BEFORE the session
+    // is created/registered — expiring here would race the mint. The freshly
+    // created session snapshots the already-corrected cart (ENG-784).
     for (const issue of toReduce) {
-      await updateCartItemAction(issue.itemKey, issue.availableStock!);
+      await updateCartItemAction(issue.itemKey, issue.availableStock!, {
+        keepCheckoutSession: true,
+      });
     }
 
     for (const issue of toRemove) {
-      await removeCartItemAction(issue.itemKey);
+      await removeCartItemAction(issue.itemKey, { keepCheckoutSession: true });
     }
 
     return {

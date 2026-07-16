@@ -65,13 +65,13 @@ export const CouponBox = ({ cart }: CouponBoxProps) => {
       // server error; freeform codes go to the coupon endpoint and, on failure,
       // show the combined "neither coupon nor gift card" message.
       const runApply = async (): Promise<void> => {
+        // keepCheckoutSession: coupon box is checkout-mounted — the sync
+        // effect re-syncs the live session's line items afterwards (ENG-784).
         const result = isGiftCard
-          ? await applyGiftCardAction(trimmed)
-          : await applyCouponAction(trimmed);
+          ? await applyGiftCardAction(trimmed, { keepCheckoutSession: true })
+          : await applyCouponAction(trimmed, { keepCheckoutSession: true });
         if (!result.success) {
-          throw new Error(
-            isGiftCard ? result.error : INVALID_CODE_MESSAGE,
-          );
+          throw new Error(isGiftCard ? result.error : INVALID_CODE_MESSAGE);
         }
         setCartData(result.cart);
       };
@@ -114,7 +114,9 @@ export const CouponBox = ({ cart }: CouponBoxProps) => {
       try {
         if (actions) {
           const updateResult = await actions.runServerUpdate(async () => {
-            const result = await removeCouponAction(code);
+            const result = await removeCouponAction(code, {
+              keepCheckoutSession: true,
+            });
             if (!result.success) throw new Error(result.error);
             setCartData(result.cart);
           });
@@ -124,7 +126,9 @@ export const CouponBox = ({ cart }: CouponBoxProps) => {
             );
           }
         } else {
-          const result = await removeCouponAction(code);
+          const result = await removeCouponAction(code, {
+            keepCheckoutSession: true,
+          });
           if (result.success) {
             setCartData(result.cart);
           } else {

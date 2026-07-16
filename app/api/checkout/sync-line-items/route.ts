@@ -18,9 +18,10 @@ import { createServerHeadkit } from "@/lib/sdk.server";
  * Mechanism: .planning/debug/stripe-shipping-desync-logged-in.md
  */
 export async function POST(request: Request) {
+  let sessionId: string | undefined;
   try {
     const body = await request.json();
-    const sessionId = body?.sessionId as string | undefined;
+    sessionId = body?.sessionId as string | undefined;
     if (!sessionId || typeof sessionId !== "string") {
       return NextResponse.json(
         { error: "sessionId is required" },
@@ -47,6 +48,26 @@ export async function POST(request: Request) {
       shippingOptionMapping: result.shippingOptionMapping ?? null,
     });
   } catch (err) {
+    // ENG-784 (D7): a sync failure against a session another tab expired must
+    // be distinguishable from a transient error — but by SERVER-SIDE status
+    // retrieve, never by sniffing Stripe error strings. Non-open status →
+    // 409 {ok:false, sessionStatus}: the un-swallowed signal that drives
+    // handleSessionExpired in CheckoutForm. Anything else stays a 500, which
+    // the client sync effect keeps swallowing as transient.
+    if (sessionId) {
+      try {
+        const session =
+          await createServerHeadkit().payments.getCheckoutSession(sessionId);
+        if (session.status !== "open") {
+          return NextResponse.json(
+            { ok: false, sessionStatus: session.status },
+            { status: 409 },
+          );
+        }
+      } catch {
+        /* status retrieve failed — fall through to the transient 500 */
+      }
+    }
     console.error("[sync-line-items]", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Sync failed" },

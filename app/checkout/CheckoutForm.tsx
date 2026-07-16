@@ -106,7 +106,11 @@ function CheckoutSteps({
   ) => void;
   initialStep?: Step;
   initialEmail?: string;
-  onRefreshSession?: (email: string, nextStep: string) => Promise<void>;
+  onRefreshSession?: (
+    email: string,
+    nextStep: string,
+    opts?: { notice?: "cart_changed" },
+  ) => Promise<void>;
   /**
    * ENG-783: logged-in shopper. Accepted (threading stays in place) but not
    * consumed at the step level — the actual prefill gate lives one level up
@@ -228,6 +232,22 @@ function CheckoutSteps({
       ?.email,
   ]);
 
+  // ENG-784 dead-session recovery: ONE auto-recreate per dead session. The
+  // ref is keyed by sessionId (not a boolean) so a later, different dead
+  // session can still recover, while retries against the SAME dead session
+  // can never loop the recreate. onRefreshSession swaps the session in
+  // checkout-page-content; the provider keyed by sessionId remounts cleanly
+  // and resumes at the current step with the cart-changed notice.
+  const sessionExpiredHandledRef = useRef<string | null>(null);
+  const handleSessionExpired = useCallback(() => {
+    if (!onRefreshSession) return;
+    if (sessionExpiredHandledRef.current === sessionId) return;
+    sessionExpiredHandledRef.current = sessionId;
+    void onRefreshSession(formData.email, currentStep, {
+      notice: "cart_changed",
+    }).catch(() => {});
+  }, [onRefreshSession, sessionId, formData.email, currentStep]);
+
   // Sync line items via Stripe runServerUpdate when cart total changes.
   // Uses Route Handler to avoid Server Action revalidation.
   // Parse response for shippingOptionMapping — Stripe recreates shipping rate IDs on sync.
@@ -241,6 +261,15 @@ function CheckoutSteps({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sessionId }),
         });
+        // ENG-784 (D7): 409 {ok:false, sessionStatus} is the route's
+        // server-verified dead-session signal — the ONE case un-swallowed
+        // from this effect's catch. Trigger the single auto-recreate and
+        // return (nothing to sync against a dead session). All other
+        // failures stay swallowed as transient below.
+        if (res.status === 409) {
+          handleSessionExpired();
+          return;
+        }
         if (!res.ok) throw new Error("Sync failed");
         const data = (await res.json()) as {
           ok?: boolean;
@@ -252,7 +281,7 @@ function CheckoutSteps({
         onSyncComplete?.(data.shippingOptionMapping ?? null);
       })
       .catch(() => {});
-  }, [cartData, sessionId, actions, onSyncComplete]);
+  }, [cartData, sessionId, actions, onSyncComplete, handleSessionExpired]);
 
   // ENG-801 session-email push: sessions are created email-LESS so the Stripe
   // email field stays editable (a `customer_email` set at create renders the
@@ -413,29 +442,35 @@ function CheckoutSteps({
       );
 
       const runCartUpdates = async () => {
+        // keepCheckoutSession: checkout-mounted mutation — the sync effect
+        // re-syncs the live session's line items afterwards (ENG-784).
         const selectResult = await selectShippingAction(
           packageId,
           data.location!,
+          { keepCheckoutSession: true },
         );
         if (!selectResult.success) throw new Error(selectResult.error);
         setCartData(selectResult.cart);
 
         if (loc) {
-          const updateResult = await updateCustomerAddressAction({
-            shippingAddress: {
-              firstName: "",
-              lastName: "",
-              address1: loc.address?.trim() || loc.name,
-              address2: "",
-              city: loc.city ?? "Pickup",
-              // WooCommerce update-customer validates ISO codes — the display
-              // names in `state`/`country` ("New South Wales"/"Australia") 400.
-              state: loc.stateCode ?? "",
-              postcode: loc.postcode ?? "",
-              country: loc.countryCode ?? "",
-              phone: "",
+          const updateResult = await updateCustomerAddressAction(
+            {
+              shippingAddress: {
+                firstName: "",
+                lastName: "",
+                address1: loc.address?.trim() || loc.name,
+                address2: "",
+                city: loc.city ?? "Pickup",
+                // WooCommerce update-customer validates ISO codes — the display
+                // names in `state`/`country` ("New South Wales"/"Australia") 400.
+                state: loc.stateCode ?? "",
+                postcode: loc.postcode ?? "",
+                country: loc.countryCode ?? "",
+                phone: "",
+              },
             },
-          });
+            { keepCheckoutSession: true },
+          );
           if (!updateResult.success) throw new Error(updateResult.error);
           setCartData(updateResult.cart);
         }
@@ -613,124 +648,93 @@ function CheckoutSteps({
   };
 
   return (
-    <div className="space-y-2">
-      {/* Step 1: Contact */}
-      <AccordionWrapper
-        order={1}
-        title="Contact"
-        isActive={currentStep === CheckoutFormStepEnum.CONTACT}
-        isCompleted={isStepCompleted(CheckoutFormStepEnum.CONTACT)}
-        clickable={isStepCompleted(CheckoutFormStepEnum.CONTACT)}
-        handleAccordionClick={() => goToStep(CheckoutFormStepEnum.CONTACT)}
-        briefValue={getBriefValue(CheckoutFormStepEnum.CONTACT)}
-      >
-        <ContactFormStep
-          enableStripe={true} // Stripe ContactDetailsElement (Checkout Sessions native) collects email + drives Link (ENG-748)
-          onNext={handleContactNext}
-          defaultValues={{
-            email: formData.email,
-            newsletter: formData.newsletter,
-          }}
-          buttonLabel="Continue to Delivery"
-          {...(onRefreshSession && { onRefreshSession })}
-        />
-      </AccordionWrapper>
-
-      {/* Step 2: Delivery method */}
-      <AccordionWrapper
-        order={2}
-        title={needsShipping ? "Delivery" : "Address"}
-        isActive={currentStep === CheckoutFormStepEnum.DELIVERY_METHOD}
-        isCompleted={isStepCompleted(CheckoutFormStepEnum.DELIVERY_METHOD)}
-        clickable={isStepCompleted(CheckoutFormStepEnum.DELIVERY_METHOD)}
-        handleAccordionClick={() =>
-          goToStep(CheckoutFormStepEnum.DELIVERY_METHOD)
-        }
-        briefValue={getBriefValue(CheckoutFormStepEnum.DELIVERY_METHOD)}
-        disabled={
-          !isStepCompleted(CheckoutFormStepEnum.CONTACT) &&
-          currentStep !== CheckoutFormStepEnum.DELIVERY_METHOD
-        }
-      >
-        {needsShipping ? (
-          <DeliveryMethodStep
-            enableStripe={true}
-            onNext={(data) =>
-              handleDeliveryNext({
-                deliveryMethod:
-                  data.deliveryMethod === DeliveryStepEnum.CLICK_AND_COLLECT
-                    ? DeliveryStepEnum.CLICK_AND_COLLECT
-                    : DeliveryStepEnum.SHIPPING_TO_HOME,
-                ...(data.location != null ? { location: data.location } : {}),
-                ...(data.shippingAddress != null
-                  ? { shippingAddress: data.shippingAddress }
-                  : {}),
-              })
-            }
-            defaultValues={{
-              deliveryMethod: formData.deliveryMethod,
-              location: formData.pickupLocationRateId ?? "",
-              shippingAddress: formData.shippingAddress
-                ? {
-                    firstName: formData.shippingAddress.firstName ?? "",
-                    lastName: formData.shippingAddress.lastName ?? "",
-                    line1: formData.shippingAddress.address1 ?? "",
-                    line2: formData.shippingAddress.address2 ?? "",
-                    city: formData.shippingAddress.city ?? "",
-                    state: formData.shippingAddress.state ?? "",
-                    country: formData.shippingAddress.country ?? "",
-                    postalCode: formData.shippingAddress.postcode ?? "",
-                    phone: formData.shippingAddress.phone ?? "",
-                  }
-                : undefined,
-            }}
-            pickupLocations={pickupLocations}
-            buttonLabel="Continue"
-          />
-        ) : (
-          <BillingAddressStep
-            enableStripe={true}
-            onNext={handleBillingNext}
-            defaultValues={
-              formData.billingAddress
-                ? {
-                    billingAddress: {
-                      firstName: formData.billingAddress.firstName ?? "",
-                      lastName: formData.billingAddress.lastName ?? "",
-                      line1: formData.billingAddress.address1 ?? "",
-                      ...(formData.billingAddress.address2
-                        ? { line2: formData.billingAddress.address2 }
-                        : {}),
-                      city: formData.billingAddress.city ?? "",
-                      state: formData.billingAddress.state ?? "",
-                      country: formData.billingAddress.country ?? "",
-                      postalCode: formData.billingAddress.postcode ?? "",
-                      phone: formData.billingAddress.phone ?? "",
-                    },
-                  }
-                : undefined
-            }
-            buttonLabel="Continue to Payment"
-          />
-        )}
-      </AccordionWrapper>
-
-      {/* Step 3: Shipping options (Ship to Home) or Billing (Click & Collect) */}
-      {showStep3 && (
+    <>
+      {/* Express/wallet checkout (Apple Pay / Google Pay / Link) — the single
+          ExpressCheckoutElement instance, mounted at the top so a buyer can
+          pay in one tap and skip the form. It self-hides when no wallet is
+          available. Stripe allows only ONE per CheckoutProvider, so it must
+          NOT also appear in the Payment step. Rendered from CheckoutSteps
+          (not CheckoutForm) so its confirm-time dead-session path can reach
+          handleSessionExpired (ENG-784). */}
+      <ExpressCheckoutTop
+        sessionId={sessionId}
+        onSessionExpired={handleSessionExpired}
+      />
+      <div className="space-y-2">
+        {/* Step 1: Contact */}
         <AccordionWrapper
-          order={3}
-          title={step3Title}
-          isActive={currentStep === CheckoutFormStepEnum.ADDRESS}
-          isCompleted={isStepCompleted(CheckoutFormStepEnum.ADDRESS)}
-          clickable={isStepCompleted(CheckoutFormStepEnum.ADDRESS)}
-          handleAccordionClick={() => goToStep(CheckoutFormStepEnum.ADDRESS)}
-          briefValue={getBriefValue(CheckoutFormStepEnum.ADDRESS)}
+          order={1}
+          title="Contact"
+          isActive={currentStep === CheckoutFormStepEnum.CONTACT}
+          isCompleted={isStepCompleted(CheckoutFormStepEnum.CONTACT)}
+          clickable={isStepCompleted(CheckoutFormStepEnum.CONTACT)}
+          handleAccordionClick={() => goToStep(CheckoutFormStepEnum.CONTACT)}
+          briefValue={getBriefValue(CheckoutFormStepEnum.CONTACT)}
+        >
+          <ContactFormStep
+            enableStripe={true} // Stripe ContactDetailsElement (Checkout Sessions native) collects email + drives Link (ENG-748)
+            onNext={handleContactNext}
+            defaultValues={{
+              email: formData.email,
+              newsletter: formData.newsletter,
+            }}
+            buttonLabel="Continue to Delivery"
+            {...(onRefreshSession && { onRefreshSession })}
+          />
+        </AccordionWrapper>
+
+        {/* Step 2: Delivery method */}
+        <AccordionWrapper
+          order={2}
+          title={needsShipping ? "Delivery" : "Address"}
+          isActive={currentStep === CheckoutFormStepEnum.DELIVERY_METHOD}
+          isCompleted={isStepCompleted(CheckoutFormStepEnum.DELIVERY_METHOD)}
+          clickable={isStepCompleted(CheckoutFormStepEnum.DELIVERY_METHOD)}
+          handleAccordionClick={() =>
+            goToStep(CheckoutFormStepEnum.DELIVERY_METHOD)
+          }
+          briefValue={getBriefValue(CheckoutFormStepEnum.DELIVERY_METHOD)}
           disabled={
-            !isStepCompleted(CheckoutFormStepEnum.DELIVERY_METHOD) &&
-            currentStep !== CheckoutFormStepEnum.ADDRESS
+            !isStepCompleted(CheckoutFormStepEnum.CONTACT) &&
+            currentStep !== CheckoutFormStepEnum.DELIVERY_METHOD
           }
         >
-          {formData.deliveryMethod === DeliveryStepEnum.CLICK_AND_COLLECT ? (
+          {needsShipping ? (
+            <DeliveryMethodStep
+              enableStripe={true}
+              onNext={(data) =>
+                handleDeliveryNext({
+                  deliveryMethod:
+                    data.deliveryMethod === DeliveryStepEnum.CLICK_AND_COLLECT
+                      ? DeliveryStepEnum.CLICK_AND_COLLECT
+                      : DeliveryStepEnum.SHIPPING_TO_HOME,
+                  ...(data.location != null ? { location: data.location } : {}),
+                  ...(data.shippingAddress != null
+                    ? { shippingAddress: data.shippingAddress }
+                    : {}),
+                })
+              }
+              defaultValues={{
+                deliveryMethod: formData.deliveryMethod,
+                location: formData.pickupLocationRateId ?? "",
+                shippingAddress: formData.shippingAddress
+                  ? {
+                      firstName: formData.shippingAddress.firstName ?? "",
+                      lastName: formData.shippingAddress.lastName ?? "",
+                      line1: formData.shippingAddress.address1 ?? "",
+                      line2: formData.shippingAddress.address2 ?? "",
+                      city: formData.shippingAddress.city ?? "",
+                      state: formData.shippingAddress.state ?? "",
+                      country: formData.shippingAddress.country ?? "",
+                      postalCode: formData.shippingAddress.postcode ?? "",
+                      phone: formData.shippingAddress.phone ?? "",
+                    }
+                  : undefined,
+              }}
+              pickupLocations={pickupLocations}
+              buttonLabel="Continue"
+            />
+          ) : (
             <BillingAddressStep
               enableStripe={true}
               onNext={handleBillingNext}
@@ -755,50 +759,92 @@ function CheckoutSteps({
               }
               buttonLabel="Continue to Payment"
             />
-          ) : (
-            <ShippingOptionsStep
-              onNext={handleShippingOptionsNext}
-              buttonLabel="Continue to Payment"
-              sessionId={sessionId}
-              {...(shippingOptionMapping?.length
-                ? { shippingOptionMapping }
-                : {})}
-            />
           )}
         </AccordionWrapper>
-      )}
 
-      {/* Step 4: Payment */}
-      <AccordionWrapper
-        order={showStep3 ? 4 : 3}
-        title="Payment"
-        isActive={currentStep === CheckoutFormStepEnum.PAYMENT}
-        isCompleted={isStepCompleted(CheckoutFormStepEnum.PAYMENT)}
-        clickable={false}
-        handleAccordionClick={() => {}}
-        disabled={
-          currentStep !== CheckoutFormStepEnum.PAYMENT &&
-          !isStepCompleted(CheckoutFormStepEnum.PAYMENT)
-        }
-      >
-        <StripePaymentStep
-          showBillingSameAsShipping={
-            needsShipping &&
-            formData.deliveryMethod === DeliveryStepEnum.SHIPPING_TO_HOME
+        {/* Step 3: Shipping options (Ship to Home) or Billing (Click & Collect) */}
+        {showStep3 && (
+          <AccordionWrapper
+            order={3}
+            title={step3Title}
+            isActive={currentStep === CheckoutFormStepEnum.ADDRESS}
+            isCompleted={isStepCompleted(CheckoutFormStepEnum.ADDRESS)}
+            clickable={isStepCompleted(CheckoutFormStepEnum.ADDRESS)}
+            handleAccordionClick={() => goToStep(CheckoutFormStepEnum.ADDRESS)}
+            briefValue={getBriefValue(CheckoutFormStepEnum.ADDRESS)}
+            disabled={
+              !isStepCompleted(CheckoutFormStepEnum.DELIVERY_METHOD) &&
+              currentStep !== CheckoutFormStepEnum.ADDRESS
+            }
+          >
+            {formData.deliveryMethod === DeliveryStepEnum.CLICK_AND_COLLECT ? (
+              <BillingAddressStep
+                enableStripe={true}
+                onNext={handleBillingNext}
+                defaultValues={
+                  formData.billingAddress
+                    ? {
+                        billingAddress: {
+                          firstName: formData.billingAddress.firstName ?? "",
+                          lastName: formData.billingAddress.lastName ?? "",
+                          line1: formData.billingAddress.address1 ?? "",
+                          ...(formData.billingAddress.address2
+                            ? { line2: formData.billingAddress.address2 }
+                            : {}),
+                          city: formData.billingAddress.city ?? "",
+                          state: formData.billingAddress.state ?? "",
+                          country: formData.billingAddress.country ?? "",
+                          postalCode: formData.billingAddress.postcode ?? "",
+                          phone: formData.billingAddress.phone ?? "",
+                        },
+                      }
+                    : undefined
+                }
+                buttonLabel="Continue to Payment"
+              />
+            ) : (
+              <ShippingOptionsStep
+                onNext={handleShippingOptionsNext}
+                buttonLabel="Continue to Payment"
+                sessionId={sessionId}
+                {...(shippingOptionMapping?.length
+                  ? { shippingOptionMapping }
+                  : {})}
+              />
+            )}
+          </AccordionWrapper>
+        )}
+
+        {/* Step 4: Payment */}
+        <AccordionWrapper
+          order={showStep3 ? 4 : 3}
+          title="Payment"
+          isActive={currentStep === CheckoutFormStepEnum.PAYMENT}
+          isCompleted={isStepCompleted(CheckoutFormStepEnum.PAYMENT)}
+          clickable={false}
+          handleAccordionClick={() => {}}
+          disabled={
+            currentStep !== CheckoutFormStepEnum.PAYMENT &&
+            !isStepCompleted(CheckoutFormStepEnum.PAYMENT)
           }
-          shippingAddress={formData.shippingAddress}
-        />
-      </AccordionWrapper>
-    </div>
+        >
+          <StripePaymentStep
+            showBillingSameAsShipping={
+              needsShipping &&
+              formData.deliveryMethod === DeliveryStepEnum.SHIPPING_TO_HOME
+            }
+            shippingAddress={formData.shippingAddress}
+            sessionId={sessionId}
+            onSessionExpired={handleSessionExpired}
+          />
+        </AccordionWrapper>
+      </div>
+    </>
   );
 }
 
 /** Registers checkout debug data into HeadKitDevTools without any UI. */
-function CheckoutDebugRegistrar({
-  session,
-}: {
-  session: CheckoutSessionProp;
-}) {
+function CheckoutDebugRegistrar({ session }: { session: CheckoutSessionProp }) {
   const checkoutState = useCheckout();
   const { cartData } = useCartContext();
   useDebugRegister("Stripe Session", session);
@@ -836,7 +882,11 @@ export function CheckoutForm({
     countryCode: string;
     shippingMethodId: string;
   }>;
-  onRefreshSession?: (email: string, nextStep: string) => Promise<void>;
+  onRefreshSession?: (
+    email: string,
+    nextStep: string,
+    opts?: { notice?: "cart_changed" },
+  ) => Promise<void>;
   initialStep?: Step;
   initialEmail?: string;
   /**
@@ -1009,14 +1059,10 @@ export function CheckoutForm({
       <CheckoutActionsProvider>
         <CheckoutDebugRegistrar session={checkoutSession} />
         <div className="px-[20px] md:px-[40px] mx-auto grid grid-cols-12 gap-[20px]">
-          {/* Checkout form — left on desktop */}
+          {/* Checkout form — left on desktop. The single ExpressCheckoutElement
+              is rendered INSIDE CheckoutSteps (top of its output) so its
+              dead-session recovery can reach handleSessionExpired (ENG-784). */}
           <div className="order-2 md:order-1 col-span-12 md:col-span-6">
-            {/* Express/wallet checkout (Apple Pay / Google Pay / Link) — the
-                single ExpressCheckoutElement instance, mounted at the top so a
-                buyer can pay in one tap and skip the form. It self-hides when no
-                wallet is available. Stripe allows only ONE per CheckoutProvider,
-                so it must NOT also appear in the Payment step. */}
-            <ExpressCheckoutTop />
             <CheckoutSteps
               sessionId={checkoutSession.sessionId}
               pickupLocationsFromApi={pickupLocationsFromApi}

@@ -38,13 +38,17 @@ vi.mock("@/lib/sdk.server", () => ({
 
 /** Minimal SDK stub for the payments namespace the route calls. */
 function fakeSdk(): {
-  payments: { syncCheckoutSessionLineItems: ReturnType<typeof vi.fn> };
+  payments: {
+    syncCheckoutSessionLineItems: ReturnType<typeof vi.fn>;
+    getCheckoutSession: ReturnType<typeof vi.fn>;
+  };
 } {
   return {
     payments: {
       syncCheckoutSessionLineItems: vi
         .fn()
         .mockResolvedValue({ ok: true, shippingOptionMapping: null }),
+      getCheckoutSession: vi.fn().mockResolvedValue({ status: "open" }),
     },
   };
 }
@@ -64,10 +68,12 @@ function postRequest(body: unknown): Request {
 }
 
 let POST: typeof import("./route").POST;
+let sdk: ReturnType<typeof fakeSdk>;
 
 beforeEach(async () => {
   vi.clearAllMocks();
-  createServerHeadkitMock.mockReturnValue(fakeSdk());
+  sdk = fakeSdk();
+  createServerHeadkitMock.mockReturnValue(sdk);
   getCartTokenMock.mockResolvedValue("ct");
   const mod = await import("./route");
   POST = mod.POST;
@@ -109,5 +115,44 @@ describe("sync-line-items forwards hk-auth-token so GetCart is auth-flavored", (
 
     expect(res.status).toBe(401);
     expect(createServerHeadkitMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("sync-line-items dead-session signal (ENG-784, D7)", () => {
+  it("409 {ok:false, sessionStatus} when sync fails and the session is not open", async () => {
+    stubCookies({});
+    sdk.payments.syncCheckoutSessionLineItems.mockRejectedValue(
+      new Error("No such checkout.session"),
+    );
+    sdk.payments.getCheckoutSession.mockResolvedValue({ status: "expired" });
+
+    const res = await POST(postRequest({ sessionId: "cs_dead" }));
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ ok: false, sessionStatus: "expired" });
+  });
+
+  it("500 (transient) when sync fails but the session is still open", async () => {
+    stubCookies({});
+    sdk.payments.syncCheckoutSessionLineItems.mockRejectedValue(
+      new Error("network blip"),
+    );
+    sdk.payments.getCheckoutSession.mockResolvedValue({ status: "open" });
+
+    const res = await POST(postRequest({ sessionId: "cs_alive" }));
+
+    expect(res.status).toBe(500);
+  });
+
+  it("500 when sync fails and the status retrieve also fails (never guess dead)", async () => {
+    stubCookies({});
+    sdk.payments.syncCheckoutSessionLineItems.mockRejectedValue(
+      new Error("boom"),
+    );
+    sdk.payments.getCheckoutSession.mockRejectedValue(new Error("boom too"));
+
+    const res = await POST(postRequest({ sessionId: "cs_unknown" }));
+
+    expect(res.status).toBe(500);
   });
 });

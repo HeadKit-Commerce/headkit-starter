@@ -376,30 +376,35 @@ const DeliveryMethodStep: React.FC<DeliveryMethodStepProps> = ({
           }
 
           const updateResult = await actions.runServerUpdate(async () => {
-            const result = await updateCustomerAddressAction({
-              shippingAddress: {
-                firstName: payload.shippingAddress!.firstName ?? "",
-                lastName: payload.shippingAddress!.lastName ?? "",
-                address1: payload.shippingAddress!.line1 ?? "",
-                address2: payload.shippingAddress!.line2 ?? "",
-                city: payload.shippingAddress!.city ?? "",
-                state: payload.shippingAddress!.state ?? "",
-                postcode: payload.shippingAddress!.postalCode ?? "",
-                country: payload.shippingAddress!.country ?? "",
-                phone: payload.shippingAddress!.phone ?? "",
+            // keepCheckoutSession: checkout-mounted — the sync effect re-syncs
+            // the live session afterwards (ENG-784).
+            const result = await updateCustomerAddressAction(
+              {
+                shippingAddress: {
+                  firstName: payload.shippingAddress!.firstName ?? "",
+                  lastName: payload.shippingAddress!.lastName ?? "",
+                  address1: payload.shippingAddress!.line1 ?? "",
+                  address2: payload.shippingAddress!.line2 ?? "",
+                  city: payload.shippingAddress!.city ?? "",
+                  state: payload.shippingAddress!.state ?? "",
+                  postcode: payload.shippingAddress!.postalCode ?? "",
+                  country: payload.shippingAddress!.country ?? "",
+                  phone: payload.shippingAddress!.phone ?? "",
+                },
+                billingAddress: {
+                  firstName: payload.shippingAddress!.firstName ?? "",
+                  lastName: payload.shippingAddress!.lastName ?? "",
+                  address1: payload.shippingAddress!.line1 ?? "",
+                  address2: payload.shippingAddress!.line2 ?? "",
+                  city: payload.shippingAddress!.city ?? "",
+                  state: payload.shippingAddress!.state ?? "",
+                  postcode: payload.shippingAddress!.postalCode ?? "",
+                  country: payload.shippingAddress!.country ?? "",
+                  phone: payload.shippingAddress!.phone ?? "",
+                },
               },
-              billingAddress: {
-                firstName: payload.shippingAddress!.firstName ?? "",
-                lastName: payload.shippingAddress!.lastName ?? "",
-                address1: payload.shippingAddress!.line1 ?? "",
-                address2: payload.shippingAddress!.line2 ?? "",
-                city: payload.shippingAddress!.city ?? "",
-                state: payload.shippingAddress!.state ?? "",
-                postcode: payload.shippingAddress!.postalCode ?? "",
-                country: payload.shippingAddress!.country ?? "",
-                phone: payload.shippingAddress!.phone ?? "",
-              },
-            });
+              { keepCheckoutSession: true },
+            );
 
             if (!result.success) throw new Error(result.error);
           });
@@ -409,19 +414,22 @@ const DeliveryMethodStep: React.FC<DeliveryMethodStepProps> = ({
             );
           }
         } else {
-          const result = await updateCustomerAddressAction({
-            shippingAddress: {
-              firstName: payload.shippingAddress.firstName ?? "",
-              lastName: payload.shippingAddress.lastName ?? "",
-              address1: payload.shippingAddress.line1 ?? "",
-              address2: payload.shippingAddress.line2 ?? "",
-              city: payload.shippingAddress.city ?? "",
-              state: payload.shippingAddress.state ?? "",
-              postcode: payload.shippingAddress.postalCode ?? "",
-              country: payload.shippingAddress.country ?? "",
-              phone: payload.shippingAddress.phone ?? "",
+          const result = await updateCustomerAddressAction(
+            {
+              shippingAddress: {
+                firstName: payload.shippingAddress.firstName ?? "",
+                lastName: payload.shippingAddress.lastName ?? "",
+                address1: payload.shippingAddress.line1 ?? "",
+                address2: payload.shippingAddress.line2 ?? "",
+                city: payload.shippingAddress.city ?? "",
+                state: payload.shippingAddress.state ?? "",
+                postcode: payload.shippingAddress.postalCode ?? "",
+                country: payload.shippingAddress.country ?? "",
+                phone: payload.shippingAddress.phone ?? "",
+              },
             },
-          });
+            { keepCheckoutSession: true },
+          );
           if (!result.success) throw new Error(result.error);
         }
       }

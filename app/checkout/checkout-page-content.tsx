@@ -13,7 +13,10 @@ import type { CartFieldsFragment } from "@headkit/sdk";
 import {
   createCheckoutSessionAction,
   getCheckoutAction,
+  registerActiveCheckoutSessionAction,
+  expireCheckoutSessionAction,
 } from "@/app/checkout/actions";
+import { CartChangedBanner } from "@/components/checkout/cart-changed-banner";
 import type { Step } from "@/app/checkout/CheckoutForm";
 function CheckoutErrorHandler({
   onError,
@@ -29,6 +32,10 @@ function CheckoutErrorHandler({
         case "payment_failed":
           // Rendered by the dismissible <PaymentFailedBanner> on the checkout
           // page (ENG-789) — no inline duplicate here.
+          break;
+        case "cart_changed":
+          // Rendered by the dismissible <CartChangedBanner> on the checkout
+          // page (ENG-784) — no inline duplicate here.
           break;
         case "checkout_failed":
           onError(
@@ -119,10 +126,24 @@ export function CheckoutPageContent({
   const [restoreStep, setRestoreStep] = useState<string | null>(null);
   const [restoredEmail, setRestoredEmail] = useState<string | null>(null);
   const [isPlacingFreeOrder, setIsPlacingFreeOrder] = useState(false);
+  // ENG-784: amber cart-changed notice for the LIVE refresh path (a dead
+  // session detected mid-checkout and auto-recreated in place). The
+  // ?error=cart_changed URL variant renders the same banner from page.tsx.
+  const [showCartChangedNotice, setShowCartChangedNotice] = useState(false);
 
+  const activeSessionIdForSupersede = checkoutSession?.sessionId ?? null;
   const refreshSession = useCallback(
-    async (newEmail: string, nextStep: string) => {
+    async (
+      newEmail: string,
+      nextStep: string,
+      opts?: { notice?: "cart_changed" },
+    ) => {
       if (!returnUrl) throw new Error("Return URL not configured");
+      // ENG-784 supersede: capture the previous session BEFORE the swap so it
+      // can be deliberately expired (reason SUPERSEDED) after the new session
+      // is in place. NO SSR supersede-expiry happens on /checkout — a second
+      // tab must not kill an in-flight redirect when the cart is unchanged.
+      const previousSessionId = activeSessionIdForSupersede;
       // Cart is already updated by ContactFormStep before calling this.
       // ENG-801 recreate-then-updateEmail model: the recreated session is
       // created email-LESS by design (a `customer_email` set at create renders
@@ -156,8 +177,27 @@ export function CheckoutPageContent({
       });
       setRestoreStep(nextStep);
       setRestoredEmail(newEmail);
+      if (opts?.notice === "cart_changed") {
+        setShowCartChangedNotice(true);
+      }
+      // ENG-784 supersede: the previous session is now unreachable from the
+      // UI — expire it deliberately (SUPERSEDED) so it can never race the new
+      // one. Fire-and-forget: the action swallows expire failures internally
+      // (mechanism 2 backstops) and only clears the tracking cookie when it
+      // still points at the superseded session.
+      if (previousSessionId && previousSessionId !== session.sessionId) {
+        expireCheckoutSessionAction(previousSessionId, "SUPERSEDED").catch(
+          () => {},
+        );
+      }
     },
-    [returnUrl, successBaseUrl, allowedCountries, cartData?.needsShipping],
+    [
+      returnUrl,
+      successBaseUrl,
+      allowedCountries,
+      cartData?.needsShipping,
+      activeSessionIdForSupersede,
+    ],
   );
 
   // PAY-05: free-order (zero-total) confirm. A cart with items but a $0 total
@@ -222,6 +262,18 @@ export function CheckoutPageContent({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ENG-784 mechanism 1: register the ACTIVE session in the httpOnly
+  // hk-checkout-session cookie so any cart mutation outside checkout expires
+  // it before mutating. Client-invoked because `cookies().set()` is illegal
+  // during an RSC render. Zero-total checkouts have no session → no-op.
+  // Best-effort: a failed registration only disables mechanism 1; mechanism 2
+  // (amount verification at manual capture) still protects the charge.
+  const activeSessionId = checkoutSession?.sessionId;
+  useEffect(() => {
+    if (!activeSessionId) return;
+    registerActiveCheckoutSessionAction(activeSessionId).catch(() => {});
+  }, [activeSessionId]);
 
   const initialStep = restoreStep;
   // Prefer a restored email (after a session refresh); otherwise seed the
@@ -294,6 +346,12 @@ export function CheckoutPageContent({
       <Suspense fallback={null}>
         <CheckoutErrorHandler onError={setErrorMessage} />
       </Suspense>
+
+      {/* ENG-784: live cart-changed notice (dead session auto-recreated in
+          place). Keyed so a subsequent recreate re-shows a dismissed banner. */}
+      {showCartChangedNotice && (
+        <CartChangedBanner key={checkoutSession?.sessionId ?? "notice"} />
+      )}
 
       {errorMessage && (
         <div className="text-red-500 text-center mb-4 px-[20px] md:px-[40px]">

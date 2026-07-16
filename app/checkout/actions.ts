@@ -4,6 +4,11 @@ import { cookies } from "next/headers";
 import { getCartToken } from "@/lib/cart";
 import { getAuthToken } from "@/lib/auth-cookie";
 import { createServerHeadkit } from "@/lib/sdk.server";
+import {
+  setCheckoutSessionCookie,
+  getCheckoutSessionCookie,
+  deleteCheckoutSessionCookie,
+} from "@/lib/checkout-session-cookie";
 import type {
   ProcessCheckoutInput,
   ProcessCheckoutOrderInput,
@@ -14,6 +19,7 @@ import type {
   GetStoreOrderQuery,
   UpdateCustomerInput,
   CartFieldsFragment,
+  ExpireCheckoutSessionReason,
 } from "@headkit/sdk";
 
 /**
@@ -74,7 +80,11 @@ export async function createCheckoutSessionAction(
   // array (or omits it) so the session does not require a shipping address that the
   // billing-only UI never sets. Empty array => omit the field entirely.
   const shippingCountries = allowedShippingCountries ?? [];
-  return createServerHeadkit(cartToken, undefined, authToken).payments.createCheckoutSession({
+  return createServerHeadkit(
+    cartToken,
+    undefined,
+    authToken,
+  ).payments.createCheckoutSession({
     returnUrl,
     ...(shippingCountries.length > 0
       ? { allowedShippingCountries: shippingCountries }
@@ -82,6 +92,56 @@ export async function createCheckoutSessionAction(
     ...(customerId ? { customer: customerId } : {}),
     ...(successBaseUrl ? { successBaseUrl } : {}),
   });
+}
+
+/**
+ * Records the given Stripe Checkout Session as the shopper's ACTIVE session
+ * (ENG-784 mechanism 1). Client-invoked by design: `cookies().set()` is
+ * illegal during an RSC render, so the checkout page registers the session
+ * from a client effect after mount. Zero-total checkouts have no session and
+ * register nothing.
+ */
+export async function registerActiveCheckoutSessionAction(
+  sessionId: string,
+): Promise<void> {
+  await setCheckoutSessionCookie(sessionId);
+}
+
+/**
+ * Deliberately expires a Stripe Checkout Session (ENG-784) and clears the
+ * active-session cookie. Reasons: CART_CHANGED (cart mutated under the
+ * session) or SUPERSEDED (a newer session replaced it). Expire failures are
+ * swallowed — a "conflict" outcome or ownership-guard rejection means the
+ * race was lost and mechanism 2 (amount verification at manual capture)
+ * backstops; expiry must never block the shopper's flow.
+ */
+export async function expireCheckoutSessionAction(
+  sessionId: string,
+  reason: ExpireCheckoutSessionReason,
+): Promise<void> {
+  try {
+    // The expire mutation is ownership-guarded server-side: it must be called
+    // with the SAME cart token that created the session.
+    const cartToken = await getCartToken();
+    if (cartToken) {
+      const authToken = getAuthToken(await cookies());
+      await createServerHeadkit(
+        cartToken,
+        undefined,
+        authToken,
+      ).payments.expireCheckoutSession(sessionId, reason);
+    }
+  } catch {
+    // Swallowed by design — see docblock. Mechanism 2 backstops.
+  }
+  // Only clear the tracking cookie when it still points at the session being
+  // expired: during a supersede (refreshSession) the registration effect may
+  // have ALREADY written the NEW session id, which must survive so mechanism 1
+  // keeps protecting the replacement session.
+  const trackedSessionId = await getCheckoutSessionCookie();
+  if (trackedSessionId === sessionId) {
+    await deleteCheckoutSessionCookie();
+  }
 }
 
 /**
@@ -119,9 +179,11 @@ export async function updateCustomerAction(
   const cartToken = await getCartToken();
   if (!cartToken) throw new Error("No active cart session.");
   const authToken = getAuthToken(await cookies());
-  return createServerHeadkit(cartToken, undefined, authToken).cart.updateCustomer(
-    input,
-  );
+  return createServerHeadkit(
+    cartToken,
+    undefined,
+    authToken,
+  ).cart.updateCustomer(input);
 }
 
 /**
@@ -135,10 +197,11 @@ export async function selectShippingRateAction(
   const cartToken = await getCartToken();
   if (!cartToken) throw new Error("No active cart session.");
   const authToken = getAuthToken(await cookies());
-  return createServerHeadkit(cartToken, undefined, authToken).cart.selectShipping(
-    packageId,
-    rateId,
-  );
+  return createServerHeadkit(
+    cartToken,
+    undefined,
+    authToken,
+  ).cart.selectShipping(packageId, rateId);
 }
 
 /**

@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { SpinnerIcon } from "@/components/icon";
 import { useCheckoutActions } from "@/app/checkout/checkout-actions-context";
 import { writeBillingAddressCookie } from "@/lib/checkout-billing-cookie";
+import { isCheckoutSessionDead } from "@/lib/checkout-session-status";
 
 interface StripePaymentStepProps {
   /**
@@ -26,6 +27,17 @@ interface StripePaymentStepProps {
    * billing = shipping on the session after an uncheck → re-check.
    */
   shippingAddress?: AddressInput | null;
+  /**
+   * ENG-784: the active Checkout Session id, used on a confirm error to ask
+   * the SERVER whether the session is dead (status !== "open" — D7, never
+   * error-string sniffing).
+   */
+  sessionId?: string;
+  /**
+   * ENG-784: called when a confirm error traces to a dead session — triggers
+   * the one-shot auto-recreate with the cart-changed notice.
+   */
+  onSessionExpired?: () => void;
 }
 
 /** Billing value tracked from BillingAddressElement change events (ENG-801).
@@ -61,6 +73,8 @@ type BillingValue = {
 export function StripePaymentStep({
   showBillingSameAsShipping = false,
   shippingAddress = null,
+  sessionId,
+  onSessionExpired,
 }: StripePaymentStepProps) {
   const checkoutState = useCheckout();
   const { actions } = useCheckoutActions();
@@ -135,9 +149,7 @@ export function StripePaymentStep({
         // Unmount the element (and keep its value as remount prefill). The
         // awaited network call below gives React time to commit the unmount
         // before confirm() runs.
-        setRemountContacts([
-          { name, address: billingPayload.address },
-        ]);
+        setRemountContacts([{ name, address: billingPayload.address }]);
         setHideBillingElement(true);
         const res = await actions.updateBillingAddress(billingPayload);
         if (res.type === "error") {
@@ -224,9 +236,29 @@ export function StripePaymentStep({
 
       const result = await checkout.confirm();
       if (result.type === "error") {
+        // ENG-784: a confirm error may mean the session was expired under us
+        // (cart mutated in another tab → mechanism 1 fired). Ask the SERVER
+        // for the session status (D7) — dead → one-shot auto-recreate; alive
+        // → keep the existing inline error handling.
+        if (
+          sessionId &&
+          onSessionExpired &&
+          (await isCheckoutSessionDead(sessionId))
+        ) {
+          onSessionExpired();
+          return;
+        }
         setError(result.error.message ?? "Payment failed. Please try again.");
       }
     } catch (err) {
+      if (
+        sessionId &&
+        onSessionExpired &&
+        (await isCheckoutSessionDead(sessionId))
+      ) {
+        onSessionExpired();
+        return;
+      }
       setError(
         err instanceof Error ? err.message : "An unexpected error occurred.",
       );
@@ -244,6 +276,8 @@ export function StripePaymentStep({
     billingElementComplete,
     lastBillingValue,
     shippingAddress,
+    sessionId,
+    onSessionExpired,
   ]);
 
   if (checkoutState.type === "loading") {
@@ -308,9 +342,7 @@ export function StripePaymentStep({
               // `contacts` (create-only, ENG-755) restores the entered value
               // after the Pay-flow unmount; remountContacts only changes while
               // the element is hidden, so options never change on a live mount.
-              options={
-                remountContacts ? { contacts: remountContacts } : {}
-              }
+              options={remountContacts ? { contacts: remountContacts } : {}}
               onChange={(event) => {
                 if (event.complete && event.value) {
                   const { address, firstName, lastName, name } = event.value;

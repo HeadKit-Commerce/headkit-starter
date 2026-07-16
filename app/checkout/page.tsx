@@ -10,6 +10,7 @@ import { getAuthToken } from "@/lib/auth-cookie";
 import { resolveCheckoutEmail } from "@/lib/checkout-email";
 import { createServerHeadkit } from "@/lib/sdk.server";
 import { PaymentFailedBanner } from "@/components/checkout/payment-failed-banner";
+import { CartChangedBanner } from "@/components/checkout/cart-changed-banner";
 
 export default async function CheckoutPage({
   searchParams,
@@ -22,6 +23,10 @@ export default async function CheckoutPage({
   // is (cookie-based cart fetch).
   const { error } = await searchParams;
   const paymentFailed = error === "payment_failed";
+  // ENG-784: BNPL returns whose session was deliberately expired because the
+  // cart drifted land here with ?error=cart_changed — cart intact, fresh
+  // session minted below, honest banner on top.
+  const cartChanged = error === "cart_changed";
 
   let cart = await getFullCartAction();
 
@@ -161,6 +166,9 @@ export default async function CheckoutPage({
     <main className="min-h-screen bg-gray-50">
       {/* Payment failed banner (ENG-789: retry after Afterpay/BNPL decline) */}
       {paymentFailed && <PaymentFailedBanner />}
+      {/* Cart changed banner (ENG-784: session expired mid-redirect because
+          the cart drifted; nothing was charged) */}
+      {cartChanged && <CartChangedBanner />}
       {/* Stock correction banner */}
       {stockCorrectionMessage && (
         <div className="mx-auto max-w-6xl px-4 pt-6">

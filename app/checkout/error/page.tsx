@@ -30,6 +30,12 @@ const getErrorMessage = (reason?: string): string => {
       return "We couldn't create your order. Please try again.";
     case "payment_failed":
       return "Your payment was not successful. Please check your payment details and try again.";
+    case "payment_canceled":
+      return "Your payment was cancelled and you have not been charged — your cart changed while the payment was in progress. Please review your cart and try again.";
+    case "cart_changed":
+      // Defensive copy — cart-changed flows normally land on /checkout with
+      // the banner (ENG-784); this covers any direct/legacy link here.
+      return "Your cart changed while your payment was in progress, so that payment was cancelled and nothing was charged. Please review your updated order and pay again.";
     case "session_expired":
       return "Your cart session has expired. Please add items to your cart and try again.";
     case "no_session":

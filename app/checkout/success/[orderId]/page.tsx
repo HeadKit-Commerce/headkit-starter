@@ -131,10 +131,18 @@ export default async function Page({ params, searchParams }: Props) {
         redirect("/checkout?error=payment_failed");
       }
       if (session.status === "expired") {
+        // ENG-784: deliberate cart-changed expiry (mechanism 1 fired during a
+        // BNPL redirect) → back to /checkout with the cart-changed banner
+        // (cart intact, fresh session minted on load). Plain expiry keeps the
+        // session_expired error page.
+        if (session.expiredReason === "cart_changed") {
+          redirect("/checkout?error=cart_changed");
+        }
         redirect("/checkout/error?reason=session_expired");
       }
       if (session.paymentStatus === "unpaid") {
-        return <PaymentProcessing />;
+        // ENG-784: sessionId enables the client poller (poll-only, D4).
+        return <PaymentProcessing sessionId={sessionId} />;
       }
 
       // Guard: session order must match URL (reject tampered requests).
