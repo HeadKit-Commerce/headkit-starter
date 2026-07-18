@@ -31,6 +31,23 @@ export interface PriceDisplay {
   struck: number | null;
 }
 
+/**
+ * First non-empty price candidate, else "".
+ *
+ * The gateway serialises an absent sale price as an EMPTY STRING, not null —
+ * so `a ?? b` chains keep `""` and downstream parsing renders A$0.00 (the
+ * exact PDP regression E2E P1-14 catches on simple non-sale products). Use
+ * this wherever a price is picked from fallbacks.
+ */
+export function pickFirstPrice(
+  ...candidates: Array<string | null | undefined>
+): string {
+  for (const c of candidates) {
+    if (c !== null && c !== undefined && c.trim() !== "") return c;
+  }
+  return "";
+}
+
 /** Resolve what the price row should display, and whether a strikethrough regular price is warranted. */
 export function getPriceDisplay({
   price,

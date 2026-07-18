@@ -14,6 +14,7 @@ import { useRouter, usePathname } from "next/navigation";
 import type { Product, ProductAttribute, ProductVariation } from "@headkit/sdk";
 import { ProductImageGallery } from "@/components/headkit-ui/product-image-gallery";
 import { ProductPrice } from "@/components/headkit-ui/product-price";
+import { pickFirstPrice } from "@/lib/price-display";
 import { VariantSwatch } from "@/components/headkit-ui/variant-swatch";
 import { AvailabilityStatus } from "@/components/headkit-ui/availability-status";
 import { Button } from "@/components/ui/button";
@@ -258,10 +259,18 @@ export function ProductDetail({
     return base.length > 0 ? base : [{ src: "/placeholder.png", alt: product.name }];
   }, [product.images, product.name, selectedVariation]);
 
-  const displayPrice =
-    selectedVariation?.price ?? product.salePrice ?? product.price;
-  const displayRegularPrice =
-    selectedVariation?.regularPrice ?? product.regularPrice;
+  // pickFirstPrice, not `??`: the gateway sends absent sale prices as ""
+  // (empty string), which `??` keeps — rendering A$0.00 on simple non-sale
+  // products (E2E P1-14).
+  const displayPrice = pickFirstPrice(
+    selectedVariation?.price,
+    product.salePrice,
+    product.price,
+  );
+  const displayRegularPrice = pickFirstPrice(
+    selectedVariation?.regularPrice,
+    product.regularPrice,
+  );
   const isOnSale =
     selectedVariation !== null ? selectedVariation.onSale : product.onSale;
 

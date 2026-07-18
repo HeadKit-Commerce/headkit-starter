@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getPriceDisplay } from "@/lib/price-display";
+import { getPriceDisplay, pickFirstPrice } from "@/lib/price-display";
 
 describe("getPriceDisplay", () => {
   it("shows a real discount: regular > sale, on sale", () => {
@@ -55,5 +55,25 @@ describe("getPriceDisplay", () => {
       max: null,
       struck: null,
     });
+  });
+});
+
+describe("pickFirstPrice", () => {
+  it("skips empty strings the way ?? cannot (gateway sends salePrice: \"\")", () => {
+    // The P1-14 regression: selectedVariation?.price ?? salePrice ?? price
+    // kept "" and rendered A$0.00 on simple non-sale PDPs.
+    expect(pickFirstPrice(undefined, "", "50.00")).toBe("50.00");
+  });
+
+  it("returns the first non-empty candidate", () => {
+    expect(pickFirstPrice("22.00", "29.00")).toBe("22.00");
+  });
+
+  it("skips null, undefined and whitespace-only", () => {
+    expect(pickFirstPrice(null, undefined, "   ", "9.99")).toBe("9.99");
+  });
+
+  it("returns empty string when nothing usable", () => {
+    expect(pickFirstPrice(null, undefined, "")).toBe("");
   });
 });
