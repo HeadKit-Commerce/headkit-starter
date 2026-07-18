@@ -185,7 +185,7 @@ export function CartItemRow({
                 )}
               </p>
             )}
-            <p className={cn("font-medium", isOnSale && "text-pink-500")}>
+            <p className={cn("font-medium", isOnSale && "text-pink-600")}>
               {formatPrice(
                 getFloatVal(item.totals.lineSubtotal),
                 currency.code,

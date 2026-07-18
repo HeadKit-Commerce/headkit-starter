@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   NavigationMenu,
+  NavigationMenuItem,
   NavigationMenuList,
 } from "@/components/ui/navigation-menu";
 import {
@@ -56,6 +57,7 @@ export function Filter() {
   const inStockToggle = (
     <div className="flex min-h-10 items-center gap-2 px-2">
       <Switch
+        aria-label="In Stock"
         checked={filterValues.instock}
         onCheckedChange={(checked) =>
           setFilterValues({ ...filterValues, instock: checked, page: 1 })
@@ -139,7 +141,10 @@ export function Filter() {
                 </FilterMenuItem>
               ))}
 
-              {inStockToggle}
+              {/* <li> wrapper: NavigationMenuList is a <ul>, and a bare <div>
+                  child fails the a11y list rule (the same toggle renders
+                  without it in the mobile drawer, outside any list). */}
+              <NavigationMenuItem>{inStockToggle}</NavigationMenuItem>
 
               <ClearFiltersButton />
             </NavigationMenuList>

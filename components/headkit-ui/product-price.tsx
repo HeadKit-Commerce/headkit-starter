@@ -46,7 +46,9 @@ const ProductPrice = ({
           "leading-4",
           sizeClass,
           struck !== null
-            ? "text-pink-500"
+            ? // pink-600 (#d6187b), not pink-500 — the theme's pink-500 fails
+              // WCAG AA on white; contrast-computed step from the a11y sweep.
+              "text-pink-600"
             : dark
               ? "text-white"
               : "text-black",

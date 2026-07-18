@@ -19,7 +19,7 @@ import {
   isValidCheckoutPhone,
   CHECKOUT_PHONE_MESSAGE,
 } from "@/components/checkout/utils";
-import { PhoneInput } from "@/components/ui/phone-input";
+import { PhoneInput } from "@/components/ui/phone-input-lazy";
 import { useCheckoutActions } from "@/app/checkout/checkout-actions-context";
 
 const addressSchema = z.object({

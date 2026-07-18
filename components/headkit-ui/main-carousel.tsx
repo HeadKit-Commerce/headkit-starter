@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { getImageProps } from "next/image";
 import { ElementType } from "react";
 import Link from "next/link";
 import { Carousel } from "@/components/headkit-ui/carousel";
@@ -44,37 +44,58 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                   </div>
                 </div>
                 <div className="relative h-[40vh] overflow-hidden rounded-2xl md:h-[60vh] lg:h-[80vh]">
-                  {carousel?.image ? (
-                    <>
-                      <Image
-                        priority
-                        src={carousel.mobileImage || carousel.image}
-                        alt={carousel.header}
-                        quality={100}
-                        sizes="100vw"
-                        width={0}
-                        height={0}
-                        className="object-cover w-full h-full md:hidden"
-                      />
-                      <Image
-                        priority
-                        src={carousel.image}
-                        alt={carousel.header}
-                        quality={100}
-                        sizes="100vw"
-                        width={0}
-                        height={0}
-                        className="hidden md:block object-cover w-full h-full"
-                      />
-                      {/* Contrast scrim (md:+ only, where text overlays the
-                          image) so the white headline stays legible on any
-                          customer image. Mobile renders text below the image. */}
-                      <div
-                        aria-hidden
-                        className="absolute inset-0 hidden md:block bg-gradient-to-r from-black/50 via-black/25 to-transparent"
-                      />
-                    </>
-                  ) : null}
+                  {carousel?.image
+                    ? (() => {
+                        // RC-4 perf fix: the previous two stacked <Image
+                        // priority quality={100}> elements (md:hidden /
+                        // hidden md:block) preloaded and downloaded BOTH hero
+                        // variants on every viewport. One art-directed
+                        // <picture> lets the browser pick exactly one source;
+                        // only the first slide is eager/high-priority.
+                        const common = {
+                          alt: carousel.header,
+                          sizes: "100vw",
+                          width: 0,
+                          height: 0,
+                          priority: index === 0,
+                        };
+                        const {
+                          props: { srcSet: desktopSrcSet, sizes: desktopSizes },
+                        } = getImageProps({ ...common, src: carousel.image });
+                        const {
+                          props: { srcSet: mobileSrcSet, ...mobileRest },
+                        } = getImageProps({
+                          ...common,
+                          src: carousel.mobileImage || carousel.image,
+                        });
+                        return (
+                          <>
+                            <picture>
+                              <source
+                                media="(min-width: 768px)"
+                                srcSet={desktopSrcSet}
+                                sizes={desktopSizes}
+                              />
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                {...mobileRest}
+                                srcSet={mobileSrcSet}
+                                alt={carousel.header}
+                                className="object-cover w-full h-full"
+                              />
+                            </picture>
+                            {/* Contrast scrim (md:+ only, where text overlays
+                                the image) so the white headline stays legible
+                                on any customer image. Mobile renders text
+                                below the image. */}
+                            <div
+                              aria-hidden
+                              className="absolute inset-0 hidden md:block bg-gradient-to-r from-black/50 via-black/25 to-transparent"
+                            />
+                          </>
+                        );
+                      })()
+                    : null}
                 </div>
               </div>
             </div>

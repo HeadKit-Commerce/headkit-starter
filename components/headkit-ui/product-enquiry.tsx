@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { GravityForm } from "@/components/gravity-form";
+import { GravityForm } from "@/components/gravity-form-lazy";
 import { getGravityFormById } from "@/lib/gravity-form-actions";
 
 interface ProductEnquiryProps {

@@ -1,5 +1,6 @@
 "use server";
 
+import sanitizeHtml from "sanitize-html";
 import {
   executeRequest,
   HEADKIT_GRAPHQL_URL,
@@ -63,5 +64,16 @@ export async function submitGravityForm(
       ),
     },
   });
-  return { submitGfForm: data.commerce.submitGfForm };
+  const submitGfForm = data.commerce.submitGfForm;
+  // Strip the GF confirmation message to plain text here (server) rather than
+  // in the client component: the client renders it as React text anyway, and
+  // doing it here keeps sanitize-html (htmlparser2, ~70 KB gz) out of the
+  // browser bundle (RC-1 perf fix).
+  if (submitGfForm?.confirmation?.message) {
+    submitGfForm.confirmation.message = sanitizeHtml(
+      submitGfForm.confirmation.message,
+      { allowedTags: [], allowedAttributes: {} },
+    );
+  }
+  return { submitGfForm };
 }

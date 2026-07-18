@@ -27,7 +27,7 @@ export function CollectionHeader({
           <h1 className="mb-[10px] mt-5 text-3xl font-bold">{name}</h1>
           {description && (
             <p
-              className="text-gray-600"
+              className="text-gray-800"
               dangerouslySetInnerHTML={{ __html: sanitize(description) }}
             />
           )}
@@ -49,7 +49,7 @@ export function CollectionHeader({
       </div>
       {subcategories && subcategories.length > 0 && (
         <div className="mt-6 px-4 md:px-10">
-          <p className="mb-3 text-sm font-medium text-gray-500">
+          <p className="mb-3 text-sm font-medium text-gray-800">
             Subcategories
           </p>
           <div className="flex flex-wrap gap-2">

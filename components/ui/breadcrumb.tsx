@@ -24,11 +24,11 @@ const Breadcrumb = ({ items }: Props) => {
             <Fragment key={i}>
               <Link
                 href={convertToRelativePath(item?.uri) || ""}
-                className="text-gray-500 hover:underline"
+                className="text-gray-800 hover:underline"
               >
                 {item.name}
               </Link>
-              <div className="text-gray-500">{">"}</div>
+              <div className="text-gray-800">{">"}</div>
             </Fragment>
           );
         }

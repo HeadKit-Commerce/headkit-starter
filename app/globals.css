@@ -26,11 +26,17 @@
 
   /* Pink – sale, CTA hover, destructive */
   --color-pink-500: #ed4395;
+  /* Darker brand pink for TEXT/white-on-bg use: pink-500 is only 3.6:1
+     against white (fails WCAG AA 4.5:1); pink-600 is 4.9:1. */
+  --color-pink-600: #d6187b;
   --color-pink-800: #a81059;
 
   /* Lime – accent sections */
   --color-lime-400: #dbfe87;
   --color-lime-800: #80b602;
+  /* Text-safe lime: lime-800 is 2.4:1 on white (fails AA); lime-900 is
+     5.4:1 for text like the in-stock availability label. */
+  --color-lime-900: #527502;
 
   /* Gray – borders, muted text, surfaces */
   --color-gray-50: #fafaf9;

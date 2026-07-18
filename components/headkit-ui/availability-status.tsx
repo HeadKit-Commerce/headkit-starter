@@ -42,7 +42,9 @@ const AvailabilityStatus = ({ stockStatus, stockQuantity }: Props) => {
   }[status];
 
   const textColor = {
-    [AvailabilityStatusEnum.IN_STOCK]: "text-lime-800",
+    // lime-900: lime-800 text is 2.4:1 on white and fails WCAG AA (the dot
+    // keeps lime-800 — non-text indicator next to its label).
+    [AvailabilityStatusEnum.IN_STOCK]: "text-lime-900",
     [AvailabilityStatusEnum.LOW_STOCK]: "text-orange-500",
     [AvailabilityStatusEnum.OUT_OF_STOCK]: "text-pink-800",
   }[status];

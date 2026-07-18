@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { GravityForm } from "@/components/gravity-form";
+import { GravityForm } from "@/components/gravity-form-lazy";
 
 /**
  * Contact form's Gravity Forms id. Hardcoded so this page is self-contained and

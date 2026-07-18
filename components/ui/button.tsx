@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import {
   ArrowRightIcon,
@@ -70,7 +71,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       className,
       variant,
       size,
-      asChild: _asChild,
+      asChild = false,
       rightIcon,
       fullWidth,
       loading,
@@ -81,6 +82,25 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     },
     ref,
   ) => {
+    // asChild merges the button styling/props onto the single child element
+    // (e.g. <Button asChild><Link/></Button> renders ONE <a class="...">).
+    // Previously the prop was silently dropped, producing a nested
+    // <button><a/></button> — invalid nested interactive controls that also
+    // failed the a11y target-size audit (the inner link obscured the button).
+    if (asChild) {
+      return (
+        <Slot
+          className={cn(
+            buttonVariants({ variant, size, className }),
+            fullWidth && "w-full",
+          )}
+          ref={ref as React.Ref<HTMLElement>}
+          {...(props as React.HTMLAttributes<HTMLElement>)}
+        >
+          {children}
+        </Slot>
+      );
+    }
     const IconComponent = rightIcon ? RightIconMap[rightIcon] : null;
     return (
       <button

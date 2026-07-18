@@ -2,7 +2,16 @@
 
 import * as React from "react";
 import { CheckIcon, ChevronsUpDownIcon } from "@/components/icon";
-import * as RPNInput from "react-phone-number-input";
+// /min bundles the reduced libphonenumber metadata set (national formats only)
+// — noticeably smaller than the default full metadata. Types not re-exported
+// by /min come from the root entry as type-only imports (erased at runtime).
+import * as RPNInput from "react-phone-number-input/min";
+import type {
+  Country,
+  Props as RPNInputProps,
+  FlagProps,
+  Value,
+} from "react-phone-number-input";
 import flags from "react-phone-number-input/flags";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,19 +31,19 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
-type PhoneInputProps = Omit<
+export type PhoneInputProps = Omit<
   React.ComponentProps<"input">,
   "onChange" | "value" | "ref"
 > &
-  Omit<RPNInput.Props<typeof RPNInput.default>, "onChange"> & {
-    onChange?: (value: RPNInput.Value) => void;
+  Omit<RPNInputProps<typeof RPNInput.default>, "onChange"> & {
+    onChange?: (value: Value) => void;
   };
 
 const PhoneInput = React.forwardRef<
   React.ElementRef<typeof RPNInput.default>,
   PhoneInputProps
 >(({ className, onChange, value, ...props }, ref) => {
-  const normalizedValue = value ? (value as RPNInput.Value) : undefined;
+  const normalizedValue = value ? (value as Value) : undefined;
 
   return (
     <RPNInput.default
@@ -48,7 +57,7 @@ const PhoneInput = React.forwardRef<
       international={false}
       withCountryCallingCode={false}
       {...(normalizedValue !== undefined && { value: normalizedValue })}
-      onChange={(val) => onChange?.(val || ("" as RPNInput.Value))}
+      onChange={(val) => onChange?.(val || ("" as Value))}
       {...props}
     />
   );
@@ -67,13 +76,13 @@ const InputComponent = React.forwardRef<
 ));
 InputComponent.displayName = "InputComponent";
 
-type CountryEntry = { label: string; value: RPNInput.Country | undefined };
+type CountryEntry = { label: string; value: Country | undefined };
 
 type CountrySelectProps = {
   disabled?: boolean;
-  value: RPNInput.Country;
+  value: Country;
   options: CountryEntry[];
-  onChange: (country: RPNInput.Country) => void;
+  onChange: (country: Country) => void;
 };
 
 const CountrySelect = ({
@@ -158,9 +167,9 @@ const CountrySelect = ({
   );
 };
 
-interface CountrySelectOptionProps extends RPNInput.FlagProps {
-  selectedCountry: RPNInput.Country;
-  onChange: (country: RPNInput.Country) => void;
+interface CountrySelectOptionProps extends FlagProps {
+  selectedCountry: Country;
+  onChange: (country: Country) => void;
   onSelectComplete: () => void;
 }
 
@@ -191,7 +200,7 @@ const CountrySelectOption = ({
   );
 };
 
-const FlagComponent = ({ country, countryName }: RPNInput.FlagProps) => {
+const FlagComponent = ({ country, countryName }: FlagProps) => {
   const Flag = flags[country as keyof typeof flags];
 
   return (

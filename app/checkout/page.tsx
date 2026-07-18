@@ -163,7 +163,7 @@ export default async function CheckoutPage({
   }
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50">
       {/* Payment failed banner (ENG-789: retry after Afterpay/BNPL decline) */}
       {paymentFailed && <PaymentFailedBanner />}
       {/* Cart changed banner (ENG-784: session expired mid-redirect because
@@ -199,6 +199,6 @@ export default async function CheckoutPage({
         isAuthenticated={isAuthenticated}
         allowedCountries={["AU", "NZ"]}
       />
-    </main>
+    </div>
   );
 }

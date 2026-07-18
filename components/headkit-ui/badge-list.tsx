@@ -17,7 +17,7 @@ const BadgeList = ({ isSale, isNewIn, className }: Props) => {
         </span>
       )}
       {isSale && (
-        <span className="outline rounded-[6px] uppercase font-semibold text-center px-2 py-1 bg-pink-500 outline-pink-500/50 text-white">
+        <span className="outline rounded-[6px] uppercase font-semibold text-center px-2 py-1 bg-pink-600 outline-pink-600/50 text-white">
           Sale
         </span>
       )}

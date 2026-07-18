@@ -20,7 +20,7 @@ function AccordionBlockSkeleton() {
 
 export default function CheckoutLoading() {
   return (
-    <main className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50">
       <div className="min-h-[700px] py-10">
         <div className="mx-auto grid grid-cols-12 gap-[20px] px-[20px] md:px-[40px]">
           <div className="order-2 md:order-1 col-span-12 space-y-2 md:col-span-6">
@@ -67,6 +67,6 @@ export default function CheckoutLoading() {
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

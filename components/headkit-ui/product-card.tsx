@@ -25,6 +25,8 @@ interface Props {
   dark?: boolean;
   mobileCol?: boolean;
   isNew?: boolean;
+  /** Eager-load the card image (first-row cards where it may be the LCP). */
+  priority?: boolean;
 }
 
 export const ProductCard = ({
@@ -33,6 +35,7 @@ export const ProductCard = ({
   dark = false,
   mobileCol = false,
   isNew = false,
+  priority = false,
 }: Props) => {
   const [colourSelected, setColourSelected] = useState<string | null>(null);
   const [imageSelected, setImageSelected] = useState<string>(
@@ -112,7 +115,11 @@ export const ProductCard = ({
         <BadgeList isSale={product?.onSale ?? false} isNewIn={isNew} />
       </div>
       <Link href={uri} aria-label="Featured Image">
-        <FeaturedImage src={imageSelected} alt={product?.name ?? "Product"} />
+        <FeaturedImage
+          src={imageSelected}
+          alt={product?.name ?? "Product"}
+          priority={priority}
+        />
       </Link>
       <div className="pt-3">
         <div
@@ -126,14 +133,17 @@ export const ProductCard = ({
         >
           <div className="min-w-0">
             <Link href={uri}>
-              <h3
+              {/* h2 (not h3): on PLP/search the card name follows the page h1
+                  directly, so h3 skipped a level (a11y heading-order). Visual
+                  size is class-driven, unchanged. */}
+              <h2
                 className={cn(
                   "font-semibold line-clamp-2 break-words",
                   dark && "text-white",
                 )}
               >
                 {product?.name}
-              </h3>
+              </h2>
             </Link>
             <div className="flex flex-wrap items-center gap-2 min-w-0">
               {isVariableProduct(product) &&

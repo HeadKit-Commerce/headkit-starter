@@ -39,8 +39,10 @@ export function ProductGrid() {
     <div className="px-5 md:px-10 z-5">
       <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
         {isLoadingBefore && <LoadingSkeleton />}
-        {products.map((product) => (
-          <ProductCard key={product.id} product={product} />
+        {products.map((product, index) => (
+          // First row (up to 4 cards at the widest breakpoint) is eager: the
+          // first visible card image is the PLP's LCP element (RC-2).
+          <ProductCard key={product.id} product={product} priority={index < 4} />
         ))}
         {(isLoading || isLoadingAfter) && <LoadingSkeleton />}
       </div>

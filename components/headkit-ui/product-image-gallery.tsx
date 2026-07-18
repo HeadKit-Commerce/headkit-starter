@@ -44,7 +44,16 @@ export function ProductImageGallery({
 
   return (
     <div>
-      {/* Desktop: masonry-style two-column grid */}
+      {/* Desktop: masonry-style two-column grid.
+          RC-3 perf notes:
+          - Non-first images are loading="lazy": lazy images inside this
+            CSS-hidden (mobile) container never intersect the viewport, so a
+            phone no longer downloads the whole desktop grid.
+          - The first image shares the exact src/sizes/quality of the mobile
+            carousel's first image, so its priority preload and network fetch
+            dedupe with the mobile variant — one preload total.
+          - quality is the default (75); q=100 doubled bytes for no visible
+            gain on a 50vw render. */}
       <div className="hidden gap-5 md:grid md:grid-cols-2">
         {
           galleryImages.map((item, index) => (
@@ -66,9 +75,13 @@ export function ProductImageGallery({
                     alt={item.alt || "Product image"}
                     fill
                     className="object-cover"
-                    sizes="(max-width: 768px) 100vw, 50vw"
-                    quality={100}
+                    sizes={
+                      index === 0
+                        ? "(min-width: 768px) 50vw, 100vw"
+                        : "(min-width: 768px) 25vw, 100vw"
+                    }
                     priority={index === 0}
+                    loading={index === 0 ? undefined : "lazy"}
                   />
                 </div>
               </DialogTrigger>
@@ -89,6 +102,8 @@ export function ProductImageGallery({
             <Dialog>
               <DialogTrigger className="w-full">
                 <div className="relative aspect-square bg-gray-100">
+                  {/* First image mirrors the desktop hero's sizes so the two
+                      priority preloads/fetches dedupe into one (RC-3). */}
                   <Image
                     src={
                       galleryImages[mobileIndex]?.src ?? FALLBACK_IMAGE_SRC
@@ -96,7 +111,11 @@ export function ProductImageGallery({
                     alt={galleryImages[mobileIndex]?.alt || "Product image"}
                     fill
                     className="object-cover object-center"
-                    sizes="100vw"
+                    sizes={
+                      mobileIndex === 0
+                        ? "(min-width: 768px) 50vw, 100vw"
+                        : "100vw"
+                    }
                     priority={mobileIndex === 0}
                   />
                 </div>
@@ -126,21 +145,26 @@ export function ProductImageGallery({
                   <ChevronRightIcon className="h-5 w-5 text-gray-800" />
                 </button>
 
-                {/* Pagination dots */}
-                <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
+                {/* Pagination dots — 24x24 hit area (WCAG target-size), 6px
+                    visual dot */}
+                <div className="absolute bottom-1 left-1/2 flex -translate-x-1/2">
                   {galleryImages.map((_, i) => (
                     <button
                       key={i}
                       type="button"
                       onClick={() => setMobileIndex(i)}
                       aria-label={`Go to image ${i + 1}`}
-                      className={cn(
-                        "h-1.5 w-1.5 rounded-full transition-colors",
-                        i === mobileIndex
-                          ? "bg-black/70"
-                          : "bg-black/30 hover:bg-black/50",
-                      )}
-                    />
+                      className="flex h-6 w-6 items-center justify-center"
+                    >
+                      <span
+                        className={cn(
+                          "h-1.5 w-1.5 rounded-full transition-colors",
+                          i === mobileIndex
+                            ? "bg-black/70"
+                            : "bg-black/30 hover:bg-black/50",
+                        )}
+                      />
+                    </button>
                   ))}
                 </div>
               </>

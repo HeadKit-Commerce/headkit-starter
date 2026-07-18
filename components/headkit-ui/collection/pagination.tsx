@@ -84,7 +84,7 @@ export function ProductCount() {
   const { products, totalProducts } = useCollection();
   if (!totalProducts) return null;
   return (
-    <p className="text-sm text-gray-600">
+    <p className="text-sm text-gray-800">
       Viewing {products.length} of {totalProducts} products
     </p>
   );

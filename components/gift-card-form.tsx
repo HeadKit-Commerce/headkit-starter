@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { DeliveryType } from "@/components/gift-card-delivery-type";
 
 const getCurrentDate = (): string => {
   const date = new Date();
@@ -25,10 +26,10 @@ const getCurrentDate = (): string => {
   return `${year}-${month}-${day}`;
 };
 
-export enum DeliveryType {
-  Now = "1",
-  Later = "2",
-}
+// Re-export for existing importers; the enum lives in its own module so
+// consumers that only need it don't pull this form's react-hook-form/zod
+// dependencies into their bundle.
+export { DeliveryType };
 
 const giftCardSchema = z.object({
   wc_gc_giftcard_to_multiple: z

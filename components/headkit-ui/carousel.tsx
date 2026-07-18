@@ -317,16 +317,21 @@ const Carousel = <T,>({
           )}
         >
           {filteredItems.map((_, index) => (
+            // 24x24 hit area (WCAG target-size); the visual dot stays 8px.
             <button
               key={index}
               onClick={() => scrollTo(index)}
               aria-label={`Go to slide ${index + 1}`}
-              className={cn(
-                "h-2 w-2 mx-1 rounded-full transition-colors cursor-pointer",
-                paginationDotClassName,
-                currentIndex === index && "bg-white",
-              )}
-            />
+              className="flex h-6 w-6 items-center justify-center cursor-pointer"
+            >
+              <span
+                className={cn(
+                  "h-2 w-2 rounded-full transition-colors",
+                  paginationDotClassName,
+                  currentIndex === index && "bg-white",
+                )}
+              />
+            </button>
           ))}
         </div>
       )}

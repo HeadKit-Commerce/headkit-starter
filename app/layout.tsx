@@ -154,7 +154,9 @@ export default async function RootLayout({
             <CartProvider>
               <CartDrawer />
               <NavigationWrapper />
-              {children}
+              {/* Single <main> landmark for all routes (a11y: landmark-one-main
+                  failed on every measured route without it). */}
+              <main>{children}</main>
               <Footer
                 siteName={siteName}
                 description="HeadKit is the cloud platform making it easy to build headless commerce stores."

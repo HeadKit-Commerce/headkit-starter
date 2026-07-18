@@ -124,26 +124,24 @@ export function NavigationBar({
             </NavigationMenuLink>
           </NavigationMenuItem>
 
-          <div className="hidden md:flex">
-            {primaryMenuItems.length > 0 && (
-              <DesktopMenuSection
-                items={primaryMenuItems}
-                highlightedLinks={highlightedLinks}
-              />
-            )}
-          </div>
+          {/* No wrapper element: <ul> children must be <li> (a11y list/listitem).
+              Desktop-only visibility lives on each NavigationMenuItem. */}
+          {primaryMenuItems.length > 0 && (
+            <DesktopMenuSection
+              items={primaryMenuItems}
+              highlightedLinks={highlightedLinks}
+            />
+          )}
         </NavigationMenuList>
 
         {/* Right: secondary menu + actions + mobile toggle */}
         <NavigationMenuList className="space-x-0">
-          <div className="hidden md:flex">
-            {secondaryMenuItems && secondaryMenuItems.length > 0 && (
-              <DesktopMenuSection
-                items={secondaryMenuItems}
-                highlightedLinks={highlightedLinks}
-              />
-            )}
-          </div>
+          {secondaryMenuItems && secondaryMenuItems.length > 0 && (
+            <DesktopMenuSection
+              items={secondaryMenuItems}
+              highlightedLinks={highlightedLinks}
+            />
+          )}
 
           {desktopActions && (
             <NavigationMenuItem className="hidden md:flex items-center">
@@ -249,7 +247,7 @@ function DesktopMenuSection({
   return (
     <>
       {items.map((item) => (
-        <NavigationMenuItem key={item.id}>
+        <NavigationMenuItem key={item.id} className="hidden md:flex">
           {item.children.length > 0 ? (
             <>
               <NavigationMenuTrigger

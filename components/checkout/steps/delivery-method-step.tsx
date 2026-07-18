@@ -14,7 +14,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
-import { PhoneInput } from "@/components/ui/phone-input";
+import { PhoneInput } from "@/components/ui/phone-input-lazy";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SpinnerIcon } from "@/components/icon";
 import { cn } from "@/lib/utils";

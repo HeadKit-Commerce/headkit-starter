@@ -5,7 +5,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import React, { useEffect, useState } from "react";
 import { HiArrowRight } from "react-icons/hi2";
-import sanitizeHtml from "sanitize-html";
 import {
   Form,
   FormControl,
@@ -378,12 +377,12 @@ export const GravityForm = ({
         await onSubmit(values);
       }
 
+      // The confirmation message is stripped to plain text server-side in
+      // submitGravityForm (lib/gravity-form-actions.ts) so sanitize-html
+      // (~70 KB gz of htmlparser2) stays out of the client bundle (RC-1).
       setSuccessMessage(
-        sanitizeHtml(
-          response.submitGfForm?.confirmation?.message ??
-            "Form submitted successfully",
-          { allowedTags: [] },
-        ),
+        response.submitGfForm?.confirmation?.message ??
+          "Form submitted successfully",
       );
 
       if (typeof window !== "undefined") {

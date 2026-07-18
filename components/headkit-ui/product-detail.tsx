@@ -6,6 +6,8 @@ import {
   useTransition,
   useCallback,
   useEffect,
+  lazy,
+  Suspense,
   type ReactNode,
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
@@ -19,10 +21,19 @@ import { MinusIcon, PlusIcon } from "@/components/icon";
 import { addToCartAction } from "@/lib/cart-actions";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { cn } from "@/lib/utils";
-import { GiftCardForm, type GiftCardFormValues, DeliveryType } from "@/components/gift-card-form";
+import type { GiftCardFormValues } from "@/components/gift-card-form";
+import { DeliveryType } from "@/components/gift-card-delivery-type";
 import { Breadcrumb } from "@/components/headkit-ui/breadcrumb";
 import { ProductEnquiry } from "@/components/headkit-ui/product-enquiry";
 import { isColorAttrSlug } from "@/components/headkit-ui/collection/utils";
+
+// Lazy: gift-card-form drags react-hook-form + zod (~63 KB transfer) into the
+// PDP bundle, but only gift-card products render it (RC-1 perf fix).
+const GiftCardForm = lazy(() =>
+  import("@/components/gift-card-form").then((m) => ({
+    default: m.GiftCardForm,
+  })),
+);
 
 interface Props {
   product: Product;
@@ -460,10 +471,12 @@ export function ProductDetail({
 
         {/* Gift card recipient form */}
         {isGiftCard && (
-          <GiftCardForm
-            emitClickEvent={(values) => setGiftCardValues(values)}
-            onFormValid={(valid) => setIsGiftCardFormValid(valid)}
-          />
+          <Suspense fallback={null}>
+            <GiftCardForm
+              emitClickEvent={(values) => setGiftCardValues(values)}
+              onFormValid={(valid) => setIsGiftCardFormValid(valid)}
+            />
+          </Suspense>
         )}
 
         {/* Availability status */}
@@ -562,7 +575,7 @@ export function ProductDetail({
 
         {/* SKU */}
         {product.sku && (
-          <p className="mb-6 text-xs text-gray-500">SKU: {product.sku}</p>
+          <p className="mb-6 text-xs text-gray-800">SKU: {product.sku}</p>
         )}
 
         {/* Tabs: Description / Additional Info / Reviews */}
@@ -579,7 +592,7 @@ export function ProductDetail({
                     "relative px-4 py-3 text-sm font-medium transition-colors",
                     activeTab === tab.key
                       ? "text-purple-800"
-                      : "text-gray-500 hover:text-gray-700",
+                      : "text-gray-800 hover:text-gray-900",
                   )}
                 >
                   {tab.label}

@@ -93,7 +93,12 @@ const nextConfig: NextConfig = {
     // protection, default false). Local WP media is on http://localhost:8090,
     // which resolves to 127.0.0.1, so the optimizer 400s ("url is not allowed")
     // in local dev. Allow it ONLY in dev — production keeps the safe default.
-    dangerouslyAllowLocalIP: process.env.NODE_ENV !== "production",
+    // ALLOW_LOCAL_IMAGES=1 is a measurement-only escape hatch so a local
+    // PRODUCTION build (Lighthouse against `next start`) can serve WP media;
+    // it must never be set on a real deploy and defaults off.
+    dangerouslyAllowLocalIP:
+      process.env.NODE_ENV !== "production" ||
+      process.env.ALLOW_LOCAL_IMAGES === "1",
   },
   async rewrites() {
     return [
