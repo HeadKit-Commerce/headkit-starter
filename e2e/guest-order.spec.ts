@@ -46,7 +46,7 @@ const GUEST_ORDER_KEY = process.env.E2E_GUEST_ORDER_KEY ?? "";
 const WRONG_ORDER_KEY = "wc_order_thiskeyisdefinitelywrong000";
 
 const GET_STORE_ORDER = `
-  query GetStoreOrder($id: ID!, $key: String!, $billingEmail: String) {
+  query GetStoreOrder($id: String!, $key: String!, $billingEmail: String) {
     commerce {
       storeOrder(id: $id, key: $key, billingEmail: $billingEmail) {
         id
@@ -64,7 +64,12 @@ async function fetchStoreOrder(
   key: string,
 ) {
   const res = await api.post(GRAPHQL_URL, {
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      // Mandatory tenant resolution (the spec predated the store-key
+      // middleware — contract drift fixed in the autonomous QA run).
+      "x-headkit-key": process.env.E2E_STORE_KEY ?? "pk_local",
+    },
     data: {
       query: GET_STORE_ORDER,
       variables: { id, key, billingEmail: null },

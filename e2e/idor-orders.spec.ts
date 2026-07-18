@@ -71,9 +71,13 @@ test.describe("IDOR: orders are JWT-scoped, no cross-customer leak (FE-06)", () 
 
     // Logged-in session as customer A — identity carried ONLY by the JWT.
     // No `customer` id is sent in the query (that would be the IDOR hole).
+    // x-headkit-key resolves the tenant store (mandatory since the commerce
+    // store-resolution middleware; the spec predated it — locator/contract
+    // drift fixed in the autonomous QA run).
     const res = await api.post(GRAPHQL_URL, {
       headers: {
         "Content-Type": "application/json",
+        "x-headkit-key": process.env.E2E_STORE_KEY ?? "pk_local",
         Authorization: `Bearer ${CUSTOMER_A_JWT}`,
       },
       data: {

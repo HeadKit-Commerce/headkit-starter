@@ -313,19 +313,37 @@ test.describe("Gift cards: purchase -> code -> redeem -> reduced charge (Phase 0
     // Fill recipient/from/message; keep delivery = Now (the default). Blur each
     // field so the form's async validity + captured-values state both settle
     // before the add-to-cart button enables (it is gated on both).
-    await page.getByPlaceholder("Recipient Email").fill("giftcard-recipient@example.com");
-    await page.getByPlaceholder("Recipient Email").blur();
-    await page.getByPlaceholder("From Name").fill("HeadKit E2E");
-    await page.getByPlaceholder("From Name").blur();
-    await page
-      .getByPlaceholder(/special message/i)
-      .fill("Happy Birthday from the HeadKit E2E suite");
-    await page.getByPlaceholder(/special message/i).blur();
+    const fillGiftForm = async () => {
+      await page
+        .getByPlaceholder("Recipient Email")
+        .fill("giftcard-recipient@example.com");
+      await page.getByPlaceholder("Recipient Email").blur();
+      await page.getByPlaceholder("From Name").fill("HeadKit E2E");
+      await page.getByPlaceholder("From Name").blur();
+      await page
+        .getByPlaceholder(/special message/i)
+        .fill("Happy Birthday from the HeadKit E2E suite");
+      await page.getByPlaceholder(/special message/i).blur();
+    };
+    await fillGiftForm();
+
+    // The gift-card form is lazy-loaded (RC-1 perf fix): its SSR markup is
+    // interactive-looking before the client chunk hydrates, so a fill that
+    // lands pre-hydration is silently clobbered when react-hook-form mounts
+    // (the field reverts to empty and the button stays disabled). If the
+    // button hasn't enabled shortly after the first pass, refill once —
+    // post-hydration events always register.
+    const addToCart = page.getByRole("button", { name: /^add to cart$/i });
+    try {
+      await expect(addToCart).toBeEnabled({ timeout: 5_000 });
+    } catch {
+      await fillGiftForm();
+    }
 
     // The button enables only once the gift config is captured (Playwright
     // auto-waits for enabled), then the giftConfig add-item path fires
     // (commerce cart_provider builds gift_card_configuration for the Store API).
-    await page.getByRole("button", { name: /^add to cart$/i }).click();
+    await addToCart.click();
 
     // A successful add persists the storefront cart token cookie. Assert the
     // gift line actually landed in the WooCommerce cart (transport confirmed):
@@ -387,13 +405,16 @@ test.describe("Gift cards: purchase -> code -> redeem -> reduced charge (Phase 0
     ]);
     await page.goto(`${BASE_URL}/checkout`);
 
-    const codeInput = page.getByPlaceholder(/gift card code/i);
+    // The redeem UI is the UNIFIED "Coupon Code or Gift Card" box (CouponBox)
+    // — the dedicated gift-card input this spec originally targeted was
+    // retired when the box was combined (autonomous QA run locator fix).
+    const codeInput = page.getByPlaceholder("Coupon Code or Gift Card");
     await expect(
       codeInput,
-      "no gift-card redeem input at checkout — the redemption UI (GIFT-03) is not wired",
+      "no coupon/gift-card redeem input at checkout — the redemption UI (GIFT-03) is not wired",
     ).toBeVisible({ timeout: 20_000 });
     await codeInput.fill(GIFT_CARD_CODE);
-    await page.getByRole("button", { name: /apply gift card|redeem/i }).click();
+    await page.getByRole("button", { name: /^apply$/i }).click();
 
     // The applied card must become visible (masked code) and the "Remaining
     // balance" line renders — cart_mapper surfaced appliedGiftCards (GIFT-03).

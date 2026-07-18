@@ -64,20 +64,25 @@ test.describe("Editorial content acceptance (RED until plans 02–07) — R5/R6"
     ).toBeVisible();
 
     // Date parity: ArticleJsonLD emits datePublished — proves post.date survived
-    // the nullability change (D-01) without regressing.
-    const jsonLd = await page
+    // the nullability change (D-01) without regressing. Scan ALL ld+json
+    // scripts: the root layout now also emits a site-wide WebSite JSON-LD
+    // which renders FIRST, so `.first()` no longer reaches the Article one
+    // (locator drift fixed in the autonomous QA run).
+    const jsonLdBlocks = await page
       .locator('script[type="application/ld+json"]')
-      .first()
-      .textContent();
+      .allTextContents();
     expect(
-      jsonLd ?? "",
+      jsonLdBlocks.join("\n"),
       "Article JSON-LD datePublished missing — post.date regressed (R5)",
     ).toContain("datePublished");
 
     // Related-posts parity: the seeded siblings share the `editorial` category, so
     // the "Latest News" related-posts widget must render (relatedPosts populated).
+    // Exact heading role: the footer's "Get the latest news…" heading also
+    // substring-matches getByText (strict-mode drift fixed in the autonomous
+    // QA run).
     await expect(
-      page.getByText("Latest News"),
+      page.getByRole("heading", { name: "Latest News", exact: true }),
       "related-posts widget missing — relatedPosts regressed on migration (R5)",
     ).toBeVisible();
   });
