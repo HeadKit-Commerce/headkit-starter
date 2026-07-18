@@ -53,20 +53,38 @@ const securityHeaders = [
   },
 ];
 
+/**
+ * Build-time prerender throttle (layered with the SDK's in-flight read cap).
+ *
+ * Prerendering the full category×colour×brand + product×colour matrix fires
+ * bursts of reads at the gateway → WooCommerce REST; managed WP (Pressable)
+ * rate-limits aggressively and stays 429 for longer than a few seconds,
+ * exhausting the SDK retry budget. Defaults stay fully serialized (1/1) —
+ * today's safe behavior.
+ *
+ * The SDK now also caps in-flight reads per process
+ * (`HEADKIT_SDK_MAX_CONCURRENT`, default 4, 0 = off) — the precise throttle on
+ * what WP actually sees. With that ceiling in place, builds can be sped up by
+ * raising these env vars; note the SDK cap is per worker process, so the
+ * effective global read ceiling is `HEADKIT_SDK_MAX_CONCURRENT × NEXT_BUILD_CPUS`.
+ */
+const positiveIntEnv = (raw: string | undefined, fallback: number): number => {
+  const n = Number(raw ?? "");
+  return Number.isInteger(n) && n > 0 ? n : fallback;
+};
+const buildCpus = positiveIntEnv(process.env.NEXT_BUILD_CPUS, 1);
+const staticGenConcurrency = positiveIntEnv(
+  process.env.NEXT_STATIC_GEN_CONCURRENCY,
+  1,
+);
+
 const nextConfig: NextConfig = {
   transpilePackages: ["@headkit/sdk"],
   cacheComponents: true,
   experimental: {
     optimizePackageImports: ["react-icons"],
-    // Build-time throttle. Prerendering the full category×colour×brand +
-    // product×colour matrix fires bursts of reads at the gateway → WooCommerce
-    // REST; managed WP (Pressable) rate-limits aggressively and stays 429 for
-    // longer than a few seconds, exhausting the SDK retry budget. Serialize the
-    // export — one worker, one page at a time — so at most a single page's
-    // fan-out (≤2 reads) hits WP at once. Slower build, but green against a
-    // rate-limited backend; the SDK retry handles any incidental 429.
-    cpus: 1,
-    staticGenerationMaxConcurrency: 1,
+    cpus: buildCpus,
+    staticGenerationMaxConcurrency: staticGenConcurrency,
   },
   images: {
     qualities: [50, 75, 100],
