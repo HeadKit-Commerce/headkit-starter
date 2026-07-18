@@ -16,9 +16,14 @@ async function getFaqPage() {
   "use cache";
   cacheLife("max");
   cacheTag("headkit:page:faq", "headkit:pages");
+  // NOTE: sdk.faq.list() errors intentionally propagate (no `.catch(() => [])`).
+  // Swallowing them cached "no FAQs" with cacheLife("max") — a transient fetch
+  // failure rendered a permanently blank page. A rejected fetch now bubbles to
+  // app/error.tsx ("Something went wrong" + Try again) and the failed result is
+  // NOT written to the cache, so the next request retries.
   return Promise.all([
     sdk.content.get("faq", "PAGE").catch(() => null),
-    sdk.faq.list().catch(() => []),
+    sdk.faq.list(),
   ]);
 }
 
@@ -60,7 +65,7 @@ export default async function FAQPage() {
             )}
           </div>
 
-          {faqs.length > 0 && (
+          {faqs.length > 0 ? (
             <Accordion type="single" collapsible className="space-y-4">
               {faqs.map((faq, index) => (
                 <AccordionItem
@@ -80,6 +85,15 @@ export default async function FAQPage() {
                 </AccordionItem>
               ))}
             </Accordion>
+          ) : (
+            <div className="rounded-lg border border-purple-200 px-6 py-12 text-center">
+              <p className="text-lg font-medium text-purple-800">
+                No FAQs published yet
+              </p>
+              <p className="mt-2 text-sm text-gray-800">
+                Check back soon — answers to common questions will appear here.
+              </p>
+            </div>
           )}
         </div>
       </div>

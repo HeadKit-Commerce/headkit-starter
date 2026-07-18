@@ -24,7 +24,7 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                 <div className="z-10 h-full w-full md:absolute">
                   <div className="mx-auto flex h-full items-center">
                     <div className="py-[20px] md:w-[400px] md:pl-[20px] lg:w-[600px] lg:pl-[100px]">
-                      <HeaderTag className="text-primary text-3xl font-semibold leading-[1.3]! md:text-5xl">
+                      <HeaderTag className="max-md:text-primary text-3xl font-semibold leading-[1.3]! md:text-5xl md:text-white">
                         {carousel?.header}
                       </HeaderTag>
                       <p className="mt-8 text-base font-semibold text-black md:text-3xl md:text-white">
@@ -65,6 +65,13 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                         width={0}
                         height={0}
                         className="hidden md:block object-cover w-full h-full"
+                      />
+                      {/* Contrast scrim (md:+ only, where text overlays the
+                          image) so the white headline stays legible on any
+                          customer image. Mobile renders text below the image. */}
+                      <div
+                        aria-hidden
+                        className="absolute inset-0 hidden md:block bg-gradient-to-r from-black/50 via-black/25 to-transparent"
                       />
                     </>
                   ) : null}

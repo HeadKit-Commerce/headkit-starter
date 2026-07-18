@@ -147,7 +147,7 @@ export function CartItemRow({
           <div className="mt-0.5 flex items-center">
             <button
               className={cn(
-                "flex h-[26px] w-[26px] items-center justify-center rounded-l-[3px] bg-purple-500",
+                "flex h-8 w-8 items-center justify-center rounded-l-[3px] bg-purple-500",
                 loading && "cursor-not-allowed opacity-40",
               )}
               onClick={handleDecrement}
@@ -156,12 +156,12 @@ export function CartItemRow({
             >
               <MinusIcon className="h-3 w-3 stroke-white stroke-2" />
             </button>
-            <span className="flex h-[26px] w-[26px] items-center justify-center border-b border-t border-gray-500 bg-white pt-[2px] font-medium text-purple-800">
+            <span className="flex h-8 w-8 items-center justify-center border-b border-t border-gray-500 bg-white pt-[2px] font-medium text-purple-800">
               {quantity}
             </span>
             <button
               className={cn(
-                "flex h-[26px] w-[26px] items-center justify-center rounded-r-[3px] bg-purple-500 hover:bg-pink-500",
+                "flex h-8 w-8 items-center justify-center rounded-r-[3px] bg-purple-500 hover:bg-pink-500",
                 (loading || isAtStockLimit || isOutOfStock) &&
                   "cursor-not-allowed opacity-40",
               )}
@@ -197,7 +197,9 @@ export function CartItemRow({
             <button
               onClick={handleRemove}
               className={cn(
-                "cursor-pointer hover:opacity-80",
+                // p-3/-m-3 grows the tap target to ~40px (WCAG/HIG) without
+                // shifting the 16px icon's visual position (F8).
+                "-m-3 cursor-pointer p-3 hover:opacity-80",
                 loading && "cursor-not-allowed opacity-40",
               )}
               disabled={loading}

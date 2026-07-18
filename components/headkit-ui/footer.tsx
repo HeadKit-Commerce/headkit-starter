@@ -144,9 +144,18 @@ function SubscriptionBox() {
   return (
     <div className="flex flex-col gap-2">
       <Label className="text-purple-800 font-semibold text-lg">Subscribe</Label>
-      <form className="flex gap-2 relative">
-        <Input type="email" placeholder="Enter your email" required />
-        <Button type="submit" className="absolute right-0">
+      {/* Below lg the column is too narrow for the overlaid button (it sat on
+          top of the input, hiding the text — F7): stack input + button. From
+          lg: keep the overlay look, with input padding so text never runs
+          under the button. */}
+      <form className="relative flex flex-col gap-2 lg:flex-row">
+        <Input
+          type="email"
+          placeholder="Enter your email"
+          required
+          className="lg:pr-28"
+        />
+        <Button type="submit" className="lg:absolute lg:right-0 lg:top-0">
           Subscribe
         </Button>
       </form>
@@ -203,7 +212,7 @@ export function Footer({
 
   return (
     <footer className="mt-8 border-t-2 border-t-[#E2E2DF] px-5 md:px-10">
-      <div className="grid gap-x-24 gap-y-8 py-10 md:grid-cols-3 md:py-14">
+      <div className="grid gap-x-8 gap-y-8 py-10 md:grid-cols-3 md:py-14 lg:gap-x-24">
         {/* Left: logo + description + social icons */}
         <div className="flex flex-col justify-between">
           <div className="flex">

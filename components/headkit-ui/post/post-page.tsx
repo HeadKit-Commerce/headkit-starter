@@ -17,7 +17,12 @@ export function PostPage({
 }: PostPageProps) {
   const [activeFilter, setActiveFilter] = useState(activeCategory ?? "");
 
-  const categories = postFilters?.categories ?? [];
+  // Hide WordPress's default "Uncategorized" bucket from the filter row —
+  // it is noise, not a real editorial category (F10). Posts that only have
+  // it stay reachable via "All".
+  const categories = (postFilters?.categories ?? []).filter(
+    (c) => c.slug !== "uncategorized",
+  );
 
   return (
     <div className="flex flex-col gap-8">

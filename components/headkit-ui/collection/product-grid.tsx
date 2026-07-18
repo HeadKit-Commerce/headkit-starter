@@ -37,7 +37,7 @@ export function ProductGrid() {
 
   return (
     <div className="px-5 md:px-10 z-5">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
         {isLoadingBefore && <LoadingSkeleton />}
         {products.map((product) => (
           <ProductCard key={product.id} product={product} />

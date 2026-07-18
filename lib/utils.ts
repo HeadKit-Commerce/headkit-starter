@@ -20,15 +20,38 @@ export function getFloatVal(str: string | null | undefined): number {
   return parseFloat(cleaned) || 0;
 }
 
-/** Format a numeric price with currency symbol using Intl.NumberFormat. */
+/**
+ * Store display currency for surfaces with NO cart/order context (F6).
+ *
+ * The commerce graph only exposes `Currency` on Cart and Order — products and
+ * store settings carry no currency — so catalog components (ProductPrice etc.)
+ * have no runtime source and must fall back to a deploy-level constant.
+ * Configured per store via `NEXT_PUBLIC_STORE_CURRENCY` (ISO 4217); defaults
+ * to AUD, matching the platform's other defaults (product-json-ld,
+ * checkout-page-content) — the old "USD" default silently mislabelled catalog
+ * prices for every non-USD store while the cart showed the real currency.
+ *
+ * NOTE: read via `process.env` directly (not `lib/env.ts`) because this module
+ * is imported by nearly every component AND by node-env unit tests, where the
+ * zod env parse would throw. `NEXT_PUBLIC_*` is statically inlined client-side.
+ */
+export function getStoreCurrency(): string {
+  return process.env.NEXT_PUBLIC_STORE_CURRENCY || "AUD";
+}
+
+/**
+ * Format a numeric price with currency symbol using Intl.NumberFormat.
+ * Pass the cart/order `currency.code` when one exists; omitting `currency`
+ * falls back to the store display currency ({@link getStoreCurrency}).
+ */
 export function formatPrice(
   value: number,
-  currency = "USD",
+  currency?: string,
   locale = "en-US",
 ): string {
   return new Intl.NumberFormat(locale, {
     style: "currency",
-    currency,
+    currency: currency || getStoreCurrency(),
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);

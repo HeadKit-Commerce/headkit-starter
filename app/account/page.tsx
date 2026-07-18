@@ -106,7 +106,7 @@ export default function Page() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto">
         {/* Sign In */}
         <div className="bg-white rounded-lg p-6">
-          <h2 className="text-2xl font-bold mb-6">Sign In</h2>
+          <h2 className="text-3xl font-bold text-purple-800 mb-6">Sign In</h2>
           {error && (
             <div className="mb-4 p-4 text-red-700 bg-red-50 border border-red-200 rounded-lg">
               {error}
@@ -155,27 +155,30 @@ export default function Page() {
                   </FormItem>
                 )}
               />
-              <div className="flex justify-between items-center">
+              <div className="flex justify-end">
                 <Link
                   href="/account/forgot-password"
                   className="text-sm text-primary hover:underline"
                 >
                   Forgot Password?
                 </Link>
-                <Button
-                  type="submit"
-                  disabled={loginForm.formState.isSubmitting}
-                >
-                  {loginForm.formState.isSubmitting ? "Signing in…" : "Sign In"}
-                </Button>
               </div>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={loginForm.formState.isSubmitting}
+              >
+                {loginForm.formState.isSubmitting ? "Signing in…" : "Sign In"}
+              </Button>
             </form>
           </Form>
         </div>
 
         {/* Create Account */}
         <div className="bg-white rounded-lg p-6">
-          <h2 className="text-2xl font-bold mb-6">Create Account</h2>
+          <h2 className="text-3xl font-bold text-purple-800 mb-6">
+            Create Account
+          </h2>
           <Form {...registerForm}>
             <form
               onSubmit={registerForm.handleSubmit(handleRegister)}

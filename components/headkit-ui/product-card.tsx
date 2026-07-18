@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import type {
   ProductSummaryFieldsFragment,
   ProductAttribute,
@@ -15,6 +15,9 @@ import { VariantSwatch } from "@/components/headkit-ui/variant-swatch";
 
 const isVariableProduct = (product: ProductSummaryFieldsFragment): boolean =>
   product?.type?.toUpperCase() === "VARIABLE";
+
+/** Max colour swatches shown on a card before collapsing into a "+N" chip (F4). */
+const MAX_CARD_SWATCHES = 4;
 
 interface Props {
   product: ProductSummaryFieldsFragment;
@@ -114,7 +117,10 @@ export const ProductCard = ({
       <div className="pt-3">
         <div
           className={cn(
-            "flex flex-col gap-1 md:flex-row md:justify-between md:gap-2",
+            // Title/price share a row only from lg: — at md (3-col grid,
+            // ~230px cards) the shrink-0 price squeezed titles to ~100px,
+            // truncating mid-word and stacking swatches one per row (F11).
+            "flex flex-col gap-1 lg:flex-row lg:justify-between lg:gap-2",
             mobileCol && "flex-col",
           )}
         >
@@ -131,33 +137,51 @@ export const ProductCard = ({
             </Link>
             <div className="flex flex-wrap items-center gap-2 min-w-0">
               {isVariableProduct(product) &&
-                product.attributes.map(
-                  (attribute: ProductAttribute) =>
-                    (attribute.slug === "pa_colour" ||
-                      attribute.slug === "pa_color") &&
-                    attribute.fullOptions?.map((option, i) => (
-                      <Link
-                        href={uri}
-                        key={i}
-                        onMouseEnter={() =>
-                          setColourSelected(option?.slug ?? null)
-                        }
-                      >
-                        <VariantSwatch
-                          isUnavailable={false}
-                          label={option?.name ?? ""}
-                          value={option?.slug ?? ""}
-                          onClick={() =>
+                product.attributes.map((attribute: ProductAttribute) => {
+                  if (
+                    attribute.slug !== "pa_colour" &&
+                    attribute.slug !== "pa_color"
+                  )
+                    return null;
+                  const options = attribute.fullOptions ?? [];
+                  const visible = options.slice(0, MAX_CARD_SWATCHES);
+                  const extra = options.length - visible.length;
+                  return (
+                    <Fragment key={attribute.slug}>
+                      {visible.map((option, i) => (
+                        <Link
+                          href={uri}
+                          key={i}
+                          onMouseEnter={() =>
                             setColourSelected(option?.slug ?? null)
                           }
-                          selectedOptionValue={colourSelected ?? ""}
-                          color1={option?.swatchColor ?? ""}
-                          color2={option?.swatchColor2 ?? ""}
-                          size="small"
-                        />
-                      </Link>
-                    )),
-                )}
+                        >
+                          <VariantSwatch
+                            isUnavailable={false}
+                            label={option?.name ?? ""}
+                            value={option?.slug ?? ""}
+                            onClick={() =>
+                              setColourSelected(option?.slug ?? null)
+                            }
+                            selectedOptionValue={colourSelected ?? ""}
+                            color1={option?.swatchColor ?? ""}
+                            color2={option?.swatchColor2 ?? ""}
+                            size="small"
+                          />
+                        </Link>
+                      ))}
+                      {extra > 0 && (
+                        <Link
+                          href={uri}
+                          className="text-xs font-medium leading-4 text-gray-800 hover:text-purple-800"
+                          aria-label={`${extra} more colours`}
+                        >
+                          +{extra}
+                        </Link>
+                      )}
+                    </Fragment>
+                  );
+                })}
             </div>
           </div>
 

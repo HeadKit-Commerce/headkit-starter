@@ -1,4 +1,5 @@
-import { cn, formatPrice, getFloatVal } from "@/lib/utils";
+import { cn, formatPrice } from "@/lib/utils";
+import { getPriceDisplay } from "@/lib/price-display";
 
 interface Props {
   price: string;
@@ -15,41 +16,44 @@ const ProductPrice = ({
   dark = false,
   size = "default",
 }: Props) => {
-  // Handle price ranges like "10 - 20"
-  const splitPrice = price?.split("-");
-  const minPrice = splitPrice?.[0]?.trim() ?? "";
-  const maxPrice = splitPrice?.[1]?.trim() ?? null;
+  // Display logic (incl. when a strikethrough is warranted) lives in
+  // lib/price-display.ts — a strikethrough renders ONLY for a genuine
+  // discount (known regular price > current price), never as a fallback.
+  const { min, max, struck } = getPriceDisplay({ price, regularPrice, onSale });
 
-  // First price shown: regular price (will have line-through when on sale),
-  // or the full range if a range is provided.
-  const displayFirst = maxPrice
-    ? `${formatPrice(getFloatVal(minPrice))} – ${formatPrice(getFloatVal(maxPrice))}`
-    : formatPrice(getFloatVal(regularPrice || minPrice || "0"));
-
-  // Sale price shown in pink when on sale
-  const displaySale = maxPrice
-    ? `${formatPrice(getFloatVal(minPrice))} – ${formatPrice(getFloatVal(maxPrice))}`
-    : formatPrice(getFloatVal(minPrice));
+  const current =
+    max !== null
+      ? `${formatPrice(min)} – ${formatPrice(max)}`
+      : formatPrice(min);
 
   const sizeClass = size === "big" ? "text-lg" : "text-base";
 
   return (
     <div className="flex gap-3 font-semibold">
+      {struck !== null && (
+        <p
+          className={cn(
+            "leading-4 line-through",
+            sizeClass,
+            dark ? "text-white" : "text-black",
+          )}
+        >
+          {formatPrice(struck)}
+        </p>
+      )}
       <p
         className={cn(
           "leading-4",
           sizeClass,
-          onSale ? "line-through" : "",
-          dark ? "text-white" : "text-black",
+          struck !== null
+            ? "text-pink-500"
+            : dark
+              ? "text-white"
+              : "text-black",
         )}
       >
-        {displayFirst}
+        {current}
       </p>
-      {onSale && (
-        <p className={cn("leading-4 text-pink-500", sizeClass)}>
-          {displaySale}
-        </p>
-      )}
     </div>
   );
 };

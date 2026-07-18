@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getOrderAction } from "@/app/checkout/actions";
 import { LineItemDisplay } from "@/components/checkout/line-item-display";
 import type { StoreOrder } from "@/app/checkout/actions";
-import { getFloatVal, formatPrice } from "@/lib/utils";
+import { getFloatVal, formatPrice, getStoreCurrency } from "@/lib/utils";
 
 interface Props {
   params: Promise<{ orderId: string }>;
@@ -78,7 +78,7 @@ export default async function Page({ params, searchParams }: Props) {
   }
 
   const displayId = order.databaseId ?? order.id ?? orderId;
-  const currency = order.currency?.code ?? "USD";
+  const currency = order.currency?.code ?? getStoreCurrency();
   const shippingCost =
     order.totals != null
       ? getFloatVal(order.totals.totalShipping) +

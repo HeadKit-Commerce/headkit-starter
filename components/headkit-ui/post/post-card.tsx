@@ -11,6 +11,12 @@ interface PostCardProps {
 export function PostCard({ post, textStyle = "dark" }: PostCardProps) {
   const href = post.uri ?? `/news/${post.slug}/`;
 
+  // Hide WordPress's default "Uncategorized" bucket — it is noise, not a
+  // real editorial category (F10).
+  const categories = (post.categories ?? []).filter(
+    (c) => c.slug !== "uncategorized",
+  );
+
   return (
     <Link href={href}>
       <div className="w-full">
@@ -36,9 +42,9 @@ export function PostCard({ post, textStyle = "dark" }: PostCardProps) {
             {post.title}
           </h5>
         </div>
-        {post.categories && post.categories.length > 0 && (
+        {categories.length > 0 && (
           <p className="text-sm text-muted-foreground mt-1">
-            {post.categories.map((c) => c.name).join(", ")}
+            {categories.map((c) => c.name).join(", ")}
           </p>
         )}
       </div>

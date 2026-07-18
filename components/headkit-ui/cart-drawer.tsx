@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { CartItemRow } from "@/components/headkit-ui/cart-item";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { getCartAction } from "@/lib/cart-actions";
-import { getFloatVal, formatPrice } from "@/lib/utils";
+import { getFloatVal, formatPrice, getStoreCurrency } from "@/lib/utils";
 
 export function CartDrawer() {
   const { cartData, setCartData, cartOpen, toggleCart } = useCartContext();
@@ -29,7 +29,7 @@ export function CartDrawer() {
 
   const items = cartData?.items ?? [];
   const currency = cartData?.currency ?? {
-    code: "USD",
+    code: getStoreCurrency(),
     symbol: "$",
     minorUnit: 2,
   };

@@ -8,6 +8,9 @@ const clientSchema = z.object({
   // URL fails loudly at boot rather than silently falling back at request time.
   NEXT_PUBLIC_GRAPHQL_URL: z.string().url(),
   NEXT_PUBLIC_KLAVIYO_PUBLIC_KEY: z.string().optional(),
+  // Store display currency (ISO 4217) for catalog surfaces with no cart/order
+  // context — see getStoreCurrency() in lib/utils.ts. Defaults to AUD there.
+  NEXT_PUBLIC_STORE_CURRENCY: z.string().length(3).optional(),
 });
 
 const serverSchema = clientSchema.extend({
@@ -37,6 +40,8 @@ function createEnv(): ClientEnv & Partial<ServerEnv> {
     NEXT_PUBLIC_GRAPHQL_URL: process.env.NEXT_PUBLIC_GRAPHQL_URL,
     NEXT_PUBLIC_KLAVIYO_PUBLIC_KEY:
       process.env.NEXT_PUBLIC_KLAVIYO_PUBLIC_KEY || undefined,
+    NEXT_PUBLIC_STORE_CURRENCY:
+      process.env.NEXT_PUBLIC_STORE_CURRENCY || undefined,
   });
 }
 
