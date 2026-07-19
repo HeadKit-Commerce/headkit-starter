@@ -111,6 +111,19 @@ test.describe("Free order (zero total) — no payment step (PAY-05)", () => {
     await page.goto(`${BASE_URL}/checkout`);
     await expect(page.getByText("No payment required")).toBeVisible();
 
+    // ENG-838: WC requires a full billing address + email even for $0 orders
+    // (woocommerce_rest_invalid_address); the free-order confirm collects a
+    // minimal billing form (guest cart has none → must be typed).
+    await page
+      .getByLabel(/email for your order confirmation/i)
+      .fill("free-order-e2e@local.test");
+    await page.getByLabel(/first name/i).fill("Free");
+    await page.getByLabel(/last name/i).fill("Order");
+    await page.getByLabel(/street address/i).fill("1 Test St");
+    await page.getByLabel(/suburb/i).fill("Melbourne");
+    await page.getByLabel(/^state$/i).fill("VIC");
+    await page.getByLabel(/postcode/i).fill("3000");
+
     await page.getByRole("button", { name: /place order/i }).click();
 
     // The server-side zero-total bypass finalizes the order, then the storefront

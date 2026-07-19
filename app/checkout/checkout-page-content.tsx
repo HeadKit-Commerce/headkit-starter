@@ -15,7 +15,9 @@ import {
   getCheckoutAction,
   registerActiveCheckoutSessionAction,
   expireCheckoutSessionAction,
+  updateCustomerAction,
 } from "@/app/checkout/actions";
+import { Input } from "@/components/ui/input";
 import { CartChangedBanner } from "@/components/checkout/cart-changed-banner";
 import type { Step } from "@/app/checkout/CheckoutForm";
 function CheckoutErrorHandler({
@@ -126,6 +128,23 @@ export function CheckoutPageContent({
   const [restoreStep, setRestoreStep] = useState<string | null>(null);
   const [restoredEmail, setRestoredEmail] = useState<string | null>(null);
   const [isPlacingFreeOrder, setIsPlacingFreeOrder] = useState(false);
+  // ENG-838: WooCommerce requires a FULL billing address even for a $0 order
+  // (woocommerce_rest_invalid_address: first name, street, suburb, state,
+  // postcode — and the email for woocommerce_rest_missing_email_address). The
+  // free-order confirm collects a minimal billing form; email prefilled from
+  // the server-resolved shopper email when known.
+  const [freeOrderBilling, setFreeOrderBilling] = useState({
+    email: customerEmail ?? "",
+    firstName: "",
+    lastName: "",
+    address1: "",
+    city: "",
+    state: "",
+    postcode: "",
+    country: "AU",
+  });
+  const setBillingField = (field: string, value: string) =>
+    setFreeOrderBilling((prev) => ({ ...prev, [field]: value }));
   // ENG-784: amber cart-changed notice for the LIVE refresh path (a dead
   // session detected mid-checkout and auto-recreated in place). The
   // ?error=cart_changed URL variant renders the same banner from page.tsx.
@@ -210,14 +229,31 @@ export function CheckoutPageContent({
       setErrorMessage("Return URL not configured");
       return;
     }
+    const b = Object.fromEntries(
+      Object.entries(freeOrderBilling).map(([k, v]) => [k, v.trim()]),
+    ) as typeof freeOrderBilling;
+    if (!b.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(b.email)) {
+      setErrorMessage("Please enter a valid email address for your order.");
+      return;
+    }
+    if (!b.firstName || !b.address1 || !b.city || !b.state || !b.postcode) {
+      setErrorMessage(
+        "Please fill in your name and billing address — WooCommerce requires them even for a free order.",
+      );
+      return;
+    }
     setIsPlacingFreeOrder(true);
     setErrorMessage("");
     try {
-      // Capture order identifiers from the draft order BEFORE finalizing.
-      const draft = await getCheckoutAction();
-      if (!draft?.orderId || !draft?.orderKey) {
-        throw new Error("Could not resolve the draft order.");
-      }
+      // ENG-838: WooCommerce rejects a $0 checkout without a full billing
+      // address + email — push them onto the cart session before finalizing
+      // (the commerce zero-total finalize replays the session billing).
+      await updateCustomerAction({ billingAddress: b });
+      // ENG-838: WC 10.8+ defers draft-order creation to POST /checkout, so
+      // GET /checkout typically reports orderId "0"/null at this point. The
+      // pre-capture is only a fallback for pre-10.8 stores — its absence is
+      // NOT an error; the finalize below returns the authoritative ids.
+      const draft = await getCheckoutAction().catch(() => null);
       // Server-side zero-total bypass: finalizes the WC order, no Stripe.
       // Free orders never need shipping-address collection by Stripe.
       const res = await createCheckoutSessionAction(
@@ -239,10 +275,25 @@ export function CheckoutPageContent({
         setIsPlacingFreeOrder(false);
         return;
       }
+      // Prefer the server-returned finalized ids — on WC 10.8+ they are the
+      // ONLY source (no draft existed before the finalize). Fall back to the
+      // pre-captured draft for pre-10.8 stores. "0" is a WC sentinel for
+      // "no draft yet", never a real order id.
+      const draftOrderId =
+        draft?.orderId && draft.orderId !== "0" ? draft.orderId : null;
+      const orderId = res?.orderId ?? draftOrderId;
+      const orderKey = res?.orderKey ?? draft?.orderKey ?? null;
+      if (!orderId || !orderKey) {
+        // The order WAS placed server-side; only the confirmation routing is
+        // missing. Don't imply failure — that invites a duplicate attempt.
+        throw new Error(
+          "Your order was placed, but its confirmation page could not be opened. Please check your order confirmation email.",
+        );
+      }
       router.push(
         `/checkout/success/${encodeURIComponent(
-          draft.orderId,
-        )}?key=${encodeURIComponent(draft.orderKey)}`,
+          orderId,
+        )}?key=${encodeURIComponent(orderKey)}`,
       );
     } catch (err) {
       setErrorMessage(
@@ -252,7 +303,7 @@ export function CheckoutPageContent({
       );
       setIsPlacingFreeOrder(false);
     }
-  }, [returnUrl, successBaseUrl, router]);
+  }, [returnUrl, successBaseUrl, router, freeOrderBilling]);
 
   useEffect(() => {
     toggleCart(false);
@@ -314,7 +365,19 @@ export function CheckoutPageContent({
   // PAY-05: free order — has items but a $0 total. No payment step; confirm
   // routes through the server-side zero-total bypass (no Stripe), distinct from
   // the empty-cart message above.
-  if (cartTotal <= 0) {
+  //
+  // ENG-838: the WC cart total EXCLUDES shipping until a rate is selected, so
+  // a shippable cart with $0 items is NOT free yet — WC will attach a default
+  // shipping rate at finalize and the order becomes payable. Only show the
+  // no-payment confirm when shipping is settled: no shipping needed, or a rate
+  // already selected (then the $0 total genuinely includes $0 shipping).
+  // Mirrors the server's isZeroTotalCart guard — both must agree or the client
+  // renders "No payment required" for an order the server refuses to finalize.
+  const hasSelectedShippingRate = (cartData?.shippingRates ?? []).some((pkg) =>
+    (pkg?.shippingRates ?? []).some((rate) => rate?.selected),
+  );
+  const shippingSettled = !cartData?.needsShipping || hasSelectedShippingRate;
+  if (cartTotal <= 0 && shippingSettled) {
     return (
       <div className="min-h-[700px] py-10 px-[20px] md:px-32 pb-[30px] md:py-[60px] text-center">
         <div className="w-[500px] max-w-full mx-auto">
@@ -326,6 +389,124 @@ export function CheckoutPageContent({
           <p className="mb-10 text-sm text-gray-500">
             {itemCount} {itemCount === 1 ? "item" : "items"} in your order.
           </p>
+          {/* ENG-838: WC requires a full billing address + email even for $0
+              orders (woocommerce_rest_invalid_address). Minimal plain-input
+              form — no Stripe session exists on the free path, so the
+              Stripe-element address components cannot be used here. */}
+          <div className="mb-6 space-y-3 text-left">
+            <div>
+              <label
+                htmlFor="free-order-email"
+                className="mb-1 block text-sm font-medium"
+              >
+                Email for your order confirmation
+              </label>
+              <Input
+                id="free-order-email"
+                type="email"
+                autoComplete="email"
+                placeholder="you@example.com"
+                value={freeOrderBilling.email}
+                onChange={(e) => setBillingField("email", e.target.value)}
+                disabled={isPlacingFreeOrder}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label
+                  htmlFor="free-order-first-name"
+                  className="mb-1 block text-sm font-medium"
+                >
+                  First name
+                </label>
+                <Input
+                  id="free-order-first-name"
+                  autoComplete="given-name"
+                  value={freeOrderBilling.firstName}
+                  onChange={(e) => setBillingField("firstName", e.target.value)}
+                  disabled={isPlacingFreeOrder}
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="free-order-last-name"
+                  className="mb-1 block text-sm font-medium"
+                >
+                  Last name
+                </label>
+                <Input
+                  id="free-order-last-name"
+                  autoComplete="family-name"
+                  value={freeOrderBilling.lastName}
+                  onChange={(e) => setBillingField("lastName", e.target.value)}
+                  disabled={isPlacingFreeOrder}
+                />
+              </div>
+            </div>
+            <div>
+              <label
+                htmlFor="free-order-address1"
+                className="mb-1 block text-sm font-medium"
+              >
+                Street address
+              </label>
+              <Input
+                id="free-order-address1"
+                autoComplete="address-line1"
+                value={freeOrderBilling.address1}
+                onChange={(e) => setBillingField("address1", e.target.value)}
+                disabled={isPlacingFreeOrder}
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label
+                  htmlFor="free-order-city"
+                  className="mb-1 block text-sm font-medium"
+                >
+                  Suburb
+                </label>
+                <Input
+                  id="free-order-city"
+                  autoComplete="address-level2"
+                  value={freeOrderBilling.city}
+                  onChange={(e) => setBillingField("city", e.target.value)}
+                  disabled={isPlacingFreeOrder}
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="free-order-state"
+                  className="mb-1 block text-sm font-medium"
+                >
+                  State
+                </label>
+                <Input
+                  id="free-order-state"
+                  autoComplete="address-level1"
+                  placeholder="VIC"
+                  value={freeOrderBilling.state}
+                  onChange={(e) => setBillingField("state", e.target.value)}
+                  disabled={isPlacingFreeOrder}
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="free-order-postcode"
+                  className="mb-1 block text-sm font-medium"
+                >
+                  Postcode
+                </label>
+                <Input
+                  id="free-order-postcode"
+                  autoComplete="postal-code"
+                  value={freeOrderBilling.postcode}
+                  onChange={(e) => setBillingField("postcode", e.target.value)}
+                  disabled={isPlacingFreeOrder}
+                />
+              </div>
+            </div>
+          </div>
           {errorMessage && (
             <div className="text-red-500 text-center mb-4">{errorMessage}</div>
           )}

@@ -8,6 +8,7 @@ import { getFullCartAction } from "@/lib/cart-actions";
 import { getCustomer } from "@/lib/account-actions";
 import { getAuthToken } from "@/lib/auth-cookie";
 import { resolveCheckoutEmail } from "@/lib/checkout-email";
+import { getFloatVal } from "@/lib/utils";
 import { createServerHeadkit } from "@/lib/sdk.server";
 import { PaymentFailedBanner } from "@/components/checkout/payment-failed-banner";
 import { CartChangedBanner } from "@/components/checkout/cart-changed-banner";
@@ -97,40 +98,58 @@ export default async function CheckoutPage({
       rateId: string;
       stripeShippingRateId: string;
     }> | null;
-  };
-  try {
-    // Only request shipping-address collection when the cart actually needs
-    // shipping. For digital/no-shipping carts the session must NOT require a
-    // shipping address (the billing-only UI never sets one → confirm() would fail).
-    const shippingCountries = cart.needsShipping ? ["AU", "NZ"] : [];
-    // ENG-801: no email at create — see comment above `customerEmail`.
-    const session = await createCheckoutSessionAction(
-      returnUrl,
-      undefined,
-      shippingCountries,
-      successBaseUrl,
+  } | null = null;
+  // ENG-838: a settled-free cart ($0 total AND shipping settled — no shipping
+  // needed, or a rate already selected) renders the no-payment confirm and
+  // must NOT create a checkout session here: on the zero-total path the
+  // server-side createCheckoutSession FINALIZES the WC order, so doing it
+  // during SSR would place an order at page VIEW (and a reload would try to
+  // finalize the consumed cart again → "This order cannot be paid for").
+  // The finalize belongs to the Place-order click (placeFreeOrder). Mirrors
+  // isZeroTotalCart in commerce and the free-branch condition in
+  // checkout-page-content.tsx.
+  const zeroTotal = getFloatVal(cart.totals.totalPrice ?? "0") <= 0;
+  const shippingSettled =
+    !cart.needsShipping ||
+    (cart.shippingRates ?? []).some((pkg) =>
+      (pkg?.shippingRates ?? []).some((rate) => rate?.selected),
     );
-    if (
-      !session.clientSecret ||
-      !session.sessionId ||
-      !session.publishableKey
-    ) {
-      redirect("/checkout/error?reason=invalid_session");
+  const isSettledFreeCart = zeroTotal && shippingSettled;
+  if (!isSettledFreeCart) {
+    try {
+      // Only request shipping-address collection when the cart actually needs
+      // shipping. For digital/no-shipping carts the session must NOT require a
+      // shipping address (the billing-only UI never sets one → confirm() would fail).
+      const shippingCountries = cart.needsShipping ? ["AU", "NZ"] : [];
+      // ENG-801: no email at create — see comment above `customerEmail`.
+      const session = await createCheckoutSessionAction(
+        returnUrl,
+        undefined,
+        shippingCountries,
+        successBaseUrl,
+      );
+      if (
+        !session.clientSecret ||
+        !session.sessionId ||
+        !session.publishableKey
+      ) {
+        redirect("/checkout/error?reason=invalid_session");
+      }
+      checkoutSession = {
+        clientSecret: session.clientSecret,
+        sessionId: session.sessionId,
+        publishableKey: session.publishableKey,
+        stripeAccountId: session.stripeAccountId ?? null,
+        shippingOptionMapping: session.shippingOptionMapping ?? null,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const params = new URLSearchParams({
+        reason: "session_creation_failed",
+        message,
+      });
+      redirect(`/checkout/error?${params.toString()}`);
     }
-    checkoutSession = {
-      clientSecret: session.clientSecret,
-      sessionId: session.sessionId,
-      publishableKey: session.publishableKey,
-      stripeAccountId: session.stripeAccountId ?? null,
-      shippingOptionMapping: session.shippingOptionMapping ?? null,
-    };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    const params = new URLSearchParams({
-      reason: "session_creation_failed",
-      message,
-    });
-    redirect(`/checkout/error?${params.toString()}`);
   }
 
   let pickupLocations: Array<{
