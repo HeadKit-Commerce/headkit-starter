@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Urbanist } from "next/font/google";
-import { Suspense } from "react";
 import "./globals.css";
 import {
   NavigationWrapper,
@@ -139,41 +138,37 @@ export default async function RootLayout({
             per-route duplication. */}
         <OrganizationJsonLD name={siteName} url={SITE_URL} />
 
-        {/* Client providers read uncached, request-scoped data (AuthProvider's
-            usePathname()/useRouter(); CartProvider/CartDrawer cart-token state).
-            Under Cache Components an uncached read in the root-layout body
-            outside <Suspense> poisons every route's static prerender. Wrapping
-            the entire interactive subtree (providers + nav + page children +
-            footer) in a single <Suspense> boundary lets the cached static shell
-            (html/head, brand-color <style>, JSON-LD above) prerender while this
-            request-scoped island streams. The branding/footer reads feeding the
-            Footer are now cached ('use cache'), so the Footer itself is part of
-            the static shell content even though it streams inside this island. */}
-        <Suspense fallback={null}>
-          <AuthProvider>
-            <CartProvider>
-              <CartDrawer />
-              <NavigationWrapper />
-              {/* Single <main> landmark for all routes (a11y: landmark-one-main
-                  failed on every measured route without it). */}
-              <main>{children}</main>
-              <Footer
-                siteName={siteName}
-                description="HeadKit is the cloud platform making it easy to build headless commerce stores."
-                menus={footerMenus}
-                iconUrl={branding.iconUrl}
-                socialLinks={{
-                  instagram: "https://www.instagram.com/headkitcommerce",
-                  discord: "https://discord.gg/bSNe29JtsX",
-                  github: "https://github.com/headkit-commerce",
-                  linkedin:
-                    "https://www.linkedin.com/company/headkit-commerce/",
-                  youtube: "https://www.youtube.com/@headkit-commerce",
-                }}
-              />
-            </CartProvider>
-          </AuthProvider>
-        </Suspense>
+        {/* Providers are pure client state with no request reads at render:
+            AuthProvider no longer calls usePathname(), CartProvider/CartDrawer
+            hold client-only cart state. Rendering them (and the cached nav,
+            page children, and footer) OUTSIDE any Suspense boundary keeps this
+            whole subtree in the prerendered static shell, in document order —
+            visible without JavaScript. A root-altitude boundary here would
+            exclude the entire body from every route's shell. Routes with
+            genuinely dynamic reads (cookies, un-enumerated params) own their
+            own per-segment loading.tsx / <Suspense> islands instead. */}
+        <AuthProvider>
+          <CartProvider>
+            <CartDrawer />
+            <NavigationWrapper />
+            {/* Single <main> landmark for all routes (a11y: landmark-one-main
+                failed on every measured route without it). */}
+            <main>{children}</main>
+            <Footer
+              siteName={siteName}
+              description="HeadKit is the cloud platform making it easy to build headless commerce stores."
+              menus={footerMenus}
+              iconUrl={branding.iconUrl}
+              socialLinks={{
+                instagram: "https://www.instagram.com/headkitcommerce",
+                discord: "https://discord.gg/bSNe29JtsX",
+                github: "https://github.com/headkit-commerce",
+                linkedin: "https://www.linkedin.com/company/headkit-commerce/",
+                youtube: "https://www.youtube.com/@headkit-commerce",
+              }}
+            />
+          </CartProvider>
+        </AuthProvider>
       </body>
     </html>
   );

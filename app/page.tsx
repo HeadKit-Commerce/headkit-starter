@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import { TAG } from "@/lib/cache-tags";
 import { headkit } from "@/lib/sdk";
@@ -20,7 +19,6 @@ import { BrandCarousel } from "@/components/headkit-ui/brand-carousel";
 import { PostCarousel } from "@/components/headkit-ui/post-carousel";
 import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { ProductCard } from "@/components/headkit-ui/product-card";
-import { Skeleton } from "@/components/ui/skeleton";
 
 export async function generateMetadata(): Promise<Metadata> {
   try {
@@ -84,20 +82,6 @@ export async function getHomepageData() {
   } catch {
     return { homepage: null, newArrivals: null, onSaleProducts: null };
   }
-}
-
-function ProductGridSkeleton() {
-  return (
-    <div className="grid grid-cols-2 gap-4 px-5 md:grid-cols-4 md:px-10">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="space-y-3">
-          <Skeleton className="aspect-square w-full rounded-lg" />
-          <Skeleton className="h-4 w-2/3" />
-          <Skeleton className="h-4 w-1/3" />
-        </div>
-      ))}
-    </div>
-  );
 }
 
 export async function HomeContent() {
@@ -237,11 +221,12 @@ export async function HomeContent() {
 }
 
 export default function Home() {
+  // HomeContent is fully cached ('use cache') — rendering it without a
+  // Suspense boundary bakes it into the prerendered shell in document order,
+  // so the homepage is visible without JavaScript.
   return (
     <div className="overflow-hidden">
-      <Suspense fallback={<ProductGridSkeleton />}>
-        <HomeContent />
-      </Suspense>
+      <HomeContent />
     </div>
   );
 }

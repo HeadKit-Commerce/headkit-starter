@@ -222,17 +222,15 @@ export default async function ProductPage({ params }: Props) {
       <ProductJsonLD product={product} />
       <BreadcrumbJsonLD items={breadcrumbs} />
 
-      <Suspense fallback={<ProductDetailSkeleton />}>
-        <div className="px-5 py-8 md:px-10">
-          <ProductDetail
-            product={product}
-            {...(colorSlug !== undefined ? { initialColor: colorSlug } : {})}
-            productBasePath={`/products/${productSlug}`}
-            breadcrumbItems={breadcrumbItems}
-            stockSlot={stockSlot}
-          />
-        </div>
-      </Suspense>
+      <div className="px-5 py-8 md:px-10">
+        <ProductDetail
+          product={product}
+          {...(colorSlug !== undefined ? { initialColor: colorSlug } : {})}
+          productBasePath={`/products/${productSlug}`}
+          breadcrumbItems={breadcrumbItems}
+          stockSlot={stockSlot}
+        />
+      </div>
 
       {upsellsAsProducts.length > 0 && (
         <section className="overflow-hidden py-10">

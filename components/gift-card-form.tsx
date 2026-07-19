@@ -56,10 +56,20 @@ export function GiftCardForm({ emitClickEvent, onFormValid }: GiftCardFormProps)
       wc_gc_giftcard_to_multiple: "",
       wc_gc_giftcard_from: "",
       wc_gc_giftcard_message: "",
-      wc_gc_giftcard_delivery: getCurrentDate(),
+      // Set on mount (below) — new Date() during render is a current-time
+      // read that makes the whole route's prerender dynamic under Cache
+      // Components (next-prerender-current-time-client).
+      wc_gc_giftcard_delivery: "",
       wc_gc_giftcard_select_delivery: DeliveryType.Now,
     },
   });
+
+  useEffect(() => {
+    if (!form.getValues("wc_gc_giftcard_delivery")) {
+      form.setValue("wc_gc_giftcard_delivery", getCurrentDate());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleBlur = useCallback(() => {
     onFormValid?.(form.formState.isValid);

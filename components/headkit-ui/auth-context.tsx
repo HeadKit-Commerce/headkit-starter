@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { createClientSDK } from "@headkit/sdk";
 
 import { refreshDelayMs } from "@/lib/jwt-exp";
@@ -124,11 +124,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUserState] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
-  const pathname = usePathname();
-  // Latest pathname, read inside the timer callback without re-arming the timer
-  // on every navigation (the effect is keyed on the token, not the path).
-  const pathnameRef = useRef(pathname);
-  pathnameRef.current = pathname;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -266,7 +261,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
         } else {
           signOut(false);
-          const returnPath = pathnameRef.current || "/account/profile";
+          // Callback runs client-side only; window.location avoids the
+          // usePathname() hook, which suspends prerendering under Cache
+          // Components on routes without enumerated params.
+          const returnPath = window.location.pathname || "/account/profile";
           router.push(`/account?return=${encodeURIComponent(returnPath)}`);
           // Surface the UI-SPEC session-expired copy (toast infra is mounted in
           // the account layout). Kept generic — reveals nothing about tokens.
