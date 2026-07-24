@@ -20,6 +20,15 @@ import { defineConfig, devices } from "@playwright/test";
  */
 export default defineConfig({
   testDir: "./e2e",
+  // CI seam (E2E-01): comma-separated spec filenames to skip — used by the
+  // ci.yml playwright job to exclude specs whose fixtures cannot be
+  // provisioned in CI (paid plugins; checkout specs when no Stripe TEST key
+  // secret is configured). Unset locally → the full suite runs.
+  testIgnore: (process.env.E2E_TEST_IGNORE ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((f) => `**/${f}`),
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
