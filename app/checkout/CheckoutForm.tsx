@@ -254,6 +254,7 @@ function CheckoutSteps({
   const { actions } = useCheckoutActions();
   useEffect(() => {
     if (!sessionId || !cartData?.totals?.totalPrice || !actions) return;
+    let cancelled = false;
     actions
       .runServerUpdate(async () => {
         const res = await fetch("/api/checkout/sync-line-items", {
@@ -280,8 +281,55 @@ function CheckoutSteps({
         };
         onSyncComplete?.(data.shippingOptionMapping ?? null);
       })
+      .then(() => {
+        // ENG-839: the server-side line-items sync (and the ENG-784
+        // dead-session recreate it can trigger) drops the Checkout Session's
+        // collected shipping address. Ship-to-Home re-asserts it from the
+        // mounted Stripe ShippingAddressElement, but the pickup path has NO
+        // element — the one-shot programmatic push from the delivery step is
+        // lost before confirm(), so Pay Now fails with "A shipping address is
+        // required to confirm this Checkout Session". Re-push the pickup
+        // location after every sync (idempotent) so it survives onto whatever
+        // session is current — including a recreated one — through to confirm.
+        // Amounts stay server-authoritative: this touches only the collected
+        // shipping ADDRESS, never line items or shipping_options.
+        if (cancelled) return;
+        if (formData.deliveryMethod !== DeliveryStepEnum.CLICK_AND_COLLECT) {
+          return;
+        }
+        const rateId = formData.pickupLocationRateId;
+        if (!rateId) return;
+        const loc = pickupLocations.find((l) => l.shippingMethodId === rateId);
+        if (!loc) return;
+        // ISO codes only (stateCode/countryCode) — Stripe + WC reject display
+        // names ("New South Wales"/"Australia" → 400).
+        const country = loc.countryCode?.trim() || "AU";
+        void actions.updateShippingAddress({
+          name: loc.name?.trim() || "Pickup",
+          address: {
+            line1: loc.address?.trim() || loc.name,
+            city: loc.city?.trim() || "Pickup",
+            state: loc.stateCode?.trim() || loc.state?.trim() || "",
+            postal_code:
+              loc.postcode?.trim() || (country === "NZ" ? "1010" : "2000"),
+            country,
+          },
+        });
+      })
       .catch(() => {});
-  }, [cartData, sessionId, actions, onSyncComplete, handleSessionExpired]);
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    cartData,
+    sessionId,
+    actions,
+    onSyncComplete,
+    handleSessionExpired,
+    formData.deliveryMethod,
+    formData.pickupLocationRateId,
+    pickupLocations,
+  ]);
 
   // ENG-801 session-email push: sessions are created email-LESS so the Stripe
   // email field stays editable (a `customer_email` set at create renders the
