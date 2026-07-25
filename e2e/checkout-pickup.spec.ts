@@ -4,7 +4,6 @@ import {
   BASE_URL,
   CARD_OK,
   awaitOrderConfirmation,
-  cartTotalMinor,
   fillCard,
   fillContactStep,
   fillShipToHomeStep,
@@ -166,35 +165,25 @@ test.describe("Click & Collect: no shipping charged, pickup address on the sessi
   });
 
   /**
-   * ENG-839 — STILL BROKEN on current code; left fixme'd (Pitfall 4: no
-   * force-green). Re-verified in phase 12-06 (E2E-01), 2026-07-24:
+   * ENG-839 — FIXED (was a real pickup Pay-Now bug; now green locally against
+   * the correctly-keyed local stack). Closed by phase 12-11.
    *
-   * This test (upgraded from the earlier EMPTY fixme into the full scripted
-   * repro below) was run against the local stack on current code with a
-   * correctly-keyed commerce (a first run failed on an env problem — commerce
-   * was up with STRIPE_SECRET_KEY=sk_test_placeholder — which was fixed by
-   * restarting it with .env.development.local before judging). Pay Now then
-   * failed with EXACTLY the original inline Stripe error:
+   * Bug: selecting Free Click & Collect then Pay Now failed with Stripe's
+   * inline "A shipping address is required to confirm this Checkout Session".
    *
-   *   "A shipping address is required to confirm this Checkout Session.
-   *    Provide a shipping address using updateShippingAddress() or use the
-   *    Address Element."
+   * Root cause: the post-delivery /api/checkout/sync-line-items pass — and the
+   * ENG-784 dead-session recreate it can trigger — dropped the session's
+   * collected shipping address. Ship-to-Home re-asserts it from the mounted
+   * ShippingAddressElement; pickup has no element, so the one-shot programmatic
+   * push from the delivery step was lost before confirm().
    *
-   * So this is a REAL product bug on the pickup path, not the
-   * stale-:4000-supergraph local trap memory suspected. Original analysis
-   * stands: the delivery step pushes the pickup address
-   * (delivery-method-step.tsx onSubmit → actions.updateShippingAddress) and
-   * advances cleanly, but the address is lost from the session before
-   * confirm — most plausibly the post-step /api/checkout/sync-line-items pass
-   * (commerce syncCheckoutSessionLineItems re-sets line items/fee and clears
-   * shipping — the T-09-07 "shipping clear" behavior) racing/overwriting the
-   * push. Ship-to-Home confirms fine on the same build
-   * (checkout-purchase.spec.ts), so the wipe is pickup-specific.
-   *
-   * ENABLE by flipping test.fixme → test once the pickup address survives to
-   * confirm (fix the wipe in the sync pass, or re-push the address after it).
+   * Fix (submodule commit a22167a): CheckoutForm re-pushes the pickup location
+   * via actions.updateShippingAddress after every sync completes while Click &
+   * Collect is selected — idempotent, ISO codes only, amounts untouched — so
+   * the address survives onto whatever session is current (including a
+   * recreated one) through to confirm.
    */
-  test.fixme("ENG-839: pickup Pay Now confirms; charged items-only; session ships to the pickup location", async ({
+  test("ENG-839: pickup Pay Now confirms; charged items-only; session ships to the pickup location", async ({
     page,
     context,
   }) => {
