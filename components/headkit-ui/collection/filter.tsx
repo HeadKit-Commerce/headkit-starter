@@ -35,7 +35,10 @@ function useActiveFacetCount() {
     filterValues.brands.length +
     Object.values(filterValues.attributes).reduce((n, a) => n + a.length, 0) +
     (filterValues.instock ? 1 : 0) +
-    ((filterValues.price_min ?? "") !== "" || (filterValues.price_max ?? "") !== "" ? 1 : 0)
+    ((filterValues.price_min ?? "") !== "" ||
+    (filterValues.price_max ?? "") !== ""
+      ? 1
+      : 0)
   );
 }
 
@@ -178,7 +181,10 @@ export function Filter() {
               )}
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-[88vw] max-w-sm overflow-y-auto">
+          <SheetContent
+            side="left"
+            className="w-[88vw] max-w-sm overflow-y-auto"
+          >
             <SheetHeader>
               <SheetTitle>Filters</SheetTitle>
             </SheetHeader>

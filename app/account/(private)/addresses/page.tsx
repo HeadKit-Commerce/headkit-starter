@@ -75,7 +75,11 @@ function AddressFields({
       </div>
       {text("company", "Company (optional)", "Company")}
       {text("address1", "Street Address", "Street address")}
-      {text("address2", "Apartment, suite, etc. (optional)", "Apt, suite, etc.")}
+      {text(
+        "address2",
+        "Apartment, suite, etc. (optional)",
+        "Apt, suite, etc.",
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {text("city", "City", "City")}
         {text("state", "State / Province (optional)", "State / province")}

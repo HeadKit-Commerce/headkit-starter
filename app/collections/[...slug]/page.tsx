@@ -72,7 +72,11 @@ function parseCollectionSlug(slug: string[]): {
 async function getCategoryData(categorySlug: string) {
   "use cache";
   // 2-week stale / 1h revalidate — safety net if webhooks fail.
-  cacheLife({ stale: 60 * 60 * 24 * 14, revalidate: 60 * 60, expire: 60 * 60 * 24 * 14 });
+  cacheLife({
+    stale: 60 * 60 * 24 * 14,
+    revalidate: 60 * 60,
+    expire: 60 * 60 * 24 * 14,
+  });
   // headkit:collections is sent by WordPress on any product or category change.
   // headkit:collection:${categorySlug} is sent on category-specific changes.
   cacheTag(TAG.collection(categorySlug), TAG.collections);
@@ -354,7 +358,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
             // perPage capped at 100 — the headkit/v2/brands WP endpoint 400s
             // above 100 (REST arg maximum). 100 covers realistic brand counts.
             const brandsRes = await sdk.brands.list({ perPage: 100 });
-            brandName = brandsRes.brands.find((b) => b.slug === brandSlug)?.name;
+            brandName = brandsRes.brands.find(
+              (b) => b.slug === brandSlug,
+            )?.name;
           } catch {
             brandName = undefined;
           }
@@ -490,9 +496,7 @@ export default async function Page({ params, searchParams }: Props) {
         description={category.description}
         breadcrumbs={breadcrumbs}
         {...(category.thumbnail ? { thumbnail: category.thumbnail } : {})}
-        {...(category.children?.length
-          ? { children: category.children }
-          : {})}
+        {...(category.children?.length ? { children: category.children } : {})}
       />
       {/* Dynamic grid — reads searchParams + filter-slug, streamed under Suspense */}
       <Suspense fallback={<CollectionProductsSkeleton />}>

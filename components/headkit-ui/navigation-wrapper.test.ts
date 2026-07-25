@@ -29,7 +29,9 @@ vi.mock("next/cache", () => ({
 }));
 
 vi.mock("@/lib/sdk", () => ({
-  headkit: { menu: { get: (location: string): Promise<unknown[]> => menuGet(location) } },
+  headkit: {
+    menu: { get: (location: string): Promise<unknown[]> => menuGet(location) },
+  },
 }));
 
 vi.mock("@/components/headkit-ui/navigation-bar", () => ({

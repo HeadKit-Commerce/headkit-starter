@@ -36,7 +36,9 @@ export function BrandFilter() {
 
   if (brands.length === 0) {
     return (
-      <p className="px-1 py-2 text-sm text-muted-foreground">No brands available</p>
+      <p className="px-1 py-2 text-sm text-muted-foreground">
+        No brands available
+      </p>
     );
   }
 

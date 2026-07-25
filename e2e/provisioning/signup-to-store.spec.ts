@@ -1,4 +1,9 @@
-import { expect, request, test, type APIRequestContext } from "@playwright/test";
+import {
+  expect,
+  request,
+  test,
+  type APIRequestContext,
+} from "@playwright/test";
 
 /**
  * Signup → live-store provisioning suite (Phase 12 plan 12-10 — PROV-04
@@ -101,7 +106,10 @@ const REQUIRED_PUBLIC_ENV_NAMES = [
 ] as const;
 
 /** Secret names that must NEVER be mirrored into the store doc (12-08). */
-const FORBIDDEN_ENV_NAMES = ["HEADKIT_PRIVATE_KEY", "HEADKIT_NPM_TOKEN"] as const;
+const FORBIDDEN_ENV_NAMES = [
+  "HEADKIT_PRIVATE_KEY",
+  "HEADKIT_NPM_TOKEN",
+] as const;
 
 function requireTargetEnv(): void {
   const missing: string[] = [];
@@ -167,7 +175,9 @@ function redactedSummary(store: StoreDoc): Record<string, unknown> {
     repoId: store.gitConnection?.repoId ?? 0,
     orgRepoId: store.gitConnection?.orgRepoId ?? 0,
     pressableSiteId: store.commerceConnection?.pressableSiteId ?? "",
-    hasProviderConfig: Boolean(store.commerceConnection?.providerConfig?.baseUrl),
+    hasProviderConfig: Boolean(
+      store.commerceConnection?.providerConfig?.baseUrl,
+    ),
     vercelProjectID: store.vercelProjectID ?? "",
     lastDeploymentID: store.lastDeploymentID ?? "",
     envNames: Object.keys(store.environmentVariables ?? {}),

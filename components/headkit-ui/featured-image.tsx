@@ -16,7 +16,12 @@ interface Props {
 
 const FALLBACK_IMAGE_SRC = "/assets/fallback-image.webp";
 
-const FeaturedImage = ({ src, alt = "", className, priority = false }: Props) => {
+const FeaturedImage = ({
+  src,
+  alt = "",
+  className,
+  priority = false,
+}: Props) => {
   const imageSrc = src || FALLBACK_IMAGE_SRC;
   return (
     <div

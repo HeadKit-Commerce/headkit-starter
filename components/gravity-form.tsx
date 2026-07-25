@@ -293,7 +293,15 @@ export const GravityForm = ({
 
       const type = node.type.toLowerCase();
       if (
-        !["text", "name", "email", "textarea", "select", "radio", "checkbox"].includes(type)
+        ![
+          "text",
+          "name",
+          "email",
+          "textarea",
+          "select",
+          "radio",
+          "checkbox",
+        ].includes(type)
       ) {
         return null;
       }
@@ -331,10 +339,14 @@ export const GravityForm = ({
 
   const form = useForm<z.infer<typeof validationSchema>>({
     resolver: zodResolver(validationSchema),
-    defaultValues: formFields?.reduce<Record<string, string>>(
-      (acc, field) => ({ ...acc, [snakeCase(field.label)]: field.defaultValue }),
-      {},
-    ) ?? {},
+    defaultValues:
+      formFields?.reduce<Record<string, string>>(
+        (acc, field) => ({
+          ...acc,
+          [snakeCase(field.label)]: field.defaultValue,
+        }),
+        {},
+      ) ?? {},
   });
 
   // No form available (Gravity Forms not installed, form id missing, or fetch
@@ -364,7 +376,9 @@ export const GravityForm = ({
 
       const formattedInitialValues = initialValues
         ?.map((item) => ({ [item.fieldName]: item.value }))
-        ?.reduce<Record<string, string>>((acc, curr) => ({ ...acc, ...curr }), {});
+        ?.reduce<
+          Record<string, string>
+        >((acc, curr) => ({ ...acc, ...curr }), {});
       const allValues = { ...values, ...formattedInitialValues };
 
       const response = await submitGravityForm({
@@ -406,7 +420,9 @@ export const GravityForm = ({
         response?: { errors?: { message: string }[] };
       };
       if (apiError.response?.errors?.length) {
-        setMessage(apiError.response.errors[0]?.message ?? "Something went wrong");
+        setMessage(
+          apiError.response.errors[0]?.message ?? "Something went wrong",
+        );
       } else {
         setMessage("Something went wrong");
       }
@@ -423,7 +439,11 @@ export const GravityForm = ({
         className="space-y-[20px]"
       >
         {formFields?.map((field) => (
-          <RenderField key={field.databaseId} field={field} control={form.control} />
+          <RenderField
+            key={field.databaseId}
+            field={field}
+            control={form.control}
+          />
         ))}
 
         {extraFields}
@@ -437,9 +457,7 @@ export const GravityForm = ({
           <HiArrowRight className="ml-[20px]" />
         </Button>
 
-        {message && (
-          <div className="mt-0.5 flex flex-wrap">{message}</div>
-        )}
+        {message && <div className="mt-0.5 flex flex-wrap">{message}</div>}
       </form>
     </Form>
   );

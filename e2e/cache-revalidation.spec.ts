@@ -51,7 +51,10 @@ async function postSignedRevalidate(
     headers: { "content-type": "application/json", ...hmacHeaders(raw) },
     data: raw,
   });
-  return { status: res.status(), json: (await res.json()) as RevalidateResponse };
+  return {
+    status: res.status(),
+    json: (await res.json()) as RevalidateResponse,
+  };
 }
 
 interface RevalidateResponse {
@@ -132,7 +135,10 @@ test.describe("Cache revalidation edit→surface (V3 drift + CACHE-04/05)", () =
     expect(json.revalidated).toEqual(
       expect.arrayContaining(["headkit:route:home", "headkit:module:carousel"]),
     );
-    expect(json.count, "home union edit should map to exactly 2 contract tags").toBe(2);
+    expect(
+      json.count,
+      "home union edit should map to exactly 2 contract tags",
+    ).toBe(2);
 
     await page.goto("/");
     await expect(page.locator("main, body").first()).toBeVisible();
@@ -153,7 +159,10 @@ test.describe("Cache revalidation edit→surface (V3 drift + CACHE-04/05)", () =
       tags: ["headkit:navigation", "headkit:homepage"],
       action: "menu",
     });
-    expect(status, "auth itself must still succeed — only the tags are stale-vocab").toBe(200);
+    expect(
+      status,
+      "auth itself must still succeed — only the tags are stale-vocab",
+    ).toBe(200);
     expect(
       json.revalidated,
       "a pre-fix vocabulary tag must NOT reach revalidateTag (drift proof)",

@@ -79,7 +79,8 @@ export function ProductDetail({
 
   const isVariable = product.type?.toUpperCase() === VARIABLE;
   const isGiftCard = product.isGiftCard === true;
-  const [giftCardValues, setGiftCardValues] = useState<GiftCardFormValues | null>(null);
+  const [giftCardValues, setGiftCardValues] =
+    useState<GiftCardFormValues | null>(null);
   const [isGiftCardFormValid, setIsGiftCardFormValid] = useState(false);
 
   const variationAttributes = useMemo(
@@ -256,7 +257,9 @@ export function ProductDetail({
         ...base.filter((b) => b.src !== selectedVariation.image.src),
       ];
     }
-    return base.length > 0 ? base : [{ src: "/placeholder.png", alt: product.name }];
+    return base.length > 0
+      ? base
+      : [{ src: "/placeholder.png", alt: product.name }];
   }, [product.images, product.name, selectedVariation]);
 
   // pickFirstPrice, not `??`: the gateway sends absent sale prices as ""
@@ -292,10 +295,11 @@ export function ProductDetail({
   // validity alone let a fast click fire an add BEFORE giftConfig was captured,
   // sending a bare gift-card line the WooCommerce plugin rejects with
   // "some required data is missing" (GIFT-02 flake / race).
-  const canAddToCart = (isVariable
-    ? selectedVariation !== null && !isOutOfStock && !isAtStockLimit
-    : !isOutOfStock && !isAtStockLimit)
-    && (!isGiftCard || (isGiftCardFormValid && giftCardValues !== null));
+  const canAddToCart =
+    (isVariable
+      ? selectedVariation !== null && !isOutOfStock && !isAtStockLimit
+      : !isOutOfStock && !isAtStockLimit) &&
+    (!isGiftCard || (isGiftCardFormValid && giftCardValues !== null));
 
   function handleAddToCart() {
     setCartFeedback("idle");
@@ -310,22 +314,26 @@ export function ProductDetail({
         ([attribute, value]) => ({ attribute, value }),
       );
 
-      const giftConfig = isGiftCard && giftCardValues ? {
-        sendAsGift: true,
-        toMultiple: [giftCardValues.wc_gc_giftcard_to_multiple],
-        from: giftCardValues.wc_gc_giftcard_from,
-        message: giftCardValues.wc_gc_giftcard_message ?? "",
-        // "Now" (immediate) must OMIT the delivery date entirely — the
-        // WooCommerce Gift Cards plugin validates a supplied delivery_date as a
-        // future timestamp and rejects "today"/past (and empty) with "Invalid
-        // delivery date." Sending an empty string makes commerce drop the field
-        // (its `if DeliveryDate != ""` guard), so the plugin sends immediately.
-        // Only "Later" forwards the user-picked (future) date.
-        deliveryDate:
-          giftCardValues.wc_gc_giftcard_select_delivery === DeliveryType.Later
-            ? giftCardValues.wc_gc_giftcard_delivery
-            : "",
-      } : undefined;
+      const giftConfig =
+        isGiftCard && giftCardValues
+          ? {
+              sendAsGift: true,
+              toMultiple: [giftCardValues.wc_gc_giftcard_to_multiple],
+              from: giftCardValues.wc_gc_giftcard_from,
+              message: giftCardValues.wc_gc_giftcard_message ?? "",
+              // "Now" (immediate) must OMIT the delivery date entirely — the
+              // WooCommerce Gift Cards plugin validates a supplied delivery_date as a
+              // future timestamp and rejects "today"/past (and empty) with "Invalid
+              // delivery date." Sending an empty string makes commerce drop the field
+              // (its `if DeliveryDate != ""` guard), so the plugin sends immediately.
+              // Only "Later" forwards the user-picked (future) date.
+              deliveryDate:
+                giftCardValues.wc_gc_giftcard_select_delivery ===
+                DeliveryType.Later
+                  ? giftCardValues.wc_gc_giftcard_delivery
+                  : "",
+            }
+          : undefined;
 
       const result = await addToCartAction(
         hasVariation
@@ -368,7 +376,11 @@ export function ProductDetail({
 
       {/* Right: product info */}
       <div className="flex flex-col">
-        {breadcrumbItems && <div className="mb-4"><Breadcrumb items={breadcrumbItems} /></div>}
+        {breadcrumbItems && (
+          <div className="mb-4">
+            <Breadcrumb items={breadcrumbItems} />
+          </div>
+        )}
         <h1 className="mb-3 text-2xl font-bold leading-tight text-purple-900 md:text-3xl">
           {product.name}
         </h1>
@@ -493,7 +505,9 @@ export function ProductDetail({
           {stockSlot ?? (
             <AvailabilityStatus
               stockStatus={stockStatus}
-              stockQuantity={(selectedVariation ?? product).stockQuantity ?? null}
+              stockQuantity={
+                (selectedVariation ?? product).stockQuantity ?? null
+              }
             />
           )}
         </div>

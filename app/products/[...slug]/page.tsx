@@ -152,9 +152,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
     // Valid colorway: own title (Name – Color), self-canonical (S1), variant OG.
     const variation = product.variations.find((v) =>
-      v.attributes.some(
-        (a) => isColorAttrSlug(a.key) && a.value === colorSlug,
-      ),
+      v.attributes.some((a) => isColorAttrSlug(a.key) && a.value === colorSlug),
     );
     const ogImage = variation?.image?.src ?? product.image?.src;
 

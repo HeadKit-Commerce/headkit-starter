@@ -190,14 +190,11 @@ describe("explicit chrome / composite fan-out", () => {
 });
 
 describe("isKnownTag strict allowlist (threat T-09.5-01)", () => {
-  it.each(REMAP_TABLE)(
-    "accepts every bridged output of: $name",
-    ({ raw }) => {
-      for (const out of bridgeTags([raw])) {
-        expect(isKnownTag(out)).toBe(true);
-      }
-    },
-  );
+  it.each(REMAP_TABLE)("accepts every bridged output of: $name", ({ raw }) => {
+    for (const out of bridgeTags([raw])) {
+      expect(isKnownTag(out)).toBe(true);
+    }
+  });
 
   it.each(REMAP_TABLE.filter((r) => !r.rawIsKnown))(
     "rejects the RAW legacy tag until bridged: $raw",

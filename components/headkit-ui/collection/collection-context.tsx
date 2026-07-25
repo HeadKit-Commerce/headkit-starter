@@ -236,7 +236,10 @@ export function CollectionProvider({
   useEffect(() => {
     if (!isInitialLoad) {
       const newAttributeSlug = encodeFilterSlug(filterValues);
-      if (categoryBasePath && newAttributeSlug !== prevAttributeSlugRef.current) {
+      if (
+        categoryBasePath &&
+        newAttributeSlug !== prevAttributeSlugRef.current
+      ) {
         // Attribute/brand filters changed — navigate to the new filter path so the
         // server renders the correct products from cache (static per filter combo).
         // Brand is part of newAttributeSlug now (06.1), so toggling a brand drives

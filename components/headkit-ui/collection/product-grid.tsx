@@ -24,13 +24,16 @@ export function ProductGrid() {
   const { products, isLoading, isLoadingBefore, isLoadingAfter } =
     useCollection();
 
-  const isEmpty = !isLoading && !isLoadingBefore && !isLoadingAfter && products.length === 0;
+  const isEmpty =
+    !isLoading && !isLoadingBefore && !isLoadingAfter && products.length === 0;
 
   if (isEmpty) {
     return (
       <div className="flex flex-col items-center justify-center px-5 py-20 text-center md:px-10">
         <p className="text-lg font-medium text-gray-900">No products found</p>
-        <p className="mt-2 text-sm text-gray-500">Try adjusting your filters or browse other categories.</p>
+        <p className="mt-2 text-sm text-gray-500">
+          Try adjusting your filters or browse other categories.
+        </p>
       </div>
     );
   }
@@ -42,7 +45,11 @@ export function ProductGrid() {
         {products.map((product, index) => (
           // First row (up to 4 cards at the widest breakpoint) is eager: the
           // first visible card image is the PLP's LCP element (RC-2).
-          <ProductCard key={product.id} product={product} priority={index < 4} />
+          <ProductCard
+            key={product.id}
+            product={product}
+            priority={index < 4}
+          />
         ))}
         {(isLoading || isLoadingAfter) && <LoadingSkeleton />}
       </div>

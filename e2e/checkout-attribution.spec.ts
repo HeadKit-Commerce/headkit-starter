@@ -152,66 +152,65 @@ test.describe("Checkout attribution: logged-in paid order + account surfaces (Ga
     await installCartCookie(context, cartToken);
     await loginViaUi(page);
     try {
+      await page.goto(`${BASE_URL}/checkout`);
+      await expect(page).not.toHaveURL(/\/checkout\/error/);
 
-    await page.goto(`${BASE_URL}/checkout`);
-    await expect(page).not.toHaveURL(/\/checkout\/error/);
+      await completeAuthedContactStep(page);
+      await completeAuthedDeliveryStep(page);
+      await fillShippingOptionsStep(page);
+      await fillCard(page);
+      const sessionId = await payAndAwaitSuccess(page);
+      const { orderId } = await awaitOrderConfirmation(page);
 
-    await completeAuthedContactStep(page);
-    await completeAuthedDeliveryStep(page);
-    await fillShippingOptionsStep(page);
-    await fillCard(page);
-    const sessionId = await payAndAwaitSuccess(page);
-    const { orderId } = await awaitOrderConfirmation(page);
+      // Attribution at the WC layer: order.customer_id == the seeded WP user.
+      const expectedUserId = wpCli(["user", "get", TEST_USER, "--field=ID"]);
+      const orderCustomerId = wpCli([
+        "wc",
+        "shop_order",
+        "get",
+        orderId,
+        "--user=1",
+        "--field=customer_id",
+      ]);
+      if (expectedUserId && orderCustomerId) {
+        expect(
+          orderCustomerId,
+          `order ${orderId} customer_id (${orderCustomerId}) != seeded user id (${expectedUserId}) — attribution lost (P0-04)`,
+        ).toBe(expectedUserId);
+      } else {
+        test.info().annotations.push({
+          type: "warning",
+          description:
+            "wp-cli unavailable — customer_id readback skipped (list/detail assertions below still prove attribution)",
+        });
+      }
 
-    // Attribution at the WC layer: order.customer_id == the seeded WP user.
-    const expectedUserId = wpCli(["user", "get", TEST_USER, "--field=ID"]);
-    const orderCustomerId = wpCli([
-      "wc",
-      "shop_order",
-      "get",
-      orderId,
-      "--user=1",
-      "--field=customer_id",
-    ]);
-    if (expectedUserId && orderCustomerId) {
-      expect(
-        orderCustomerId,
-        `order ${orderId} customer_id (${orderCustomerId}) != seeded user id (${expectedUserId}) — attribution lost (P0-04)`,
-      ).toBe(expectedUserId);
-    } else {
-      test.info().annotations.push({
-        type: "warning",
-        description:
-          "wp-cli unavailable — customer_id readback skipped (list/detail assertions below still prove attribution)",
+      // ENG-783: after COMPLETION the session carries a Stripe customer —
+      // either bound at create (reuse) or created at completion
+      // (customer_creation=always for authed shoppers).
+      if (stripeTestKeys().length > 0) {
+        const session = await stripeSessionAnyKey(api, sessionId);
+        expect(
+          session.paymentStatus,
+          "logged-in session is not paid after the card payment",
+        ).toBe("paid");
+        expect(
+          session.customer,
+          "completed logged-in session carries NO Stripe customer (ENG-783: customer_creation=always broken)",
+        ).not.toBeNull();
+      }
+
+      // Read surface: the new order appears in the account order list…
+      await page.goto(`${BASE_URL}/account/orders`);
+      const orderCard = page.getByRole("link", {
+        name: new RegExp(`Order #${orderId}`),
       });
-    }
+      await expect(
+        orderCard,
+        `order ${orderId} missing from /account/orders — attribution/read-surface broken (P0-04)`,
+      ).toBeVisible({ timeout: 30_000 });
 
-    // ENG-783: after COMPLETION the session carries a Stripe customer —
-    // either bound at create (reuse) or created at completion
-    // (customer_creation=always for authed shoppers).
-    if (stripeTestKeys().length > 0) {
-      const session = await stripeSessionAnyKey(api, sessionId);
-      expect(
-        session.paymentStatus,
-        "logged-in session is not paid after the card payment",
-      ).toBe("paid");
-      expect(
-        session.customer,
-        "completed logged-in session carries NO Stripe customer (ENG-783: customer_creation=always broken)",
-      ).not.toBeNull();
-    }
-
-    // Read surface: the new order appears in the account order list…
-    await page.goto(`${BASE_URL}/account/orders`);
-    const orderCard = page.getByRole("link", {
-      name: new RegExp(`Order #${orderId}`),
-    });
-    await expect(
-      orderCard,
-      `order ${orderId} missing from /account/orders — attribution/read-surface broken (P0-04)`,
-    ).toBeVisible({ timeout: 30_000 });
-
-    await api.dispose();
+      await api.dispose();
     } finally {
       // A COMPLETED logged-in checkout intentionally converges the WP user's
       // saved billing+shipping to the checkout address (last-used-wins).
@@ -219,8 +218,22 @@ test.describe("Checkout attribution: logged-in paid order + account surfaces (Ga
       // them) stays green across suite runs.
       const uid = wpCli(["user", "get", TEST_USER, "--field=ID"]);
       if (uid) {
-        wpCli(["user", "meta", "update", uid, "billing_address_1", "12 Test Parade"]);
-        wpCli(["user", "meta", "update", uid, "shipping_address_1", "88 Delivery Way"]);
+        wpCli([
+          "user",
+          "meta",
+          "update",
+          uid,
+          "billing_address_1",
+          "12 Test Parade",
+        ]);
+        wpCli([
+          "user",
+          "meta",
+          "update",
+          uid,
+          "shipping_address_1",
+          "88 Delivery Way",
+        ]);
       }
     }
   });
@@ -244,12 +257,9 @@ test.describe("Checkout attribution: logged-in paid order + account surfaces (Ga
    * order card from /account/orders and assert the "Order #{id}" heading +
    * status/details render.
    */
-  test.fixme(
-    "KNOWN BUG: /account/orders/{id} detail dead-ends (storeOrder 401 cannot_view for paid orders)",
-    async () => {
-      // Blocked on the commerce GetOrder wc/v3 single-order 401 above.
-    },
-  );
+  test.fixme("KNOWN BUG: /account/orders/{id} detail dead-ends (storeOrder 401 cannot_view for paid orders)", async () => {
+    // Blocked on the commerce GetOrder wc/v3 single-order 401 above.
+  });
 
   test("P0-05: authed sessions reuse ONE Stripe customer; a guest session binds none", async () => {
     // Runs AFTER the paid logged-in checkout above (serial mode): that
@@ -399,9 +409,10 @@ test.describe("Checkout attribution: logged-in paid order + account surfaces (Ga
       page.getByText(/invalid email or password|invalid|incorrect/i).first(),
       "no inline error after a wrong password",
     ).toBeVisible({ timeout: 30_000 });
-    expect(page.url(), "wrong password must not reach the private area").not.toContain(
-      "/account/profile",
-    );
+    expect(
+      page.url(),
+      "wrong password must not reach the private area",
+    ).not.toContain("/account/profile");
     const authCookie = (await context.cookies()).find(
       (c) => c.name === "hk-auth-token",
     );

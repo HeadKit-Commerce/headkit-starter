@@ -77,7 +77,9 @@ describe("makeSeoMetadata fallback canonical + ogImage overrides (07-01)", () =>
       },
     );
 
-    expect(meta.alternates?.canonical).toBe("https://shop.example/seo-canonical");
+    expect(meta.alternates?.canonical).toBe(
+      "https://shop.example/seo-canonical",
+    );
     expect(meta.openGraph?.url).toBe("https://shop.example/seo-canonical");
   });
 

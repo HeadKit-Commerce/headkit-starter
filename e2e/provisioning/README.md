@@ -5,28 +5,28 @@ and the Phase-14/15 demo + migration QA (PROV-04 criterion 5, E2E-01). It
 asserts the six provisioning breakpoints manual QA hit, **in pipeline order**,
 each against the dashboard-api store document (never a dashboard-UI scrape):
 
-| # | Breakpoint | Store-doc evidence |
-|---|------------|--------------------|
-| BP1 | store create | minted `pk_` `publicKey`, canonical shape, `secretKeyEnc` never serialized |
-| BP2 | GitHub connect callback | `gitConnection.owner` + `installationId` |
-| BP3 | customer repo from `headkit-starter` template | `gitConnection.repoId`/`repoName` |
-| BP4 | create-wp-site on the pool site | `commerceConnection.pressableSiteId` + `providerConfig.baseUrl`; live probe of the site's `headkit/v2` REST namespace |
-| BP5 | git mirror → exactly one org repo | `gitConnection.orgRepoId`/`orgRepoName`, stable across reads |
-| BP6 | Vercel env **before** first deploy | env names persisted whenever `lastDeploymentID` exists; `HEADKIT_PRIVATE_KEY`/`HEADKIT_NPM_TOKEN` never mirrored |
+| #   | Breakpoint                                    | Store-doc evidence                                                                                                    |
+| --- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| BP1 | store create                                  | minted `pk_` `publicKey`, canonical shape, `secretKeyEnc` never serialized                                            |
+| BP2 | GitHub connect callback                       | `gitConnection.owner` + `installationId`                                                                              |
+| BP3 | customer repo from `headkit-starter` template | `gitConnection.repoId`/`repoName`                                                                                     |
+| BP4 | create-wp-site on the pool site               | `commerceConnection.pressableSiteId` + `providerConfig.baseUrl`; live probe of the site's `headkit/v2` REST namespace |
+| BP5 | git mirror → exactly one org repo             | `gitConnection.orgRepoId`/`orgRepoName`, stable across reads                                                          |
+| BP6 | Vercel env **before** first deploy            | env names persisted whenever `lastDeploymentID` exists; `HEADKIT_PRIVATE_KEY`/`HEADKIT_NPM_TOKEN` never mirrored      |
 
 ## Targeting — no host is ever hardcoded
 
 The suite is **opt-in** and reads its entire target from env
 (`playwright.config.ts` stays localhost-only; T-12-10-04):
 
-| Env var | Meaning |
-|---------|---------|
-| `E2E_PROVISIONING=1` | enable the suite (unset → every test self-skips) |
-| `PROVISIONING_API_URL` | dashboard-api base **including** `/api/v1` |
-| `PROVISIONING_AUTH_TOKEN` | bearer for `/api/v1` (a Clerk session JWT for a member of the team) |
-| `PROVISIONING_TEAM_SLUG` | team owning the store under test |
-| `PROVISIONING_STORE_SLUG` | store slug under test |
-| `PROVISIONING_POLL_TIMEOUT_MS` | optional per-breakpoint budget (default 15 min) |
+| Env var                        | Meaning                                                             |
+| ------------------------------ | ------------------------------------------------------------------- |
+| `E2E_PROVISIONING=1`           | enable the suite (unset → every test self-skips)                    |
+| `PROVISIONING_API_URL`         | dashboard-api base **including** `/api/v1`                          |
+| `PROVISIONING_AUTH_TOKEN`      | bearer for `/api/v1` (a Clerk session JWT for a member of the team) |
+| `PROVISIONING_TEAM_SLUG`       | team owning the store under test                                    |
+| `PROVISIONING_STORE_SLUG`      | store slug under test                                               |
+| `PROVISIONING_POLL_TIMEOUT_MS` | optional per-breakpoint budget (default 15 min)                     |
 
 The suite **observes** a provisioning run: kick off signup → create store →
 connect GitHub against the target first (UI or operator), then run the suite —

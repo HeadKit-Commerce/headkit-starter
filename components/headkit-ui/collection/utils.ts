@@ -59,12 +59,7 @@ const SITE_NAME = "HeadKit";
  * (`color`/`colour`). Both forms must be recognised so the predicate works on
  * decoded filter values AND raw filter-option slugs.
  */
-const COLOR_ATTR_SLUGS = [
-  "pa_color",
-  "pa_colour",
-  "color",
-  "colour",
-] as const;
+const COLOR_ATTR_SLUGS = ["pa_color", "pa_colour", "color", "colour"] as const;
 
 /** True if an attribute slug is the color facet, in either pa_/stripped form. */
 export function isColorAttrSlug(slug: string): boolean {

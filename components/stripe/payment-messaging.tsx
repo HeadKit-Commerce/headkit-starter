@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { loadStripe } from "@stripe/stripe-js";
-import { Elements, PaymentMethodMessagingElement } from "@stripe/react-stripe-js";
+import {
+  Elements,
+  PaymentMethodMessagingElement,
+} from "@stripe/react-stripe-js";
 
 const VALID_CURRENCIES = [
   "USD",
@@ -79,7 +82,9 @@ export function PaymentMethodMessaging({
     normalizedCountry,
   );
 
-  const [stripePromise, setStripePromise] = useState<ReturnType<typeof loadStripe> | null>(null);
+  const [stripePromise, setStripePromise] = useState<ReturnType<
+    typeof loadStripe
+  > | null>(null);
   useEffect(() => {
     if (!publishableKey || !isValidCurrency || !isValidCountry) {
       setStripePromise(null);

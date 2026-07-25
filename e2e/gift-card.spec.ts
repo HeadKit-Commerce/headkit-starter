@@ -59,7 +59,8 @@ import { resolve } from "node:path";
 
 const BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 const WP_BASE_URL = process.env.WP_BASE_URL ?? "http://localhost:8090";
-const GATEWAY_URL = process.env.E2E_GATEWAY_URL ?? "http://localhost:4000/graphql";
+const GATEWAY_URL =
+  process.env.E2E_GATEWAY_URL ?? "http://localhost:4000/graphql";
 const STORE_KEY = process.env.E2E_STORE_KEY ?? "pk_local";
 const STORE_API = `${WP_BASE_URL}/wp-json/wc/store/v1`;
 
@@ -120,7 +121,10 @@ async function stackIsUp(): Promise<boolean> {
     let gw = false;
     try {
       const g = await api.post(GATEWAY_URL, {
-        headers: { "content-type": "application/json", "x-headkit-key": STORE_KEY },
+        headers: {
+          "content-type": "application/json",
+          "x-headkit-key": STORE_KEY,
+        },
         data: { query: "query{__typename}" },
       });
       gw = g.ok();
@@ -142,7 +146,9 @@ async function bootstrapCart(api: APIRequestContext): Promise<string> {
     `WooCommerce Store API unreachable at ${WP_BASE_URL} — is the local WP stack up?`,
   ).toBe(200);
   const cartToken = boot.headers()["cart-token"] ?? "";
-  expect(cartToken, "Store API did not return a Cart-Token header").not.toBe("");
+  expect(cartToken, "Store API did not return a Cart-Token header").not.toBe(
+    "",
+  );
   return cartToken;
 }
 
@@ -237,7 +243,9 @@ async function createCheckoutSession(
     `createCheckoutSession errored: ${JSON.stringify(json.errors)}`,
   ).toBeUndefined();
   const result = json.data.commerce.createCheckoutSession;
-  expect(result.testMode, "Stripe must be in TEST mode (LOCAL-ONLY)").toBe(true);
+  expect(result.testMode, "Stripe must be in TEST mode (LOCAL-ONLY)").toBe(
+    true,
+  );
   expect(result.sessionId).toMatch(/^cs_test_/);
   return result.sessionId as string;
 }
@@ -277,8 +285,14 @@ async function stripeSessionAmount(
     { headers: { Authorization: `Bearer ${sk}` } },
   );
   const json = await res.json();
-  expect(json.error, `Stripe session read errored: ${JSON.stringify(json.error)}`).toBeFalsy();
-  return { amountTotal: Number(json.amount_total), livemode: Boolean(json.livemode) };
+  expect(
+    json.error,
+    `Stripe session read errored: ${JSON.stringify(json.error)}`,
+  ).toBeFalsy();
+  return {
+    amountTotal: Number(json.amount_total),
+    livemode: Boolean(json.livemode),
+  };
 }
 
 test.describe("Gift cards: purchase -> code -> redeem -> reduced charge (Phase 09)", () => {
@@ -301,7 +315,9 @@ test.describe("Gift cards: purchase -> code -> redeem -> reduced charge (Phase 0
       "gift-card purchase form did not render on the PDP — detection (SDK isGiftCard flag) not wired (GIFT-01)",
     ).toBeVisible({ timeout: 20_000 });
     await expect(page.getByPlaceholder("From Name")).toBeVisible();
-    await expect(page.getByText("Delivery date:", { exact: false })).toBeVisible();
+    await expect(
+      page.getByText("Delivery date:", { exact: false }),
+    ).toBeVisible();
   });
 
   test("GIFT-02: filling the form and adding to cart sends gift_card_configuration to the Store API", async ({
@@ -363,11 +379,13 @@ test.describe("Gift cards: purchase -> code -> redeem -> reduced charge (Phase 0
       .not.toBe("");
 
     const cartToken =
-      (await context.cookies()).find((c) => c.name === "hk-cart-token")?.value ??
-      "";
+      (await context.cookies()).find((c) => c.name === "hk-cart-token")
+        ?.value ?? "";
     const api = await request.newContext();
     const cart = await (
-      await api.get(`${STORE_API}/cart`, { headers: { "Cart-Token": cartToken } })
+      await api.get(`${STORE_API}/cart`, {
+        headers: { "Cart-Token": cartToken },
+      })
     ).json();
     await api.dispose();
 
@@ -398,7 +416,10 @@ test.describe("Gift cards: purchase -> code -> redeem -> reduced charge (Phase 0
     const cartToken = await seedRegularCart(api, 3);
     const totalBefore = await cartTotalMinor(api, cartToken);
     await api.dispose();
-    expect(totalBefore, "seeded cart should exceed the $50 card").toBeGreaterThan(5000);
+    expect(
+      totalBefore,
+      "seeded cart should exceed the $50 card",
+    ).toBeGreaterThan(5000);
 
     await context.addCookies([
       { name: "hk-cart-token", value: cartToken, url: BASE_URL },
@@ -433,15 +454,22 @@ test.describe("Gift cards: purchase -> code -> redeem -> reduced charge (Phase 0
     const cartToken = await seedRegularCart(api, 1);
 
     const before = await (
-      await api.get(`${STORE_API}/cart`, { headers: { "Cart-Token": cartToken } })
+      await api.get(`${STORE_API}/cart`, {
+        headers: { "Cart-Token": cartToken },
+      })
     ).json();
     const totalBefore = Number(before.totals.total_price);
-    expect(totalBefore, "cart total should be > 0 before redemption").toBeGreaterThan(0);
+    expect(
+      totalBefore,
+      "cart total should be > 0 before redemption",
+    ).toBeGreaterThan(0);
 
     await applyGiftCardViaStoreApi(api, cartToken, GIFT_CARD_CODE);
 
     const after = await (
-      await api.get(`${STORE_API}/cart`, { headers: { "Cart-Token": cartToken } })
+      await api.get(`${STORE_API}/cart`, {
+        headers: { "Cart-Token": cartToken },
+      })
     ).json();
     const gc = after.extensions?.["woocommerce-gift-cards"]?.applied_giftcards;
     expect(
@@ -450,10 +478,16 @@ test.describe("Gift cards: purchase -> code -> redeem -> reduced charge (Phase 0
     ).toBe(true);
 
     const card = gc[0];
-    expect(typeof card.id, "applied gift card id must be a number").toBe("number");
-    expect(typeof card.code, "applied gift card code must be a string").toBe("string");
+    expect(typeof card.id, "applied gift card id must be a number").toBe(
+      "number",
+    );
+    expect(typeof card.code, "applied gift card code must be a string").toBe(
+      "string",
+    );
     expect(card.amount, "amount must be a minor-unit string").toMatch(/^\d+$/);
-    expect(card.balance, "balance must be a minor-unit string").toMatch(/^\d+$/);
+    expect(card.balance, "balance must be a minor-unit string").toMatch(
+      /^\d+$/,
+    );
     expect(card).toHaveProperty("pending_message");
 
     const totalAfter = Number(after.totals.total_price);
@@ -467,7 +501,10 @@ test.describe("Gift cards: purchase -> code -> redeem -> reduced charge (Phase 0
 
   test("GIFT-04: the Stripe Checkout Session charges the reduced (post-redemption) total, never the full amount", async () => {
     const sk = stripeTestKey();
-    test.skip(!sk, "Stripe TEST key (sk_test_) not configured — cannot read the charged amount");
+    test.skip(
+      !sk,
+      "Stripe TEST key (sk_test_) not configured — cannot read the charged amount",
+    );
 
     const api = await request.newContext();
     // Partial redemption: qty 3 (~$76) with the $50 card leaves 0 < payable < subtotal.
@@ -484,7 +521,11 @@ test.describe("Gift cards: purchase -> code -> redeem -> reduced charge (Phase 0
 
     // Create the session AFTER redemption (redeem-before-create path).
     const sessionId = await createCheckoutSession(api, cartToken);
-    const { amountTotal, livemode } = await stripeSessionAmount(api, sk!, sessionId);
+    const { amountTotal, livemode } = await stripeSessionAmount(
+      api,
+      sk!,
+      sessionId,
+    );
     await api.dispose();
 
     expect(livemode, "MUST be Stripe TEST mode (LOCAL-ONLY)").toBe(false);
@@ -501,7 +542,10 @@ test.describe("Gift cards: purchase -> code -> redeem -> reduced charge (Phase 0
 
   test("T-09-07: redeeming a LARGE code IN CHECKOUT reduces the charge below the create-time fee without a Stripe rejection", async () => {
     const sk = stripeTestKey();
-    test.skip(!sk, "Stripe TEST key (sk_test_) not configured — cannot read the charged amount");
+    test.skip(
+      !sk,
+      "Stripe TEST key (sk_test_) not configured — cannot read the charged amount",
+    );
 
     const api = await request.newContext();
     // ~$120 cart (qty 5 x $22 + shipping) — create-time platform fee is 1% ≈ $1.20.
@@ -513,13 +557,19 @@ test.describe("Gift cards: purchase -> code -> redeem -> reduced charge (Phase 0
     // so redemption below flows through the update path (not create).
     const sessionId = await createCheckoutSession(api, cartToken);
     const beforeRedeem = await stripeSessionAmount(api, sk!, sessionId);
-    expect(beforeRedeem.amountTotal, "session must start at the full total").toBe(fullTotal);
+    expect(
+      beforeRedeem.amountTotal,
+      "session must start at the full total",
+    ).toBe(fullTotal);
 
     // Redeem the LARGE code IN CHECKOUT — leaves a payable BELOW the create-time
     // fee (the stale-fee trap: a fee off the full total would exceed the charge).
     await applyGiftCardViaStoreApi(api, cartToken, LARGE_GIFT_CARD_CODE);
     const reducedPayable = await cartTotalMinor(api, cartToken);
-    expect(reducedPayable, "large code must leave a positive payable").toBeGreaterThan(0);
+    expect(
+      reducedPayable,
+      "large code must leave a positive payable",
+    ).toBeGreaterThan(0);
     expect(
       reducedPayable,
       "the large-code payable must be BELOW the 1% create-time fee (the stale-fee scenario)",
@@ -528,7 +578,10 @@ test.describe("Gift cards: purchase -> code -> redeem -> reduced charge (Phase 0
     // Sync the session to the redeemed cart (the update path: re-consolidate the
     // line, clear stale shipping, re-set the PI application_fee_amount <= charge).
     const ok = await syncCheckoutSession(api, cartToken, sessionId);
-    expect(ok, "syncCheckoutSessionLineItems must succeed (no Stripe fee>amount rejection)").toBe(true);
+    expect(
+      ok,
+      "syncCheckoutSessionLineItems must succeed (no Stripe fee>amount rejection)",
+    ).toBe(true);
 
     const afterSync = await stripeSessionAmount(api, sk!, sessionId);
     await api.dispose();

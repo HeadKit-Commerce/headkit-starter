@@ -58,7 +58,9 @@ async function loadMenu(location: MenuLocation): Promise<NavMenuItem[]> {
  * every menu (09.5-03, CACHE-03). Finite `days` backstop (D4): a missed webhook
  * self-heals in ~1 day instead of `max` (~30d).
  */
-export async function fetchMenu(location: MenuLocation): Promise<NavMenuItem[]> {
+export async function fetchMenu(
+  location: MenuLocation,
+): Promise<NavMenuItem[]> {
   "use cache: remote";
   cacheLife("days");
   cacheTag(TAG.menu(location));
@@ -119,7 +121,10 @@ export async function NavigationWrapper() {
       primaryMenuItems={primaryItems}
       secondaryMenuItems={secondaryItems}
       logo={
-        <BrandLogo logoUrl={logoUrl} siteName={storeSettings.name ?? "HeadKit"} />
+        <BrandLogo
+          logoUrl={logoUrl}
+          siteName={storeSettings.name ?? "HeadKit"}
+        />
       }
       mobileActions={<MobileHeaderActions />}
     />

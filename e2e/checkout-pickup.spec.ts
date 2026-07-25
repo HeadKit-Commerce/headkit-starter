@@ -47,7 +47,8 @@ import {
  * LOCAL-ONLY (HARD RULE): localhost Docker services; Stripe TEST mode only.
  */
 
-const PICKUP_NAME = process.env.E2E_PICKUP_LOCATION ?? "HeadKit Sydney Flagship";
+const PICKUP_NAME =
+  process.env.E2E_PICKUP_LOCATION ?? "HeadKit Sydney Flagship";
 const PICKUP_LINE1 = "123 George Street";
 const PICKUP_CITY = "Sydney";
 const PICKUP_POSTCODE = "2000";

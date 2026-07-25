@@ -38,7 +38,9 @@ export function ProductImageGallery({
     : [{ src: FALLBACK_IMAGE_SRC, alt: "No product image available" }];
 
   const prevMobile = () =>
-    setMobileIndex((i) => (i - 1 + galleryImages.length) % galleryImages.length);
+    setMobileIndex(
+      (i) => (i - 1 + galleryImages.length) % galleryImages.length,
+    );
   const nextMobile = () =>
     setMobileIndex((i) => (i + 1) % galleryImages.length);
 
@@ -55,40 +57,38 @@ export function ProductImageGallery({
           - quality is the default (75); q=100 doubled bytes for no visible
             gain on a 50vw render. */}
       <div className="hidden gap-5 md:grid md:grid-cols-2">
-        {
-          galleryImages.map((item, index) => (
-            <Dialog key={index}>
-              <DialogTrigger
-                className={cn(
-                  "relative cursor-pointer overflow-hidden rounded-[8px] bg-gray-200",
-                  index === 0 ? "col-span-2" : "col-span-1",
-                )}
-              >
-                {index === 0 && (
-                  <div className="absolute left-2 top-2 z-10">
-                    <BadgeList isSale={isSale} isNewIn={isNew} />
-                  </div>
-                )}
-                <div className="relative aspect-square">
-                  <Image
-                    src={item.src}
-                    alt={item.alt || "Product image"}
-                    fill
-                    className="object-cover"
-                    sizes={
-                      index === 0
-                        ? "(min-width: 768px) 50vw, 100vw"
-                        : "(min-width: 768px) 25vw, 100vw"
-                    }
-                    priority={index === 0}
-                    loading={index === 0 ? undefined : "lazy"}
-                  />
+        {galleryImages.map((item, index) => (
+          <Dialog key={index}>
+            <DialogTrigger
+              className={cn(
+                "relative cursor-pointer overflow-hidden rounded-[8px] bg-gray-200",
+                index === 0 ? "col-span-2" : "col-span-1",
+              )}
+            >
+              {index === 0 && (
+                <div className="absolute left-2 top-2 z-10">
+                  <BadgeList isSale={isSale} isNewIn={isNew} />
                 </div>
-              </DialogTrigger>
-              <Lightbox images={galleryImages} initialSelectedIndex={index} />
-            </Dialog>
-          ))
-        }
+              )}
+              <div className="relative aspect-square">
+                <Image
+                  src={item.src}
+                  alt={item.alt || "Product image"}
+                  fill
+                  className="object-cover"
+                  sizes={
+                    index === 0
+                      ? "(min-width: 768px) 50vw, 100vw"
+                      : "(min-width: 768px) 25vw, 100vw"
+                  }
+                  priority={index === 0}
+                  loading={index === 0 ? undefined : "lazy"}
+                />
+              </div>
+            </DialogTrigger>
+            <Lightbox images={galleryImages} initialSelectedIndex={index} />
+          </Dialog>
+        ))}
       </div>
 
       {/* Mobile: simple arrow carousel */}
@@ -105,9 +105,7 @@ export function ProductImageGallery({
                   {/* First image mirrors the desktop hero's sizes so the two
                       priority preloads/fetches dedupe into one (RC-3). */}
                   <Image
-                    src={
-                      galleryImages[mobileIndex]?.src ?? FALLBACK_IMAGE_SRC
-                    }
+                    src={galleryImages[mobileIndex]?.src ?? FALLBACK_IMAGE_SRC}
                     alt={galleryImages[mobileIndex]?.alt || "Product image"}
                     fill
                     className="object-cover object-center"
