@@ -293,19 +293,21 @@ export default async function Page({ params, searchParams }: Props) {
         try {
           await processCheckoutOrderAction(
             session.cartToken as string,
-            session.orderId as string,
-            session.orderKey as string,
+            // Use the URL-derived order id/key (always valid — validated at the
+            // top of the page), NOT session.orderId/orderKey which stay "0"/null
+            // in the WC 10.8 deferred flow when the SUCCESS page won the create
+            // race (the webhook never wrote them back). Passing null crashed the
+            // finalize with a GraphQL non-null violation (KNOWN BUG).
+            effectiveOrderId,
+            effectiveOrderKey,
             {
-              orderKey: session.orderKey as string,
+              orderKey: effectiveOrderKey,
               billingAddress,
               shippingAddress,
               ...(billingEmail ? { billingEmail } : {}),
               paymentMethod: "headkit-payments",
               paymentData,
             },
-          );
-          redirect(
-            `/checkout/success/${String(effectiveOrderId || orderId)}?key=${encodeURIComponent(String(effectiveOrderKey || orderKey))}`,
           );
         } catch (orderErr) {
           const msg = orderErr instanceof Error ? orderErr.message : "";
@@ -316,8 +318,29 @@ export default async function Page({ params, searchParams }: Props) {
           ) {
             redirect("/checkout?reason=order_expired");
           }
-          throw orderErr;
+          // We are on the return page AFTER a successful charge, with a valid
+          // order URL — the order already exists. The bare /checkout/success
+          // route or the Stripe webhook may have ALREADY finalized it, so a
+          // re-finalize here fails with an ownership / already-paid error. That
+          // is NOT a checkout failure: fall through to the confirmation render
+          // instead of crashing to the error boundary (KNOWN BUG,
+          // checkout-purchase.spec.ts ~L263). Genuinely unexpected errors still
+          // surface.
+          const alreadyFinalized =
+            msg.includes("different customer") ||
+            msg.includes("invalid_user") ||
+            msg.includes("already paid") ||
+            msg.includes("cannot be paid") ||
+            msg.includes("must not be null");
+          if (!alreadyFinalized) throw orderErr;
         }
+        // Success OR already-finalized → route to the clean confirmation URL
+        // (no session_id) for the deterministic order render. Kept OUTSIDE the
+        // try/catch: redirect() signals via a thrown NEXT_REDIRECT and a catch
+        // around it would swallow the navigation (the ISSUE-001 trap).
+        redirect(
+          `/checkout/success/${String(effectiveOrderId || orderId)}?key=${encodeURIComponent(String(effectiveOrderKey || orderKey))}`,
+        );
       }
     }
   }

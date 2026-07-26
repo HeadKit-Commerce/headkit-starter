@@ -252,8 +252,25 @@ function CheckoutSteps({
   // Uses Route Handler to avoid Server Action revalidation.
   // Parse response for shippingOptionMapping — Stripe recreates shipping rate IDs on sync.
   const { actions } = useCheckoutActions();
+  // Fire the line-items sync ONLY when the payable actually changes (total,
+  // delivery method, or pickup selection). Without this guard the effect
+  // re-runs on every cartData identity change / checkout re-render and fires a
+  // STORM of runServerUpdate calls — each one regenerates the Stripe
+  // shipping-rate ids and races the billing address / customer / shipping rate
+  // the session already holds, surfacing intermittently at Pay as "A complete
+  // billing address is required to confirm this Checkout Session", "This order
+  // belongs to a different customer", or "invalid shipping rate". Proven via a
+  // network capture of the staging checkout: 10+ syncs in 15s plus a
+  // checkout_session_invalid_shipping_rate 400 right before confirm(). The
+  // provider is keyed by sessionId, so a recreate remounts this component and
+  // resets the ref → the replacement session still gets its own initial sync.
+  const lastSyncSigRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!sessionId || !cartData?.totals?.totalPrice || !actions) return;
+    const payable = cartData?.totals?.totalPrice;
+    if (!sessionId || !payable || !actions) return;
+    const syncSig = `${payable}|${formData.deliveryMethod}|${formData.pickupLocationRateId ?? ""}`;
+    if (lastSyncSigRef.current === syncSig) return;
+    lastSyncSigRef.current = syncSig;
     let cancelled = false;
     actions
       .runServerUpdate(async () => {
@@ -321,7 +338,7 @@ function CheckoutSteps({
       cancelled = true;
     };
   }, [
-    cartData,
+    cartData?.totals?.totalPrice,
     sessionId,
     actions,
     onSyncComplete,
