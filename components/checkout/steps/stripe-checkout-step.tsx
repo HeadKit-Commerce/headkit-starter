@@ -170,14 +170,18 @@ export function StripePaymentStep({
           postcode: lastBillingValue.postalCode,
           country: lastBillingValue.country,
         });
-      } else if (
-        showBillingSameAsShipping &&
-        billingSameAsShipping &&
-        billingOverriddenRef.current
-      ) {
-        // Re-checked after a distinct billing was pushed: restore
-        // billing = shipping on the session before confirming. Never confirm
-        // with stale distinct billing while the UI claims "same as shipping".
+      } else if (showBillingSameAsShipping && billingSameAsShipping) {
+        // "Billing same as shipping" is checked: ALWAYS re-assert billing =
+        // shipping on the CURRENT session before confirming. Do NOT assume the
+        // delivery step's one-shot updateBillingAddress() survived — the ENG-839
+        // line-items sync and the ENG-784 dead-session recreate DROP the
+        // session's collected addresses. Ship-to-home shipping is re-asserted by
+        // the mounted ShippingAddressElement, but billing has no element to
+        // re-push it, so without this re-assert it is gone at confirm() → "A
+        // complete billing address is required to confirm this Checkout Session"
+        // (guests only — logged-in falls back to the saved customer billing).
+        // Also covers the re-check-after-override case (previously the sole
+        // trigger, via billingOverriddenRef).
         if (!actions || !shippingAddress?.address1) {
           setError(
             "Unable to restore your billing address. Please uncheck the box and enter a billing address.",
