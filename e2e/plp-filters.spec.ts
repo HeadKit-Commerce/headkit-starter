@@ -359,12 +359,15 @@ test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-
     page,
   }) => {
     await page.goto(`${BASE_URL}/shop?price_min=99999`);
+    // The empty state renders in more than one layout slot (mobile + desktop),
+    // so getByText matches multiple nodes — assert the first to avoid a
+    // strict-mode violation (the test, not the storefront, was wrong).
     await expect(
-      page.getByText("No products found"),
+      page.getByText("No products found").first(),
       "zero-result PLP did not render its empty state",
     ).toBeVisible({ timeout: 30_000 });
     await expect(
-      page.getByText(/try adjusting your filters/i),
+      page.getByText(/try adjusting your filters/i).first(),
       "empty state recovery copy missing",
     ).toBeVisible();
   });
