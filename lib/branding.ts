@@ -266,13 +266,16 @@ export interface BrandingAssets {
  *
  * Cached (Cache Components): a per-tenant-per-deploy read (tenant resolves from
  * the SDK key / dashboard-api env, not a per-request runtime API), so it is
- * deterministic and cacheable. Shares the `'branding'` cacheTag with
- * {@link getBranding} so a future `/api/revalidate` invalidates both together.
+ * deterministic and cacheable. Carries `TAG.branding` (`headkit:branding`) — the
+ * SAME tag {@link getBranding} uses and the storefront contract WP fires on a
+ * logo/site-icon change — so a `/api/revalidate` branding purge invalidates both.
+ * (Previously the bare literal `"branding"`, which is neither exact- nor
+ * prefix-known, so it silently dropped at the revalidate route.)
  */
 export async function getBrandingAssets(): Promise<BrandingAssets> {
   "use cache: remote";
   cacheLife("hours");
-  cacheTag("branding");
+  cacheTag(TAG.branding);
 
   const [bundle, commerceIcon] = await Promise.all([
     getBranding(),

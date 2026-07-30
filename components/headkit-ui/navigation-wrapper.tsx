@@ -84,26 +84,32 @@ export async function fetchMenu(
  * poisoned every route's static prerender under Cache Components; caching it
  * moves the layout's footer read into the cached static shell.
  *
- * This IS the footer data-producing entry, so it carries `TAG.footer`
- * (`headkit:footer`) directly (09.5-03, CACHE-03): nested tags don't bubble, so
- * routing through the by-location `fetchMenu('FOOTER')` (tagged
- * `headkit:menu:FOOTER`) would leave a footer edit unable to invalidate this
- * read. Loading via the plain `loadMenu` helper keeps the tag on this entry.
+ * This IS the footer data-producing entry, so it carries its invalidation tags
+ * DIRECTLY (09.5-03, CACHE-03): nested tags don't bubble, so routing through the
+ * by-location `fetchMenu('FOOTER')` would leave a footer edit unable to
+ * invalidate this read. Loading via the plain `loadMenu` helper keeps the tags
+ * on this entry. It subscribes BOTH `TAG.footer` (`headkit:footer`) and
+ * `TAG.menu('FOOTER')` (`headkit:menu:FOOTER`) because WP's menu handler fires
+ * the uniform `menu:{location}` tag for every location — without menu:FOOTER a
+ * footer-menu edit (which emits only menu:FOOTER) never purged this entry.
  * Finite `days` backstop (D4).
  */
 export async function getFooterMenu(): Promise<NavMenuItem[]> {
   "use cache: remote";
   cacheLife("days");
-  cacheTag(TAG.footer);
+  cacheTag(TAG.footer, TAG.menu("FOOTER"));
   return loadMenu("FOOTER");
 }
 
 export async function NavigationWrapper() {
   "use cache: remote";
   cacheLife("days");
-  // Subscribe to exactly the menus this wrapper composes (primary + secondary)
-  // — no single blanket tag. NEVER a route/page tag on chrome (D2 / T-09.5-09).
-  cacheTag(TAG.menu("PRIMARY"), TAG.menu("SECONDARY"));
+  // Subscribe to exactly what this wrapper composes: the primary + secondary
+  // menus AND branding (the wrapper renders the logo from getBrandingAssets/
+  // getBranding, and nested tags don't bubble — without TAG.branding here a logo
+  // change never purges the nav). NEVER a route/page tag on chrome (D2 /
+  // T-09.5-09).
+  cacheTag(TAG.menu("PRIMARY"), TAG.menu("SECONDARY"), TAG.branding);
 
   // Per-store branding logo (ENG-572): dashboard-api logoUrl, falling back to
   // the commerce branding icon (available locally), else the default <Logo/>.

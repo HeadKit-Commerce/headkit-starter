@@ -85,9 +85,12 @@ describe("fetchMenu — tagged by location, days backstop", () => {
 });
 
 describe("getFooterMenu — TAG.footer on the data entry, days backstop", () => {
-  it("tags the footer data entry with headkit:footer at cacheLife('days')", async () => {
+  it("tags the footer data entry with headkit:footer + menu:FOOTER at cacheLife('days')", async () => {
     await getFooterMenu();
-    expect(cacheTag).toHaveBeenCalledWith("headkit:footer");
+    expect(cacheTag).toHaveBeenCalledWith(
+      "headkit:footer",
+      "headkit:menu:FOOTER",
+    );
     expect(cacheLife).toHaveBeenCalledWith("days");
   });
 
@@ -98,11 +101,12 @@ describe("getFooterMenu — TAG.footer on the data entry, days backstop", () => 
 });
 
 describe("NavigationWrapper — subscribes to the menus it composes", () => {
-  it("tags exactly primary + secondary and uses cacheLife('days')", async () => {
+  it("tags primary + secondary + branding and uses cacheLife('days')", async () => {
     await NavigationWrapper();
     expect(cacheTag).toHaveBeenCalledWith(
       "headkit:menu:PRIMARY",
       "headkit:menu:SECONDARY",
+      "headkit:branding",
     );
     expect(cacheLife).toHaveBeenCalledWith("days");
   });
