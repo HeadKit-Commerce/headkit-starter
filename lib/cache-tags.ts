@@ -53,9 +53,6 @@ export const TAG = {
   pages: "headkit:pages",
   // grid internal key (already used; keep) — remote, life minutes, self-healing
   catalogCat: (slug: string): string => `headkit:catalog:cat:${slug}`,
-  // composite modules (home building blocks)
-  module: (m: "carousel" | "news" | "brand" | "featured"): string =>
-    `headkit:module:${m}`,
   // layout chrome — NEVER a route/page tag (Bike Society incident)
   menu: (loc: string): string => `headkit:menu:${loc}`,
   footer: "headkit:footer",
@@ -102,7 +99,7 @@ function bridgeOne(raw: string): string[] {
   if (raw === "headkit:page:/") return [TAG.route("home")];
   if (raw === "headkit:page:shop") return [TAG.route("shop")];
   if (raw === "headkit:carousel") {
-    return [TAG.module("carousel"), TAG.route("home")];
+    return [TAG.route("home")];
   }
   if (raw === "headkit:new-in") return [TAG.route("new")];
   if (raw === "headkit:sale") return [TAG.route("sale")];
@@ -157,7 +154,6 @@ const KNOWN_PREFIXES: readonly string[] = [
   "headkit:post:",
   "headkit:page:",
   "headkit:menu:",
-  "headkit:module:",
   "headkit:route:",
   "headkit:catalog:cat:",
   "headkit:catalog:",

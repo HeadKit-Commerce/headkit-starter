@@ -39,20 +39,18 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * Home cache-tag union (D7 / CACHE-04). Home is ONE monolithic cached entry, so
- * both cached home fns carry the SAME union: editing any home source fires that
- * source's WP tag and re-renders the single home entry. Per-module split (each
- * `<HeroCarousel/>`/`<NewsRail/>`/… own-tagged) is DEFERRED — it needs new SDK
- * methods + subgraph resolvers; the SDK exposes only aggregate `homepage.get()`.
+ * Home cache-tag(s) (D7 / CACHE-04). Home is ONE monolithic cached entry backed
+ * by a single aggregate `homepage.get()`, so it carries ONE tag: `route:home`.
+ * Every WP home-source edit (carousel, news, featured/new/sale product,
+ * page-on-front) emits `route:home` → the single home entry re-renders.
+ *
+ * The former per-module `module:{carousel,news,brand,featured}` tags were
+ * removed: with an indivisible `homepage.get()` bundle they could never
+ * invalidate a section independently (they only ever purged the whole entry via
+ * this union), so they were pure noise. True per-section revalidation needs the
+ * data split first (per-module SDK methods + subgraph resolvers + WP endpoints).
  */
-const HOME_TAGS: readonly string[] = [
-  TAG.route("home"),
-  TAG.module("carousel"),
-  TAG.module("news"),
-  TAG.module("brand"),
-  TAG.module("featured"),
-  TAG.products,
-];
+const HOME_TAGS: readonly string[] = [TAG.route("home")];
 
 export async function getHomepageData() {
   "use cache";

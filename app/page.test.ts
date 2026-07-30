@@ -3,12 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 /**
  * Home cache-tag/life union guard (09.5-03, CACHE-04 / D7).
  *
- * D7: home is ONE monolithic cached entry carrying a UNION of tags — editing any
- * home source fires that source's tag and re-renders the single home entry. Both
- * cached home fns (`getHomepageData` + `HomeContent`) MUST carry the SAME full
- * union so a future edit cannot silently drop a module tag from one of them:
- *   route:home + module:carousel/news/brand/featured + products.
- * Both use the finite `days` backstop (was `max`).
+ * D7: home is ONE monolithic cached entry backed by a single aggregate
+ * `homepage.get()` bundle, so it carries ONE tag — `route:home`. Editing any home
+ * source (carousel, news, featured/new/sale product, page-on-front) fires
+ * `route:home` and re-renders the single home entry. Both cached home fns
+ * (`getHomepageData` + `HomeContent`) MUST carry the SAME tag so a future edit
+ * cannot silently drop it from one of them. Both use the finite `days` backstop.
  *
  * `next/cache` is mocked to capture `cacheTag` / `cacheLife`; the SDK, UI
  * components and lib helpers are stubbed so the page module imports in node env.
@@ -68,14 +68,7 @@ vi.mock("@/components/ui/skeleton", () => ({ Skeleton: (): null => null }));
 
 import { getHomepageData, HomeContent } from "./page";
 
-const HOME_UNION = [
-  "headkit:route:home",
-  "headkit:module:carousel",
-  "headkit:module:news",
-  "headkit:module:brand",
-  "headkit:module:featured",
-  "headkit:products",
-];
+const HOME_UNION = ["headkit:route:home"];
 
 beforeEach(() => {
   cacheTag.mockClear();

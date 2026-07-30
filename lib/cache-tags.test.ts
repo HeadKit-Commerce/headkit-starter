@@ -36,10 +36,8 @@ describe("TAG builders emit the D2 taxonomy strings", () => {
     expect(TAG.pages).toBe("headkit:pages");
   });
 
-  it("builds grid, module, chrome, route and global tags", () => {
+  it("builds grid, chrome, route and global tags", () => {
     expect(TAG.catalogCat("shirts")).toBe("headkit:catalog:cat:shirts");
-    expect(TAG.module("carousel")).toBe("headkit:module:carousel");
-    expect(TAG.module("news")).toBe("headkit:module:news");
     expect(TAG.menu("PRIMARY")).toBe("headkit:menu:PRIMARY");
     expect(TAG.footer).toBe("headkit:footer");
     expect(TAG.branding).toBe("headkit:branding");
@@ -85,9 +83,9 @@ const REMAP_TABLE: ReadonlyArray<{
     rawIsKnown: false,
   },
   {
-    name: "carousel → module:carousel + route:home",
+    name: "carousel → route:home",
     raw: "headkit:carousel",
-    expected: ["headkit:module:carousel", "headkit:route:home"],
+    expected: ["headkit:route:home"],
     rawIsKnown: false,
   },
   {
@@ -166,7 +164,6 @@ describe("bridgeTags remaps the full SET-vs-FIRED table (00-GROUNDING §2)", () 
   it("flattens 1→many expansions and de-duplicates across inputs", () => {
     // carousel and page:/ both expand to route:home — it appears once.
     expect(bridgeTags(["headkit:carousel", "headkit:page:/"])).toEqual([
-      "headkit:module:carousel",
       "headkit:route:home",
     ]);
   });
@@ -181,11 +178,8 @@ describe("explicit chrome / composite fan-out", () => {
     expect(bridgeTags(["headkit:menu"])).toEqual(expected);
   });
 
-  it("headkit:carousel fans out to module:carousel + route:home", () => {
-    expect(bridgeTags(["headkit:carousel"])).toEqual([
-      TAG.module("carousel"),
-      TAG.route("home"),
-    ]);
+  it("headkit:carousel bridges to route:home", () => {
+    expect(bridgeTags(["headkit:carousel"])).toEqual([TAG.route("home")]);
   });
 });
 
@@ -251,7 +245,6 @@ const EXPECTED_TAG_SHAPE: readonly string[] = [
   "headkit:posts",
   "headkit:pages",
   "headkit:catalog:cat:",
-  "headkit:module:",
   "headkit:menu:",
   "headkit:footer",
   "headkit:branding",
@@ -274,7 +267,6 @@ describe("TAG taxonomy parity guard (anchors the 09.5-06 PHP mirror)", () => {
       TAG.posts,
       TAG.pages,
       TAG.catalogCat("x").replace(/x$/, ""),
-      TAG.module("carousel").replace(/carousel$/, ""),
       TAG.menu("X").replace(/X$/, ""),
       TAG.footer,
       TAG.branding,
