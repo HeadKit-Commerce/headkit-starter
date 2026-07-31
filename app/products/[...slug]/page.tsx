@@ -17,6 +17,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 
+// Cache Components requires generateStaticParams to return ≥1 param. When the
+// catalog API is unreachable at build we emit this single placeholder (which
+// generateMetadata/the page resolve to noindex/notFound) instead of throwing —
+// a transient backend error must not fail the whole tenant deploy. Mirrors the
+// pattern in app/collections/[...slug]/page.tsx.
+const STATIC_GEN_PLACEHOLDER_SLUG = "__hk_static_placeholder";
+
 type Props = {
   params: Promise<{ slug: string[] }>;
 };
@@ -93,33 +100,43 @@ function ProductDetailSkeleton() {
 
 export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
   const params: { slug: string[] }[] = [];
-  let page = 1;
-  let hasMore = true;
 
-  while (hasMore) {
-    const result = await headkit.products.list({}, page, 100);
-    for (const product of result.products) {
-      params.push({ slug: [product.slug] });
-      const colorAttr = product.attributes.find(
-        (a) => a.slug === "pa_color" || a.slug === "pa_colour",
-      );
-      if (colorAttr) {
-        for (const opt of colorAttr.fullOptions) {
-          params.push({ slug: [product.slug, opt.slug] });
+  try {
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const result = await headkit.products.list({}, page, 100);
+      for (const product of result.products) {
+        params.push({ slug: [product.slug] });
+        const colorAttr = product.attributes.find(
+          (a) => a.slug === "pa_color" || a.slug === "pa_colour",
+        );
+        if (colorAttr) {
+          for (const opt of colorAttr.fullOptions) {
+            params.push({ slug: [product.slug, opt.slug] });
+          }
         }
       }
+      hasMore = page < result.totalPages;
+      page++;
     }
-    hasMore = page < result.totalPages;
-    page++;
+  } catch {
+    /* Catalog API unreachable at build — fall through to the placeholder. */
   }
 
-  return params;
+  if (params.length > 0) return params;
+  return [{ slug: [STATIC_GEN_PLACEHOLDER_SLUG] }];
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const productSlug = slug[0]!;
   const colorSlug = slug[1]; // undefined for simple/base; a color slug for a colorway URL
+
+  // Build-time placeholder param (API was unreachable during SSG): never a real
+  // product, so emit empty metadata rather than hitting the backend.
+  if (productSlug === STATIC_GEN_PLACEHOLDER_SLUG) return {};
 
   try {
     const product = await getProduct(productSlug);
@@ -171,6 +188,11 @@ export default async function ProductPage({ params }: Props) {
   const { slug } = await params;
   const productSlug = slug[0]!;
   const colorSlug = slug[1]; // undefined for simple products or base variable URL
+
+  // Build-time placeholder param (see generateStaticParams) is never served.
+  if (productSlug === STATIC_GEN_PLACEHOLDER_SLUG) {
+    notFound();
+  }
 
   const product = await getProduct(productSlug);
 
