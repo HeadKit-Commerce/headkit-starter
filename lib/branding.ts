@@ -8,19 +8,22 @@
  *
  * Local-stack note (Open Q2 / phase-3 decision = "degrade"): dashboard-api is
  * not currently part of the local Docker supergraph and has no documented local
- * URL. So `DASHBOARD_API_URL` is UNSET locally and `getBranding()` degrades to
- * the documented defaults below (matching `app/globals.css`: --color-primary
- * #7f54b3, --color-secondary #000000, no logo/icon override, no gtmId, root SEO
- * left to its existing values). This is structurally wired: the moment a local
- * dashboard-api transport is provisioned and `DASHBOARD_API_URL` is set, real
- * per-tenant branding flows through with no code change.
+ * URL. So `DASHBOARD_API_URL` / `DASHBOARD_API_TOKEN` are UNSET locally and
+ * `getBranding()` degrades to the documented defaults below (matching
+ * `app/globals.css`: --color-primary #7f54b3, --color-secondary #000000, no
+ * logo/icon override, no gtmId, root SEO left to its existing values). This is
+ * structurally wired: the moment both are provisioned, real per-tenant branding
+ * flows through with no code change.
+ *
+ * Production auth: dashboard-api GraphQL (`/graphql/subgraph/`) requires
+ * `Authorization: Bearer <store API token>`. The provisioner mints
+ * `DASHBOARD_API_TOKEN` on initial deploy and always upserts `DASHBOARD_API_URL`.
  *
  * Mirrors the `lib/account-actions.ts` server-fetch + try/catch envelope shape,
  * but uses `fetch` directly (no SDK) because branding is off the commerce path.
  *
- * Tenant isolation (T-03-B1): the dashboard-api endpoint resolves the CURRENT
- * tenant server-side (via its own auth/host scoping); this client never sends a
- * client-supplied tenant id, so it cannot read another tenant's branding.
+ * Tenant isolation (T-03-B1): the Bearer token scopes the request to one store;
+ * this client never sends a client-supplied tenant id.
  */
 
 import "server-only";
@@ -160,7 +163,7 @@ function coerce(data: NonNullable<BrandingResponse["data"]>): BrandingBundle {
  * Fetch per-tenant branding / store-settings / SEO from dashboard-api.
  *
  * Degrades gracefully to {@link DEFAULT_BUNDLE} when:
- *  - `DASHBOARD_API_URL` is unset (the LOCAL default — see file header), or
+ *  - `DASHBOARD_API_URL` or `DASHBOARD_API_TOKEN` is unset (local default), or
  *  - the request fails / times out / the endpoint is unreachable, or
  *  - the response carries GraphQL errors or no data.
  *
@@ -169,31 +172,30 @@ function coerce(data: NonNullable<BrandingResponse["data"]>): BrandingBundle {
  * (threat T-03-B4).
  *
  * Cached (Cache Components, `'use cache'`): branding is a per-tenant-per-DEPLOY
- * read — the tenant resolves from build/deploy env (`DASHBOARD_API_URL`), NOT a
- * per-request runtime API (no cookies()/headers()/searchParams), so the read is
- * deterministic and cacheable. Caching it here keeps the ROOT LAYOUT's branding
- * read out of the uncached set, so it no longer poisons every route's static
- * prerender under Cache Components. The stable `'branding'` cacheTag lets a
- * future `/api/revalidate` invalidate it when dashboard-api branding changes.
+ * read — the tenant resolves from build/deploy env (`DASHBOARD_API_URL` +
+ * token), NOT a per-request runtime API (no cookies()/headers()/searchParams),
+ * so the read is deterministic and cacheable. Caching it here keeps the ROOT
+ * LAYOUT's branding read out of the uncached set, so it no longer poisons every
+ * route's static prerender under Cache Components. The stable `'branding'`
+ * cacheTag lets `/api/revalidate` invalidate it when dashboard-api branding
+ * changes.
  */
 export async function getBranding(): Promise<BrandingBundle> {
   "use cache: remote";
   cacheLife("days");
   cacheTag(TAG.branding);
 
-  const endpoint = process.env.DASHBOARD_API_URL;
-  // No local dashboard-api transport configured → documented defaults.
-  if (!endpoint) return DEFAULT_BUNDLE;
+  const endpoint = env.DASHBOARD_API_URL;
+  const token = env.DASHBOARD_API_TOKEN;
+  // Both required — URL alone gets 401 from APITokenAuthMiddleware.
+  if (!endpoint || !token) return DEFAULT_BUNDLE;
 
   try {
     const res = await fetch(endpoint, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
+      headers: brandingRequestHeaders(token),
       body: JSON.stringify({ query: BRANDING_QUERY }),
-      // Caching is governed by the enclosing `'use cache'` + cacheLife("hours")
+      // Caching is governed by the enclosing `'use cache'` + cacheLife
       // above (Cache Components), so no fetch-level `next.revalidate` here.
     });
 
@@ -207,6 +209,15 @@ export async function getBranding(): Promise<BrandingBundle> {
     // Unreachable / timeout / parse error — degrade silently.
     return DEFAULT_BUNDLE;
   }
+}
+
+/** Headers for the FE-08 dashboard-api branding GraphQL POST. */
+function brandingRequestHeaders(token: string): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+    Authorization: `Bearer ${token}`,
+  };
 }
 
 // ---------------------------------------------------------------------------
