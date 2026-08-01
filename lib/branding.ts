@@ -15,9 +15,13 @@
  * structurally wired: the moment both are provisioned, real per-tenant branding
  * flows through with no code change.
  *
- * Production auth: dashboard-api GraphQL (`/graphql/subgraph/`) requires
+ * Production auth: dashboard-api GraphQL (`/graphql/subgraph/headkit`) requires
  * `Authorization: Bearer <store API token>`. The provisioner mints
  * `DASHBOARD_API_TOKEN` on initial deploy and always upserts `DASHBOARD_API_URL`.
+ *
+ * `DASHBOARD_API_URL` must be the full headkit GraphQL path
+ * (`{BASE_URL}/graphql/subgraph/headkit`) — the bare Cloud Run host 404s, and
+ * `/graphql/subgraph/` alone is the mount prefix, not the gqlgen handler.
  *
  * Mirrors the `lib/account-actions.ts` server-fetch + try/catch envelope shape,
  * but uses `fetch` directly (no SDK) because branding is off the commerce path.
