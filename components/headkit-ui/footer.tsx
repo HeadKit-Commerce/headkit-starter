@@ -261,7 +261,7 @@ export function Footer({
                   >
                     <IconComponent
                       size={24}
-                      className="fill-purple-800 hover:opacity-70"
+                      className="fill-purple-800 transition-colors hover:fill-purple-500"
                     />
                   </a>
                 );

@@ -119,13 +119,16 @@ bun run dev --filter=starter
 
 ### Theme
 
-Edit `app/globals.css` to change the color palette:
+Edit `app/globals.css` to change the color palette. Brand tokens live in
+plain `@theme` (so runtime branding can override them); `purple-500` tracks
+`--color-primary` for hovers and accents:
 
 ```css
-@theme inline {
+@theme {
   --color-primary: #7f54b3;
   --color-secondary: #000000;
   --color-primary-text: #ffffff;
+  --color-purple-500: var(--color-primary);
 }
 ```
 

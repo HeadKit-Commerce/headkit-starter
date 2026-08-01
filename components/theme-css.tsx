@@ -47,11 +47,14 @@ export function ThemeCSS({ branding }: ThemeCSSProps) {
     branding?.secondaryColor ?? defaultTheme.secondaryColor;
   const primaryTextColor = isColorDark(primaryColor) ? "#ffffff" : "#000000";
 
+  // purple-500 tracks primary (see globals.css) so icon/link/swatch hovers
+  // and badges pick up tenant branding without per-component class rewrites.
   const cssVariables = `
     :root {
       --color-primary: ${primaryColor};
       --color-secondary: ${secondaryColor};
       --color-primary-text: ${primaryTextColor};
+      --color-purple-500: ${primaryColor};
     }
   `;
 

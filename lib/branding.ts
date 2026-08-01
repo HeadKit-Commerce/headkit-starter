@@ -10,7 +10,8 @@
  * not currently part of the local Docker supergraph and has no documented local
  * URL. So `DASHBOARD_API_URL` / `DASHBOARD_API_TOKEN` are UNSET locally and
  * `getBranding()` degrades to the documented defaults below (matching
- * `app/globals.css`: --color-primary #7f54b3, --color-secondary #000000, no
+ * `app/globals.css`: --color-primary #7f54b3 (and --color-purple-500 tracking
+ * it for hovers/accents), --color-secondary #000000, no
  * logo/icon override, no gtmId, root SEO left to its existing values). This is
  * structurally wired: the moment both are provisioned, real per-tenant branding
  * flows through with no code change.

@@ -26,7 +26,8 @@ interface HeaderActionsProps {
  * Right-side header icon row: Search · Wishlist · Account · Cart
  *
  * Rendered as a client component so the cart count can hydrate reactively.
- * All icons follow the headkit-store-template purple palette.
+ * All icons use the purple palette: purple-800 at rest, purple-500 (brand
+ * primary) on hover — see globals.css brand token wiring.
  */
 export function HeaderActions({ initialCartCount = 0 }: HeaderActionsProps) {
   const { isAuthenticated } = useAuth();

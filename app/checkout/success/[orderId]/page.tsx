@@ -363,7 +363,7 @@ export default async function Page({ params, searchParams }: Props) {
             <div className="mt-8">
               <Link
                 href="/"
-                className="inline-block rounded-lg bg-purple-500 px-6 py-2.5 text-center text-sm font-medium text-white hover:bg-purple-600"
+                className="inline-block rounded-lg bg-primary px-6 py-2.5 text-center text-sm font-medium text-on-primary hover:opacity-80"
               >
                 Continue Shopping
               </Link>
@@ -549,7 +549,7 @@ export default async function Page({ params, searchParams }: Props) {
             <div className="flex flex-col gap-3 mt-8 md:flex-row">
               <Link
                 href="/"
-                className="inline-block rounded-lg bg-purple-500 px-6 py-2.5 text-center text-sm font-medium text-white hover:bg-purple-600"
+                className="inline-block rounded-lg bg-primary px-6 py-2.5 text-center text-sm font-medium text-on-primary hover:opacity-80"
               >
                 Continue Shopping
               </Link>

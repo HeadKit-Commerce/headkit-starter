@@ -161,7 +161,7 @@ export function CartItemRow({
             </span>
             <button
               className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-r-[3px] bg-purple-500 hover:bg-pink-500",
+                "flex h-8 w-8 items-center justify-center rounded-r-[3px] bg-purple-500 hover:opacity-80",
                 (loading || isAtStockLimit || isOutOfStock) &&
                   "cursor-not-allowed opacity-40",
               )}

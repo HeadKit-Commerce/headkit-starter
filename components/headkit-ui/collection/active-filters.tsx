@@ -99,7 +99,7 @@ export function ActiveFilters() {
               page: 1,
             })
           }
-          className="text-xs font-medium text-purple-500 underline underline-offset-2 hover:text-purple-600"
+          className="text-xs font-medium text-purple-500 underline underline-offset-2 hover:opacity-80"
         >
           Clear all
         </button>

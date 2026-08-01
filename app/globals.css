@@ -8,19 +8,31 @@
   --radius: 0.5rem;
 }
 
+/*
+ * Brand tokens use plain `@theme` (not `inline`) so utilities reference
+ * `var(--color-*)` and layout.tsx's runtime `:root` overrides take effect.
+ * `@theme inline` would bake the default hex into hover/opacity classes
+ * (e.g. hover:bg-primary/70, hover:stroke-purple-500), leaving #7f54b3
+ * visible after branding is applied.
+ *
+ * purple-500 is the accent used for icon/link/swatch hovers and badges —
+ * it tracks --color-primary so tenant branding covers those surfaces too.
+ * purple-800/900 stay near-black for body/nav text (not brand-tinted).
+ */
+@theme {
+  --color-primary: #7f54b3;
+  --color-secondary: #000000;
+  --color-primary-text: #ffffff;
+  --color-purple-500: var(--color-primary);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-urbanist);
 
-  /* Brand (themeable) */
-  --color-primary: #7f54b3;
-  --color-secondary: #000000;
-  --color-primary-text: #ffffff;
-
-  /* Purple – nav, headings, buttons, links */
+  /* Purple neutrals – nav text, headings (not the brand accent) */
   --color-purple-100: #eae3f2;
-  --color-purple-500: #7f54b3;
   --color-purple-800: #23102e;
   --color-purple-900: #0b050f;
 

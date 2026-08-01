@@ -92,10 +92,16 @@ export default async function RootLayout({
   // the globals.css defaults at runtime (FE-08). Sanitized to color literals
   // only (T-03-B2). When a value is missing/invalid we omit the override so
   // the globals.css default (#7f54b3 / #000000) applies (no hardcoded brand hex).
+  // Also set --color-purple-500 so Tailwind hover/accent utilities
+  // (hover:stroke-purple-500, hover:outline-purple-500, bg-purple-500, …)
+  // track the brand primary — purple-500 defaults to var(--color-primary)
+  // in globals.css, but an explicit twin keeps ThemeCSS / forks in sync.
   const primary = safeColor(branding.primaryColor);
   const secondary = safeColor(branding.secondaryColor);
   const brandVars = [
-    primary ? `--color-primary: ${primary};` : "",
+    primary
+      ? `--color-primary: ${primary}; --color-purple-500: ${primary};`
+      : "",
     secondary ? `--color-secondary: ${secondary};` : "",
   ]
     .filter(Boolean)
