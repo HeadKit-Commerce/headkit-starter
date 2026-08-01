@@ -3,7 +3,7 @@ import { Urbanist } from "next/font/google";
 import "./globals.css";
 import {
   NavigationWrapper,
-  getFooterMenu,
+  getFooterMenus,
 } from "@/components/headkit-ui/navigation-wrapper";
 import { CartProvider } from "@/components/headkit-ui/cart-context";
 import { CartDrawer } from "@/components/headkit-ui/cart-drawer";
@@ -77,12 +77,11 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Per-tenant branding + the CMS FOOTER menu, fetched server-side. Both
-  // degrade gracefully (branding → documented defaults if dashboard-api is
-  // unavailable locally; footer → empty list → branding/static footer).
-  const [{ branding, storeSettings }, footerItems] = await Promise.all([
+  // Per-tenant branding + CMS footer menus (Footer / Footer 2 / Footer Policy).
+  // Both degrade gracefully (branding → defaults; empty menus → static footer).
+  const [{ branding, storeSettings }, footerMenus] = await Promise.all([
     getBranding(),
-    getFooterMenu(),
+    getFooterMenus(),
   ]);
 
   const siteName = storeSettings.name ?? "HeadKit";
@@ -106,18 +105,6 @@ export default async function RootLayout({
   ]
     .filter(Boolean)
     .join(" ");
-
-  // Map the flat CMS FOOTER menu into the Footer's column sections: each
-  // top-level item becomes a column (its children are the links).
-  const footerMenus = footerItems.map((item) => ({
-    location: item.id,
-    name: item.label,
-    items: (item.children ?? []).map((child) => ({
-      id: child.id,
-      label: child.label,
-      uri: child.uri,
-    })),
-  }));
 
   return (
     <html lang="en" suppressHydrationWarning>

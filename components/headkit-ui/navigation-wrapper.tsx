@@ -52,7 +52,7 @@ async function loadMenu(location: MenuLocation): Promise<NavMenuItem[]> {
 }
 
 /**
- * Cached PRIMARY/SECONDARY menu read, tagged BY LOCATION
+ * Cached PRIMARY/SECONDARY/PRE_HEADER menu read, tagged BY LOCATION
  * (`TAG.menu(location)` → `headkit:menu:{location}`) so a menu edit for one
  * location invalidates only that location's entry — not one blanket tag across
  * every menu (09.5-03, CACHE-03). Finite `days` backstop (D4): a missed webhook
@@ -68,31 +68,65 @@ export async function fetchMenu(
 }
 
 /**
- * Fetch the CMS FOOTER menu (FE-01) via the same SDK menu transport as the
- * PRIMARY/SECONDARY navigation. The `FOOTER` MenuLocation was added to the SDK
- * enum in plan 03-02; when no WP footer menu is registered this resolves to an
- * empty list and the `Footer` falls back to its branding/static layout.
+ * CMS footer menus for the root layout Footer.
  *
- * Exported (rather than consumed inside `NavigationWrapper`) because the
- * `Footer` is rendered by the root layout, not the nav bar — but it shares the
- * exact same `fetchMenu("FOOTER")` SDK path established here.
+ * WordPress registers three locations that the Footer UI consumes in order:
+ *   [0] FOOTER       → left column links (WP slug `footer`)
+ *   [1] FOOTER_2     → right column links (WP slug `Footer-2`)
+ *   [2] FOOTER_POLICY → bottom legal/policy links (WP slug `footer-policy`)
  *
- * Cached (Cache Components, `'use cache'`): the FOOTER menu is a per-deploy CMS
- * read via the PK-only SDK singleton — no per-request runtime API (cookies/
- * headers/searchParams), so it is deterministic and cacheable. Because the
- * `Footer` is NOT Suspense-wrapped in the root layout, an UNCACHED read here
- * poisoned every route's static prerender under Cache Components; caching it
- * moves the layout's footer read into the cached static shell.
+ * Each location is a flat list of root links (not nested column parents). Always
+ * returns three sections so Footer's `menus[2]` policy slot stays stable even
+ * when a location is unassigned (empty items).
  *
- * This IS the footer data-producing entry, so it carries its invalidation tags
- * DIRECTLY (09.5-03, CACHE-03): nested tags don't bubble, so routing through the
- * by-location `fetchMenu('FOOTER')` would leave a footer edit unable to
- * invalidate this read. Loading via the plain `loadMenu` helper keeps the tags
- * on this entry. It subscribes BOTH `TAG.footer` (`headkit:footer`) and
- * `TAG.menu('FOOTER')` (`headkit:menu:FOOTER`) because WP's menu handler fires
- * the uniform `menu:{location}` tag for every location — without menu:FOOTER a
- * footer-menu edit (which emits only menu:FOOTER) never purged this entry.
- * Finite `days` backstop (D4).
+ * Tags: `TAG.footer` plus each location's `TAG.menu(...)` so any of the three
+ * WP menu edits (or the legacy footer tag) invalidate this entry.
+ */
+export async function getFooterMenus(): Promise<
+  {
+    location: string;
+    name: string;
+    items: { id: string; label: string; uri: string }[];
+  }[]
+> {
+  "use cache: remote";
+  cacheLife("days");
+  cacheTag(
+    TAG.footer,
+    TAG.menu("FOOTER"),
+    TAG.menu("FOOTER_2"),
+    TAG.menu("FOOTER_POLICY"),
+  );
+
+  const [footer, footer2, policy] = await Promise.all([
+    loadMenu("FOOTER"),
+    loadMenu("FOOTER_2"),
+    loadMenu("FOOTER_POLICY"),
+  ]);
+
+  const toLinks = (
+    items: NavMenuItem[],
+  ): { id: string; label: string; uri: string }[] =>
+    items.map((item) => ({
+      id: item.id,
+      label: item.label,
+      uri: item.uri,
+    }));
+
+  return [
+    { location: "FOOTER", name: "", items: toLinks(footer) },
+    { location: "FOOTER_2", name: "", items: toLinks(footer2) },
+    {
+      location: "FOOTER_POLICY",
+      name: "",
+      items: toLinks(policy),
+    },
+  ];
+}
+
+/**
+ * @deprecated Prefer getFooterMenus() — kept for tests that assert FOOTER tags.
+ * Returns only the primary FOOTER location root items.
  */
 export async function getFooterMenu(): Promise<NavMenuItem[]> {
   "use cache: remote";
@@ -104,28 +138,49 @@ export async function getFooterMenu(): Promise<NavMenuItem[]> {
 export async function NavigationWrapper() {
   "use cache: remote";
   cacheLife("days");
-  // Subscribe to exactly what this wrapper composes: the primary + secondary
-  // menus AND branding (the wrapper renders the logo from getBrandingAssets/
-  // getBranding, and nested tags don't bubble — without TAG.branding here a logo
-  // change never purges the nav). NEVER a route/page tag on chrome (D2 /
-  // T-09.5-09).
-  cacheTag(TAG.menu("PRIMARY"), TAG.menu("SECONDARY"), TAG.branding);
+  // Subscribe to exactly what this wrapper composes: primary + secondary +
+  // pre-header menus AND branding (the wrapper renders the logo from
+  // getBrandingAssets / getBranding, and nested tags don't bubble — without
+  // TAG.branding here a logo change never purges the nav). NEVER a route/page
+  // tag on chrome (D2 / T-09.5-09).
+  cacheTag(
+    TAG.menu("PRIMARY"),
+    TAG.menu("SECONDARY"),
+    TAG.menu("PRE_HEADER"),
+    TAG.branding,
+  );
 
   // Per-store branding logo (ENG-572): dashboard-api logoUrl, falling back to
   // the commerce branding icon (available locally), else the default <Logo/>.
   // storeSettings.name drives the logo alt text.
-  const [primaryItems, secondaryItems, { logoUrl }, { storeSettings }] =
-    await Promise.all([
-      fetchMenu("PRIMARY"),
-      fetchMenu("SECONDARY"),
-      getBrandingAssets(),
-      getBranding(),
-    ]);
+  const [
+    primaryItems,
+    secondaryItems,
+    preHeaderItems,
+    { logoUrl },
+    { storeSettings },
+  ] = await Promise.all([
+    fetchMenu("PRIMARY"),
+    fetchMenu("SECONDARY"),
+    fetchMenu("PRE_HEADER"),
+    getBrandingAssets(),
+    getBranding(),
+  ]);
 
   return (
     <NavigationBar
       primaryMenuItems={primaryItems}
       secondaryMenuItems={secondaryItems}
+      {...(preHeaderItems.length > 0
+        ? {
+            preheader: {
+              links: preHeaderItems.map((item) => ({
+                label: item.label,
+                uri: item.uri,
+              })),
+            },
+          }
+        : {})}
       logo={
         <BrandLogo
           logoUrl={logoUrl}

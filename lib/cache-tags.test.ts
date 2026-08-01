@@ -65,7 +65,10 @@ const REMAP_TABLE: ReadonlyArray<{
     expected: [
       "headkit:menu:PRIMARY",
       "headkit:menu:SECONDARY",
+      "headkit:menu:PRE_HEADER",
       "headkit:menu:FOOTER",
+      "headkit:menu:FOOTER_2",
+      "headkit:menu:FOOTER_POLICY",
       "headkit:footer",
     ],
     rawIsKnown: false,

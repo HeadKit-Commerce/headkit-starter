@@ -32,7 +32,14 @@
  * The menu locations WordPress can fire a menu edit for. Used to fan the
  * location-less legacy `headkit:menu` tag out to every subscribed location.
  */
-export const KNOWN_MENU_LOCATIONS = ["PRIMARY", "SECONDARY", "FOOTER"] as const;
+export const KNOWN_MENU_LOCATIONS = [
+  "PRIMARY",
+  "SECONDARY",
+  "PRE_HEADER",
+  "FOOTER",
+  "FOOTER_2",
+  "FOOTER_POLICY",
+] as const;
 
 /**
  * Canonical cache-tag builder map (D2). Every builder returns the exact contract
