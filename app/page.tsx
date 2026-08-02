@@ -10,7 +10,13 @@ import type {
   Post,
 } from "@headkit/sdk";
 import { processEditorBlocks } from "@/lib/process-editor-blocks";
-import { makeRootMetadata } from "@/lib/make-metadata";
+import {
+  makeRootMetadata,
+  resolveHomeTitle,
+  resolveHomeDescription,
+  resolveStoreName,
+} from "@/lib/make-metadata";
+import { getBranding, getBrandingAssets } from "@/lib/branding";
 import { MainCarousel } from "@/components/headkit-ui/main-carousel";
 import { BlockEditor } from "@/components/headkit-ui/block-editor";
 import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
@@ -22,19 +28,35 @@ import { ProductCard } from "@/components/headkit-ui/product-card";
 
 export async function generateMetadata(): Promise<Metadata> {
   try {
-    const { homepage } = await getHomepageData();
+    const [{ homepage }, { seoSettings, storeSettings }, { iconUrl }] =
+      await Promise.all([getHomepageData(), getBranding(), getBrandingAssets()]);
+    const siteName = resolveStoreName(storeSettings.name);
+    const yoastSeo = homepage?.page?.seo;
+    const entityOg =
+      (
+        yoastSeo as
+          | { opengraphImageUrl?: string | null }
+          | null
+          | undefined
+      )?.opengraphImageUrl ?? null;
+
     return makeRootMetadata({
-      title: homepage?.page?.seo?.title ?? "HeadKit — Headless Commerce",
-      description:
-        homepage?.page?.seo?.metaDesc ??
-        "Build fast, modern headless commerce stores with HeadKit.",
-      siteName: "HeadKit",
+      title: resolveHomeTitle({
+        yoastTitle: yoastSeo?.title,
+        dashboardTitle: seoSettings.title,
+        storeName: storeSettings.name,
+      }),
+      description: resolveHomeDescription({
+        yoastDescription: yoastSeo?.metaDesc,
+        dashboardDescription: seoSettings.description,
+      }),
+      siteName,
+      iconUrl,
+      ogImageUrl: entityOg || seoSettings.ogImageUrl,
+      allowIndexing: seoSettings.allowIndexing,
     });
   } catch {
-    return makeRootMetadata({
-      title: "HeadKit — Headless Commerce",
-      description: "Build fast, modern headless commerce stores with HeadKit.",
-    });
+    return makeRootMetadata({ siteName: "Store" });
   }
 }
 

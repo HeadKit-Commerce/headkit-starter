@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { cacheLife, cacheTag } from "next/cache";
-import type { Product, RelatedProduct, SeoData } from "@headkit/sdk";
+import type { Product, RelatedProduct } from "@headkit/sdk";
 import { TAG } from "@/lib/cache-tags";
 import { headkit } from "@/lib/sdk";
 import { ProductDetail } from "@/components/headkit-ui/product-detail";
@@ -11,6 +11,7 @@ import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { ProductJsonLD } from "@/components/seo/product-json-ld";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { makeSeoMetadata, seoFallbackDescription } from "@/lib/make-metadata";
+import { getBranding, getBrandingAssets } from "@/lib/branding";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type Props = {
@@ -117,26 +118,26 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const productSlug = slug[slug.length - 1]!;
 
   try {
-    // The SDK Product type does not yet expose Yoast SEOData (the GetProduct
-    // GraphQL fragment selects no `seo` field — see deferred-items.md / future
-    // SDK-layer plan). Widen the cached fetched product so `product.seo` is read
-    // defensively: once the schema + codegen add `Product.seo`, the real
-    // SEOData flows through here with no further change. Until then it resolves
-    // to null and the templated per-entity fallback (FE-09 / D-04) is the floor.
-    const product = (await getProduct(productSlug)) as
-      | (Product & { seo?: SeoData | null })
-      | null;
+    const [product, { seoSettings, storeSettings }, { iconUrl }] =
+      await Promise.all([
+        getProduct(productSlug),
+        getBranding(),
+        getBrandingAssets(),
+      ]);
     if (!product) {
       return { robots: { index: false, follow: false } };
     }
 
-    const productSeo: SeoData | null = product.seo ?? null;
-    return makeSeoMetadata(productSeo, {
+    return makeSeoMetadata(product.seo ?? null, {
       title: product.name,
       description:
         product.shortDescription ||
         product.description ||
         seoFallbackDescription("product", product.name),
+      storeName: storeSettings.name ?? undefined,
+      dashboardOgImageUrl: seoSettings.ogImageUrl ?? undefined,
+      brandingIconUrl: iconUrl ?? undefined,
+      allowIndexing: seoSettings.allowIndexing,
     });
   } catch {
     return { robots: { index: false, follow: false } };

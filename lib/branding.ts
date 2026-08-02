@@ -64,6 +64,10 @@ export interface SeoSettings {
   title: string | null;
   description: string | null;
   ogImageUrl: string | null;
+  /** When false, storefront sitemap returns empty and robots omits Sitemap. */
+  enableSitemap: boolean;
+  /** When false, storefront emits noindex/nofollow and robots Disallow: /. */
+  allowIndexing: boolean;
 }
 
 export interface BrandingBundle {
@@ -98,6 +102,8 @@ const DEFAULT_BUNDLE: BrandingBundle = {
     title: null,
     description: null,
     ogImageUrl: null,
+    enableSitemap: true,
+    allowIndexing: true,
   },
 };
 
@@ -124,6 +130,8 @@ const BRANDING_QUERY = /* GraphQL */ `
       title
       description
       ogImageUrl
+      enableSitemap
+      allowIndexing
     }
   }
 `;
@@ -160,6 +168,9 @@ function coerce(data: NonNullable<BrandingResponse["data"]>): BrandingBundle {
       title: seo.title ?? null,
       description: seo.description ?? null,
       ogImageUrl: seo.ogImageUrl ?? null,
+      // Defaults true when dashboard-api has not yet shipped the field.
+      enableSitemap: seo.enableSitemap !== false,
+      allowIndexing: seo.allowIndexing !== false,
     },
   };
 }

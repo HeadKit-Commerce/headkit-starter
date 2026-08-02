@@ -48,7 +48,7 @@ export const DEFAULT_FILTER_VALUES: FilterValues = {
   price_max: "",
 };
 
-const SITE_NAME = "HeadKit";
+const SITE_NAME = "Store";
 
 /**
  * Attribute slugs treated as the indexable "color" facet (Tier-1).

@@ -11,7 +11,12 @@ import { AuthProvider } from "@/components/headkit-ui/auth-context";
 import { Footer } from "@/components/headkit-ui/footer";
 import { WebsiteJsonLD } from "@/components/seo/website-json-ld";
 import { OrganizationJsonLD } from "@/components/seo/organization-json-ld";
-import { makeRootMetadata, brandingIcons } from "@/lib/make-metadata";
+import {
+  makeRootMetadata,
+  brandingIcons,
+  resolveFooterDescription,
+  resolveStoreName,
+} from "@/lib/make-metadata";
 import { getBranding, getBrandingAssets } from "@/lib/branding";
 import { GoogleTagManager } from "@next/third-parties/google";
 
@@ -42,23 +47,21 @@ function safeColor(value: string | null | undefined): string | null {
 
 export async function generateMetadata(): Promise<Metadata> {
   // SeoSettings from dashboard-api feeds the root metadata fallback (FE-08).
-  // Under the local "degrade" path getBranding() returns null SEO fields, so
-  // this preserves the existing "HeadKit" defaults (and 03-06's behavior).
+  // Local degrade → null SEO fields; floor is store name (never HeadKit marketing).
   try {
-    // getBranding() feeds SEO/title; getBrandingAssets() resolves the per-store
-    // favicon/OG icon (ENG-572) — commerce iconUrl (available locally) with a
-    // dashboard-api fallback. Null iconUrl → makeRootMetadata omits icons, so
-    // the file-convention default favicon still applies.
     const [{ seoSettings, storeSettings }, { iconUrl }] = await Promise.all([
       getBranding(),
       getBrandingAssets(),
     ]);
+    const siteName = resolveStoreName(storeSettings.name);
     return {
       ...makeRootMetadata({
-        title: seoSettings.title ?? "HeadKit",
-        description: seoSettings.description ?? "HeadKit",
-        siteName: storeSettings.name ?? "HeadKit",
+        title: seoSettings.title?.trim() || siteName,
+        description: seoSettings.description?.trim() || "",
+        siteName,
         iconUrl,
+        ogImageUrl: seoSettings.ogImageUrl,
+        allowIndexing: seoSettings.allowIndexing,
       }),
       // Site-wide favicon (branding icon, or the bundled default). Owned by the
       // layout so page metadata never overrides the per-store tab icon (ENG-572).
@@ -66,7 +69,7 @@ export async function generateMetadata(): Promise<Metadata> {
     };
   } catch {
     return {
-      ...makeRootMetadata({ title: "HeadKit Starter" }),
+      ...makeRootMetadata({ siteName: "Store" }),
       icons: brandingIcons(null),
     };
   }
@@ -82,13 +85,13 @@ export default async function RootLayout({
   const [{ branding, storeSettings, seoSettings }, footerMenus] =
     await Promise.all([getBranding(), getFooterMenus()]);
 
-  const siteName = storeSettings.name ?? "HeadKit";
+  const siteName = resolveStoreName(storeSettings.name);
   const gtmId = storeSettings.gtmId ?? ENV_GTM_ID;
-  // Site tagline for the footer blurb: dashboard SEO description (WP
-  // siteDescription / Yoast-style store SEO), not a hardcoded marketing string.
-  const siteDescription =
-    seoSettings.description?.trim() ||
-    "HeadKit is the cloud platform making it easy to build headless commerce stores.";
+  // Footer blurb: dashboard SEO description → else store name only.
+  const siteDescription = resolveFooterDescription(
+    seoSettings.description,
+    storeSettings.name,
+  );
 
   // Inject per-tenant brand colors as :root CSS custom properties, overriding
   // the globals.css defaults at runtime (FE-08). Sanitized to color literals

@@ -1,6 +1,24 @@
 import type { MetadataRoute } from "next";
+import { getBranding } from "@/lib/branding";
 
-export default function robots(): MetadataRoute.Robots {
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const { seoSettings } = await getBranding();
+  const host = process.env.NEXT_PUBLIC_FRONTEND_URL;
+
+  // Search engines off: Disallow everything. Keep VERCEL_ENV noindex as
+  // additional safety on page metadata (preview deployments).
+  if (!seoSettings.allowIndexing) {
+    return {
+      rules: [
+        {
+          userAgent: "*",
+          disallow: "/",
+        },
+      ],
+      host,
+    };
+  }
+
   return {
     rules: [
       {
@@ -37,7 +55,10 @@ export default function robots(): MetadataRoute.Robots {
         ],
       },
     ],
-    sitemap: `${process.env.NEXT_PUBLIC_FRONTEND_URL}/sitemap.xml`,
-    host: process.env.NEXT_PUBLIC_FRONTEND_URL,
+    // Sitemap off = omit Sitemap line entirely (do not advertise a URL).
+    ...(seoSettings.enableSitemap
+      ? { sitemap: `${host}/sitemap.xml` }
+      : {}),
+    host,
   };
 }

@@ -1,32 +1,183 @@
-import { describe, expect, it } from "vitest";
-import { makeSeoMetadata, seoFallbackDescription } from "./make-metadata";
+import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import {
+  makeSeoMetadata,
+  makeRootMetadata,
+  seoFallbackDescription,
+  resolveHomeTitle,
+  resolveFooterDescription,
+  resolveOgImageUrl,
+  isRealSeoTitle,
+} from "./make-metadata";
 
-/**
- * make-metadata fallback coverage — FE-09 precursor (plan 03-06).
- *
- * Phase-2 lesson: SEO fallback gaps appear only when Yoast/SEO data is absent.
- * These tests pin the templated-fallback contract BEFORE FE-09 wires it.
- *
- * Test 1 (templated fallback) is expected RED until plan 03-06 (FE-09)
- * implements the per-entity templated SEO defaults. It documents the contract
- * the implementer must satisfy. Today `makeSeoMetadata` returns the BARE
- * fallback title ("Widgets"), not the templated form ("Widgets | HeadKit").
- *
- * Test 2 (seo wins) reflects current behavior and should be GREEN.
- */
+describe("isRealSeoTitle", () => {
+  it("treats WP Home / Homepage as not real SEO", () => {
+    expect(isRealSeoTitle("Home")).toBe(false);
+    expect(isRealSeoTitle("Homepage")).toBe(false);
+    expect(isRealSeoTitle("  home  ")).toBe(false);
+  });
+
+  it("treats empty as not real", () => {
+    expect(isRealSeoTitle("")).toBe(false);
+    expect(isRealSeoTitle(null)).toBe(false);
+  });
+
+  it("accepts real titles", () => {
+    expect(isRealSeoTitle("Acme Shop")).toBe(true);
+    expect(isRealSeoTitle("Welcome to our store")).toBe(true);
+  });
+});
+
+describe("resolveHomeTitle hierarchy", () => {
+  it("uses store name when Yoast title is Home", () => {
+    expect(
+      resolveHomeTitle({
+        yoastTitle: "Home",
+        dashboardTitle: null,
+        storeName: "Acme",
+      }),
+    ).toBe("Acme");
+  });
+
+  it("prefers dashboard title over store name when Yoast is Home", () => {
+    expect(
+      resolveHomeTitle({
+        yoastTitle: "Home",
+        dashboardTitle: "Acme Commerce",
+        storeName: "Acme",
+      }),
+    ).toBe("Acme Commerce");
+  });
+
+  it("prefers real Yoast title over dashboard", () => {
+    expect(
+      resolveHomeTitle({
+        yoastTitle: "Shop the latest",
+        dashboardTitle: "Dashboard Title",
+        storeName: "Acme",
+      }),
+    ).toBe("Shop the latest");
+  });
+
+  it("never returns HeadKit marketing copy as tenant default", () => {
+    const title = resolveHomeTitle({
+      yoastTitle: "Home",
+      dashboardTitle: null,
+      storeName: null,
+    });
+    expect(title).toBe("Store");
+    expect(title).not.toMatch(/HeadKit/i);
+  });
+});
+
+describe("resolveFooterDescription", () => {
+  it("uses dashboard description when set", () => {
+    expect(resolveFooterDescription("Our tagline", "Acme")).toBe("Our tagline");
+  });
+
+  it("falls back to store name only when description empty", () => {
+    expect(resolveFooterDescription("", "Acme")).toBe("Acme");
+    expect(resolveFooterDescription(null, "Acme")).toBe("Acme");
+  });
+
+  it("never uses HeadKit marketing string", () => {
+    const desc = resolveFooterDescription(null, null);
+    expect(desc).toBe("Store");
+    expect(desc).not.toMatch(/cloud platform/i);
+    expect(desc).not.toMatch(/HeadKit/i);
+  });
+});
+
+describe("resolveOgImageUrl precedence", () => {
+  it("Yoast entity → dashboard → branding icon", () => {
+    expect(
+      resolveOgImageUrl({
+        entityImageUrl: "https://cdn.example/yoast.jpg",
+        dashboardOgImageUrl: "https://cdn.example/dash.jpg",
+        brandingIconUrl: "https://cdn.example/icon.png",
+      }),
+    ).toBe("https://cdn.example/yoast.jpg");
+
+    expect(
+      resolveOgImageUrl({
+        entityImageUrl: null,
+        dashboardOgImageUrl: "https://cdn.example/dash.jpg",
+        brandingIconUrl: "https://cdn.example/icon.png",
+      }),
+    ).toBe("https://cdn.example/dash.jpg");
+
+    expect(
+      resolveOgImageUrl({
+        entityImageUrl: null,
+        dashboardOgImageUrl: null,
+        brandingIconUrl: "https://cdn.example/icon.png",
+      }),
+    ).toBe("https://cdn.example/icon.png");
+
+    expect(
+      resolveOgImageUrl({
+        entityImageUrl: null,
+        dashboardOgImageUrl: null,
+        brandingIconUrl: null,
+      }),
+    ).toBeUndefined();
+  });
+});
+
+describe("makeRootMetadata OG + store name", () => {
+  const prevEnv = process.env.VERCEL_ENV;
+
+  beforeEach(() => {
+    process.env.VERCEL_ENV = "production";
+  });
+
+  afterEach(() => {
+    process.env.VERCEL_ENV = prevEnv;
+  });
+
+  it("emits absolute OG/Twitter images when dashboard ogImageUrl is set", () => {
+    const meta = makeRootMetadata({
+      title: "Acme",
+      siteName: "Acme",
+      ogImageUrl: "https://cdn.example/og.jpg",
+    });
+
+    expect(meta.openGraph?.images).toEqual([
+      { url: "https://cdn.example/og.jpg" },
+    ]);
+    expect(meta.twitter?.images).toEqual(["https://cdn.example/og.jpg"]);
+    expect(meta.openGraph?.siteName).toBe("Acme");
+  });
+
+  it("uses branding icon for OG when no ogImageUrl", () => {
+    const meta = makeRootMetadata({
+      siteName: "Acme",
+      iconUrl: "https://cdn.example/icon.png",
+    });
+    expect(meta.openGraph?.images).toEqual([
+      { url: "https://cdn.example/icon.png" },
+    ]);
+  });
+
+  it("noindexes when allowIndexing is false", () => {
+    const meta = makeRootMetadata({
+      siteName: "Acme",
+      allowIndexing: false,
+    });
+    expect(meta.robots).toEqual({ index: false, follow: false });
+  });
+});
+
 describe("makeSeoMetadata fallback chain (FE-09)", () => {
-  it("RED (FE-09 / plan 03-06): when Yoast/seo is absent, returns the TEMPLATED fallback title + description", () => {
+  it("when Yoast/seo is absent, returns the TEMPLATED fallback title + description", () => {
     const meta = makeSeoMetadata(null, {
       title: "Widgets",
       description: "All our widgets",
+      storeName: "Acme",
     });
 
-    // Contract FE-09 must satisfy: the fallback is templated with the site
-    // name (not the bare entity title). Until plan 03-06 wires the template,
-    // this assertion is RED — that is intentional.
-    expect(meta.title).toBe("Widgets | HeadKit");
-    // Description must be the non-empty fallback, never undefined/empty.
+    expect(meta.title).toBe("Widgets | Acme");
     expect(meta.description).toBe("All our widgets");
+    expect(meta.openGraph?.siteName).toBe("Acme");
   });
 
   it("when seo.title is present, the SEO title wins over the fallback", () => {
@@ -35,27 +186,28 @@ describe("makeSeoMetadata fallback chain (FE-09)", () => {
         title: "Premium Widgets",
         metaDesc: "Our finest widgets",
       } as Parameters<typeof makeSeoMetadata>[0],
-      { title: "Widgets", description: "All our widgets" },
+      { title: "Widgets", description: "All our widgets", storeName: "Acme" },
     );
 
     expect(meta.title).toBe("Premium Widgets");
     expect(meta.description).toBe("Our finest widgets");
   });
+
+  it("treats seo.title Home as not real and uses templated fallback", () => {
+    const meta = makeSeoMetadata(
+      { title: "Home" } as Parameters<typeof makeSeoMetadata>[0],
+      { title: "Widgets", storeName: "Acme" },
+    );
+    expect(meta.title).toBe("Widgets | Acme");
+  });
 });
 
-/**
- * make-metadata fallback canonical + ogImage overrides (07-01 / SEO-PDP-COLORWAY).
- *
- * The PDP computes a per-colorway canonical + variant OG image and threads them
- * through the fallback arg. These pin that override contract: fallback.canonical
- * is used as the canonical (and openGraph.url) when seo is absent, seo.canonical
- * still wins when present, and fallback.ogImage populates openGraph.images.
- */
 describe("makeSeoMetadata fallback canonical + ogImage overrides (07-01)", () => {
   it("uses fallback.canonical for alternates.canonical + openGraph.url when seo is absent", () => {
     const meta = makeSeoMetadata(null, {
       title: "Performance Jersey",
       canonical: "https://shop.example/products/performance-jersey/blue",
+      storeName: "Acme",
     });
 
     expect(meta.alternates?.canonical).toBe(
@@ -74,6 +226,7 @@ describe("makeSeoMetadata fallback canonical + ogImage overrides (07-01)", () =>
       {
         title: "Performance Jersey",
         canonical: "https://shop.example/products/performance-jersey/blue",
+        storeName: "Acme",
       },
     );
 
@@ -87,36 +240,48 @@ describe("makeSeoMetadata fallback canonical + ogImage overrides (07-01)", () =>
     const meta = makeSeoMetadata(null, {
       title: "Performance Jersey",
       ogImage: "https://cdn.example/blue-variation.jpg",
+      storeName: "Acme",
     });
 
     expect(meta.openGraph?.images).toEqual([
-      "https://cdn.example/blue-variation.jpg",
+      { url: "https://cdn.example/blue-variation.jpg" },
+    ]);
+  });
+
+  it("entity ogImage beats dashboard ogImageUrl", () => {
+    const meta = makeSeoMetadata(null, {
+      title: "Jersey",
+      ogImage: "https://cdn.example/entity.jpg",
+      dashboardOgImageUrl: "https://cdn.example/dash.jpg",
+      brandingIconUrl: "https://cdn.example/icon.png",
+      storeName: "Acme",
+    });
+    expect(meta.openGraph?.images).toEqual([
+      { url: "https://cdn.example/entity.jpg" },
     ]);
   });
 });
 
 describe("seoFallbackDescription per-entity templates (FE-09 / D-04)", () => {
   it("returns distinct, non-empty defaults for product / category / page", () => {
-    const product = seoFallbackDescription("product", "Widgets");
-    const category = seoFallbackDescription("category", "Widgets");
-    const page = seoFallbackDescription("page", "About Us");
+    const product = seoFallbackDescription("product", "Widgets", "Acme");
+    const category = seoFallbackDescription("category", "Widgets", "Acme");
+    const page = seoFallbackDescription("page", "About Us", "Acme");
 
     expect(product).not.toBe("");
     expect(category).not.toBe("");
     expect(page).not.toBe("");
-
-    // Each entity type produces a distinct template.
     expect(new Set([product, category, page]).size).toBe(3);
-
-    // Each default mentions the entity name.
     expect(product).toContain("Widgets");
+    expect(product).toContain("Acme");
     expect(category).toContain("Widgets");
     expect(page).toContain("About Us");
   });
 
-  it("falls back to the site name when the entity name is empty", () => {
-    const desc = seoFallbackDescription("product", "");
+  it("falls back to the store name when the entity name is empty", () => {
+    const desc = seoFallbackDescription("product", "", "Acme");
     expect(desc).not.toBe("");
-    expect(desc).toContain("HeadKit");
+    expect(desc).toContain("Acme");
+    expect(desc).not.toContain("HeadKit");
   });
 });

@@ -2,47 +2,20 @@ import type { Metadata } from "next";
 import type { SeoData } from "@headkit/sdk";
 
 const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
-const SITE_NAME = "HeadKit";
 
-function stripTags(html?: string | null): string {
-  return (html ?? "").replace(/<[^>]*>/g, "");
-}
+/** WP / CMS titles that are not real SEO — fall through to dashboard / store name. */
+const GENERIC_SEO_TITLES = new Set([
+  "home",
+  "homepage",
+  "untitled",
+  "auto draft",
+  "auto-draft",
+]);
 
 export type SeoEntityType = "product" | "category" | "page";
 
-/**
- * Templated per-entity SEO description fallback (FE-09 / D-04).
- *
- * When Yoast / SDK SEOData is absent, every entity route still needs a
- * non-empty, sensible description. This returns a distinct templated default
- * per entity type built only from the public entity name — no sensitive data.
- */
-export function seoFallbackDescription(
-  entityType: SeoEntityType,
-  name: string,
-): string {
-  const trimmed = (name ?? "").trim();
-  const label = trimmed.length > 0 ? trimmed : SITE_NAME;
-  switch (entityType) {
-    case "product":
-      return `Shop ${label} at ${SITE_NAME}. View details, pricing, and availability.`;
-    case "category":
-      return `Browse ${label} at ${SITE_NAME}. Discover products in the ${label} collection.`;
-    case "page":
-      return `${label} — read more on ${SITE_NAME}.`;
-  }
-}
-
-/**
- * Templated per-entity SEO title fallback (FE-09 / D-04).
- *
- * When Yoast / SDK SEOData is absent, the title floor is the entity name
- * suffixed with the site name (e.g. "Widgets | HeadKit"). When the entity
- * name itself is empty, fall back to the bare site name.
- */
-function seoFallbackTitle(name?: string | null): string {
-  const trimmed = (name ?? "").trim();
-  return trimmed.length > 0 ? `${trimmed} | ${SITE_NAME}` : SITE_NAME;
+function stripTags(html?: string | null): string {
+  return (html ?? "").replace(/<[^>]*>/g, "");
 }
 
 function normalizeUrl(url?: string | null): string | undefined {
@@ -51,69 +24,193 @@ function normalizeUrl(url?: string | null): string | undefined {
   return url;
 }
 
-/** Build root (homepage) metadata from optional title/description overrides. */
+/** True when a Yoast/CMS title is real SEO (not empty or a generic WP default). */
+export function isRealSeoTitle(title?: string | null): boolean {
+  const trimmed = (title ?? "").trim();
+  if (!trimmed) return false;
+  return !GENERIC_SEO_TITLES.has(trimmed.toLowerCase());
+}
+
+/**
+ * Resolve the store display name used in titles / fallbacks.
+ * Never returns HeadKit marketing copy as a tenant default.
+ */
+export function resolveStoreName(storeName?: string | null): string {
+  const trimmed = (storeName ?? "").trim();
+  return trimmed.length > 0 ? trimmed : "Store";
+}
+
+/**
+ * Footer blurb: dashboard SEO description → else store name only.
+ * Never falls back to HeadKit marketing copy.
+ */
+export function resolveFooterDescription(
+  seoDescription?: string | null,
+  storeName?: string | null,
+): string {
+  const desc = seoDescription?.trim();
+  if (desc) return desc;
+  return resolveStoreName(storeName);
+}
+
+/**
+ * Home title hierarchy: real Yoast/WP title → dashboard SEO title → store name.
+ * WP `"Home"` (and similar) is not real SEO.
+ */
+export function resolveHomeTitle(options: {
+  yoastTitle?: string | null;
+  dashboardTitle?: string | null;
+  storeName?: string | null;
+}): string {
+  if (isRealSeoTitle(options.yoastTitle)) {
+    return (options.yoastTitle ?? "").trim();
+  }
+  const dashboard = options.dashboardTitle?.trim();
+  if (dashboard) return dashboard;
+  return resolveStoreName(options.storeName);
+}
+
+/**
+ * Home description hierarchy: Yoast metaDesc → dashboard description → empty
+ * (layout/OG can still omit empty description; never HeadKit marketing copy).
+ */
+export function resolveHomeDescription(options: {
+  yoastDescription?: string | null;
+  dashboardDescription?: string | null;
+}): string {
+  const yoast = options.yoastDescription?.trim();
+  if (yoast) return yoast;
+  return options.dashboardDescription?.trim() ?? "";
+}
+
+/**
+ * OG / Twitter image precedence:
+ * Yoast entity image → dashboard `ogImageUrl` → branding icon → none.
+ */
+export function resolveOgImageUrl(options: {
+  entityImageUrl?: string | null;
+  dashboardOgImageUrl?: string | null;
+  brandingIconUrl?: string | null;
+}): string | undefined {
+  return (
+    normalizeUrl(options.entityImageUrl) ??
+    normalizeUrl(options.dashboardOgImageUrl) ??
+    normalizeUrl(options.brandingIconUrl)
+  );
+}
+
+/** Production + store allowIndexing → index/follow; preview always noindex. */
+export function resolveRobots(allowIndexing = true): Metadata["robots"] {
+  const isProduction = process.env.VERCEL_ENV === "production";
+  const index = isProduction && allowIndexing;
+  return { index, follow: index };
+}
+
+/**
+ * Templated per-entity SEO description fallback (FE-09 / D-04).
+ *
+ * When Yoast / SDK SEOData is absent, every entity route still needs a
+ * non-empty, sensible description built from the entity name + store name.
+ */
+export function seoFallbackDescription(
+  entityType: SeoEntityType,
+  name: string,
+  storeName?: string | null,
+): string {
+  const site = resolveStoreName(storeName);
+  const trimmed = (name ?? "").trim();
+  const label = trimmed.length > 0 ? trimmed : site;
+  switch (entityType) {
+    case "product":
+      return `Shop ${label} at ${site}. View details, pricing, and availability.`;
+    case "category":
+      return `Browse ${label} at ${site}. Discover products in the ${label} collection.`;
+    case "page":
+      return `${label} — read more on ${site}.`;
+  }
+}
+
+/**
+ * Templated per-entity SEO title fallback.
+ * Floor is "{name} | {storeName}" (or bare store name when entity name empty).
+ */
+function seoFallbackTitle(
+  name?: string | null,
+  storeName?: string | null,
+): string {
+  const site = resolveStoreName(storeName);
+  const trimmed = (name ?? "").trim();
+  return trimmed.length > 0 ? `${trimmed} | ${site}` : site;
+}
+
+/** Build root (homepage / layout) metadata from optional overrides. */
 export function makeRootMetadata(options?: {
   title?: string | null;
   description?: string | null;
   siteName?: string | null;
   /**
-   * Per-store branding icon URL (ENG-572). When set it drives the browser-tab
-   * favicon, the apple-touch icon, and the OG/Twitter share image. When null/
-   * undefined every icon key is omitted so Next.js keeps the file-convention
-   * default (`app/favicon.ico` / `app/icon0.svg`).
+   * Per-store branding icon URL (ENG-572). Used for favicon via
+   * {@link brandingIcons}; also OG/Twitter fallback when no dedicated OG image.
    */
   iconUrl?: string | null;
+  /** Dashboard SEO OG image (takes precedence over branding icon for shares). */
+  ogImageUrl?: string | null;
+  /** Store-level “show on search engines” — default true. */
+  allowIndexing?: boolean;
 }): Metadata {
-  const title = options?.title ?? options?.siteName ?? "HeadKit";
+  const siteName = resolveStoreName(options?.siteName);
+  const title = options?.title?.trim() || siteName;
   const description = stripTags(options?.description ?? "");
-  const siteName = options?.siteName ?? "HeadKit";
-  const iconUrl = normalizeUrl(options?.iconUrl);
+  const shareImage = resolveOgImageUrl({
+    dashboardOgImageUrl: options?.ogImageUrl,
+    brandingIconUrl: options?.iconUrl,
+  });
+  const allowIndexing = options?.allowIndexing !== false;
 
   return {
     title,
     description,
     metadataBase: new URL(SITE_URL || "http://localhost:3000"),
     applicationName: siteName,
-    // NOTE: favicon `icons` are intentionally NOT set here. They are site-wide
-    // and belong to the ROOT layout only (via `brandingIcons`). Emitting them
-    // here would let every page-level `makeRootMetadata` caller (e.g. the
-    // homepage) clobber the layout's per-store favicon on merge (ENG-572).
-    //
-    // Share/OG icon uses the branding asset only when configured (unchanged
-    // default behavior when absent).
-    ...(iconUrl
+    robots: resolveRobots(allowIndexing),
+    // NOTE: favicon `icons` are intentionally NOT set here — layout-only via
+    // brandingIcons so page metadata cannot clobber the per-store tab icon.
+    ...(shareImage
       ? {
           openGraph: {
             type: "website",
             title,
             description,
             siteName,
-            images: [iconUrl],
+            images: [{ url: shareImage }],
+          },
+          twitter: {
+            card: "summary_large_image",
+            title,
+            description,
+            images: [shareImage],
+          },
+        }
+      : {
+          openGraph: {
+            type: "website",
+            title,
+            description,
+            siteName,
           },
           twitter: {
             card: "summary",
             title,
             description,
-            images: [iconUrl],
           },
-        }
-      : {}),
+        }),
   };
 }
 
 /**
  * Build the site-wide favicon `icons` metadata (ENG-572).
  *
- * Call this ONLY from the root layout's `generateMetadata` — icons are a
- * layout-level concern and must not be re-emitted by page metadata (which would
- * override the per-store favicon on merge).
- *
- * The static file-convention tab icons (`app/favicon.ico` / `icon0.svg` /
- * `icon1.png`) were removed so this is the single source of `<link rel="icon">`.
- * Otherwise Next always emits `/favicon.ico` (sizes="48x48") and browsers prefer
- * the `.ico`, so the store asset never wins the tab. Falls back to the bundled
- * default mark (`public/icon-default.svg`, the former `icon0.svg`) when no
- * branding icon is set.
+ * Call this ONLY from the root layout's `generateMetadata`.
  */
 export function brandingIcons(
   iconUrl?: string | null,
@@ -123,8 +220,6 @@ export function brandingIcons(
   return {
     icon: [{ url: favicon }],
     shortcut: favicon,
-    // apple-touch: branding icon when set; otherwise the static
-    // `app/apple-icon.png` convention supplies the default.
     ...(normalized ? { apple: normalized } : {}),
   };
 }
@@ -137,49 +232,61 @@ export function makeSeoMetadata(
     description: string;
     /** Explicit canonical URL the caller computed (e.g. PDP per-colorway). */
     canonical: string;
-    /** Explicit OG image the caller computed (e.g. variant image). */
+    /** Explicit OG image the caller computed (e.g. variant / Yoast image). */
     ogImage: string;
+    /** Dashboard SEO OG image (after entity, before branding icon). */
+    dashboardOgImageUrl: string;
+    /** Branding icon as last OG fallback. */
+    brandingIconUrl: string;
+    /** Store name for title templates / openGraph.siteName. */
+    storeName: string;
+    /** Store-level allow indexing (default true). */
+    allowIndexing: boolean;
   }>,
 ): Metadata {
-  const isProduction = process.env.VERCEL_ENV === "production";
+  const storeName = resolveStoreName(fallback?.storeName);
+  const allowIndexing = fallback?.allowIndexing !== false;
 
-  // Real SEO title wins verbatim; otherwise emit the templated per-entity
-  // fallback ("{name} | HeadKit") so Yoast-less entities still get a sane
-  // title floor (FE-09 / D-04).
-  const title = seo?.title ?? seoFallbackTitle(fallback?.title);
+  // Real SEO title wins; generic WP titles fall through to templated fallback.
+  const seoTitle = isRealSeoTitle(seo?.title) ? seo!.title.trim() : null;
+  const title = seoTitle ?? seoFallbackTitle(fallback?.title, storeName);
   const description = stripTags(
     seo?.metaDesc ?? seo?.opengraphDescription ?? fallback?.description,
   );
-  // Canonical precedence: explicit seo.canonical wins; otherwise the caller's
-  // computed fallback.canonical (PDP per-colorway self-canonical). Both are
-  // normalized to absolute URLs.
   const canonical =
     normalizeUrl(seo?.canonical) ?? normalizeUrl(fallback?.canonical);
-  // OG image override (variant image for a colorway). When set, becomes the
-  // single openGraph image.
-  const ogImage = normalizeUrl(fallback?.ogImage);
+
+  const entityOg =
+    (seo as SeoData & { opengraphImageUrl?: string | null })
+      ?.opengraphImageUrl ??
+    (seo as SeoData & { twitterImageUrl?: string | null })?.twitterImageUrl ??
+    null;
+
+  const ogImage = resolveOgImageUrl({
+    entityImageUrl: fallback?.ogImage ?? entityOg,
+    dashboardOgImageUrl: fallback?.dashboardOgImageUrl,
+    brandingIconUrl: fallback?.brandingIconUrl,
+  });
 
   return {
     title,
     description,
     metadataBase: new URL(SITE_URL || "http://localhost:3000"),
     alternates: canonical ? { canonical } : undefined,
-    robots: {
-      index: isProduction,
-      follow: isProduction,
-    },
+    robots: resolveRobots(allowIndexing),
     openGraph: {
       type: "website",
-      title: seo?.opengraphTitle ?? title,
+      title: seo?.opengraphTitle || title,
       description: stripTags(seo?.opengraphDescription ?? description),
       url: canonical,
-      siteName: "HeadKit",
-      ...(ogImage ? { images: [ogImage] } : {}),
+      siteName: storeName,
+      ...(ogImage ? { images: [{ url: ogImage }] } : {}),
     },
     twitter: {
-      card: "summary_large_image",
-      title: seo?.twitterTitle ?? title,
+      card: ogImage ? "summary_large_image" : "summary",
+      title: seo?.twitterTitle || title,
       description: stripTags(seo?.twitterDescription ?? description),
+      ...(ogImage ? { images: [ogImage] } : {}),
     },
   };
 }

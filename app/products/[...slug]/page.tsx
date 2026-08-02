@@ -12,6 +12,7 @@ import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { ProductJsonLD } from "@/components/seo/product-json-ld";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { makeSeoMetadata } from "@/lib/make-metadata";
+import { getBranding, getBrandingAssets } from "@/lib/branding";
 import { isColorAttrSlug } from "@/components/headkit-ui/collection/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -139,20 +140,32 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (productSlug === STATIC_GEN_PLACEHOLDER_SLUG) return {};
 
   try {
-    const product = await getProduct(productSlug);
+    const [product, { seoSettings, storeSettings }, { iconUrl }] =
+      await Promise.all([
+        getProduct(productSlug),
+        getBranding(),
+        getBrandingAssets(),
+      ]);
     if (!product) {
       return { robots: { index: false, follow: false } };
     }
 
     const desc = product.shortDescription || product.description;
     const baseCanonical = `${SITE_URL}/products/${productSlug}`;
+    const brandingOpts = {
+      storeName: storeSettings.name ?? undefined,
+      dashboardOgImageUrl: seoSettings.ogImageUrl ?? undefined,
+      brandingIconUrl: iconUrl ?? undefined,
+      allowIndexing: seoSettings.allowIndexing,
+    } as const;
 
     // Base product URL (no color in path): self-canonical, index in prod (S2).
     if (!colorSlug) {
-      return makeSeoMetadata(null, {
+      return makeSeoMetadata(product.seo ?? null, {
         title: product.name,
         canonical: baseCanonical,
         ...(desc ? { description: desc } : {}),
+        ...brandingOpts,
       });
     }
 
@@ -173,11 +186,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     );
     const ogImage = variation?.image?.src ?? product.image?.src;
 
-    return makeSeoMetadata(null, {
+    return makeSeoMetadata(product.seo ?? null, {
       title: `${product.name} – ${colorOption.name}`,
       canonical: `${baseCanonical}/${colorSlug}`,
       ...(ogImage ? { ogImage } : {}),
       ...(desc ? { description: desc } : {}),
+      ...brandingOpts,
     });
   } catch {
     return { robots: { index: false, follow: false } };

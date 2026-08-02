@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit } from "@/lib/sdk";
+import { getBranding } from "@/lib/branding";
 import {
   encodeFilterSlug,
   isColorAttrSlug,
@@ -207,6 +208,12 @@ async function makePostSitemap(): Promise<SitemapItem[]> {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // Sitemap off = remove completely (no entries). robots.ts omits the Sitemap line.
+  const { seoSettings } = await getBranding();
+  if (!seoSettings.enableSitemap) {
+    return [];
+  }
+
   const [productSitemap, collectionSitemap, brandSitemap, postSitemap] =
     await Promise.all([
       makeProductSitemap(),
