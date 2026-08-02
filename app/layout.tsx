@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 import {
   NavigationWrapper,
@@ -20,10 +21,14 @@ import { getBranding, getBrandingAssets } from "@/lib/branding";
 import { resolveBrandFonts } from "@/lib/brand-fonts";
 import { BrandingIconsProvider } from "@/components/branding/branding-icons-provider";
 import { GoogleTagManager } from "@next/third-parties/google";
+import { getEmailMarketingStatus } from "@/lib/email-marketing";
+import { Toaster } from "@/components/ui/toaster";
 
 // Build-time env GTM id (kept as a fallback); per-tenant gtmId from
 // dashboard-api StoreSettings takes precedence at runtime (FE-08).
 const ENV_GTM_ID = process.env.NEXT_PUBLIC_GTM_ID;
+// Env Klaviyo public key fallback; store emailConnection.publicApiKey wins.
+const ENV_KLAVIYO_PUBLIC_KEY = process.env.NEXT_PUBLIC_KLAVIYO_PUBLIC_KEY;
 const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 
 const HEX_OR_RGB =
@@ -84,11 +89,23 @@ export default async function RootLayout({
 }>) {
   // Per-tenant branding + CMS footer menus (Footer / Footer 2 / Footer Policy).
   // Both degrade gracefully (branding → defaults; empty menus → static footer).
-  const [{ branding, storeSettings, seoSettings }, footerMenus, { iconUrl }] =
-    await Promise.all([getBranding(), getFooterMenus(), getBrandingAssets()]);
+  const [
+    { branding, storeSettings, seoSettings },
+    footerMenus,
+    { iconUrl },
+    emailMarketing,
+  ] = await Promise.all([
+    getBranding(),
+    getFooterMenus(),
+    getBrandingAssets(),
+    getEmailMarketingStatus(),
+  ]);
 
   const siteName = resolveStoreName(storeSettings.name);
   const gtmId = storeSettings.gtmId ?? ENV_GTM_ID;
+  const klaviyoPublicKey =
+    emailMarketing.publicApiKey || ENV_KLAVIYO_PUBLIC_KEY || null;
+  const showFooterSubscribe = emailMarketing.enabled;
   // Footer blurb: dashboard SEO description → else store name only.
   const siteDescription = resolveFooterDescription(
     seoSettings.description,
@@ -161,6 +178,14 @@ export default async function RootLayout({
         {/* GTM — per-tenant StoreSettings.gtmId, falling back to env (FE-08) */}
         {gtmId && <GoogleTagManager gtmId={gtmId} />}
 
+        {/* Klaviyo onsite — sets __kla_id for abandoned-cart identity when connected */}
+        {klaviyoPublicKey ? (
+          <Script
+            src={`https://static.klaviyo.com/onsite/js/klaviyo.js?company_id=${encodeURIComponent(klaviyoPublicKey)}`}
+            strategy="afterInteractive"
+          />
+        ) : null}
+
         <WebsiteJsonLD
           siteName={siteName}
           siteUrl={SITE_URL}
@@ -183,6 +208,7 @@ export default async function RootLayout({
                 description={siteDescription}
                 menus={footerMenus}
                 iconUrl={branding.iconUrl}
+                showSubscribe={showFooterSubscribe}
                 socialLinks={{
                   instagram: "https://www.instagram.com/headkitcommerce",
                   discord: "https://discord.gg/bSNe29JtsX",
@@ -192,6 +218,7 @@ export default async function RootLayout({
                   youtube: "https://www.youtube.com/@headkit-commerce",
                 }}
               />
+              <Toaster />
             </CartProvider>
           </AuthProvider>
         </BrandingIconsProvider>

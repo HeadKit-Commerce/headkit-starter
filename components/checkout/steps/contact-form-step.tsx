@@ -23,6 +23,7 @@ import { decideContactSubmit } from "@/lib/contact-email-submit";
 import { useCheckoutActions } from "@/app/checkout/checkout-actions-context";
 import { useToast } from "@/hooks/use-toast";
 import { CheckoutFormStepEnum } from "@/components/checkout/utils";
+import { subscribeEmailAction } from "@/lib/email-marketing-actions";
 
 const contactSchema = z.object({
   email: z.string().min(1, "Email is required").email("Invalid email"),
@@ -36,6 +37,8 @@ interface ContactFormStepProps {
   defaultValues?: { email?: string; newsletter?: boolean };
   /** When provided, creates a new checkout session and updates cart on email submit instead of using Stripe updateEmail. */
   onRefreshSession?: (email: string, nextStep: string) => Promise<void>;
+  /** When false/undefined, hide the newsletter opt-in (no Klaviyo). */
+  emailMarketingEnabled?: boolean;
 }
 
 const ContactFormStep: React.FC<ContactFormStepProps> = ({
@@ -44,6 +47,7 @@ const ContactFormStep: React.FC<ContactFormStepProps> = ({
   defaultValues = { email: "", newsletter: false },
   buttonLabel = "Next",
   onRefreshSession,
+  emailMarketingEnabled = false,
 }) => {
   const checkoutState = useCheckout();
   const { actions } = useCheckoutActions();
@@ -96,6 +100,16 @@ const ContactFormStep: React.FC<ContactFormStepProps> = ({
     }
   }, [defaultValues.email, defaultValues.newsletter, form]);
 
+  const maybeSubscribe = (data: z.infer<typeof contactSchema>) => {
+    // Best-effort list subscribe — never blocks checkout.
+    if (emailMarketingEnabled && data.newsletter) {
+      void subscribeEmailAction({
+        email: data.email,
+        source: "checkout",
+      });
+    }
+  };
+
   const handleSubmit = async (data: z.infer<typeof contactSchema>) => {
     try {
       // Branch selection is extracted to a pure, unit-tested helper — the
@@ -121,6 +135,7 @@ const ContactFormStep: React.FC<ContactFormStepProps> = ({
           { keepCheckoutSession: true },
         );
         if (!result.success) throw new Error(result.error);
+        maybeSubscribe(data);
         await onRefreshSession(
           data.email,
           CheckoutFormStepEnum.DELIVERY_METHOD,
@@ -131,6 +146,7 @@ const ContactFormStep: React.FC<ContactFormStepProps> = ({
       // Scene 2: email prefilled from cart and Stripe already has email.
       // When email unchanged, do NOT call updateEmail (Stripe forbids it). Just advance.
       if (decision === "advance") {
+        maybeSubscribe(data);
         onNext(data);
         return;
       }
@@ -160,6 +176,8 @@ const ContactFormStep: React.FC<ContactFormStepProps> = ({
         );
         if (!res.success) throw new Error(res.error);
       }
+
+      maybeSubscribe(data);
       onNext(data);
     } catch (err) {
       toast({
@@ -217,25 +235,28 @@ const ContactFormStep: React.FC<ContactFormStepProps> = ({
             />
           )}
 
-          <FormField
-            control={form.control}
-            name="newsletter"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-start space-x-2 space-y-0">
-                <FormControl>
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-                <div className="space-y-1 leading-none">
-                  <FormLabel>
-                    Email me with the latest news, products and special offers.
-                  </FormLabel>
-                </div>
-              </FormItem>
-            )}
-          />
+          {emailMarketingEnabled ? (
+            <FormField
+              control={form.control}
+              name="newsletter"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-2 space-y-0">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>
+                      Email me with the latest news, products and special
+                      offers.
+                    </FormLabel>
+                  </div>
+                </FormItem>
+              )}
+            />
+          ) : null}
 
           <Button
             type="submit"

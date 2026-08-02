@@ -42,6 +42,7 @@ import {
   writeBillingAddressCookie,
   clearBillingAddressCookie,
 } from "@/lib/checkout-billing-cookie";
+import { getEmailMarketingStatusAction } from "@/lib/email-marketing-actions";
 
 export type Step =
   | CheckoutFormStepEnum.CONTACT
@@ -161,6 +162,7 @@ function CheckoutSteps({
     return new Set();
   });
 
+  const [emailMarketingEnabled, setEmailMarketingEnabled] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     email: initialEmail ?? "",
     newsletter: false,
@@ -168,6 +170,16 @@ function CheckoutSteps({
     shippingAddress: null,
     billingAddress: null,
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    void getEmailMarketingStatusAction().then((status) => {
+      if (!cancelled) setEmailMarketingEnabled(status.enabled);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -744,6 +756,7 @@ function CheckoutSteps({
               newsletter: formData.newsletter,
             }}
             buttonLabel="Continue to Delivery"
+            emailMarketingEnabled={emailMarketingEnabled}
             {...(onRefreshSession && { onRefreshSession })}
           />
         </AccordionWrapper>

@@ -41,6 +41,7 @@ describe("TAG builders emit the D2 taxonomy strings", () => {
     expect(TAG.menu("PRIMARY")).toBe("headkit:menu:PRIMARY");
     expect(TAG.footer).toBe("headkit:footer");
     expect(TAG.branding).toBe("headkit:branding");
+    expect(TAG.emailMarketing).toBe("headkit:email-marketing");
     expect(TAG.route("home")).toBe("headkit:route:home");
     expect(TAG.route("shop")).toBe("headkit:route:shop");
     expect(TAG.route("sale")).toBe("headkit:route:sale");
@@ -273,6 +274,7 @@ describe("TAG taxonomy parity guard (anchors the 09.5-06 PHP mirror)", () => {
       TAG.menu("X").replace(/X$/, ""),
       TAG.footer,
       TAG.branding,
+      TAG.emailMarketing,
       TAG.route("home").replace(/home$/, ""),
       TAG.catalog,
       TAG.settings,

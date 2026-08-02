@@ -36,6 +36,11 @@ import {
   buildFieldIdByName,
   buildFieldValues,
 } from "@/lib/gravity-form-utils";
+import { subscribeEmailAction } from "@/lib/email-marketing-actions";
+import {
+  extractEmailFromFormValues,
+  hasMarketingOptIn,
+} from "@/lib/email-marketing-utils";
 
 interface GravityFormProps {
   id?: string;
@@ -386,6 +391,19 @@ export const GravityForm = ({
         saveAsDraft: false,
         fieldValues: buildFieldValues(allValues, fieldIdByName),
       });
+
+      // Opt-in mailing list: when a marketing checkbox is checked and an email
+      // is present, best-effort subscribe (no-ops if Klaviyo is not connected).
+      const stringValues = allValues as Record<string, string>;
+      if (
+        formFields &&
+        hasMarketingOptIn(formFields, stringValues, snakeCase)
+      ) {
+        const email = extractEmailFromFormValues(stringValues);
+        if (email) {
+          void subscribeEmailAction({ email, source: "form" });
+        }
+      }
 
       if (onSubmit) {
         await onSubmit(values);

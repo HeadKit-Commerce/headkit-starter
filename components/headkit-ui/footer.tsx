@@ -14,9 +14,7 @@ import {
   ApplePayIcon,
   GooglePayIcon,
 } from "@/components/icon";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import { FooterSubscribe } from "@/components/headkit-ui/footer-subscribe";
 
 // ---------------------------------------------------------------------------
 // HeadKit SVG assets
@@ -109,6 +107,8 @@ interface FooterProps {
   description?: string;
   socialLinks?: SocialLinks;
   paymentMethods?: PaymentMethod[];
+  /** When true, show the mailing-list subscribe box (Klaviyo connected). */
+  showSubscribe?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -140,28 +140,6 @@ const SOCIAL_ICON_MAP = {
   youtube: YoutubeIcon,
 } as const;
 
-function SubscriptionBox() {
-  return (
-    <div className="flex flex-col gap-2">
-      <Label className="text-primary font-semibold text-lg">Subscribe</Label>
-      {/* Below lg the column is too narrow for the overlaid button (it sat on
-          top of the input, hiding the text — F7): stack input + button. From
-          lg: keep the overlay look, with input padding so text never runs
-          under the button. */}
-      <form className="relative flex flex-col gap-2 lg:flex-row">
-        <Input
-          type="email"
-          placeholder="Enter your email"
-          required
-          className="lg:pr-28"
-        />
-        <Button type="submit" className="lg:absolute lg:right-0 lg:top-0">
-          Subscribe
-        </Button>
-      </form>
-    </div>
-  );
-}
 
 function FooterMenuColumn({
   name,
@@ -202,6 +180,7 @@ export function Footer({
   description,
   socialLinks,
   paymentMethods = DEFAULT_PAYMENT_METHODS,
+  showSubscribe = false,
 }: FooterProps) {
   const footerMenus = menus.slice(0, 2).filter(
     (menu) => (menu.items?.length ?? 0) > 0,
@@ -286,9 +265,9 @@ export function Footer({
           ))}
         </div>
 
-        {/* Right: subscribe box + payment icons */}
+        {/* Right: subscribe box (Klaviyo only) + payment icons */}
         <div className="flex flex-col justify-between">
-          <SubscriptionBox />
+          {showSubscribe ? <FooterSubscribe /> : null}
           {paymentMethods.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-3 md:justify-end">
               {paymentMethods.map((method) => {

@@ -64,6 +64,8 @@ export const TAG = {
   menu: (loc: string): string => `headkit:menu:${loc}`,
   footer: "headkit:footer",
   branding: "headkit:branding",
+  /** Store email marketing (Klaviyo) connection status — layout chrome. */
+  emailMarketing: "headkit:email-marketing",
   // route / synthetic-landing (filter pages have no collection entity)
   route: (r: "home" | "shop" | "sale" | "new"): string => `headkit:route:${r}`,
   // global
@@ -145,6 +147,7 @@ const KNOWN_EXACT_TAGS: ReadonlySet<string> = new Set([
   TAG.pages,
   TAG.footer,
   TAG.branding,
+  TAG.emailMarketing,
   TAG.catalog,
   TAG.settings,
 ]);
