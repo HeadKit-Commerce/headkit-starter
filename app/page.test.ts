@@ -39,6 +39,7 @@ vi.mock("@/lib/process-editor-blocks", () => ({
     segments: unknown[];
   } => ({ blocks: [], leftoverHtml: "", segments: [] }),
   getBlockQueryType: (): null => null,
+  hasEditorSectionClass: (): boolean => false,
 }));
 vi.mock("@/lib/make-metadata", () => ({
   makeRootMetadata: (): Record<string, unknown> => ({}),

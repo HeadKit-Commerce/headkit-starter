@@ -2,9 +2,12 @@ import "./../../app/_editorial/wp-block-library.css";
 import { Button } from "@/components/ui/button";
 import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
+import { CategoryCarousel } from "@/components/headkit-ui/category-carousel";
+import { BrandCarousel } from "@/components/headkit-ui/brand-carousel";
+import { PostCarousel } from "@/components/headkit-ui/post/post-carousel";
 import { sanitizeContent } from "@/lib/sanitize-content";
 import type { ProcessedEditorBlock } from "@/lib/process-editor-blocks";
-import type { Product } from "@headkit/sdk";
+import type { Product, PostSummaryFieldsFragment } from "@headkit/sdk";
 
 interface Props {
   blocks: ProcessedEditorBlock[];
@@ -23,6 +26,36 @@ const MEDIA_CLASSES = [
 
 function isMediaBlock(cssClasses: string[]): boolean {
   return MEDIA_CLASSES.some((cls) => cssClasses.includes(cls));
+}
+
+function toPostSummaries(
+  posts: NonNullable<ProcessedEditorBlock["posts"]>,
+): PostSummaryFieldsFragment[] {
+  return posts.map((post) => ({
+    __typename: "Post" as const,
+    id: String(post.id ?? post.slug),
+    title: post.title,
+    slug: post.slug,
+    excerpt: post.excerpt ?? "",
+    date: post.date ?? "",
+    uri: post.uri ?? `/news/${post.slug}/`,
+    featuredImage: post.featuredImage?.src
+      ? {
+          __typename: "Image" as const,
+          src: post.featuredImage.src,
+          alt: post.featuredImage.alt ?? post.title,
+          width: post.featuredImage.width ?? 0,
+          height: post.featuredImage.height ?? 0,
+        }
+      : null,
+    categories: (post.categories ?? []).map((c) => ({
+      __typename: "PostCategory" as const,
+      id: c.id ?? c.slug ?? "",
+      name: c.name ?? "",
+      slug: c.slug ?? "",
+      count: 0,
+    })),
+  }));
 }
 
 const BlockEditor = ({ blocks, section }: Props) => {
@@ -60,6 +93,76 @@ const BlockEditor = ({ blocks, section }: Props) => {
               />
               <div className="mt-5">
                 <ProductCarousel products={products} />
+              </div>
+            </div>
+          );
+        }
+
+        if (data.cssClasses.includes("headkit-category-carousel")) {
+          const categories = data.categories ?? [];
+          if (categories.length === 0) return null;
+          return (
+            <div className="py-[30px] overflow-hidden" key={index}>
+              <SectionHeader
+                title={data.title}
+                description={data.description}
+                allButton={data.button?.text ?? ""}
+                allButtonPath={data.button?.url ?? ""}
+                className="px-5 md:px-10"
+              />
+              <div className="mt-5">
+                <CategoryCarousel
+                  categories={categories.map((c) => ({
+                    name: c.name,
+                    slug: c.slug,
+                    uri: c.uri ?? `/shop/categories/${c.slug}`,
+                    thumbnail: c.thumbnail ?? "",
+                  }))}
+                />
+              </div>
+            </div>
+          );
+        }
+
+        if (data.cssClasses.includes("headkit-brand-carousel")) {
+          const brands = data.brands ?? [];
+          if (brands.length === 0) return null;
+          return (
+            <div className="py-[30px] overflow-hidden" key={index}>
+              <SectionHeader
+                title={data.title}
+                description={data.description}
+                allButton={data.button?.text ?? ""}
+                allButtonPath={data.button?.url ?? ""}
+                className="px-5 md:px-10"
+              />
+              <div className="mt-5">
+                <BrandCarousel
+                  brands={brands.map((b) => ({
+                    name: b.name,
+                    slug: b.slug,
+                    thumbnail: b.thumbnail ?? "",
+                  }))}
+                />
+              </div>
+            </div>
+          );
+        }
+
+        if (data.cssClasses.includes("headkit-post-carousel")) {
+          const posts = data.posts ?? [];
+          if (posts.length === 0) return null;
+          return (
+            <div className="py-[30px] overflow-hidden" key={index}>
+              <SectionHeader
+                title={data.title}
+                description={data.description}
+                allButton={data.button?.text ?? ""}
+                allButtonPath={data.button?.url ?? ""}
+                className="px-5 md:px-10"
+              />
+              <div className="mt-5">
+                <PostCarousel posts={toPostSummaries(posts)} />
               </div>
             </div>
           );

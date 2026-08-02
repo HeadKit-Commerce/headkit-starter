@@ -11,6 +11,7 @@ import type {
 import {
   processHomepageContent,
   getBlockQueryType,
+  hasEditorSectionClass,
 } from "@/lib/process-editor-blocks";
 import {
   makeRootMetadata,
@@ -142,6 +143,15 @@ export async function HomeContent() {
     onSaleProducts !== null &&
     onSaleProducts.products.length > 0;
 
+  // Same duplicate policy for Shop by Category / Our Brands when WP patterns
+  // (headkit-category-carousel / headkit-brand-carousel) are on the front page.
+  const showHardcodedCategories =
+    !hasEditorSectionClass(editorBlocks, "headkit-category-carousel") &&
+    featuredCategories.length > 0;
+  const showHardcodedBrands =
+    !hasEditorSectionClass(editorBlocks, "headkit-brand-carousel") &&
+    featuredBrands.length > 0;
+
   return (
     <>
       {featuredProducts.length > 0 && (
@@ -203,8 +213,8 @@ export async function HomeContent() {
         </section>
       )}
 
-      {/* Shop by Category */}
-      {featuredCategories.length > 0 && (
+      {/* Shop by Category — skipped when WP provides headkit-category-carousel */}
+      {showHardcodedCategories && (
         <section className="overflow-hidden py-10">
           <SectionHeader
             title="Shop by Category"
@@ -219,8 +229,8 @@ export async function HomeContent() {
         </section>
       )}
 
-      {/* Brands */}
-      {featuredBrands.length > 0 && (
+      {/* Brands — skipped when WP provides headkit-brand-carousel */}
+      {showHardcodedBrands && (
         <section className="overflow-hidden py-10">
           <SectionHeader
             title="Our Brands"

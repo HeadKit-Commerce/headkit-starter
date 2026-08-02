@@ -4,6 +4,7 @@ import {
   processEditorBlocks,
   extractHeadkitSections,
   getBlockQueryType,
+  hasEditorSectionClass,
 } from "./process-editor-blocks";
 
 const HILIGHT_SECTION = `<div class="wp-block-group headkit-hilight headkit-block-section"><div class="wp-block-group__inner-container"><div class="wp-block-columns"><div class="wp-block-column"><h2 class="wp-block-heading headkit-block-title">About Us</h2><p class="headkit-block-description">We sell great things.</p></div><div class="wp-block-column"><div class="wp-block-buttons headkit-block-buttons"><div class="wp-block-button headkit-block-button"><a class="wp-block-button__link wp-element-button" href="/about">Learn more</a></div></div></div></div></div></div>`;
@@ -131,5 +132,85 @@ describe("getBlockQueryType", () => {
         attrs: null,
       }),
     ).toBeNull();
+  });
+});
+
+describe("hasEditorSectionClass", () => {
+  it("detects HeadKit section classes used to skip hardcoded modules", () => {
+    expect(
+      hasEditorSectionClass(
+        [{ cssClasses: ["headkit-category-carousel", "headkit-block-section"] }],
+        "headkit-category-carousel",
+      ),
+    ).toBe(true);
+    expect(
+      hasEditorSectionClass(
+        [{ cssClasses: ["headkit-product-carousel"] }],
+        "headkit-brand-carousel",
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("category / brand / post hydration from attrs", () => {
+  it("merges categories, brands, and posts onto processed blocks", () => {
+    const CAT_SECTION = `<div class="wp-block-group headkit-category-carousel headkit-block-section"><div class="wp-block-group__inner-container"><h2 class="wp-block-heading headkit-block-title">Shop by Category</h2></div></div>`;
+    const BRAND_SECTION = `<div class="wp-block-group headkit-brand-carousel headkit-block-section"><div class="wp-block-group__inner-container"><h2 class="wp-block-heading headkit-block-title">Our Brands</h2></div></div>`;
+    const POST_SECTION = `<div class="wp-block-group headkit-post-carousel headkit-block-section"><div class="wp-block-group__inner-container"><h2 class="wp-block-heading headkit-block-title">Latest News</h2></div></div>`;
+
+    const { blocks } = processHomepageContent(
+      `${CAT_SECTION}${BRAND_SECTION}${POST_SECTION}`,
+      [
+        {
+          queryType: "featured-categories",
+          attrs: {
+            queryType: "featured-categories",
+            categories: [
+              {
+                name: "Shoes",
+                slug: "shoes",
+                uri: "/shop/shoes",
+                thumbnail: "https://example.com/shoes.jpg",
+              },
+            ],
+          },
+        },
+        {
+          queryType: "featured-brands",
+          attrs: {
+            queryType: "featured-brands",
+            brands: [
+              {
+                name: "Acme",
+                slug: "acme",
+                thumbnail: "https://example.com/acme.png",
+              },
+            ],
+          },
+        },
+        {
+          queryType: "latest-posts",
+          attrs: {
+            queryType: "latest-posts",
+            posts: [
+              {
+                id: 9,
+                title: "Hello",
+                slug: "hello",
+                uri: "/news/hello",
+                featuredImage: { src: "https://example.com/p.jpg", alt: "H" },
+              },
+            ],
+          },
+        },
+      ],
+    );
+
+    expect(blocks).toHaveLength(3);
+    expect(blocks[0]?.categories?.[0]?.slug).toBe("shoes");
+    expect(getBlockQueryType(blocks[0]!)).toBe("featured-categories");
+    expect(blocks[1]?.brands?.[0]?.name).toBe("Acme");
+    expect(blocks[2]?.posts?.[0]?.slug).toBe("hello");
+    expect(blocks[2]?.posts?.[0]?.featuredImage?.src).toContain("p.jpg");
   });
 });

@@ -11,6 +11,10 @@
  * the API, so we take them from rawEditorBlocks[i] at the same index as each
  * headkit-block-section in the HTML.
  *
+ * Categories, brands, and posts are hydrated into attrs by the WP theme
+ * (attrs.categories / attrs.brands / attrs.posts) and merged onto the
+ * processed block for BlockEditor.
+ *
  * Segments preserve WordPress document order: HeadKit section groups and
  * leftover Gutenberg HTML are interleaved so the storefront can render CMS
  * content in editor order (not section-1 / leftover / section-2 slots).
@@ -24,10 +28,52 @@ export type RawEditorBlock = {
   queryType?: string | null;
 };
 
+/** Category shape hydrated into attrs.categories (FeaturedCategory-like). */
+export type HydratedCategory = {
+  id?: string;
+  name: string;
+  slug: string;
+  uri?: string;
+  thumbnail?: string | null;
+  description?: string;
+};
+
+/** Brand shape hydrated into attrs.brands (FeaturedBrand-like). */
+export type HydratedBrand = {
+  id?: string;
+  name: string;
+  slug: string;
+  thumbnail?: string | null;
+  description?: string;
+};
+
+/** Post shape hydrated into attrs.posts (Post summary-like). */
+export type HydratedPost = {
+  id?: string | number;
+  title: string;
+  slug: string;
+  excerpt?: string;
+  date?: string;
+  uri?: string | null;
+  featuredImage?: {
+    src?: string | null;
+    alt?: string | null;
+    width?: number | null;
+    height?: number | null;
+  } | null;
+  categories?: Array<{ id?: string; name?: string; slug?: string }>;
+};
+
 /** Storefront block with optional section HTML for media / passthrough render. */
 export type ProcessedEditorBlock = EditorBlock & {
   /** Full outer section markup (sanitized at render time). */
   html?: string;
+  /** Product categories from WP hydration (category carousel). */
+  categories?: HydratedCategory[];
+  /** Brands from WP hydration (brand carousel). */
+  brands?: HydratedBrand[];
+  /** Posts from WP hydration (post carousel / latest-posts). */
+  posts?: HydratedPost[];
 };
 
 /** Ordered homepage CMS segment (HeadKit block or leftover HTML). */
@@ -113,6 +159,110 @@ function trimLeftoverChunk(html: string): string {
     .trim();
 }
 
+function asRecordArray(value: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (item): item is Record<string, unknown> =>
+      typeof item === "object" && item !== null && !Array.isArray(item),
+  );
+}
+
+function hydrateCategories(raw: unknown): HydratedCategory[] {
+  return asRecordArray(raw)
+    .map((item): HydratedCategory | null => {
+      const name = typeof item["name"] === "string" ? item["name"] : "";
+      const slug = typeof item["slug"] === "string" ? item["slug"] : "";
+      if (!name || !slug) return null;
+      const cat: HydratedCategory = { name, slug };
+      if (typeof item["id"] === "string") cat.id = item["id"];
+      if (typeof item["uri"] === "string") cat.uri = item["uri"];
+      if (typeof item["description"] === "string")
+        cat.description = item["description"];
+      if (typeof item["thumbnail"] === "string")
+        cat.thumbnail = item["thumbnail"];
+      else if (item["thumbnail"] === null) cat.thumbnail = null;
+      return cat;
+    })
+    .filter((c): c is HydratedCategory => c !== null);
+}
+
+function hydrateBrands(raw: unknown): HydratedBrand[] {
+  return asRecordArray(raw)
+    .map((item): HydratedBrand | null => {
+      const name = typeof item["name"] === "string" ? item["name"] : "";
+      const slug = typeof item["slug"] === "string" ? item["slug"] : "";
+      if (!name || !slug) return null;
+      const brand: HydratedBrand = { name, slug };
+      if (typeof item["id"] === "string") brand.id = item["id"];
+      if (typeof item["description"] === "string")
+        brand.description = item["description"];
+      if (typeof item["thumbnail"] === "string")
+        brand.thumbnail = item["thumbnail"];
+      else if (item["thumbnail"] === null) brand.thumbnail = null;
+      return brand;
+    })
+    .filter((b): b is HydratedBrand => b !== null);
+}
+
+function hydratePosts(raw: unknown): HydratedPost[] {
+  return asRecordArray(raw)
+    .map((item): HydratedPost | null => {
+      const title = typeof item["title"] === "string" ? item["title"] : "";
+      const slug = typeof item["slug"] === "string" ? item["slug"] : "";
+      if (!title || !slug) return null;
+      const post: HydratedPost = { title, slug };
+      if (typeof item["id"] === "string" || typeof item["id"] === "number")
+        post.id = item["id"];
+      if (typeof item["excerpt"] === "string") post.excerpt = item["excerpt"];
+      if (typeof item["date"] === "string") post.date = item["date"];
+      if (typeof item["uri"] === "string") post.uri = item["uri"];
+      else if (item["uri"] === null) post.uri = null;
+
+      const fi = item["featuredImage"];
+      if (fi && typeof fi === "object" && !Array.isArray(fi)) {
+        const img = fi as Record<string, unknown>;
+        // Support both flat {src} and nested {node:{sourceUrl}} shapes.
+        const node =
+          img["node"] && typeof img["node"] === "object"
+            ? (img["node"] as Record<string, unknown>)
+            : null;
+        const src =
+          typeof img["src"] === "string"
+            ? img["src"]
+            : typeof node?.["sourceUrl"] === "string"
+              ? node["sourceUrl"]
+              : typeof img["sourceUrl"] === "string"
+                ? img["sourceUrl"]
+                : null;
+        post.featuredImage = {
+          src,
+          alt:
+            typeof img["alt"] === "string"
+              ? img["alt"]
+              : typeof node?.["altText"] === "string"
+                ? node["altText"]
+                : null,
+          width: typeof img["width"] === "number" ? img["width"] : null,
+          height: typeof img["height"] === "number" ? img["height"] : null,
+        };
+      } else if (fi === null) {
+        post.featuredImage = null;
+      }
+
+      const cats = item["categories"];
+      if (Array.isArray(cats)) {
+        post.categories = asRecordArray(cats).map((c) => ({
+          ...(typeof c["id"] === "string" ? { id: c["id"] } : {}),
+          ...(typeof c["name"] === "string" ? { name: c["name"] } : {}),
+          ...(typeof c["slug"] === "string" ? { slug: c["slug"] } : {}),
+        }));
+      }
+
+      return post;
+    })
+    .filter((p): p is HydratedPost => p !== null);
+}
+
 /**
  * Parse rendered WordPress HTML into EditorBlock[] and attach products/attrs
  * from the parallel rawEditorBlocks array. Also returns leftover HTML and
@@ -155,6 +305,10 @@ export function processHomepageContent(
       attrs["queryType"] = queryType;
     }
 
+    const categories = hydrateCategories(attrs["categories"]);
+    const brands = hydrateBrands(attrs["brands"]);
+    const posts = hydratePosts(attrs["posts"]);
+
     const block: ProcessedEditorBlock = {
       name: "",
       cssClasses: classList,
@@ -165,6 +319,9 @@ export function processHomepageContent(
       products: (raw?.products ?? []) as Product[],
       attrs,
       html: sec.fullMatch,
+      ...(categories.length > 0 ? { categories } : {}),
+      ...(brands.length > 0 ? { brands } : {}),
+      ...(posts.length > 0 ? { posts } : {}),
     };
 
     result.push(block);
@@ -198,7 +355,7 @@ export function processEditorBlocks(
 
 /**
  * True when a processed block was hydrated from a WP queryType carousel
- * (product-new / product-on-sale / best-sellers).
+ * (product-new / product-on-sale / best-sellers / featured-categories / etc.).
  */
 export function getBlockQueryType(
   block: ProcessedEditorBlock | EditorBlock,
@@ -206,6 +363,17 @@ export function getBlockQueryType(
   const attrs = block.attrs as Record<string, unknown> | null | undefined;
   const qt = attrs?.["queryType"];
   return typeof qt === "string" && qt.length > 0 ? qt : null;
+}
+
+/**
+ * True when any processed block includes the given CSS class
+ * (e.g. headkit-category-carousel → skip hardcoded Shop by Category).
+ */
+export function hasEditorSectionClass(
+  blocks: Array<Pick<ProcessedEditorBlock, "cssClasses">>,
+  className: string,
+): boolean {
+  return blocks.some((b) => b.cssClasses.includes(className));
 }
 
 // ---------------------------------------------------------------------------
