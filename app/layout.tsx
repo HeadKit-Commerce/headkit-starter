@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Urbanist } from "next/font/google";
 import "./globals.css";
 import {
   NavigationWrapper,
@@ -18,12 +17,9 @@ import {
   resolveStoreName,
 } from "@/lib/make-metadata";
 import { getBranding, getBrandingAssets } from "@/lib/branding";
+import { resolveBrandFonts } from "@/lib/brand-fonts";
+import { BrandingIconsProvider } from "@/components/branding/branding-icons-provider";
 import { GoogleTagManager } from "@next/third-parties/google";
-
-const urbanist = Urbanist({
-  variable: "--font-urbanist",
-  subsets: ["latin"],
-});
 
 // Build-time env GTM id (kept as a fallback); per-tenant gtmId from
 // dashboard-api StoreSettings takes precedence at runtime (FE-08).
@@ -44,6 +40,12 @@ function safeColor(value: string | null | undefined): string | null {
   const v = value.trim();
   return HEX_OR_RGB.test(v) ? v : null;
 }
+
+const CORNER_STYLE_VARS: Record<string, string> = {
+  soft: "--radius: 0.5rem; --radius-button: 0.375rem;",
+  round: "--radius: 1.25rem; --radius-button: 9999px;",
+  square: "--radius: 0; --radius-button: 0;",
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   // SeoSettings from dashboard-api feeds the root metadata fallback (FE-08).
@@ -94,47 +96,63 @@ export default async function RootLayout({
   );
   const orgLogoUrl = iconUrl ?? branding.iconUrl ?? undefined;
 
-  // Inject per-tenant brand colors as :root CSS custom properties, overriding
-  // the globals.css defaults at runtime (FE-08). Sanitized to color literals
-  // only (T-03-B2). When a value is missing/invalid we omit the override so
-  // the globals.css default (#7f54b3 / #000000) applies (no hardcoded brand hex).
-  // Also set --color-purple-500 so Tailwind hover/accent utilities
-  // (hover:stroke-purple-500, hover:outline-purple-500, bg-purple-500, …)
-  // track the brand primary — purple-500 defaults to var(--color-primary)
-  // in globals.css, but an explicit twin keeps ThemeCSS / forks in sync.
+  const fonts = resolveBrandFonts({
+    heading: branding.headingFont,
+    subheading: branding.subheadingFont,
+    body: branding.bodyFont,
+  });
+
+  // Inject per-tenant brand tokens as :root CSS custom properties.
   const primary = safeColor(branding.primaryColor);
   const secondary = safeColor(branding.secondaryColor);
+  const background = safeColor(branding.backgroundColor);
+  const text = safeColor(branding.textColor);
+  const cornerVars =
+    CORNER_STYLE_VARS[branding.cornerStyle] ?? CORNER_STYLE_VARS.soft;
+
   const brandVars = [
     primary
-      ? `--color-primary: ${primary}; --color-purple-500: ${primary};`
+      ? `--color-primary: ${primary}; --color-purple-500: ${primary}; --color-purple-800: ${primary};`
       : "",
     secondary ? `--color-secondary: ${secondary};` : "",
+    background
+      ? `--color-background: ${background}; --background: ${background};`
+      : "",
+    text
+      ? `--color-text: ${text}; --foreground: ${text}; --color-purple-900: ${text};`
+      : "",
+    cornerVars,
+    fonts.cssVars,
+    "--font-sans: var(--font-body);",
   ]
     .filter(Boolean)
     .join(" ");
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={fonts.variableClassNames}
+    >
       <head>
         <meta name="apple-mobile-web-app-title" content={siteName} />
-        {/* Per-tenant brand color overrides (FE-08). Empty when branding
-            degrades to defaults, leaving globals.css :root values in effect. */}
-        {brandVars && (
+        {fonts.googleStylesheetHrefs.map((href) => (
+          <link key={href} rel="stylesheet" href={href} />
+        ))}
+        {/* Per-tenant brand token overrides. Empty pieces leave globals.css defaults. */}
+        {(brandVars || fonts.fontFaceCss) && (
           <style
             // eslint-disable-next-line react/no-danger
-            dangerouslySetInnerHTML={{ __html: `:root { ${brandVars} }` }}
+            dangerouslySetInnerHTML={{
+              __html: `${fonts.fontFaceCss}${brandVars ? `:root { ${brandVars} }` : ""}`,
+            }}
           />
         )}
       </head>
-      <body
-        className={`${urbanist.className} ${urbanist.variable} antialiased`}
-      >
+      <body className={`${fonts.bodyClassName} antialiased`}>
         {/* GTM — per-tenant StoreSettings.gtmId, falling back to env (FE-08) */}
         {gtmId && <GoogleTagManager gtmId={gtmId} />}
 
-        {/* WebSite + Organization once each (no Org duplication). SearchAction
-            lives on WebsiteJsonLD; LocalBusiness omitted — StoreSettings has
-            no address/phone today. */}
         <WebsiteJsonLD
           siteName={siteName}
           siteUrl={SITE_URL}
@@ -146,37 +164,29 @@ export default async function RootLayout({
           {...(orgLogoUrl ? { logoUrl: orgLogoUrl } : {})}
         />
 
-        {/* Providers are pure client state with no request reads at render:
-            AuthProvider no longer calls usePathname(), CartProvider/CartDrawer
-            hold client-only cart state. Rendering them (and the cached nav,
-            page children, and footer) OUTSIDE any Suspense boundary keeps this
-            whole subtree in the prerendered static shell, in document order —
-            visible without JavaScript. A root-altitude boundary here would
-            exclude the entire body from every route's shell. Routes with
-            genuinely dynamic reads (cookies, un-enumerated params) own their
-            own per-segment loading.tsx / <Suspense> islands instead. */}
-        <AuthProvider>
-          <CartProvider>
-            <CartDrawer />
-            <NavigationWrapper />
-            {/* Single <main> landmark for all routes (a11y: landmark-one-main
-                failed on every measured route without it). */}
-            <main>{children}</main>
-            <Footer
-              siteName={siteName}
-              description={siteDescription}
-              menus={footerMenus}
-              iconUrl={branding.iconUrl}
-              socialLinks={{
-                instagram: "https://www.instagram.com/headkitcommerce",
-                discord: "https://discord.gg/bSNe29JtsX",
-                github: "https://github.com/headkit-commerce",
-                linkedin: "https://www.linkedin.com/company/headkit-commerce/",
-                youtube: "https://www.youtube.com/@headkit-commerce",
-              }}
-            />
-          </CartProvider>
-        </AuthProvider>
+        <BrandingIconsProvider library={branding.iconLibrary}>
+          <AuthProvider>
+            <CartProvider>
+              <CartDrawer />
+              <NavigationWrapper />
+              <main>{children}</main>
+              <Footer
+                siteName={siteName}
+                description={siteDescription}
+                menus={footerMenus}
+                iconUrl={branding.iconUrl}
+                socialLinks={{
+                  instagram: "https://www.instagram.com/headkitcommerce",
+                  discord: "https://discord.gg/bSNe29JtsX",
+                  github: "https://github.com/headkit-commerce",
+                  linkedin:
+                    "https://www.linkedin.com/company/headkit-commerce/",
+                  youtube: "https://www.youtube.com/@headkit-commerce",
+                }}
+              />
+            </CartProvider>
+          </AuthProvider>
+        </BrandingIconsProvider>
       </body>
     </html>
   );

@@ -45,11 +45,25 @@ import { env } from "@/lib/env";
 // Types — mirror the dashboard-api schema (schema.graphqls)
 // ---------------------------------------------------------------------------
 
+export interface BrandingFont {
+  source: string;
+  family: string;
+  googleSlug: string;
+  fileUrl: string;
+}
+
 export interface Branding {
   primaryColor: string;
   secondaryColor: string;
+  backgroundColor: string;
+  textColor: string;
   logoUrl: string | null;
   iconUrl: string | null;
+  headingFont: BrandingFont;
+  subheadingFont: BrandingFont;
+  bodyFont: BrandingFont;
+  cornerStyle: string;
+  iconLibrary: string;
 }
 
 export interface StoreSettings {
@@ -83,13 +97,31 @@ export interface BrandingBundle {
 /** Default brand color tokens — MUST match `app/globals.css` :root values. */
 export const DEFAULT_PRIMARY_COLOR = "#7f54b3";
 export const DEFAULT_SECONDARY_COLOR = "#000000";
+export const DEFAULT_BACKGROUND_COLOR = "#ffffff";
+export const DEFAULT_TEXT_COLOR = "#171717";
+export const DEFAULT_CORNER_STYLE = "soft";
+export const DEFAULT_ICON_LIBRARY = "hi2";
+
+const EMPTY_FONT: BrandingFont = {
+  source: "",
+  family: "",
+  googleSlug: "",
+  fileUrl: "",
+};
 
 const DEFAULT_BUNDLE: BrandingBundle = {
   branding: {
     primaryColor: DEFAULT_PRIMARY_COLOR,
     secondaryColor: DEFAULT_SECONDARY_COLOR,
+    backgroundColor: DEFAULT_BACKGROUND_COLOR,
+    textColor: DEFAULT_TEXT_COLOR,
     logoUrl: null,
     iconUrl: null,
+    headingFont: EMPTY_FONT,
+    subheadingFont: EMPTY_FONT,
+    bodyFont: EMPTY_FONT,
+    cornerStyle: DEFAULT_CORNER_STYLE,
+    iconLibrary: DEFAULT_ICON_LIBRARY,
   },
   storeSettings: {
     id: null,
@@ -116,6 +148,9 @@ const DEFAULT_BUNDLE: BrandingBundle = {
  * and classic SEO fields MUST stay here — a failed SEO-gate field must never
  * wipe the whole branding payload (that regression discarded colors/logo when
  * dashboard-api lagged behind the starter SEO query).
+ *
+ * Extended brand fields (background/text/fonts/style/icons) live in the FULL
+ * query only; {@link BRANDING_QUERY_COMPAT} keeps legacy dashboard-api working.
  */
 const BRANDING_CORE_SELECTION = /* GraphQL */ `
     branding {
@@ -137,10 +172,46 @@ const BRANDING_CORE_SELECTION = /* GraphQL */ `
       ogImageUrl
 `;
 
-/** Full query including sitemap/indexing gates (dashboard-api with SEO Phase A+). */
+const BRANDING_EXTENDED_SELECTION = /* GraphQL */ `
+    branding {
+      primaryColor
+      secondaryColor
+      backgroundColor
+      textColor
+      logoUrl
+      iconUrl
+      headingFontSource
+      headingFontFamily
+      headingFontGoogleSlug
+      headingFontFileUrl
+      subheadingFontSource
+      subheadingFontFamily
+      subheadingFontGoogleSlug
+      subheadingFontFileUrl
+      bodyFontSource
+      bodyFontFamily
+      bodyFontGoogleSlug
+      bodyFontFileUrl
+      cornerStyle
+      iconLibrary
+    }
+    storeSettings {
+      id
+      slug
+      name
+      gtmId
+      domain
+    }
+    seoSettings {
+      title
+      description
+      ogImageUrl
+`;
+
+/** Full query including sitemap/indexing gates + extended branding fields. */
 const BRANDING_QUERY = /* GraphQL */ `
   query StorefrontBranding {
-${BRANDING_CORE_SELECTION}
+${BRANDING_EXTENDED_SELECTION}
       enableSitemap
       allowIndexing
     }
@@ -149,9 +220,9 @@ ${BRANDING_CORE_SELECTION}
 
 /**
  * Compat query for older dashboard-api revisions that lack enableSitemap /
- * allowIndexing. gqlgen returns `data: null` for unknown fields — that used to
- * discard colors/logo/name entirely. We retry without the gate fields and
- * default the gates to true in {@link coerce}.
+ * allowIndexing / extended branding fields. gqlgen returns `data: null` for
+ * unknown fields — that used to discard colors/logo/name entirely. We retry
+ * without the newer fields and default them in {@link coerce}.
  */
 const BRANDING_QUERY_COMPAT = /* GraphQL */ `
   query StorefrontBrandingCompat {
@@ -160,9 +231,24 @@ ${BRANDING_CORE_SELECTION}
   }
 `;
 
+interface FlatBranding extends Partial<Branding> {
+  headingFontSource?: string | null;
+  headingFontFamily?: string | null;
+  headingFontGoogleSlug?: string | null;
+  headingFontFileUrl?: string | null;
+  subheadingFontSource?: string | null;
+  subheadingFontFamily?: string | null;
+  subheadingFontGoogleSlug?: string | null;
+  subheadingFontFileUrl?: string | null;
+  bodyFontSource?: string | null;
+  bodyFontFamily?: string | null;
+  bodyFontGoogleSlug?: string | null;
+  bodyFontFileUrl?: string | null;
+}
+
 interface BrandingResponse {
   data?: {
-    branding?: Partial<Branding> | null;
+    branding?: FlatBranding | null;
     storeSettings?: Partial<StoreSettings> | null;
     seoSettings?: (Partial<SeoSettings> & {
       enableSitemap?: boolean | null;
@@ -170,6 +256,20 @@ interface BrandingResponse {
     }) | null;
   };
   errors?: Array<{ message: string }>;
+}
+
+function coerceFont(
+  source: string | null | undefined,
+  family: string | null | undefined,
+  googleSlug: string | null | undefined,
+  fileUrl: string | null | undefined,
+): BrandingFont {
+  return {
+    source: source ?? "",
+    family: family ?? "",
+    googleSlug: googleSlug ?? "",
+    fileUrl: fileUrl ?? "",
+  };
 }
 
 /** Coerce a possibly-partial branding payload into a complete, typed bundle. */
@@ -181,8 +281,30 @@ function coerce(data: NonNullable<BrandingResponse["data"]>): BrandingBundle {
     branding: {
       primaryColor: b.primaryColor || DEFAULT_PRIMARY_COLOR,
       secondaryColor: b.secondaryColor || DEFAULT_SECONDARY_COLOR,
+      backgroundColor: b.backgroundColor || DEFAULT_BACKGROUND_COLOR,
+      textColor: b.textColor || DEFAULT_TEXT_COLOR,
       logoUrl: b.logoUrl ?? null,
       iconUrl: b.iconUrl ?? null,
+      headingFont: coerceFont(
+        b.headingFontSource,
+        b.headingFontFamily,
+        b.headingFontGoogleSlug,
+        b.headingFontFileUrl,
+      ),
+      subheadingFont: coerceFont(
+        b.subheadingFontSource,
+        b.subheadingFontFamily,
+        b.subheadingFontGoogleSlug,
+        b.subheadingFontFileUrl,
+      ),
+      bodyFont: coerceFont(
+        b.bodyFontSource,
+        b.bodyFontFamily,
+        b.bodyFontGoogleSlug,
+        b.bodyFontFileUrl,
+      ),
+      cornerStyle: b.cornerStyle || DEFAULT_CORNER_STYLE,
+      iconLibrary: b.iconLibrary || DEFAULT_ICON_LIBRARY,
     },
     storeSettings: {
       id: s.id ?? null,

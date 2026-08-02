@@ -1,18 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import {
-  CheckIcon,
-  HeartIcon,
-  SearchIcon,
-  ShoppingBagIcon,
-  UserIcon,
-} from "@/components/icon";
+import { CheckIcon } from "@/components/icon";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/headkit-ui/auth-context";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { SearchDrawer } from "@/components/headkit-ui/search-drawer";
+import { useChromeIcons } from "@/components/branding/branding-icons-provider";
 
 interface HeaderActionsProps {
   /**
@@ -25,18 +20,17 @@ interface HeaderActionsProps {
 /**
  * Right-side header icon row: Search · Wishlist · Account · Cart
  *
- * Rendered as a client component so the cart count can hydrate reactively.
- * All icons use the purple palette: purple-800 at rest, purple-500 (brand
- * primary) on hover — see globals.css brand token wiring.
+ * Icons come from the branding icon library (default Heroicons 2).
+ * Colour: purple-800 at rest (tracks primary when branded), purple-500 on hover.
  */
 export function HeaderActions({ initialCartCount = 0 }: HeaderActionsProps) {
   const { isAuthenticated } = useAuth();
   const { cartData, toggleCart } = useCartContext();
   const cartCount = cartData?.itemsCount ?? initialCartCount;
+  const { Search, Heart, User, Cart } = useChromeIcons();
 
   return (
     <div className="flex items-center">
-      {/* Search */}
       <SearchDrawer
         trigger={
           <Button
@@ -45,12 +39,11 @@ export function HeaderActions({ initialCartCount = 0 }: HeaderActionsProps) {
             aria-label="Search"
             className="h-9 w-9 justify-end pr-0"
           >
-            <SearchIcon className="h-6 w-6 stroke-purple-800 stroke-2 hover:stroke-purple-500" />
+            <Search className="h-6 w-6 stroke-purple-800 stroke-2 hover:stroke-purple-500" />
           </Button>
         }
       />
 
-      {/* Wishlist */}
       <Button
         variant="ghost"
         size="icon"
@@ -59,11 +52,10 @@ export function HeaderActions({ initialCartCount = 0 }: HeaderActionsProps) {
         asChild
       >
         <Link href="/account/wishlist" aria-label="Wishlist">
-          <HeartIcon className="h-6 w-6 stroke-purple-800 stroke-2 hover:stroke-purple-500" />
+          <Heart className="h-6 w-6 stroke-purple-800 stroke-2 hover:stroke-purple-500" />
         </Link>
       </Button>
 
-      {/* Account */}
       <Button
         variant="ghost"
         size="icon"
@@ -75,12 +67,11 @@ export function HeaderActions({ initialCartCount = 0 }: HeaderActionsProps) {
           href="/account"
           aria-label={isAuthenticated ? "Account (signed in)" : "Account"}
         >
-          <UserIcon className="h-6 w-6 stroke-purple-800 stroke-2 hover:stroke-purple-500" />
+          <User className="h-6 w-6 stroke-purple-800 stroke-2 hover:stroke-purple-500" />
           {isAuthenticated && <AccountLoggedInBadge />}
         </Link>
       </Button>
 
-      {/* Cart */}
       <Button
         variant="ghost"
         size="icon"
@@ -88,7 +79,7 @@ export function HeaderActions({ initialCartCount = 0 }: HeaderActionsProps) {
         className="relative h-9 w-9 justify-end pr-0"
         onClick={() => toggleCart(true)}
       >
-        <ShoppingBagIcon className="h-6 w-6 stroke-purple-800 stroke-2 hover:stroke-purple-500" />
+        <Cart className="h-6 w-6 stroke-purple-800 stroke-2 hover:stroke-purple-500" />
         <CartBadge count={cartCount} />
       </Button>
     </div>
@@ -101,6 +92,7 @@ export function HeaderActions({ initialCartCount = 0 }: HeaderActionsProps) {
  */
 export function MobileHeaderActions() {
   const { isAuthenticated } = useAuth();
+  const { Search, Heart, User } = useChromeIcons();
   return (
     <div className="flex items-center gap-4">
       <SearchDrawer
@@ -111,13 +103,13 @@ export function MobileHeaderActions() {
             aria-label="Search"
             className="h-9 w-9 p-0"
           >
-            <SearchIcon className="h-6 w-6 stroke-purple-800 stroke-2" />
+            <Search className="h-6 w-6 stroke-purple-800 stroke-2" />
           </Button>
         }
       />
 
       <Link href="/account/wishlist">
-        <HeartIcon className="h-6 w-6 stroke-purple-800 stroke-2" />
+        <Heart className="h-6 w-6 stroke-purple-800 stroke-2" />
       </Link>
 
       <span className="relative">
@@ -125,17 +117,13 @@ export function MobileHeaderActions() {
           href="/account"
           aria-label={isAuthenticated ? "Account (signed in)" : "Account"}
         >
-          <UserIcon className="h-6 w-6 stroke-purple-800 stroke-2" />
+          <User className="h-6 w-6 stroke-purple-800 stroke-2" />
         </Link>
         {isAuthenticated && <AccountLoggedInBadge />}
       </span>
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
 
 function AccountLoggedInBadge() {
   return (

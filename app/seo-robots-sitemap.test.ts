@@ -16,11 +16,25 @@ vi.mock("next/cache", () => ({
   cacheTag: vi.fn(),
 }));
 
-import { getBranding } from "@/lib/branding";
+import { getBranding, type Branding } from "@/lib/branding";
 import sitemap from "./sitemap";
 import robots from "./robots";
 
 const mockedGetBranding = vi.mocked(getBranding);
+
+const stubBranding: Branding = {
+  primaryColor: "#000",
+  secondaryColor: "#fff",
+  backgroundColor: "#ffffff",
+  textColor: "#171717",
+  logoUrl: null,
+  iconUrl: null,
+  headingFont: { source: "", family: "", googleSlug: "", fileUrl: "" },
+  subheadingFont: { source: "", family: "", googleSlug: "", fileUrl: "" },
+  bodyFont: { source: "", family: "", googleSlug: "", fileUrl: "" },
+  cornerStyle: "soft",
+  iconLibrary: "hi2",
+};
 
 describe("sitemap enableSitemap gate", () => {
   beforeEach(() => {
@@ -29,12 +43,7 @@ describe("sitemap enableSitemap gate", () => {
 
   it("returns empty array when enableSitemap is false", async () => {
     mockedGetBranding.mockResolvedValue({
-      branding: {
-        primaryColor: "#000",
-        secondaryColor: "#fff",
-        logoUrl: null,
-        iconUrl: null,
-      },
+      branding: stubBranding,
       storeSettings: {
         id: null,
         slug: null,
@@ -63,12 +72,7 @@ describe("robots allowIndexing + enableSitemap", () => {
 
   it("Disallow all and omits sitemap when allowIndexing is false", async () => {
     mockedGetBranding.mockResolvedValue({
-      branding: {
-        primaryColor: "#000",
-        secondaryColor: "#fff",
-        logoUrl: null,
-        iconUrl: null,
-      },
+      branding: stubBranding,
       storeSettings: {
         id: null,
         slug: null,
@@ -92,12 +96,7 @@ describe("robots allowIndexing + enableSitemap", () => {
 
   it("omits Sitemap line when enableSitemap is false", async () => {
     mockedGetBranding.mockResolvedValue({
-      branding: {
-        primaryColor: "#000",
-        secondaryColor: "#fff",
-        logoUrl: null,
-        iconUrl: null,
-      },
+      branding: stubBranding,
       storeSettings: {
         id: null,
         slug: null,
@@ -121,12 +120,7 @@ describe("robots allowIndexing + enableSitemap", () => {
 
   it("advertises sitemap when enableSitemap and allowIndexing are true", async () => {
     mockedGetBranding.mockResolvedValue({
-      branding: {
-        primaryColor: "#000",
-        secondaryColor: "#fff",
-        logoUrl: null,
-        iconUrl: null,
-      },
+      branding: stubBranding,
       storeSettings: {
         id: null,
         slug: null,
