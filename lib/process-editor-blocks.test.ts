@@ -8,11 +8,13 @@ import {
 
 const HILIGHT_SECTION = `<div class="wp-block-group headkit-hilight headkit-block-section"><div class="wp-block-group__inner-container"><div class="wp-block-columns"><div class="wp-block-column"><h2 class="wp-block-heading headkit-block-title">About Us</h2><p class="headkit-block-description">We sell great things.</p></div><div class="wp-block-column"><div class="wp-block-buttons headkit-block-buttons"><div class="wp-block-button headkit-block-button"><a class="wp-block-button__link wp-element-button" href="/about">Learn more</a></div></div></div></div></div></div>`;
 
-const CAROUSEL_SECTION = `<div class="wp-block-group headkit-product-carousel headkit-block-section"><div class="wp-block-group__inner-container"><h2 class="wp-block-heading headkit-block-title">SALE</h2><p class="headkit-block-description">Hot deals</p></div></div>`;
+const CAROUSEL_SECTION = `<div class="wp-block-group headkit-product-carousel headkit-block-section section-2"><div class="wp-block-group__inner-container"><h2 class="wp-block-heading headkit-block-title">SALE</h2><p class="headkit-block-description">Hot deals</p></div></div>`;
 
 const GALLERY_SECTION = `<div class="wp-block-group headkit-gallery headkit-block-section"><figure class="wp-block-gallery columns-2"><img src="https://example.com/a.jpg" alt="A" /></figure></div>`;
 
 const LEFTOVER_PARAGRAPH = `<p>Plain Gutenberg paragraph on the front page.</p>`;
+
+const EARLY_COPY = `<p>Welcome copy before any HeadKit section.</p>`;
 
 describe("extractHeadkitSections", () => {
   it("extracts constrained and non-inner-container sections", () => {
@@ -28,7 +30,7 @@ describe("extractHeadkitSections", () => {
 describe("processHomepageContent", () => {
   it("merges products and queryType attrs by section index", () => {
     const html = `${HILIGHT_SECTION}${CAROUSEL_SECTION}${LEFTOVER_PARAGRAPH}`;
-    const { blocks, leftoverHtml } = processHomepageContent(html, [
+    const { blocks, leftoverHtml, segments } = processHomepageContent(html, [
       {},
       {
         products: [{ id: "1", name: "Sale Tee" }],
@@ -49,11 +51,51 @@ describe("processHomepageContent", () => {
 
     expect(leftoverHtml).toContain("Plain Gutenberg paragraph");
     expect(leftoverHtml).not.toContain("headkit-block-section");
+
+    expect(segments.map((s) => s.kind)).toEqual(["block", "block", "html"]);
+  });
+
+  it("preserves document order when leftover precedes HeadKit sections", () => {
+    const html = `${EARLY_COPY}${HILIGHT_SECTION}${CAROUSEL_SECTION}`;
+    const { segments } = processHomepageContent(html, [{}, {}]);
+
+    expect(segments).toHaveLength(3);
+    expect(segments[0]?.kind).toBe("html");
+    if (segments[0]?.kind === "html") {
+      expect(segments[0].html).toContain("Welcome copy");
+    }
+    expect(segments[1]?.kind).toBe("block");
+    if (segments[1]?.kind === "block") {
+      expect(segments[1].block.cssClasses).toContain("headkit-hilight");
+    }
+    expect(segments[2]?.kind).toBe("block");
+    if (segments[2]?.kind === "block") {
+      expect(segments[2].block.section).toBe("section-2");
+      expect(segments[2].block.cssClasses).toContain(
+        "headkit-product-carousel",
+      );
+    }
+  });
+
+  it("interleaves leftover between sections in document order", () => {
+    const mid = `<p>Middle copy between sections.</p>`;
+    const html = `${HILIGHT_SECTION}${mid}${CAROUSEL_SECTION}`;
+    const { segments } = processHomepageContent(html, [{}, {}]);
+
+    expect(segments.map((s) => s.kind)).toEqual(["block", "html", "block"]);
+    if (segments[1]?.kind === "html") {
+      expect(segments[1].html).toContain("Middle copy");
+    }
   });
 
   it("returns empty leftover when only HeadKit sections exist", () => {
-    const { leftoverHtml } = processHomepageContent(HILIGHT_SECTION, [{}]);
+    const { leftoverHtml, segments } = processHomepageContent(
+      HILIGHT_SECTION,
+      [{}],
+    );
     expect(leftoverHtml.trim()).toBe("");
+    expect(segments).toHaveLength(1);
+    expect(segments[0]?.kind).toBe("block");
   });
 });
 

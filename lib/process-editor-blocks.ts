@@ -11,8 +11,9 @@
  * the API, so we take them from rawEditorBlocks[i] at the same index as each
  * headkit-block-section in the HTML.
  *
- * Leftover HTML (content outside known HeadKit section groups) is returned
- * separately so the homepage can render it via EditorialContent.
+ * Segments preserve WordPress document order: HeadKit section groups and
+ * leftover Gutenberg HTML are interleaved so the storefront can render CMS
+ * content in editor order (not section-1 / leftover / section-2 slots).
  */
 
 import type { EditorBlock, Product, ContentButton } from "@headkit/sdk";
@@ -29,16 +30,30 @@ export type ProcessedEditorBlock = EditorBlock & {
   html?: string;
 };
 
+/** Ordered homepage CMS segment (HeadKit block or leftover HTML). */
+export type HomepageSegment =
+  | { kind: "block"; block: ProcessedEditorBlock }
+  | { kind: "html"; html: string };
+
 export type ProcessedHomepageContent = {
   blocks: ProcessedEditorBlock[];
-  /** page.content with headkit-block-section groups removed. */
+  /**
+   * page.content with headkit-block-section groups removed (concatenated).
+   * Prefer `segments` for ordered rendering.
+   */
   leftoverHtml: string;
+  /** HeadKit sections + leftover HTML in WordPress document order. */
+  segments: HomepageSegment[];
 };
 
 type ExtractedSection = {
   classAttr: string;
   innerHtml: string;
   fullMatch: string;
+  /** Index of the opening tag in the source HTML. */
+  start: number;
+  /** Index after the closing </div> of this section. */
+  end: number;
 };
 
 /**
@@ -83,7 +98,7 @@ export function extractHeadkitSections(html: string): ExtractedSection[] {
       innerHtml = ic[1];
     }
 
-    sections.push({ classAttr, innerHtml, fullMatch });
+    sections.push({ classAttr, innerHtml, fullMatch, start, end: i });
     // Continue search after this section to avoid re-matching nested sections.
     openRe.lastIndex = i;
   }
@@ -91,21 +106,37 @@ export function extractHeadkitSections(html: string): ExtractedSection[] {
   return sections;
 }
 
+function trimLeftoverChunk(html: string): string {
+  return html
+    .replace(/^\s*(?:<!--[\s\S]*?-->\s*)+/, "")
+    .replace(/(?:<!--[\s\S]*?-->\s*)+$/, "")
+    .trim();
+}
+
 /**
  * Parse rendered WordPress HTML into EditorBlock[] and attach products/attrs
- * from the parallel rawEditorBlocks array. Also returns leftover HTML.
+ * from the parallel rawEditorBlocks array. Also returns leftover HTML and
+ * ordered segments for document-order rendering.
  */
 export function processHomepageContent(
   html: string,
   rawEditorBlocks: RawEditorBlock[],
 ): ProcessedHomepageContent {
-  if (!html) return { blocks: [], leftoverHtml: "" };
+  if (!html) return { blocks: [], leftoverHtml: "", segments: [] };
 
   const result: ProcessedEditorBlock[] = [];
-  let leftoverHtml = html;
+  const segments: HomepageSegment[] = [];
+  const leftoverParts: string[] = [];
   const sections = extractHeadkitSections(html);
+  let cursor = 0;
 
   sections.forEach((sec, index) => {
+    const before = trimLeftoverChunk(html.slice(cursor, sec.start));
+    if (before.length > 0) {
+      leftoverParts.push(before);
+      segments.push({ kind: "html", html: before });
+    }
+
     const classList = sec.classAttr.split(/\s+/).filter(Boolean);
     const section =
       classList.find((c) => c.startsWith("section-")) ?? "section-1";
@@ -124,7 +155,7 @@ export function processHomepageContent(
       attrs["queryType"] = queryType;
     }
 
-    result.push({
+    const block: ProcessedEditorBlock = {
       name: "",
       cssClasses: classList,
       section,
@@ -134,17 +165,24 @@ export function processHomepageContent(
       products: (raw?.products ?? []) as Product[],
       attrs,
       html: sec.fullMatch,
-    });
+    };
 
-    leftoverHtml = leftoverHtml.replace(sec.fullMatch, "");
+    result.push(block);
+    segments.push({ kind: "block", block });
+    cursor = sec.end;
   });
 
-  leftoverHtml = leftoverHtml
-    .replace(/^\s*(?:<!--[\s\S]*?-->\s*)+/, "")
-    .replace(/(?:<!--[\s\S]*?-->\s*)+$/, "")
-    .trim();
+  const trailing = trimLeftoverChunk(html.slice(cursor));
+  if (trailing.length > 0) {
+    leftoverParts.push(trailing);
+    segments.push({ kind: "html", html: trailing });
+  }
 
-  return { blocks: result, leftoverHtml };
+  return {
+    blocks: result,
+    leftoverHtml: leftoverParts.join("\n").trim(),
+    segments,
+  };
 }
 
 /**

@@ -129,12 +129,11 @@ test.describe("Wishlist read surface + home smoke (P1-40, P1-32)", () => {
     });
 
     // Seeded home sections all render with content.
+    // New Arrivals / Latest News are no longer hardcoded on the homepage.
     for (const section of [
       "Featured Products",
-      "New Arrivals",
       "On Sale",
       "Shop by Category",
-      "Latest News",
     ]) {
       await expect(
         page.getByRole("heading", { name: section }).first(),

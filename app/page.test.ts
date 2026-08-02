@@ -36,7 +36,8 @@ vi.mock("@/lib/process-editor-blocks", () => ({
   processHomepageContent: (): {
     blocks: unknown[];
     leftoverHtml: string;
-  } => ({ blocks: [], leftoverHtml: "" }),
+    segments: unknown[];
+  } => ({ blocks: [], leftoverHtml: "", segments: [] }),
   getBlockQueryType: (): null => null,
 }));
 vi.mock("@/lib/make-metadata", () => ({
@@ -72,9 +73,6 @@ vi.mock("@/components/headkit-ui/editorial-content", () => ({
 vi.mock("@/components/seo/carousel-product-json-ld", () => ({
   CarouselProductJsonLD: (): null => null,
 }));
-vi.mock("@/components/seo/carousel-post-json-ld", () => ({
-  CarouselPostJsonLD: (): null => null,
-}));
 vi.mock("@/components/headkit-ui/product-carousel", () => ({
   ProductCarousel: (): null => null,
 }));
@@ -84,14 +82,8 @@ vi.mock("@/components/headkit-ui/category-carousel", () => ({
 vi.mock("@/components/headkit-ui/brand-carousel", () => ({
   BrandCarousel: (): null => null,
 }));
-vi.mock("@/components/headkit-ui/post-carousel", () => ({
-  PostCarousel: (): null => null,
-}));
 vi.mock("@/components/headkit-ui/section-header", () => ({
   SectionHeader: (): null => null,
-}));
-vi.mock("@/components/headkit-ui/product-card", () => ({
-  ProductCard: (): null => null,
 }));
 vi.mock("@/components/ui/skeleton", () => ({ Skeleton: (): null => null }));
 
@@ -140,27 +132,20 @@ describe("no legacy home tag / max life survives", () => {
 });
 
 describe("getHomepageData — fetch resilience", () => {
-  it("keeps collection results when homepage.get() rejects", async () => {
+  it("keeps on-sale collection results when homepage.get() rejects", async () => {
     homepageGet.mockRejectedValueOnce(new Error("homepage down"));
-    collectionsList
-      .mockResolvedValueOnce({
-        products: [{ id: "n1" }],
-        total: 1,
-        page: 1,
-        perPage: 8,
-        totalPages: 1,
-      })
-      .mockResolvedValueOnce({
-        products: [{ id: "s1" }],
-        total: 1,
-        page: 1,
-        perPage: 8,
-        totalPages: 1,
-      });
+    collectionsList.mockResolvedValueOnce({
+      products: [{ id: "s1" }],
+      total: 1,
+      page: 1,
+      perPage: 8,
+      totalPages: 1,
+    });
 
     const data = await getHomepageData();
     expect(data.homepage).toBeNull();
-    expect(data.newArrivals?.products).toEqual([{ id: "n1" }]);
     expect(data.onSaleProducts?.products).toEqual([{ id: "s1" }]);
+    // New Arrivals fetch removed — only one collections.list call (on sale).
+    expect(collectionsList).toHaveBeenCalledTimes(1);
   });
 });

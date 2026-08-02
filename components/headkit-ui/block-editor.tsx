@@ -8,6 +8,10 @@ import type { Product } from "@headkit/sdk";
 
 interface Props {
   blocks: ProcessedEditorBlock[];
+  /**
+   * When set, only blocks with this `section` class are rendered.
+   * When omitted, every block in `blocks` is rendered (document-order segments).
+   */
   section?: string;
 }
 
@@ -21,8 +25,11 @@ function isMediaBlock(cssClasses: string[]): boolean {
   return MEDIA_CLASSES.some((cls) => cssClasses.includes(cls));
 }
 
-const BlockEditor = ({ blocks, section = "section-1" }: Props) => {
-  const result = blocks?.filter((block) => block.section === section);
+const BlockEditor = ({ blocks, section }: Props) => {
+  const result =
+    section === undefined
+      ? blocks
+      : blocks?.filter((block) => block.section === section);
   return (
     <>
       {result?.map((data: ProcessedEditorBlock, index: number) => {

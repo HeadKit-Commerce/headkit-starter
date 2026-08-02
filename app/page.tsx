@@ -7,7 +7,6 @@ import type {
   HeroCarouselItem,
   FeaturedCategory,
   FeaturedBrand,
-  Post,
 } from "@headkit/sdk";
 import {
   processHomepageContent,
@@ -26,11 +25,8 @@ import { EditorialContent } from "@/components/headkit-ui/editorial-content";
 import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
 import { CategoryCarousel } from "@/components/headkit-ui/category-carousel";
 import { BrandCarousel } from "@/components/headkit-ui/brand-carousel";
-import { PostCarousel } from "@/components/headkit-ui/post-carousel";
 import { SectionHeader } from "@/components/headkit-ui/section-header";
-import { ProductCard } from "@/components/headkit-ui/product-card";
 import { CarouselProductJsonLD } from "@/components/seo/carousel-product-json-ld";
-import { CarouselPostJsonLD } from "@/components/seo/carousel-post-json-ld";
 
 const EMPTY_COLLECTION = {
   products: [] as Product[],
@@ -93,22 +89,16 @@ export async function getHomepageData() {
   cacheLife("days");
   cacheTag(...HOME_TAGS);
 
-  // Split fetches so a homepage.get() failure does not null New Arrivals /
-  // On Sale collections (P2 resilience).
-  const [homepageResult, newArrivalsResult, onSaleResult] =
-    await Promise.allSettled([
-      headkit.homepage.get(),
-      headkit.collections.list({ isNew: true }, 1, 8),
-      headkit.collections.list({ onSale: true }, 1, 8),
-    ]);
+  // Split fetches so a homepage.get() failure does not null On Sale
+  // collections (P2 resilience).
+  const [homepageResult, onSaleResult] = await Promise.allSettled([
+    headkit.homepage.get(),
+    headkit.collections.list({ onSale: true }, 1, 8),
+  ]);
 
   return {
     homepage:
       homepageResult.status === "fulfilled" ? homepageResult.value : null,
-    newArrivals:
-      newArrivalsResult.status === "fulfilled"
-        ? newArrivalsResult.value
-        : EMPTY_COLLECTION,
     onSaleProducts:
       onSaleResult.status === "fulfilled"
         ? onSaleResult.value
@@ -121,7 +111,7 @@ export async function HomeContent() {
   cacheLife("days");
   cacheTag(...HOME_TAGS);
 
-  const { homepage, newArrivals, onSaleProducts } = await getHomepageData();
+  const { homepage, onSaleProducts } = await getHomepageData();
 
   const carousels = (homepage?.carousels ??
     []) as unknown as HeroCarouselItem[];
@@ -131,8 +121,7 @@ export async function HomeContent() {
     []) as unknown as FeaturedBrand[];
   const featuredProducts = (homepage?.featuredProducts ??
     []) as unknown as Product[];
-  const latestPosts = (homepage?.latestPosts ?? []) as unknown as Post[];
-  const { blocks: editorBlocks, leftoverHtml } = processHomepageContent(
+  const { blocks: editorBlocks, segments } = processHomepageContent(
     homepage?.page?.content ?? "",
     (homepage?.page?.editorBlocks ?? []) as Array<{
       products?: unknown[];
@@ -141,48 +130,42 @@ export async function HomeContent() {
     }>,
   );
 
-  // Prefer WP queryType carousels over hardcoded New Arrivals / On Sale when
-  // the front page already includes those HeadKit patterns (avoids duplicates).
+  // Prefer WP queryType carousels over hardcoded On Sale when the front page
+  // already includes that HeadKit pattern (avoids duplicates).
   const wpQueryTypes = new Set(
     editorBlocks
       .map((b) => getBlockQueryType(b))
       .filter((qt): qt is string => qt !== null),
   );
-  const showHardcodedNew =
-    !wpQueryTypes.has("new") &&
-    newArrivals !== null &&
-    newArrivals.products.length > 0;
   const showHardcodedSale =
     !wpQueryTypes.has("on-sale") &&
     onSaleProducts !== null &&
     onSaleProducts.products.length > 0;
 
-  // Prefer featured products for ItemList JSON-LD; fall back to new arrivals.
-  const productListLd =
-    featuredProducts.length > 0
-      ? featuredProducts
-      : (newArrivals?.products ?? []);
-
   return (
     <>
-      {productListLd.length > 0 && (
-        <CarouselProductJsonLD products={productListLd} />
+      {featuredProducts.length > 0 && (
+        <CarouselProductJsonLD products={featuredProducts} />
       )}
-      {latestPosts.length > 0 && <CarouselPostJsonLD posts={latestPosts} />}
 
-      {/* Hero Carousel */}
+      {/* Hero Carousel (carousel CPT — not WP page blocks) */}
       {carousels.length > 0 && <MainCarousel carouselItems={carousels} />}
 
-      <BlockEditor blocks={editorBlocks} section="section-1" />
+      {/* WP front-page content in editor document order */}
+      {segments.map((seg, index) => {
+        if (seg.kind === "html") {
+          return (
+            <section key={`wp-html-${index}`} className="px-5 md:px-10 py-10">
+              <EditorialContent html={seg.html} />
+            </section>
+          );
+        }
+        return (
+          <BlockEditor key={`wp-block-${index}`} blocks={[seg.block]} />
+        );
+      })}
 
-      {/* Leftover WP Gutenberg (non–headkit-block-section) authored on page_on_front */}
-      {leftoverHtml.trim().length > 0 && (
-        <section className="px-5 md:px-10 py-10">
-          <EditorialContent html={leftoverHtml} />
-        </section>
-      )}
-
-      {/* Featured Products */}
+      {/* Platform commerce modules (not WP page blocks) */}
       {featuredProducts.length > 0 && (
         <section className="overflow-hidden py-10">
           <SectionHeader
@@ -197,26 +180,6 @@ export async function HomeContent() {
               products={featuredProducts}
               id="featured-products"
             />
-          </div>
-        </section>
-      )}
-
-      <BlockEditor blocks={editorBlocks} section="section-2" />
-
-      {/* New Arrivals — skipped when WP already provides a product-new carousel */}
-      {showHardcodedNew && (
-        <section className="py-10">
-          <SectionHeader
-            title="New Arrivals"
-            description=""
-            allButton="View All"
-            allButtonPath="/new"
-            className="px-5 md:px-10"
-          />
-          <div className="mt-5 grid grid-cols-2 gap-4 px-5 md:grid-cols-4 md:px-10">
-            {newArrivals.products.slice(0, 8).map((product) => (
-              <ProductCard key={product.id} product={product} isNew />
-            ))}
           </div>
         </section>
       )}
@@ -267,22 +230,6 @@ export async function HomeContent() {
           />
           <div className="mt-5">
             <BrandCarousel brands={featuredBrands} />
-          </div>
-        </section>
-      )}
-
-      {/* Latest News */}
-      {latestPosts.length > 0 && (
-        <section className="overflow-hidden py-10">
-          <SectionHeader
-            title="Latest News"
-            description=""
-            allButton="View All"
-            allButtonPath="/news"
-            className="px-5 md:px-10"
-          />
-          <div className="mt-5">
-            <PostCarousel posts={latestPosts} />
           </div>
         </section>
       )}
