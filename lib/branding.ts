@@ -108,11 +108,16 @@ const DEFAULT_BUNDLE: BrandingBundle = {
 };
 
 // ---------------------------------------------------------------------------
-// Query — single round-trip for branding + storeSettings + seoSettings
+// Query — branding + storeSettings + seoSettings
 // ---------------------------------------------------------------------------
 
-const BRANDING_QUERY = /* GraphQL */ `
-  query StorefrontBranding {
+/**
+ * Core selection shared by the full + compat queries. Colors, logo, store name,
+ * and classic SEO fields MUST stay here — a failed SEO-gate field must never
+ * wipe the whole branding payload (that regression discarded colors/logo when
+ * dashboard-api lagged behind the starter SEO query).
+ */
+const BRANDING_CORE_SELECTION = /* GraphQL */ `
     branding {
       primaryColor
       secondaryColor
@@ -130,8 +135,27 @@ const BRANDING_QUERY = /* GraphQL */ `
       title
       description
       ogImageUrl
+`;
+
+/** Full query including sitemap/indexing gates (dashboard-api with SEO Phase A+). */
+const BRANDING_QUERY = /* GraphQL */ `
+  query StorefrontBranding {
+${BRANDING_CORE_SELECTION}
       enableSitemap
       allowIndexing
+    }
+  }
+`;
+
+/**
+ * Compat query for older dashboard-api revisions that lack enableSitemap /
+ * allowIndexing. gqlgen returns `data: null` for unknown fields — that used to
+ * discard colors/logo/name entirely. We retry without the gate fields and
+ * default the gates to true in {@link coerce}.
+ */
+const BRANDING_QUERY_COMPAT = /* GraphQL */ `
+  query StorefrontBrandingCompat {
+${BRANDING_CORE_SELECTION}
     }
   }
 `;
@@ -140,7 +164,10 @@ interface BrandingResponse {
   data?: {
     branding?: Partial<Branding> | null;
     storeSettings?: Partial<StoreSettings> | null;
-    seoSettings?: Partial<SeoSettings> | null;
+    seoSettings?: (Partial<SeoSettings> & {
+      enableSitemap?: boolean | null;
+      allowIndexing?: boolean | null;
+    }) | null;
   };
   errors?: Array<{ message: string }>;
 }
@@ -176,16 +203,55 @@ function coerce(data: NonNullable<BrandingResponse["data"]>): BrandingBundle {
 }
 
 /**
+ * True when the GraphQL payload has usable branding / store / SEO data.
+ * Unknown-field errors often set sibling keys to null but still return the
+ * rest of `data` — prefer that over discarding the whole bundle.
+ */
+function hasUsableBrandingData(
+  data: BrandingResponse["data"],
+): data is NonNullable<BrandingResponse["data"]> {
+  if (!data) return false;
+  return (
+    data.branding != null ||
+    data.storeSettings != null ||
+    data.seoSettings != null
+  );
+}
+
+/** POST one branding query; returns coerced bundle or null on hard failure. */
+async function fetchBrandingQuery(
+  endpoint: string,
+  token: string,
+  query: string,
+): Promise<BrandingBundle | null> {
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: brandingRequestHeaders(token),
+    body: JSON.stringify({ query }),
+    // Caching is governed by the enclosing `'use cache'` + cacheLife
+    // on {@link getBranding}, so no fetch-level `next.revalidate` here.
+  });
+
+  if (!res.ok) return null;
+
+  const json = (await res.json()) as BrandingResponse;
+  if (hasUsableBrandingData(json.data)) {
+    return coerce(json.data);
+  }
+  return null;
+}
+
+/**
  * Fetch per-tenant branding / store-settings / SEO from dashboard-api.
  *
  * Degrades gracefully to {@link DEFAULT_BUNDLE} when:
  *  - `DASHBOARD_API_URL` or `DASHBOARD_API_TOKEN` is unset (local default), or
  *  - the request fails / times out / the endpoint is unreachable, or
- *  - the response carries GraphQL errors or no data.
+ *  - both the full and compat queries return no usable data.
  *
- * Never throws: callers (e.g. the root layout) can rely on always receiving a
- * complete bundle, so the storefront never crashes if dashboard-api is down
- * (threat T-03-B4).
+ * Resilience: if the full query fails because dashboard-api does not yet
+ * expose `enableSitemap` / `allowIndexing`, retries {@link BRANDING_QUERY_COMPAT}
+ * so colors, logo, and store name still resolve. Never throws (T-03-B4).
  *
  * Cached (Cache Components, `'use cache'`): branding is a per-tenant-per-DEPLOY
  * read — the tenant resolves from build/deploy env (`DASHBOARD_API_URL` +
@@ -207,20 +273,17 @@ export async function getBranding(): Promise<BrandingBundle> {
   if (!endpoint || !token) return DEFAULT_BUNDLE;
 
   try {
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: brandingRequestHeaders(token),
-      body: JSON.stringify({ query: BRANDING_QUERY }),
-      // Caching is governed by the enclosing `'use cache'` + cacheLife
-      // above (Cache Components), so no fetch-level `next.revalidate` here.
-    });
+    const full = await fetchBrandingQuery(endpoint, token, BRANDING_QUERY);
+    if (full) return full;
 
-    if (!res.ok) return DEFAULT_BUNDLE;
+    const compat = await fetchBrandingQuery(
+      endpoint,
+      token,
+      BRANDING_QUERY_COMPAT,
+    );
+    if (compat) return compat;
 
-    const json = (await res.json()) as BrandingResponse;
-    if (json.errors?.length || !json.data) return DEFAULT_BUNDLE;
-
-    return coerce(json.data);
+    return DEFAULT_BUNDLE;
   } catch {
     // Unreachable / timeout / parse error — degrade silently.
     return DEFAULT_BUNDLE;
