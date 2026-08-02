@@ -9,7 +9,10 @@ import type {
   FeaturedBrand,
   Post,
 } from "@headkit/sdk";
-import { processEditorBlocks } from "@/lib/process-editor-blocks";
+import {
+  processHomepageContent,
+  getBlockQueryType,
+} from "@/lib/process-editor-blocks";
 import {
   makeRootMetadata,
   resolveHomeTitle,
@@ -19,6 +22,7 @@ import {
 import { getBranding, getBrandingAssets } from "@/lib/branding";
 import { MainCarousel } from "@/components/headkit-ui/main-carousel";
 import { BlockEditor } from "@/components/headkit-ui/block-editor";
+import { EditorialContent } from "@/components/headkit-ui/editorial-content";
 import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
 import { CategoryCarousel } from "@/components/headkit-ui/category-carousel";
 import { BrandCarousel } from "@/components/headkit-ui/brand-carousel";
@@ -27,6 +31,14 @@ import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { ProductCard } from "@/components/headkit-ui/product-card";
 import { CarouselProductJsonLD } from "@/components/seo/carousel-product-json-ld";
 import { CarouselPostJsonLD } from "@/components/seo/carousel-post-json-ld";
+
+const EMPTY_COLLECTION = {
+  products: [] as Product[],
+  total: 0,
+  page: 1,
+  perPage: 8,
+  totalPages: 0,
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   try {
@@ -81,29 +93,27 @@ export async function getHomepageData() {
   cacheLife("days");
   cacheTag(...HOME_TAGS);
 
-  try {
-    const [homepage, newArrivals, onSaleProducts] = await Promise.all([
+  // Split fetches so a homepage.get() failure does not null New Arrivals /
+  // On Sale collections (P2 resilience).
+  const [homepageResult, newArrivalsResult, onSaleResult] =
+    await Promise.allSettled([
       headkit.homepage.get(),
-      headkit.collections.list({ isNew: true }, 1, 8).catch(() => ({
-        products: [] as Product[],
-        total: 0,
-        page: 1,
-        perPage: 8,
-        totalPages: 0,
-      })),
-      headkit.collections.list({ onSale: true }, 1, 8).catch(() => ({
-        products: [] as Product[],
-        total: 0,
-        page: 1,
-        perPage: 8,
-        totalPages: 0,
-      })),
+      headkit.collections.list({ isNew: true }, 1, 8),
+      headkit.collections.list({ onSale: true }, 1, 8),
     ]);
 
-    return { homepage, newArrivals, onSaleProducts };
-  } catch {
-    return { homepage: null, newArrivals: null, onSaleProducts: null };
-  }
+  return {
+    homepage:
+      homepageResult.status === "fulfilled" ? homepageResult.value : null,
+    newArrivals:
+      newArrivalsResult.status === "fulfilled"
+        ? newArrivalsResult.value
+        : EMPTY_COLLECTION,
+    onSaleProducts:
+      onSaleResult.status === "fulfilled"
+        ? onSaleResult.value
+        : EMPTY_COLLECTION,
+  };
 }
 
 export async function HomeContent() {
@@ -122,10 +132,30 @@ export async function HomeContent() {
   const featuredProducts = (homepage?.featuredProducts ??
     []) as unknown as Product[];
   const latestPosts = (homepage?.latestPosts ?? []) as unknown as Post[];
-  const editorBlocks = processEditorBlocks(
+  const { blocks: editorBlocks, leftoverHtml } = processHomepageContent(
     homepage?.page?.content ?? "",
-    (homepage?.page?.editorBlocks ?? []) as Array<{ products?: unknown[] }>,
+    (homepage?.page?.editorBlocks ?? []) as Array<{
+      products?: unknown[];
+      attrs?: Record<string, unknown> | null;
+      queryType?: string | null;
+    }>,
   );
+
+  // Prefer WP queryType carousels over hardcoded New Arrivals / On Sale when
+  // the front page already includes those HeadKit patterns (avoids duplicates).
+  const wpQueryTypes = new Set(
+    editorBlocks
+      .map((b) => getBlockQueryType(b))
+      .filter((qt): qt is string => qt !== null),
+  );
+  const showHardcodedNew =
+    !wpQueryTypes.has("new") &&
+    newArrivals !== null &&
+    newArrivals.products.length > 0;
+  const showHardcodedSale =
+    !wpQueryTypes.has("on-sale") &&
+    onSaleProducts !== null &&
+    onSaleProducts.products.length > 0;
 
   // Prefer featured products for ItemList JSON-LD; fall back to new arrivals.
   const productListLd =
@@ -144,6 +174,13 @@ export async function HomeContent() {
       {carousels.length > 0 && <MainCarousel carouselItems={carousels} />}
 
       <BlockEditor blocks={editorBlocks} section="section-1" />
+
+      {/* Leftover WP Gutenberg (non–headkit-block-section) authored on page_on_front */}
+      {leftoverHtml.trim().length > 0 && (
+        <section className="px-5 md:px-10 py-10">
+          <EditorialContent html={leftoverHtml} />
+        </section>
+      )}
 
       {/* Featured Products */}
       {featuredProducts.length > 0 && (
@@ -166,8 +203,8 @@ export async function HomeContent() {
 
       <BlockEditor blocks={editorBlocks} section="section-2" />
 
-      {/* New Arrivals — Grid layout */}
-      {newArrivals && newArrivals.products.length > 0 && (
+      {/* New Arrivals — skipped when WP already provides a product-new carousel */}
+      {showHardcodedNew && (
         <section className="py-10">
           <SectionHeader
             title="New Arrivals"
@@ -184,8 +221,8 @@ export async function HomeContent() {
         </section>
       )}
 
-      {/* On Sale */}
-      {onSaleProducts && onSaleProducts.products.length > 0 && (
+      {/* On Sale — skipped when WP already provides a product-on-sale carousel */}
+      {showHardcodedSale && (
         <section className="overflow-hidden py-10 bg-gray-50">
           <SectionHeader
             title="On Sale"

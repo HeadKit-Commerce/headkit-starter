@@ -1,18 +1,31 @@
+import "./../../app/_editorial/wp-block-library.css";
 import { Button } from "@/components/ui/button";
 import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
-import type { EditorBlock, Product } from "@headkit/sdk";
+import { sanitizeContent } from "@/lib/sanitize-content";
+import type { ProcessedEditorBlock } from "@/lib/process-editor-blocks";
+import type { Product } from "@headkit/sdk";
 
 interface Props {
-  blocks: EditorBlock[];
+  blocks: ProcessedEditorBlock[];
   section?: string;
+}
+
+const MEDIA_CLASSES = [
+  "headkit-embed",
+  "headkit-gallery",
+  "headkit-video-feature",
+] as const;
+
+function isMediaBlock(cssClasses: string[]): boolean {
+  return MEDIA_CLASSES.some((cls) => cssClasses.includes(cls));
 }
 
 const BlockEditor = ({ blocks, section = "section-1" }: Props) => {
   const result = blocks?.filter((block) => block.section === section);
   return (
     <>
-      {result?.map((data: EditorBlock, index: number) => {
+      {result?.map((data: ProcessedEditorBlock, index: number) => {
         if (data.cssClasses.includes("headkit-hilight")) {
           return (
             <AboutUs
@@ -41,6 +54,31 @@ const BlockEditor = ({ blocks, section = "section-1" }: Props) => {
               <div className="mt-5">
                 <ProductCarousel products={products} />
               </div>
+            </div>
+          );
+        }
+
+        if (isMediaBlock(data.cssClasses) || data.html) {
+          const clean = sanitizeContent(data.html ?? "");
+          if (!clean.trim()) return null;
+
+          const isVideoFeature = data.cssClasses.includes(
+            "headkit-video-feature",
+          );
+
+          return (
+            <div
+              key={index}
+              className={
+                isVideoFeature
+                  ? "headkit-video-feature-wrap overflow-hidden"
+                  : "px-5 md:px-10 py-10 overflow-hidden"
+              }
+            >
+              <div
+                className="wp-block-content prose max-w-none"
+                dangerouslySetInnerHTML={{ __html: clean }}
+              />
             </div>
           );
         }

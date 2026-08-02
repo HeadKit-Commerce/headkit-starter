@@ -1,24 +1,151 @@
 /**
- * processEditorBlocks
+ * processEditorBlocks / processHomepageContent
  *
- * Parses the WordPress rendered `page.content` HTML into an EditorBlock[]
+ * Parses the WordPress rendered `page.content` HTML into EditorBlock[]
  * compatible with the BlockEditor component, then merges in the product data
  * that the commerce service already resolved from each editor block.
  *
  * The WP `/headkit/v2/homepage` endpoint embeds all visual metadata
  * (title, description, button, CSS classes) only in the rendered HTML —
- * not in editorBlocks[].attrs.  Products are the one thing that come
- * structured from the API rather than the HTML, so we take them from
- * rawEditorBlocks[i].products at the same index.
+ * not in editorBlocks[].attrs.  Products (and queryType) come structured from
+ * the API, so we take them from rawEditorBlocks[i] at the same index as each
+ * headkit-block-section in the HTML.
  *
- * Mirrors the approach of headkit-store-template's processRenderedContent.
+ * Leftover HTML (content outside known HeadKit section groups) is returned
+ * separately so the homepage can render it via EditorialContent.
  */
 
 import type { EditorBlock, Product, ContentButton } from "@headkit/sdk";
 
-type RawEditorBlock = {
+export type RawEditorBlock = {
   products?: unknown[];
+  attrs?: Record<string, unknown> | null;
+  queryType?: string | null;
 };
+
+/** Storefront block with optional section HTML for media / passthrough render. */
+export type ProcessedEditorBlock = EditorBlock & {
+  /** Full outer section markup (sanitized at render time). */
+  html?: string;
+};
+
+export type ProcessedHomepageContent = {
+  blocks: ProcessedEditorBlock[];
+  /** page.content with headkit-block-section groups removed. */
+  leftoverHtml: string;
+};
+
+type ExtractedSection = {
+  classAttr: string;
+  innerHtml: string;
+  fullMatch: string;
+};
+
+/**
+ * Extract headkit-block-section groups with balanced </div> matching so
+ * gallery / video-feature / nested columns all work (not only constrained
+ * groups with wp-block-group__inner-container).
+ */
+export function extractHeadkitSections(html: string): ExtractedSection[] {
+  const sections: ExtractedSection[] = [];
+  const openRe = /<div\s+class="([^"]*headkit-block-section[^"]*)"[^>]*>/gi;
+  let m: RegExpExecArray | null;
+
+  while ((m = openRe.exec(html)) !== null) {
+    const classAttr = m[1];
+    if (classAttr === undefined) continue;
+
+    const start = m.index;
+    let i = m.index + m[0].length;
+    let depth = 1;
+
+    while (i < html.length && depth > 0) {
+      const nextOpen = html.indexOf("<div", i);
+      const nextClose = html.indexOf("</div>", i);
+      if (nextClose === -1) break;
+      if (nextOpen !== -1 && nextOpen < nextClose) {
+        depth += 1;
+        i = nextOpen + 4;
+      } else {
+        depth -= 1;
+        i = nextClose + 6;
+      }
+    }
+
+    const fullMatch = html.slice(start, i);
+    let innerHtml = html.slice(m.index + m[0].length, i - 6);
+
+    // Unwrap optional WP inner-container for title/description helpers.
+    const ic = innerHtml.match(
+      /^\s*<div\s+class="wp-block-group__inner-container[^"]*"[^>]*>([\s\S]*)<\/div>\s*$/i,
+    );
+    if (ic?.[1] !== undefined) {
+      innerHtml = ic[1];
+    }
+
+    sections.push({ classAttr, innerHtml, fullMatch });
+    // Continue search after this section to avoid re-matching nested sections.
+    openRe.lastIndex = i;
+  }
+
+  return sections;
+}
+
+/**
+ * Parse rendered WordPress HTML into EditorBlock[] and attach products/attrs
+ * from the parallel rawEditorBlocks array. Also returns leftover HTML.
+ */
+export function processHomepageContent(
+  html: string,
+  rawEditorBlocks: RawEditorBlock[],
+): ProcessedHomepageContent {
+  if (!html) return { blocks: [], leftoverHtml: "" };
+
+  const result: ProcessedEditorBlock[] = [];
+  let leftoverHtml = html;
+  const sections = extractHeadkitSections(html);
+
+  sections.forEach((sec, index) => {
+    const classList = sec.classAttr.split(/\s+/).filter(Boolean);
+    const section =
+      classList.find((c) => c.startsWith("section-")) ?? "section-1";
+
+    const raw = rawEditorBlocks[index];
+    const queryType =
+      raw?.queryType ??
+      (typeof raw?.attrs?.["queryType"] === "string"
+        ? raw.attrs["queryType"]
+        : undefined);
+
+    const attrs: Record<string, unknown> = {
+      ...(raw?.attrs ?? {}),
+    };
+    if (queryType) {
+      attrs["queryType"] = queryType;
+    }
+
+    result.push({
+      name: "",
+      cssClasses: classList,
+      section,
+      title: extractTitle(sec.innerHtml),
+      description: extractDescription(sec.innerHtml, classList),
+      button: extractButton(sec.innerHtml),
+      products: (raw?.products ?? []) as Product[],
+      attrs,
+      html: sec.fullMatch,
+    });
+
+    leftoverHtml = leftoverHtml.replace(sec.fullMatch, "");
+  });
+
+  leftoverHtml = leftoverHtml
+    .replace(/^\s*(?:<!--[\s\S]*?-->\s*)+/, "")
+    .replace(/(?:<!--[\s\S]*?-->\s*)+$/, "")
+    .trim();
+
+  return { blocks: result, leftoverHtml };
+}
 
 /**
  * Parse rendered WordPress HTML into EditorBlock[] and attach products from
@@ -27,45 +154,20 @@ type RawEditorBlock = {
 export function processEditorBlocks(
   html: string,
   rawEditorBlocks: RawEditorBlock[],
-): EditorBlock[] {
-  if (!html) return [];
+): ProcessedEditorBlock[] {
+  return processHomepageContent(html, rawEditorBlocks).blocks;
+}
 
-  const result: EditorBlock[] = [];
-
-  // Each headkit section is a wp-block-group with "headkit-block-section".
-  // The outer closing </div></div> ends the inner-container + the group.
-  const sectionRegex =
-    /<div\s+class="([^"]*headkit-block-section[^"]*)"[^>]*>\s*<div\s+class="wp-block-group__inner-container[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>(?=\s*(?:<div\s+class="[^"]*headkit-block-section|$))/gi;
-
-  let match: RegExpExecArray | null;
-  let index = 0;
-
-  while ((match = sectionRegex.exec(html)) !== null) {
-    const classAttr = match[1];
-    const innerHtml = match[2];
-    if (classAttr === undefined || innerHtml === undefined) continue;
-    const classList = classAttr.split(/\s+/).filter(Boolean);
-
-    // Section slot: first class starting with "section-", default "section-1".
-    // WP stores headlit blocks have no section-X class by default so all
-    // blocks land in section-1 unless the admin adds one explicitly.
-    const section =
-      classList.find((c) => c.startsWith("section-")) ?? "section-1";
-
-    result.push({
-      name: "",
-      cssClasses: classList,
-      section,
-      title: extractTitle(innerHtml),
-      description: extractDescription(innerHtml, classList),
-      button: extractButton(innerHtml),
-      products: (rawEditorBlocks[index]?.products ?? []) as Product[],
-    });
-
-    index++;
-  }
-
-  return result;
+/**
+ * True when a processed block was hydrated from a WP queryType carousel
+ * (product-new / product-on-sale / best-sellers).
+ */
+export function getBlockQueryType(
+  block: ProcessedEditorBlock | EditorBlock,
+): string | null {
+  const attrs = block.attrs as Record<string, unknown> | null | undefined;
+  const qt = attrs?.["queryType"];
+  return typeof qt === "string" && qt.length > 0 ? qt : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -104,6 +206,22 @@ function extractDescription(html: string, classList: string[]): string {
       const pRe = /<p(?:\s+[^>]*)?>(?!<)([\s\S]*?)<\/p>/gi;
       let pm: RegExpExecArray | null;
       while ((pm = pRe.exec(colHtml)) !== null) {
+        const text = pm[1];
+        if (text !== undefined && text.trim())
+          description += `<p>${text.trim()}</p>`;
+      }
+    }
+  }
+
+  // Video feature: first column heading + paragraphs (no headkit-block-* classes)
+  if (classList.includes("headkit-video-feature") && !description) {
+    const colM = html.match(
+      /<div\s+class="wp-block-column[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+    );
+    if (colM?.[1]) {
+      const pRe = /<p(?:\s+[^>]*)?>([\s\S]*?)<\/p>/gi;
+      let pm: RegExpExecArray | null;
+      while ((pm = pRe.exec(colM[1])) !== null) {
         const text = pm[1];
         if (text !== undefined && text.trim())
           description += `<p>${text.trim()}</p>`;
