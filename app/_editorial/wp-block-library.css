@@ -5470,6 +5470,102 @@ html :where(.is-position-sticky) {
   white-space: nowrap;
 }
 
+/* ==========================================================================
+   HeadKit CTA Button mapping (core/button → storefront Button variants)
+   --------------------------------------------------------------------------
+   Solid/fill (default) → Button variant="default" (bg-primary)
+   Outline (is-style-outline on wrapper or link) → Button variant="outline"
+   Branding via --color-primary / --color-primary-text / --radius.
+   Preset/custom colors (.has-*-background-color / inline style) still win.
+   Product-carousel header links keep the pill override above (more specific).
+   ========================================================================== */
+
+/* Prose must not restyle buttons as underlined body links. */
+.wp-block-content.prose a.wp-block-button__link {
+  text-decoration: none;
+  font-weight: 500;
+}
+
+/* Shared chrome ≈ Button size="default" (h-10 px-4, rounded-md). */
+.wp-block-content .wp-block-button .wp-block-button__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius, 0.5rem);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.25;
+  text-decoration: none;
+  box-sizing: border-box;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+/* Solid / fill — primary CTA when WP did not set a background. */
+.wp-block-content
+  .wp-block-button:not(.is-style-outline)
+  > .wp-block-button__link:not(.is-style-outline):not(.has-background) {
+  background-color: var(--color-primary);
+  color: var(--color-primary-text, #ffffff);
+  border: none;
+  box-shadow: none;
+}
+.wp-block-content
+  .wp-block-button:not(.is-style-outline)
+  > .wp-block-button__link:not(.is-style-outline):not(.has-background):hover {
+  background-color: color-mix(in srgb, var(--color-primary) 70%, transparent);
+  color: var(--color-primary-text, #ffffff);
+}
+
+/* Outline — secondary CTA (border gray-200, white fill). */
+.wp-block-content .wp-block-button.is-style-outline > .wp-block-button__link,
+.wp-block-content .wp-block-button .wp-block-button__link.is-style-outline {
+  background-color: #ffffff;
+  background-image: none;
+  border: 1px solid var(--color-gray-200, #ececea);
+  color: var(--color-purple-800, #23102e);
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  padding: 0.5rem 1rem;
+}
+.wp-block-content
+  .wp-block-button.is-style-outline
+  > .wp-block-button__link:hover,
+.wp-block-content
+  .wp-block-button
+  .wp-block-button__link.is-style-outline:hover {
+  background-color: var(--color-gray-100, #f5f5f4);
+  color: var(--color-gray-900, #171717);
+}
+
+/* Squared / no-radius still honor WP style classes. */
+.wp-block-content .wp-block-button.is-style-squared .wp-block-button__link,
+.wp-block-content .wp-block-button__link.wp-block-button.is-style-squared {
+  border-radius: 0;
+}
+.wp-block-content .wp-block-button.no-border-radius .wp-block-button__link,
+.wp-block-content .wp-block-button__link.no-border-radius {
+  border-radius: 0;
+}
+
+/* ==========================================================================
+   Homepage / storefront section layout (full padded column)
+   --------------------------------------------------------------------------
+   Editorial pages keep --hk-content-size (45rem reading measure). Homepage
+   leftover Gutenberg + BlockEditor media sit beside Featured/Categories,
+   which use px-5 md:px-10 with no 45rem cap — opt in via .hk-section-content.
+   ========================================================================== */
+.hk-section-content .wp-block-content {
+  --hk-content-size: 100%;
+  --hk-wide-size: 100%;
+  --wp--style--global--content-size: 100%;
+  --wp--style--global--wide-size: 100%;
+}
+
 /* Product grid: responsive cards, no list bullets. */
 .wp-block-content .wc-block-grid__products {
   list-style: none;

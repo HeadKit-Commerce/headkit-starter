@@ -165,7 +165,10 @@ export async function HomeContent() {
       {segments.map((seg, index) => {
         if (seg.kind === "html") {
           return (
-            <section key={`wp-html-${index}`} className="px-5 md:px-10 py-10">
+            <section
+              key={`wp-html-${index}`}
+              className="hk-section-content px-5 md:px-10 py-10"
+            >
               <EditorialContent html={seg.html} />
             </section>
           );

@@ -181,8 +181,8 @@ const BlockEditor = ({ blocks, section }: Props) => {
               key={index}
               className={
                 isVideoFeature
-                  ? "headkit-video-feature-wrap overflow-hidden"
-                  : "px-5 md:px-10 py-10 overflow-hidden"
+                  ? "hk-section-content headkit-video-feature-wrap overflow-hidden"
+                  : "hk-section-content px-5 md:px-10 py-10 overflow-hidden"
               }
             >
               <div
