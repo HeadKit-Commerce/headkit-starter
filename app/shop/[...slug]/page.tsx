@@ -10,7 +10,7 @@ import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
 import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { ProductJsonLD } from "@/components/seo/product-json-ld";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
-import { makeSeoMetadata, seoFallbackDescription } from "@/lib/make-metadata";
+import { makeSeoMetadata, seoFallbackDescription, resolveStoreName } from "@/lib/make-metadata";
 import { getBranding, getBrandingAssets } from "@/lib/branding";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -154,6 +154,8 @@ export default async function ProductPage({ params, searchParams }: Props) {
     notFound();
   }
 
+  const { storeSettings } = await getBranding();
+  const brandName = resolveStoreName(storeSettings.name);
   const relatedAsProducts: Product[] = product.related.map(mapRelatedToProduct);
   const upsellsAsProducts: Product[] = product.upsells.map(mapRelatedToProduct);
 
@@ -179,7 +181,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
 
   return (
     <div>
-      <ProductJsonLD product={product} />
+      <ProductJsonLD product={product} brandName={brandName} />
       <BreadcrumbJsonLD items={breadcrumbs} />
 
       <Suspense fallback={<ProductDetailSkeleton />}>

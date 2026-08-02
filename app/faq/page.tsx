@@ -10,7 +10,10 @@ import {
 } from "@/components/ui/accordion";
 import { FAQPageJsonLD } from "@/components/seo/faq-page-json-ld";
 import { makeSeoMetadata } from "@/lib/make-metadata";
+import { getBranding } from "@/lib/branding";
 import { EditorialContent } from "@/components/headkit-ui/editorial-content";
+
+const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 
 async function getFaqPage() {
   "use cache";
@@ -27,21 +30,30 @@ async function getFaqPage() {
   ]);
 }
 
+/**
+ * Empty Yoast/CMS SEO must not hide FAQ from indexing by default.
+ * Robots still respect store allowIndexing + non-production via resolveRobots.
+ */
 export async function generateMetadata(): Promise<Metadata> {
   try {
-    const [page] = await getFaqPage();
-    if (!page?.seo) {
-      return {
-        title: "FAQ",
-        robots: { index: false, follow: false },
-      };
-    }
-    return makeSeoMetadata(page.seo, { title: page.title });
+    const [[page], { seoSettings, storeSettings }] = await Promise.all([
+      getFaqPage(),
+      getBranding(),
+    ]);
+    return makeSeoMetadata(page?.seo ?? null, {
+      title: page?.title?.trim() || "FAQ",
+      description:
+        "Frequently asked questions — answers about orders, shipping, and more.",
+      storeName: storeSettings.name ?? undefined,
+      allowIndexing: seoSettings.allowIndexing,
+      canonical: SITE_URL ? `${SITE_URL.replace(/\/$/, "")}/faq` : "/faq",
+    });
   } catch {
-    return {
+    return makeSeoMetadata(null, {
       title: "FAQ",
-      robots: { index: false, follow: false },
-    };
+      description:
+        "Frequently asked questions — answers about orders, shipping, and more.",
+    });
   }
 }
 

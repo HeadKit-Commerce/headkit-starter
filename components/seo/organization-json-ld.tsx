@@ -23,6 +23,11 @@ interface OrganizationJsonLDProps {
   sameAs?: string[];
 }
 
+/**
+ * Site-wide Organization JSON-LD. Render once from the root layout.
+ * Uses a stable `@id` so WebSite.publisher can reference it without duplicating
+ * the Organization graph node.
+ */
 export function OrganizationJsonLD({
   name,
   url,
@@ -31,20 +36,29 @@ export function OrganizationJsonLD({
   address,
   sameAs,
 }: OrganizationJsonLDProps) {
+  const logo =
+    logoUrl?.trim() ||
+    (url ? `${url.replace(/\/$/, "")}/api/icon?size=512` : undefined);
+
   const schema: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "Organization",
+    "@id": url ? `${url}/#organization` : undefined,
     name,
     url,
   };
 
-  if (logoUrl) {
+  if (logo) {
     schema.logo = {
       "@type": "ImageObject",
-      url: logoUrl,
+      "@id": url ? `${url}/#logo` : undefined,
+      url: logo,
+      contentUrl: logo,
       width: 512,
       height: 512,
+      caption: name,
     };
+    schema.image = { "@id": url ? `${url}/#logo` : logo };
   }
 
   if (contactPoint) {

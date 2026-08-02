@@ -82,8 +82,8 @@ export default async function RootLayout({
 }>) {
   // Per-tenant branding + CMS footer menus (Footer / Footer 2 / Footer Policy).
   // Both degrade gracefully (branding → defaults; empty menus → static footer).
-  const [{ branding, storeSettings, seoSettings }, footerMenus] =
-    await Promise.all([getBranding(), getFooterMenus()]);
+  const [{ branding, storeSettings, seoSettings }, footerMenus, { iconUrl }] =
+    await Promise.all([getBranding(), getFooterMenus(), getBrandingAssets()]);
 
   const siteName = resolveStoreName(storeSettings.name);
   const gtmId = storeSettings.gtmId ?? ENV_GTM_ID;
@@ -92,6 +92,7 @@ export default async function RootLayout({
     seoSettings.description,
     storeSettings.name,
   );
+  const orgLogoUrl = iconUrl ?? branding.iconUrl ?? undefined;
 
   // Inject per-tenant brand colors as :root CSS custom properties, overriding
   // the globals.css defaults at runtime (FE-08). Sanitized to color literals
@@ -131,11 +132,19 @@ export default async function RootLayout({
         {/* GTM — per-tenant StoreSettings.gtmId, falling back to env (FE-08) */}
         {gtmId && <GoogleTagManager gtmId={gtmId} />}
 
-        <WebsiteJsonLD siteName={siteName} siteUrl={SITE_URL} />
-        {/* Global Organization JSON-LD (D-04 core type) — rendered once at the
-            site-wide altitude so every entity page inherits it without
-            per-route duplication. */}
-        <OrganizationJsonLD name={siteName} url={SITE_URL} />
+        {/* WebSite + Organization once each (no Org duplication). SearchAction
+            lives on WebsiteJsonLD; LocalBusiness omitted — StoreSettings has
+            no address/phone today. */}
+        <WebsiteJsonLD
+          siteName={siteName}
+          siteUrl={SITE_URL}
+          description={siteDescription}
+        />
+        <OrganizationJsonLD
+          name={siteName}
+          url={SITE_URL}
+          {...(orgLogoUrl ? { logoUrl: orgLogoUrl } : {})}
+        />
 
         {/* Providers are pure client state with no request reads at render:
             AuthProvider no longer calls usePathname(), CartProvider/CartDrawer

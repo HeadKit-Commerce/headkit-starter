@@ -137,13 +137,15 @@ export function seoFallbackDescription(
 }
 
 /**
- * Templated per-entity SEO title fallback.
- * Floor is "{name} | {storeName}" (or bare store name when entity name empty).
+ * Entity page title segment for the root `%s | {storeName}` template.
+ * Returns the bare entity name (or store name when empty) — the layout
+ * title template appends `| {storeName}`. Callers with a complete Yoast
+ * title should pass it via {@link makeSeoMetadata}, which uses `absolute`.
  */
-function seoFallbackTitle(name?: OptSeoStr, storeName?: OptSeoStr): string {
-  const site = resolveStoreName(storeName);
+export function seoFallbackTitle(name?: OptSeoStr, storeName?: OptSeoStr): string {
   const trimmed = (name ?? "").trim();
-  return trimmed.length > 0 ? `${trimmed} | ${site}` : site;
+  if (trimmed.length > 0) return trimmed;
+  return resolveStoreName(storeName);
 }
 
 /** Build root (homepage / layout) metadata from optional overrides. */
@@ -169,13 +171,25 @@ export function makeRootMetadata(options?: {
     brandingIconUrl: options?.iconUrl,
   });
   const allowIndexing = options?.allowIndexing !== false;
+  const feedUrl = SITE_URL ? `${SITE_URL.replace(/\/$/, "")}/feed.xml` : "/feed.xml";
+
+  // Single-locale storefront: no hreflang alternates. lang="en" is set on <html>.
+  // If/when i18n ships, add alternates.languages here (and self + x-default).
 
   return {
-    title,
+    title: {
+      default: title,
+      template: `%s | ${siteName}`,
+    },
     description,
     metadataBase: new URL(SITE_URL || "http://localhost:3000"),
     applicationName: siteName,
     robots: resolveRobots(allowIndexing),
+    alternates: {
+      types: {
+        "application/rss+xml": feedUrl,
+      },
+    },
     // NOTE: favicon `icons` are intentionally NOT set here — layout-only via
     // brandingIcons so page metadata cannot clobber the per-store tab icon.
     ...(shareImage
@@ -253,9 +267,15 @@ export function makeSeoMetadata(
   const storeName = resolveStoreName(fallback?.storeName);
   const allowIndexing = fallback?.allowIndexing !== false;
 
-  // Real SEO title wins; generic WP titles fall through to templated fallback.
+  // Real SEO title wins as absolute (Yoast is often already "{name} - {site}").
+  // Otherwise use the bare entity name so the root `%s | {storeName}` template
+  // appends the store suffix once.
   const seoTitle = isRealSeoTitle(seo?.title) ? seo!.title.trim() : null;
-  const title = seoTitle ?? seoFallbackTitle(fallback?.title, storeName);
+  const entityName = seoFallbackTitle(fallback?.title, storeName);
+  const displayTitle = seoTitle ?? entityName;
+  const titleMeta: Metadata["title"] = seoTitle
+    ? { absolute: seoTitle }
+    : entityName;
   const description = stripTags(
     seo?.metaDesc ?? seo?.opengraphDescription ?? fallback?.description,
   );
@@ -275,14 +295,14 @@ export function makeSeoMetadata(
   });
 
   return {
-    title,
+    title: titleMeta,
     description,
     metadataBase: new URL(SITE_URL || "http://localhost:3000"),
     alternates: canonical ? { canonical } : undefined,
     robots: resolveRobots(allowIndexing),
     openGraph: {
       type: "website",
-      title: seo?.opengraphTitle || title,
+      title: seo?.opengraphTitle || displayTitle,
       description: stripTags(seo?.opengraphDescription ?? description),
       url: canonical,
       siteName: storeName,
@@ -290,7 +310,7 @@ export function makeSeoMetadata(
     },
     twitter: {
       card: ogImage ? "summary_large_image" : "summary",
-      title: seo?.twitterTitle || title,
+      title: seo?.twitterTitle || displayTitle,
       description: stripTags(seo?.twitterDescription ?? description),
       ...(ogImage ? { images: [ogImage] } : {}),
     },

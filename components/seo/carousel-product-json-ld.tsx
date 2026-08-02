@@ -2,8 +2,16 @@ import type { ProductSummaryFieldsFragment } from "@headkit/sdk";
 import type { ItemList, WithContext } from "schema-dts";
 import { safeJsonLdStringify } from "./safe-json-ld";
 
+/** Minimal product fields required for ItemList / Product carousel JSON-LD. */
+type CarouselProduct = Pick<
+  ProductSummaryFieldsFragment,
+  "name" | "slug" | "price" | "salePrice" | "stockStatus"
+> & {
+  image?: { src?: string | null } | null;
+};
+
 interface CarouselProductJsonLDProps {
-  products: ProductSummaryFieldsFragment[];
+  products: CarouselProduct[];
   currency?: string | null;
 }
 
@@ -11,7 +19,10 @@ export function CarouselProductJsonLD({
   products,
   currency = "AUD",
 }: CarouselProductJsonLDProps) {
-  const siteUrl = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
+  const siteUrl = (process.env.NEXT_PUBLIC_FRONTEND_URL ?? "").replace(
+    /\/$/,
+    "",
+  );
 
   const jsonLd: WithContext<ItemList> = {
     "@context": "https://schema.org",

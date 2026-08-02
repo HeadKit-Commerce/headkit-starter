@@ -10,6 +10,7 @@ import {
 import { MobileHeaderActions } from "@/components/headkit-ui/header-actions";
 import { BrandLogo } from "@/components/icon/brand-logo";
 import { getBranding, getBrandingAssets } from "@/lib/branding";
+import { resolveStoreName } from "@/lib/make-metadata";
 
 /** Permissive shape for API menu nodes (GraphQL fragment stops at 3 levels, so innermost lacks children). */
 type MenuItemLike = {
@@ -296,7 +297,7 @@ export async function NavigationWrapper() {
       logo={
         <BrandLogo
           logoUrl={logoUrl}
-          siteName={storeSettings.name ?? "HeadKit"}
+          siteName={resolveStoreName(storeSettings.name)}
         />
       }
       mobileActions={<MobileHeaderActions />}

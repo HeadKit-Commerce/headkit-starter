@@ -6,64 +6,46 @@ interface WebsiteJsonLDProps {
   description?: string;
 }
 
+/**
+ * WebSite JSON-LD only. Organization lives in {@link OrganizationJsonLD}
+ * (rendered once in the root layout) so we do not emit Organization twice.
+ * SearchAction is included here — do not also mount SearchboxJsonLD.
+ */
 export function WebsiteJsonLD({
   siteName,
   siteUrl,
   description,
 }: WebsiteJsonLDProps) {
-  const websiteSchema = {
+  const websiteSchema: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "WebSite",
     "@id": `${siteUrl}/#website`,
     name: siteName,
     url: siteUrl,
-    description: description ?? "",
-    potentialAction: [
-      {
-        "@type": "SearchAction",
-        target: {
-          "@type": "EntryPoint",
-          urlTemplate: `${siteUrl}/search?q={search_term_string}`,
-        },
-        "query-input": "required name=search_term_string",
-      },
-    ],
     inLanguage: "en-US",
+    publisher: { "@id": `${siteUrl}/#organization` },
   };
 
-  const organizationSchema = {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    "@id": `${siteUrl}/#organization`,
-    name: siteName,
-    url: siteUrl,
-    logo: {
-      "@type": "ImageObject",
-      inLanguage: "en-US",
-      "@id": `${siteUrl}/#logo`,
-      url: `${siteUrl}/api/icon?size=512`,
-      contentUrl: `${siteUrl}/api/icon?size=512`,
-      width: 512,
-      height: 512,
-      caption: siteName,
-    },
-    image: { "@id": `${siteUrl}/#logo` },
-  };
+  if (description?.trim()) {
+    websiteSchema.description = description.trim();
+  }
+
+  if (siteUrl) {
+    websiteSchema.potentialAction = {
+      "@type": "SearchAction",
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate: `${siteUrl}/search?q={search_term_string}`,
+      },
+      "query-input": "required name=search_term_string",
+    };
+  }
 
   return (
-    <>
-      <script
-        id="websiteJsonLD"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(websiteSchema) }}
-      />
-      <script
-        id="organizationJsonLD"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: safeJsonLdStringify(organizationSchema),
-        }}
-      />
-    </>
+    <script
+      id="websiteJsonLD"
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(websiteSchema) }}
+    />
   );
 }

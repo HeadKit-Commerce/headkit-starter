@@ -11,7 +11,7 @@ import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
 import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { ProductJsonLD } from "@/components/seo/product-json-ld";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
-import { makeSeoMetadata } from "@/lib/make-metadata";
+import { makeSeoMetadata, resolveStoreName } from "@/lib/make-metadata";
 import { getBranding, getBrandingAssets } from "@/lib/branding";
 import { isColorAttrSlug } from "@/components/headkit-ui/collection/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -208,12 +208,16 @@ export default async function ProductPage({ params }: Props) {
     notFound();
   }
 
-  const product = await getProduct(productSlug);
+  const [product, { storeSettings }] = await Promise.all([
+    getProduct(productSlug),
+    getBranding(),
+  ]);
 
   if (!product) {
     notFound();
   }
 
+  const brandName = resolveStoreName(storeSettings.name);
   const relatedAsProducts: Product[] = product.related.map(mapRelatedToProduct);
   const upsellsAsProducts: Product[] = product.upsells.map(mapRelatedToProduct);
 
@@ -253,7 +257,7 @@ export default async function ProductPage({ params }: Props) {
 
   return (
     <div>
-      <ProductJsonLD product={product} />
+      <ProductJsonLD product={product} brandName={brandName} />
       <BreadcrumbJsonLD items={breadcrumbs} />
 
       <div className="px-5 py-8 md:px-10">

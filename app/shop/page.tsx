@@ -11,13 +11,28 @@ import {
   normalizeFilterKey,
   parseSearchParams,
 } from "@/components/headkit-ui/collection/utils";
+import { makeSeoMetadata } from "@/lib/make-metadata";
+import { getBranding } from "@/lib/branding";
 
-export const metadata: Metadata = {
-  title: "Shop",
-  alternates: {
-    canonical: `${process.env.NEXT_PUBLIC_FRONTEND_URL}/shop`,
-  },
-};
+const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
+
+export async function generateMetadata(): Promise<Metadata> {
+  try {
+    const { seoSettings, storeSettings } = await getBranding();
+    return makeSeoMetadata(null, {
+      title: "Shop",
+      description: "Browse our full product catalog.",
+      storeName: storeSettings.name ?? undefined,
+      allowIndexing: seoSettings.allowIndexing,
+      canonical: SITE_URL ? `${SITE_URL.replace(/\/$/, "")}/shop` : "/shop",
+    });
+  } catch {
+    return makeSeoMetadata(null, {
+      title: "Shop",
+      canonical: SITE_URL ? `${SITE_URL.replace(/\/$/, "")}/shop` : "/shop",
+    });
+  }
+}
 
 interface Props {
   searchParams: Promise<Record<string, string>>;

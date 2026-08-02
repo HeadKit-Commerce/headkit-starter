@@ -8,7 +8,9 @@ import { PostCarousel } from "@/components/headkit-ui/post/post-carousel";
 import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { ArticleJsonLD } from "@/components/seo/article-json-ld";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
-import { makeSeoMetadata } from "@/lib/make-metadata";
+import { CarouselPostJsonLD } from "@/components/seo/carousel-post-json-ld";
+import { makeSeoMetadata, resolveStoreName } from "@/lib/make-metadata";
+import { getBranding, getBrandingAssets } from "@/lib/branding";
 
 interface Props {
   params: Promise<{ slug: string[] }>;
@@ -26,11 +28,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const postSlug = slug[slug.length - 1];
   if (!postSlug) return {};
   try {
-    const post = await getPost(postSlug);
+    const [post, { seoSettings, storeSettings }, { iconUrl }] =
+      await Promise.all([getPost(postSlug), getBranding(), getBrandingAssets()]);
     if (!post) return {};
     return makeSeoMetadata(post.seo, {
       title: post.title,
       ...(post.excerpt ? { description: post.excerpt } : {}),
+      storeName: storeSettings.name ?? undefined,
+      dashboardOgImageUrl: seoSettings.ogImageUrl ?? undefined,
+      brandingIconUrl: iconUrl ?? undefined,
+      allowIndexing: seoSettings.allowIndexing,
     });
   } catch {
     return {};
@@ -43,33 +50,33 @@ export default async function Page({ params }: Props) {
   if (!postSlug) return notFound();
 
   try {
-    const post = await getPost(postSlug);
+    const [post, { storeSettings }] = await Promise.all([
+      getPost(postSlug),
+      getBranding(),
+    ]);
     if (!post) return notFound();
 
     const related = post.relatedPosts ?? [];
+    const siteName = resolveStoreName(storeSettings.name);
 
     const breadcrumbs = [
-      { name: "Home", uri: "/" },
-      { name: "News", uri: "/news" },
-      { name: post.title, uri: `/news/${postSlug}` },
+      { name: "Home", href: "/" },
+      { name: "News", href: "/news" },
+      { name: post.title, href: `/news/${postSlug}` },
     ];
 
     return (
       <>
         <ArticleJsonLD
           seo={post.seo}
-          siteName={process.env.NEXT_PUBLIC_SITE_NAME ?? ""}
+          siteName={siteName}
           datePublished={post.date ?? undefined}
           dateModified={post.modified ?? undefined}
           image={post.featuredImage?.src}
+          url={`${(process.env.NEXT_PUBLIC_FRONTEND_URL ?? "").replace(/\/$/, "")}/news/${postSlug}`}
         />
-        <BreadcrumbJsonLD
-          items={breadcrumbs.map((b, i) => ({
-            name: b.name,
-            href: b.uri,
-            current: i === breadcrumbs.length - 1,
-          }))}
-        />
+        <BreadcrumbJsonLD items={breadcrumbs} />
+        {related.length > 0 && <CarouselPostJsonLD posts={related} />}
 
         <div>
           <FeaturedImageHeader

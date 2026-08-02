@@ -25,6 +25,8 @@ import { BrandCarousel } from "@/components/headkit-ui/brand-carousel";
 import { PostCarousel } from "@/components/headkit-ui/post-carousel";
 import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { ProductCard } from "@/components/headkit-ui/product-card";
+import { CarouselProductJsonLD } from "@/components/seo/carousel-product-json-ld";
+import { CarouselPostJsonLD } from "@/components/seo/carousel-post-json-ld";
 
 export async function generateMetadata(): Promise<Metadata> {
   try {
@@ -125,8 +127,19 @@ export async function HomeContent() {
     (homepage?.page?.editorBlocks ?? []) as Array<{ products?: unknown[] }>,
   );
 
+  // Prefer featured products for ItemList JSON-LD; fall back to new arrivals.
+  const productListLd =
+    featuredProducts.length > 0
+      ? featuredProducts
+      : (newArrivals?.products ?? []);
+
   return (
     <>
+      {productListLd.length > 0 && (
+        <CarouselProductJsonLD products={productListLd} />
+      )}
+      {latestPosts.length > 0 && <CarouselPostJsonLD posts={latestPosts} />}
+
       {/* Hero Carousel */}
       {carousels.length > 0 && <MainCarousel carouselItems={carousels} />}
 

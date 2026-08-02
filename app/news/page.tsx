@@ -4,13 +4,30 @@ import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
 import { PostHeader } from "@/components/headkit-ui/post/post-header";
 import { PostPage } from "@/components/headkit-ui/post/post-page";
+import { CarouselPostJsonLD } from "@/components/seo/carousel-post-json-ld";
+import { makeSeoMetadata } from "@/lib/make-metadata";
+import { getBranding } from "@/lib/branding";
 
-export const metadata: Metadata = {
-  title: "News",
-  alternates: {
-    canonical: `${process.env.NEXT_PUBLIC_FRONTEND_URL}/news`,
-  },
-};
+const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
+
+export async function generateMetadata(): Promise<Metadata> {
+  try {
+    const { seoSettings, storeSettings } = await getBranding();
+    return makeSeoMetadata(null, {
+      title: "News",
+      description: "Stay up to date with our latest news and articles.",
+      storeName: storeSettings.name ?? undefined,
+      allowIndexing: seoSettings.allowIndexing,
+      canonical: SITE_URL ? `${SITE_URL.replace(/\/$/, "")}/news` : "/news",
+    });
+  } catch {
+    return makeSeoMetadata(null, {
+      title: "News",
+      description: "Stay up to date with our latest news and articles.",
+      canonical: SITE_URL ? `${SITE_URL.replace(/\/$/, "")}/news` : "/news",
+    });
+  }
+}
 
 interface Props {
   searchParams: Promise<Record<string, string>>;
@@ -40,11 +57,16 @@ async function PostsServer({
   ]);
 
   return (
-    <PostPage
-      initialPosts={postsResult.posts}
-      postFilters={postFilters}
-      activeCategory={activeCategory}
-    />
+    <>
+      {postsResult.posts.length > 0 && (
+        <CarouselPostJsonLD posts={postsResult.posts} />
+      )}
+      <PostPage
+        initialPosts={postsResult.posts}
+        postFilters={postFilters}
+        activeCategory={activeCategory}
+      />
+    </>
   );
 }
 

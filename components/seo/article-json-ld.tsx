@@ -8,6 +8,7 @@ interface ArticleJsonLDProps {
   datePublished?: string | undefined;
   dateModified?: string | undefined;
   image?: string | undefined;
+  url?: string | undefined;
 }
 
 export function ArticleJsonLD({
@@ -16,18 +17,28 @@ export function ArticleJsonLD({
   datePublished,
   dateModified,
   image,
+  url,
 }: ArticleJsonLDProps) {
+  const siteUrl = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
+  const publisherName = (siteName ?? "").trim() || "Store";
+
   const jsonLd: WithContext<Article> = {
     "@context": "https://schema.org",
     "@type": "Article",
     headline: seo?.title ?? "",
+    ...(url ? { mainEntityOfPage: url, url } : {}),
     ...(image ? { image } : {}),
     ...(datePublished ? { datePublished } : {}),
     ...(dateModified ? { dateModified } : {}),
     author: {
       "@type": "Organization",
-      name: siteName ?? seo?.opengraphTitle ?? "",
-      url: process.env.NEXT_PUBLIC_FRONTEND_URL ?? "",
+      name: publisherName,
+      url: siteUrl,
+    },
+    publisher: {
+      "@type": "Organization",
+      name: publisherName,
+      url: siteUrl,
     },
   };
 

@@ -168,19 +168,21 @@ describe("makeRootMetadata OG + store name", () => {
 });
 
 describe("makeSeoMetadata fallback chain (FE-09)", () => {
-  it("when Yoast/seo is absent, returns the TEMPLATED fallback title + description", () => {
+  it("when Yoast/seo is absent, returns bare entity title for root template", () => {
     const meta = makeSeoMetadata(null, {
       title: "Widgets",
       description: "All our widgets",
       storeName: "Acme",
     });
 
-    expect(meta.title).toBe("Widgets | Acme");
+    // Root layout template `%s | {storeName}` appends the store suffix at render.
+    expect(meta.title).toBe("Widgets");
     expect(meta.description).toBe("All our widgets");
     expect(meta.openGraph?.siteName).toBe("Acme");
+    expect(meta.openGraph?.title).toBe("Widgets");
   });
 
-  it("when seo.title is present, the SEO title wins over the fallback", () => {
+  it("when seo.title is present, uses absolute so template does not double", () => {
     const meta = makeSeoMetadata(
       {
         title: "Premium Widgets",
@@ -189,16 +191,39 @@ describe("makeSeoMetadata fallback chain (FE-09)", () => {
       { title: "Widgets", description: "All our widgets", storeName: "Acme" },
     );
 
-    expect(meta.title).toBe("Premium Widgets");
+    expect(meta.title).toEqual({ absolute: "Premium Widgets" });
     expect(meta.description).toBe("Our finest widgets");
   });
 
-  it("treats seo.title Home as not real and uses templated fallback", () => {
+  it("treats seo.title Home as not real and uses bare entity title", () => {
     const meta = makeSeoMetadata(
       { title: "Home" } as Parameters<typeof makeSeoMetadata>[0],
       { title: "Widgets", storeName: "Acme" },
     );
-    expect(meta.title).toBe("Widgets | Acme");
+    expect(meta.title).toBe("Widgets");
+  });
+});
+
+describe("makeRootMetadata title template", () => {
+  it("exposes %s | storeName template for child routes", () => {
+    const meta = makeRootMetadata({
+      title: "Acme",
+      siteName: "Acme",
+    });
+    expect(meta.title).toEqual({
+      default: "Acme",
+      template: "%s | Acme",
+    });
+  });
+
+  it("links RSS feed via alternates.types", () => {
+    const prev = process.env.NEXT_PUBLIC_FRONTEND_URL;
+    process.env.NEXT_PUBLIC_FRONTEND_URL = "https://shop.example";
+    // SITE_URL is module-scoped — re-importing isn't free; assert shape only
+    // when URL may be empty in test env. Presence of the key is the contract.
+    const meta = makeRootMetadata({ siteName: "Acme" });
+    expect(meta.alternates?.types?.["application/rss+xml"]).toBeTruthy();
+    process.env.NEXT_PUBLIC_FRONTEND_URL = prev;
   });
 });
 
