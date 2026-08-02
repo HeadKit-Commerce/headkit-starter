@@ -100,7 +100,6 @@ const BlockEditor = ({ blocks, section }: Props) => {
 
         if (data.cssClasses.includes("headkit-category-carousel")) {
           const categories = data.categories ?? [];
-          if (categories.length === 0) return null;
           return (
             <div className="py-[30px] overflow-hidden" key={index}>
               <SectionHeader
@@ -111,14 +110,22 @@ const BlockEditor = ({ blocks, section }: Props) => {
                 className="px-5 md:px-10"
               />
               <div className="mt-5">
-                <CategoryCarousel
-                  categories={categories.map((c) => ({
-                    name: c.name,
-                    slug: c.slug,
-                    uri: c.uri ?? `/shop/categories/${c.slug}`,
-                    thumbnail: c.thumbnail ?? "",
-                  }))}
-                />
+                {categories.length > 0 ? (
+                  <CategoryCarousel
+                    categories={categories.map((c) => ({
+                      name: c.name,
+                      slug: c.slug,
+                      uri: c.uri ?? `/shop/categories/${c.slug}`,
+                      thumbnail: c.thumbnail ?? "",
+                    }))}
+                  />
+                ) : (
+                  <p className="px-5 md:px-10 text-sm text-neutral-500">
+                    No categories to display yet. Mark categories Featured under
+                    Products → Categories, or pick them in the Handpicked
+                    Categories block.
+                  </p>
+                )}
               </div>
             </div>
           );
@@ -126,7 +133,6 @@ const BlockEditor = ({ blocks, section }: Props) => {
 
         if (data.cssClasses.includes("headkit-brand-carousel")) {
           const brands = data.brands ?? [];
-          if (brands.length === 0) return null;
           return (
             <div className="py-[30px] overflow-hidden" key={index}>
               <SectionHeader
@@ -137,13 +143,20 @@ const BlockEditor = ({ blocks, section }: Props) => {
                 className="px-5 md:px-10"
               />
               <div className="mt-5">
-                <BrandCarousel
-                  brands={brands.map((b) => ({
-                    name: b.name,
-                    slug: b.slug,
-                    thumbnail: b.thumbnail ?? "",
-                  }))}
-                />
+                {brands.length > 0 ? (
+                  <BrandCarousel
+                    brands={brands.map((b) => ({
+                      name: b.name,
+                      slug: b.slug,
+                      thumbnail: b.thumbnail ?? "",
+                    }))}
+                  />
+                ) : (
+                  <p className="px-5 md:px-10 text-sm text-neutral-500">
+                    No brands to display yet. Mark brands Featured under Products
+                    → Brands, or upload brand logos.
+                  </p>
+                )}
               </div>
             </div>
           );
