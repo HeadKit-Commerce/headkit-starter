@@ -3,8 +3,8 @@ import { headkit as sdk } from "@/lib/sdk";
 import { getBranding } from "@/lib/branding";
 import { resolveStoreName, resolveFooterDescription } from "@/lib/make-metadata";
 
-export const dynamic = "force-static";
-
+// Cache Components bans `export const dynamic` — caching is via `"use cache"`
+// on getFeedPosts + Cache-Control on the Response.
 const SITE_URL = (process.env.NEXT_PUBLIC_FRONTEND_URL ?? "").replace(/\/$/, "");
 
 function escapeXml(value: string): string {
