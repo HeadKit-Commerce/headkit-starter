@@ -5522,14 +5522,14 @@ html :where(.is-position-sticky) {
   color: var(--color-primary-text, #ffffff);
 }
 
-/* Outline — secondary CTA (border gray-200, white fill). */
+/* Outline — primary border, no fill, same size as solid. */
 .wp-block-content .wp-block-button.is-style-outline > .wp-block-button__link,
 .wp-block-content .wp-block-button .wp-block-button__link.is-style-outline {
-  background-color: #ffffff;
+  background-color: transparent;
   background-image: none;
-  border: 1px solid var(--color-gray-200, #ececea);
-  color: var(--color-purple-800, #23102e);
-  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  border: 1px solid var(--color-primary);
+  color: var(--color-primary);
+  box-shadow: none;
   padding: 0.5rem 1rem;
 }
 .wp-block-content
@@ -5538,8 +5538,9 @@ html :where(.is-position-sticky) {
 .wp-block-content
   .wp-block-button
   .wp-block-button__link.is-style-outline:hover {
-  background-color: var(--color-gray-100, #f5f5f4);
-  color: var(--color-gray-900, #171717);
+  background-color: transparent;
+  opacity: 0.8;
+  color: var(--color-primary);
 }
 
 /* Squared / no-radius still honor WP style classes. */
@@ -5550,6 +5551,21 @@ html :where(.is-position-sticky) {
 .wp-block-content .wp-block-button.no-border-radius .wp-block-button__link,
 .wp-block-content .wp-block-button__link.no-border-radius {
   border-radius: 0;
+}
+
+/* ==========================================================================
+   Branding — editorial heading colour
+   --------------------------------------------------------------------------
+   WP Heading blocks render as h1–h6.wp-block-heading inside .wp-block-content
+   (often also .prose). Force branding primary unless the editor set an
+   explicit text colour (.has-text-color / inline style / palette class).
+   ========================================================================== */
+.wp-block-content :is(h1, h2, h3, h4, h5, h6):not(.has-text-color) {
+  color: var(--color-primary);
+}
+.wp-block-content
+  .wp-block-heading:not(.has-text-color):not([style*="color"]) {
+  color: var(--color-primary);
 }
 
 /* ==========================================================================

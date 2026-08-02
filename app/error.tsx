@@ -19,7 +19,7 @@ export default function GlobalError({
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-5 md:px-10">
       <div className="mx-auto max-w-md text-center">
-        <h1 className="mb-2 text-4xl font-extrabold text-purple-800">
+        <h1 className="mb-2 text-4xl font-extrabold text-primary">
           Something went wrong
         </h1>
         <p className="mb-8 text-gray-600">

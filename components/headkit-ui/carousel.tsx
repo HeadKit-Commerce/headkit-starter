@@ -256,8 +256,8 @@ const Carousel = <T,>({
           >
             <ChevronLeftIcon
               className={cn(
-                "h-5 w-5 stroke-2",
-                !canScrollPrev && "stroke-[#DCDCDC]",
+                "h-5 w-5 text-primary transition-opacity hover:opacity-70",
+                !canScrollPrev && "text-gray-300",
               )}
             />
             <span className="sr-only">Previous slide</span>
@@ -271,8 +271,8 @@ const Carousel = <T,>({
           >
             <ChevronRightIcon
               className={cn(
-                "h-5 w-5 stroke-2",
-                !canScrollNext && "stroke-[#DCDCDC]",
+                "h-5 w-5 text-primary transition-opacity hover:opacity-70",
+                !canScrollNext && "text-gray-300",
               )}
             />
             <span className="sr-only">Next slide</span>
@@ -299,10 +299,10 @@ const Carousel = <T,>({
               "[&::-moz-range-track]:border [&::-moz-range-track]:border-[rgba(220,220,220,1)]",
               "[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-[1px] [&::-webkit-slider-thumb]:w-[var(--thumb-w)]",
               "[&::-webkit-slider-thumb]:-mt-[1px] [&::-webkit-slider-thumb]:rounded-none",
-              "[&::-webkit-slider-thumb]:bg-transparent [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-[rgba(42,42,42,1)]",
+              "[&::-webkit-slider-thumb]:bg-transparent [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-primary",
               "[&::-webkit-slider-thumb]:shadow-none [&::-webkit-slider-thumb]:outline-none",
               "[&::-moz-range-thumb]:h-[1px] [&::-moz-range-thumb]:w-[var(--thumb-w)] [&::-moz-range-thumb]:rounded-none",
-              "[&::-moz-range-thumb]:bg-transparent [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-[rgba(42,42,42,1)]",
+              "[&::-moz-range-thumb]:bg-transparent [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-primary",
               "[&::-moz-range-thumb]:shadow-none [&::-moz-range-thumb]:outline-none",
             )}
           />

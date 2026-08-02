@@ -1,27 +1,21 @@
 "use client";
 
-import { Skeleton } from "@/components/ui/skeleton";
 import { useCollection } from "./collection-context";
 import { ProductCard } from "@/components/headkit-ui/product-card";
+import { ProductCardSkeleton } from "@/components/headkit-ui/skeletons/product-card-skeleton";
 
-function LoadingSkeleton() {
+function LoadingSkeleton({ count = 8 }: { count?: number }) {
   return (
     <>
-      {[1, 2, 3, 4, 5, 6].map((i) => (
-        <div key={i} className="col-span-1">
-          <div className="space-y-3">
-            <Skeleton className="aspect-square w-full rounded-lg" />
-            <Skeleton className="h-4 w-2/3" />
-            <Skeleton className="h-4 w-1/2" />
-          </div>
-        </div>
+      {Array.from({ length: count }, (_, i) => (
+        <ProductCardSkeleton key={`skeleton-${i}`} />
       ))}
     </>
   );
 }
 
 export function ProductGrid() {
-  const { products, isLoading, isLoadingBefore, isLoadingAfter } =
+  const { products, isLoading, isLoadingBefore, isLoadingAfter, itemsPerPage } =
     useCollection();
 
   const isEmpty =
@@ -38,10 +32,12 @@ export function ProductGrid() {
     );
   }
 
+  const skeletonCount = Math.min(itemsPerPage, 8);
+
   return (
     <div className="px-5 md:px-10 z-5">
       <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-        {isLoadingBefore && <LoadingSkeleton />}
+        {isLoadingBefore && <LoadingSkeleton count={skeletonCount} />}
         {products.map((product, index) => (
           // First row (up to 4 cards at the widest breakpoint) is eager: the
           // first visible card image is the PLP's LCP element (RC-2).
@@ -51,7 +47,9 @@ export function ProductGrid() {
             priority={index < 4}
           />
         ))}
-        {(isLoading || isLoadingAfter) && <LoadingSkeleton />}
+        {(isLoading || isLoadingAfter) && (
+          <LoadingSkeleton count={skeletonCount} />
+        )}
       </div>
     </div>
   );

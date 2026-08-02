@@ -18,14 +18,14 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-white hover:bg-primary/70",
+        default: "bg-primary text-on-primary hover:bg-primary/70",
         destructive: "bg-red-500 text-white shadow-sm hover:bg-red-500/90",
         outline:
-          "border border-gray-200 bg-white shadow-sm hover:bg-gray-100 hover:text-gray-900",
+          "border border-primary bg-transparent text-primary shadow-none hover:bg-transparent hover:opacity-80",
         secondary:
-          "border-2 border-purple-800 bg-gradient-to-r hover:from-lime-400 hover:to-lime-100",
+          "border border-primary bg-transparent text-primary shadow-none hover:bg-transparent hover:opacity-80",
         ghost: "",
-        link: "text-primary underline-offset-4 hover:underline hover:text-purple-500 rounded-none",
+        link: "text-primary underline-offset-4 hover:underline hover:opacity-80 rounded-none",
       },
       size: {
         default: "h-10 px-4 py-2 text-base",

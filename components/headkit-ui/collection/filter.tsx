@@ -93,7 +93,9 @@ export function Filter() {
         onValueChange={(v) => setMenuOpen(!!v)}
         className={cn(
           "sticky top-20 z-10 hidden w-full items-center justify-between px-5 md:flex md:px-10",
-          menuOpen ? "bg-white" : "bg-white/80 hover:bg-white backdrop-blur-xs",
+          menuOpen
+            ? "bg-brand-bg"
+            : "bg-brand-bg/80 hover:bg-brand-bg backdrop-blur-xs",
         )}
       >
         <div
@@ -162,7 +164,7 @@ export function Filter() {
       {/* Mobile: facets live in a drawer (D-02) */}
       <div
         className={cn(
-          "sticky top-20 z-10 flex w-full items-center justify-between gap-2 bg-white/90 px-5 py-4 backdrop-blur-xs md:hidden",
+          "sticky top-20 z-10 flex w-full items-center justify-between gap-2 bg-brand-bg/90 px-5 py-4 backdrop-blur-xs md:hidden",
           { "opacity-50 pointer-events-none": isLoading },
         )}
       >
@@ -183,7 +185,7 @@ export function Filter() {
           </SheetTrigger>
           <SheetContent
             side="left"
-            className="w-[88vw] max-w-sm overflow-y-auto"
+            className="w-[88vw] max-w-sm overflow-y-auto bg-brand-bg"
           >
             <SheetHeader>
               <SheetTitle>Filters</SheetTitle>

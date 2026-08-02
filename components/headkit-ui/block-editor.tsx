@@ -230,10 +230,10 @@ const AboutUs = ({
   return (
     <div className="relative grid h-fit w-full grid-cols-1 gap-8 px-5 md:px-10 py-14 md:grid-cols-3">
       <div className="md:col-span-2">
-        <h1 className="mb-5 text-3xl font-semibold">{title}</h1>
+        <h1 className="mb-5 text-3xl font-semibold text-primary">{title}</h1>
         <div
           dangerouslySetInnerHTML={{ __html: content }}
-          className="prose text-purple-800 max-w-full"
+          className="prose text-primary max-w-full"
         />
       </div>
       <div className="flex items-center">
@@ -242,7 +242,7 @@ const AboutUs = ({
           target={buttonTarget ?? ""}
           className="w-full"
         >
-          <Button variant="secondary" rightIcon="arrowRight" fullWidth>
+          <Button variant="outline" fullWidth>
             {buttonText}
           </Button>
         </a>

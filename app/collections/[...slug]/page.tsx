@@ -21,7 +21,7 @@ import {
 import { makeSeoMetadata, seoFallbackDescription } from "@/lib/make-metadata";
 import { TAG } from "@/lib/cache-tags";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
-import { Skeleton } from "@/components/ui/skeleton";
+import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import type { SortKeyType } from "@/components/headkit-ui/collection/utils";
 import type { ProductFilters } from "@headkit/sdk";
 
@@ -189,31 +189,6 @@ async function CollectionProductsServer({
       {...(initialFilterValues ? { initialFilterValues } : {})}
       {...(initialBrands ? { initialBrands } : {})}
     />
-  );
-}
-
-function CollectionProductsSkeleton() {
-  return (
-    <div className="animate-in fade-in duration-300">
-      <div className="flex w-full items-center justify-between px-5 py-5 md:px-10">
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-10 w-24 rounded-md" />
-          <Skeleton className="h-10 w-24 rounded-md" />
-        </div>
-        <Skeleton className="h-10 w-32 rounded-md" />
-      </div>
-      <div className="px-5 md:px-10">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="space-y-3">
-              <Skeleton className="aspect-square w-full rounded-lg" />
-              <Skeleton className="h-4 w-2/3" />
-              <Skeleton className="h-4 w-1/2" />
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
   );
 }
 

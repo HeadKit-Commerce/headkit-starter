@@ -143,7 +143,7 @@ const SOCIAL_ICON_MAP = {
 function SubscriptionBox() {
   return (
     <div className="flex flex-col gap-2">
-      <Label className="text-purple-800 font-semibold text-lg">Subscribe</Label>
+      <Label className="text-primary font-semibold text-lg">Subscribe</Label>
       {/* Below lg the column is too narrow for the overlaid button (it sat on
           top of the input, hiding the text — F7): stack input + button. From
           lg: keep the overlay look, with input padding so text never runs
@@ -234,13 +234,13 @@ export function Footer({
                       className="h-9 w-auto"
                     />
                   ) : (
-                    <HeadkitMonoSvg className="h-9 w-auto text-purple-800" />
+                    <HeadkitMonoSvg className="h-9 w-auto text-primary" />
                   )}
                 </div>
               </Link>
             </div>
             {description && (
-              <div className="min-w-0 leading-5 text-purple-800">
+              <div className="min-w-0 leading-5 text-primary">
                 {description}
               </div>
             )}
@@ -276,7 +276,7 @@ export function Footer({
         </div>
 
         {/* Center: footer menu columns */}
-        <div className="grid grid-cols-2 gap-8 text-purple-800">
+        <div className="grid grid-cols-2 gap-8 text-primary">
           {footerMenus.map((menu) => (
             <FooterMenuColumn
               key={menu.location}

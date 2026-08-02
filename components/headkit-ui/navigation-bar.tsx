@@ -111,8 +111,10 @@ export function NavigationBar({
       <NavigationMenu
         onValueChange={(val) => setMenuOpen(!!val)}
         className={cn(
-          "sticky top-0 flex items-center justify-between h-20 w-full max-w-full z-20 px-5 md:px-10",
-          menuOpen ? "bg-white" : "bg-white/80 hover:bg-white backdrop-blur-xs",
+          "sticky top-0 flex items-center justify-between h-20 w-full max-w-full z-20 px-5 md:px-10 font-body text-primary backdrop-blur-xs",
+          menuOpen
+            ? "bg-brand-bg"
+            : "bg-brand-bg/60 hover:bg-brand-bg/80",
         )}
       >
         {/* Left: logo + primary menu */}
@@ -162,9 +164,9 @@ export function NavigationBar({
                   className="pr-0"
                 >
                   {mobileOpen ? (
-                    <XIcon className="h-6 w-6 stroke-purple-800" />
+                    <XIcon className="h-6 w-6 text-primary transition-opacity hover:opacity-70" />
                   ) : (
-                    <MenuIcon className="h-6 w-6 stroke-purple-800" />
+                    <MenuIcon className="h-6 w-6 text-primary transition-opacity hover:opacity-70" />
                   )}
                 </Button>
               </SheetTrigger>
@@ -218,13 +220,13 @@ function Preheader({
   links?: { label: string; uri: string }[];
 }) {
   return (
-    <div className="flex h-[30px] items-center justify-end sm:justify-between bg-primary px-5 text-sm text-white md:px-10">
-      {title && <div className="hidden sm:block">{title}</div>}
+    <div className="flex h-[30px] items-center justify-end sm:justify-between bg-primary px-5 text-sm text-brand-bg md:px-10">
+      {title && <div className="hidden sm:block text-brand-bg">{title}</div>}
       {(message ?? (links && links.length > 0)) && (
-        <div className="flex items-center gap-4 md:gap-8">
-          {message && <span>{message}</span>}
+        <div className="flex items-center gap-4 md:gap-8 text-brand-bg">
+          {message && <span className="text-brand-bg">{message}</span>}
           {links?.map(({ label, uri }, i) => (
-            <Link key={i} href={uri} className="underline">
+            <Link key={i} href={uri} className="underline text-brand-bg">
               {label}
             </Link>
           ))}
@@ -255,6 +257,7 @@ function DesktopMenuSection({
               <NavigationMenuTrigger
                 asChild
                 className={cn(
+                  "font-body text-primary hover:text-primary",
                   isHighlightedItem(item, highlightedLinks) &&
                     "text-pink-500 hover:!text-pink-600",
                 )}
@@ -275,7 +278,7 @@ function DesktopMenuSection({
                   {item.label}
                 </Link>
               </NavigationMenuTrigger>
-              <NavigationMenuContent className="w-screen! rounded-none!">
+              <NavigationMenuContent className="w-screen! rounded-none! bg-brand-bg">
                 <MegaMenu items={item.children} />
               </NavigationMenuContent>
             </>
@@ -285,6 +288,7 @@ function DesktopMenuSection({
                 href={removeTrailingSlash(item.uri)}
                 className={cn(
                   navigationMenuTriggerStyle(),
+                  "font-body text-primary hover:text-primary",
                   isHighlightedItem(item, highlightedLinks) &&
                     "text-pink-500 hover:!text-pink-600",
                 )}
@@ -311,7 +315,7 @@ function MegaMenu({ items }: { items: NavMenuItem[] }) {
           <NavigationMenuLink asChild>
             <Link
               href={removeTrailingSlash(item.uri)}
-              className="font-semibold hover:text-purple-500 uppercase block mb-2"
+              className="font-semibold text-primary hover:opacity-80 uppercase block mb-2"
             >
               {item.label}
             </Link>
@@ -323,7 +327,7 @@ function MegaMenu({ items }: { items: NavMenuItem[] }) {
                   <NavigationMenuLink asChild>
                     <Link
                       href={removeTrailingSlash(child.uri)}
-                      className="text-neutral-500 hover:text-purple-500 text-sm block py-0.5"
+                      className="text-primary/70 hover:opacity-80 text-sm block py-0.5"
                     >
                       {child.label}
                     </Link>
@@ -377,14 +381,14 @@ function MobileMenuItem({
   if (item.children.length > 0) {
     return (
       <Collapsible>
-        <CollapsibleTrigger className="text-xl font-semibold flex w-full justify-between items-center group focus-visible:outline-none">
-          <span className="group-data-[state=open]:text-purple-400">
+        <CollapsibleTrigger className="text-xl font-semibold font-body text-primary flex w-full justify-between items-center group focus-visible:outline-none">
+          <span className="group-data-[state=open]:opacity-70">
             {item.label}
           </span>
-          <span className="group-data-[state=open]:hidden text-purple-800">
+          <span className="group-data-[state=open]:hidden text-primary">
             <ChevronDownIcon size={20} />
           </span>
-          <span className="hidden group-data-[state=open]:block rotate-180 text-purple-400">
+          <span className="hidden group-data-[state=open]:block rotate-180 text-primary">
             <ChevronDownIcon size={20} />
           </span>
         </CollapsibleTrigger>
@@ -395,7 +399,7 @@ function MobileMenuItem({
                 <>
                   <Link
                     href={removeTrailingSlash(child.uri)}
-                    className="font-medium hover:text-purple-500 block py-1"
+                    className="font-medium text-primary hover:opacity-70 block py-1"
                     {...(onSelect ? { onClick: onSelect } : {})}
                   >
                     {child.label}
@@ -405,7 +409,7 @@ function MobileMenuItem({
                       <Link
                         key={sub.id}
                         href={removeTrailingSlash(sub.uri)}
-                        className="text-neutral-500 hover:text-purple-500 text-[15px] block py-0.5"
+                        className="text-primary/70 hover:opacity-70 text-[15px] block py-0.5"
                         {...(onSelect ? { onClick: onSelect } : {})}
                       >
                         {sub.label}
@@ -416,7 +420,7 @@ function MobileMenuItem({
               ) : (
                 <Link
                   href={removeTrailingSlash(child.uri)}
-                  className="text-neutral-500 hover:text-purple-500 text-lg block py-1"
+                  className="text-primary/70 hover:opacity-70 text-lg block py-1"
                   {...(onSelect ? { onClick: onSelect } : {})}
                 >
                   {child.label}
@@ -433,7 +437,7 @@ function MobileMenuItem({
     <Link
       href={removeTrailingSlash(item.uri)}
       className={cn(
-        "text-xl font-semibold hover:text-purple-500",
+        "text-xl font-semibold font-body text-primary hover:opacity-70",
         isHighlightedItem(item, highlightedLinks) &&
           "text-pink-500 hover:!text-pink-600",
       )}

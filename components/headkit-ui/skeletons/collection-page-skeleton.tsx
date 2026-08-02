@@ -1,4 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { ProductGridSkeleton } from "@/components/headkit-ui/skeletons/product-card-skeleton";
 
 interface CollectionPageSkeletonProps {
   /** "collection" = breadcrumb + h1 + description + optional thumbnail + subcategories row; "brand" = breadcrumb + h1 + optional description/thumbnail only */
@@ -14,14 +15,19 @@ export function CollectionPageSkeleton({
       <div className="overflow-x-hidden">
         <div className="mb-5 grid grid-cols-1 gap-5 px-4 md:grid-cols-2 md:px-10">
           <div className="pt-5">
-            <Skeleton className="mb-5 h-4 w-64" />
-            {variant === "brand" && <Skeleton className="mb-3 h-20 w-40" />}
-            <Skeleton className="mb-[10px] h-9 w-48" />
-            <Skeleton className="h-5 w-96" />
+            <Skeleton className="mb-5 h-4 w-48 max-w-full sm:w-64" />
+            {variant === "brand" && (
+              <Skeleton className="mb-3 h-20 w-40 rounded-brand" />
+            )}
+            <Skeleton className="mb-[10px] h-9 w-40 max-w-full sm:w-56" />
+            <div className="space-y-2">
+              <Skeleton className="h-5 w-full max-w-md" />
+              <Skeleton className="h-5 w-3/4 max-w-sm" />
+            </div>
           </div>
           {variant === "collection" && (
             <div className="flex justify-center md:justify-end md:pt-5">
-              <Skeleton className="h-24 w-full max-w-xs rounded-lg md:h-32 md:w-64" />
+              <Skeleton className="h-24 w-full max-w-xs rounded-brand md:h-32 md:w-64" />
             </div>
           )}
         </div>
@@ -30,39 +36,51 @@ export function CollectionPageSkeleton({
             <Skeleton className="mb-3 h-4 w-28" />
             <div className="flex flex-wrap gap-2">
               {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-10 w-24 rounded-lg" />
+                <Skeleton key={i} className="h-10 w-24 rounded-brand" />
               ))}
             </div>
           </div>
         )}
       </div>
 
-      {/* Filter bar — px-5 md:px-10 py-5 */}
-      <div className="flex w-full items-center justify-between px-5 py-5 md:px-10">
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-10 w-24 rounded-md" />
-          <Skeleton className="h-10 w-24 rounded-md" />
+      {/* Filter bar — matches sticky Filter chrome */}
+      <div className="flex w-full items-center justify-between bg-brand-bg/80 px-5 py-5 md:px-10">
+        <div className="flex items-center gap-2 overflow-hidden">
+          <Skeleton className="hidden h-10 w-24 rounded-brand md:block" />
+          <Skeleton className="hidden h-10 w-20 rounded-brand md:block" />
+          <Skeleton className="hidden h-10 w-16 rounded-brand md:block" />
+          <Skeleton className="h-10 w-24 rounded-brand md:hidden" />
         </div>
-        <Skeleton className="h-10 w-32 rounded-md" />
+        <Skeleton className="h-10 w-28 rounded-brand sm:w-32" />
       </div>
 
-      {/* Product grid — px-5 md:px-10, grid-cols-1 md:grid-cols-3 */}
+      {/* Product grid — same breakpoints as ProductGrid */}
       <div className="px-5 md:px-10">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="space-y-3">
-              <Skeleton className="aspect-square w-full rounded-lg" />
-              <Skeleton className="h-4 w-2/3" />
-              <Skeleton className="h-4 w-1/2" />
-            </div>
-          ))}
-        </div>
+        <ProductGridSkeleton count={12} />
       </div>
 
       {/* LoadMore + ProductCount */}
-      <div className="flex flex-col items-center gap-5 pb-10">
-        <Skeleton className="h-10 w-32 rounded-md" />
-        <Skeleton className="h-4 w-24" />
+      <div className="flex flex-col items-center gap-5 pb-10 pt-6">
+        <Skeleton className="h-10 w-full max-w-xs rounded-brand" />
+        <Skeleton className="h-4 w-40" />
+      </div>
+    </div>
+  );
+}
+
+/** Filter bar + product grid only — used inside Suspense around CollectionPage. */
+export function CollectionProductsSkeleton() {
+  return (
+    <div className="animate-in fade-in duration-300">
+      <div className="flex w-full items-center justify-between bg-brand-bg/80 px-5 py-5 md:px-10">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-10 w-24 rounded-brand" />
+          <Skeleton className="hidden h-10 w-20 rounded-brand sm:block" />
+        </div>
+        <Skeleton className="h-10 w-28 rounded-brand" />
+      </div>
+      <div className="px-5 md:px-10">
+        <ProductGridSkeleton count={12} />
       </div>
     </div>
   );

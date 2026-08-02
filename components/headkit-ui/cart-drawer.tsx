@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import { ShoppingBagIcon } from "@/components/icon";
 import {
   Sheet,
   SheetContent,
@@ -14,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { CartItemRow } from "@/components/headkit-ui/cart-item";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
+import { useChromeIcons } from "@/components/branding/branding-icons-provider";
 import { getCartAction } from "@/lib/cart-actions";
 import { getFloatVal, formatPrice, getStoreCurrency } from "@/lib/utils";
 
@@ -114,6 +114,7 @@ export function CartTriggerButton({
   initialCartCount?: number;
 }) {
   const { cartData, toggleCart } = useCartContext();
+  const { Cart } = useChromeIcons();
   const count = cartData?.itemsCount ?? initialCartCount;
 
   return (
@@ -124,7 +125,7 @@ export function CartTriggerButton({
       className="relative h-9 w-9 justify-end pr-0"
       onClick={() => toggleCart(true)}
     >
-      <ShoppingBagIcon className="h-6 w-6 stroke-purple-800 stroke-2 hover:stroke-purple-500" />
+      <Cart className="h-6 w-6 text-primary transition-opacity hover:opacity-70" />
       {count > 0 && (
         <span className="absolute right-0 top-[10px] z-10 h-[14px] min-w-[14px] rounded-full bg-purple-500 text-center text-[10px] font-medium leading-[14px] text-white px-0.5">
           {count > 99 ? "99+" : count}

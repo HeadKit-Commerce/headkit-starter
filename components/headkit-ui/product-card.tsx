@@ -110,8 +110,13 @@ export const ProductCard = ({
   if (!product) return null;
 
   return (
-    <div className={cn("relative w-full", className)}>
-      <div className="absolute left-2 top-2 z-10">
+    <div
+      className={cn(
+        "relative w-full rounded-brand bg-white p-3",
+        className,
+      )}
+    >
+      <div className="absolute left-5 top-5 z-10">
         <BadgeList isSale={product?.onSale ?? false} isNewIn={isNew} />
       </div>
       <Link href={uri} aria-label="Featured Image">
@@ -119,6 +124,7 @@ export const ProductCard = ({
           src={imageSelected}
           alt={product?.name ?? "Product"}
           priority={priority}
+          fit="contain"
         />
       </Link>
       <div className="pt-3">
@@ -133,17 +139,16 @@ export const ProductCard = ({
         >
           <div className="min-w-0">
             <Link href={uri}>
-              {/* h2 (not h3): on PLP/search the card name follows the page h1
-                  directly, so h3 skipped a level (a11y heading-order). Visual
-                  size is class-driven, unchanged. */}
-              <h2
+              {/* Homepage carousels expect product titles as h3 under section h2.
+                  Visual size stays class-driven. */}
+              <h3
                 className={cn(
-                  "font-semibold line-clamp-2 break-words",
+                  "text-[17px] font-semibold text-primary line-clamp-2 break-words",
                   dark && "text-white",
                 )}
               >
                 {product?.name}
-              </h2>
+              </h3>
             </Link>
             <div className="flex flex-wrap items-center gap-2 min-w-0">
               {isVariableProduct(product) &&

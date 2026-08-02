@@ -7,14 +7,13 @@ import {
   useRef,
   useState,
   useCallback,
-  useMemo,
 } from "react";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
-import { createClientSDK } from "@headkit/sdk";
 import type {
   ProductSummaryFieldsFragment,
   ProductFilters,
 } from "@headkit/sdk";
+import { listCollectionProducts } from "@/lib/collection-actions";
 import {
   buildProductListFilter,
   encodeFilterSlug,
@@ -96,6 +95,14 @@ export function CollectionProvider({
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [hasFirstPage, setHasFirstPage] = useState(initialPage === 1);
   const prevAttributeSlugRef = useRef<string | undefined>(undefined);
+  // Loading flags live in refs so fetchProducts never closes over a stale
+  // isLoadingAfter=true after a filter change mid-request (that bug made
+  // load-more permanently no-op while the UI looked idle).
+  const isLoadingRef = useRef(false);
+  const isLoadingBeforeRef = useRef(false);
+  const isLoadingAfterRef = useRef(false);
+  const productsCountRef = useRef(initialProducts.length);
+  productsCountRef.current = products.length;
 
   const [filterValues, setFilterValues] = useState<FilterValues>(() => {
     const vals: FilterValues = { ...DEFAULT_FILTER_VALUES, page: initialPage };
@@ -134,8 +141,6 @@ export function CollectionProvider({
 
   const hasMore = products.length < totalProducts;
 
-  const sdk = useMemo(() => createClientSDK(), []);
-
   const syncUrl = useCallback(
     (page: number, filters: FilterValues) => {
       const params = new URLSearchParams();
@@ -149,36 +154,54 @@ export function CollectionProvider({
       if (filters.sort) params.set("sort", filters.sort);
       if (filters.price_min) params.set("price_min", filters.price_min);
       if (filters.price_max) params.set("price_max", filters.price_max);
-      const qs = params.toString();
 
+      // Always use replaceState for query/path sync during client pagination.
+      // router.replace() remounts searchParams-driven Suspense islands (e.g.
+      // /shop) and wipes the appended product list back to a single page.
       if (categoryBasePath) {
-        // Path-based mode: encode attribute + brand filters into the URL path, keep
-        // other state in search params. Use replaceState to avoid server re-renders
-        // on every filter toggle.
         const filterSlug = encodeFilterSlug(filters);
         const filterPath = filterSlug ? `/f/${filterSlug}` : "";
+        const qs = params.toString();
         window.history.replaceState(
           null,
           "",
           `${categoryBasePath}${filterPath}${qs ? `?${qs}` : ""}`,
         );
       } else {
-        // Fallback: keep everything in search params (used outside collection routes).
         for (const [slug, vals] of Object.entries(filters.attributes)) {
           if (vals.length) params.set(slug, vals.join(","));
         }
-        router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+        const qs = params.toString();
+        window.history.replaceState(
+          null,
+          "",
+          `${pathname}${qs ? `?${qs}` : ""}`,
+        );
       }
     },
-    [categoryBasePath, pathname, router, search],
+    [categoryBasePath, pathname, search],
   );
 
   const fetchProducts = useCallback(
     async (page: number, position: "before" | "after" | "middle") => {
-      if (isLoading || isLoadingBefore || isLoadingAfter) return;
-      if (position === "before") setIsLoadingBefore(true);
-      else if (position === "after") setIsLoadingAfter(true);
-      else setIsLoading(true);
+      if (
+        isLoadingRef.current ||
+        isLoadingBeforeRef.current ||
+        isLoadingAfterRef.current
+      ) {
+        return;
+      }
+
+      if (position === "before") {
+        isLoadingBeforeRef.current = true;
+        setIsLoadingBefore(true);
+      } else if (position === "after") {
+        isLoadingAfterRef.current = true;
+        setIsLoadingAfter(true);
+      } else {
+        isLoadingRef.current = true;
+        setIsLoading(true);
+      }
 
       try {
         const filter = buildProductListFilter(filterValues, {
@@ -188,39 +211,49 @@ export function CollectionProvider({
           ...(isNew !== undefined ? { isNew } : {}),
           ...(search !== undefined ? { search } : {}),
         });
-        const result = await sdk.collections.list(filter, page, itemsPerPage);
+        const result = await listCollectionProducts(
+          filter,
+          page,
+          itemsPerPage,
+        );
 
-        if (position === "after" && result.products.length === 0) return;
+        // Empty "after" page means we've exhausted the list — clamp the total
+        // so hasMore flips false and the sentinel stops firing.
+        if (position === "after" && result.products.length === 0) {
+          setTotalProducts(productsCountRef.current);
+          return;
+        }
 
         setCurrentPage(page);
         setTotalProducts(result.total);
 
         if (position === "middle") {
-          setProducts(result.products as ProductSummaryFieldsFragment[]);
+          setProducts(result.products);
           setHasFirstPage(page === 1);
         } else if (position === "before") {
-          setProducts((prev) => [
-            ...(result.products as ProductSummaryFieldsFragment[]),
-            ...prev,
-          ]);
+          setProducts((prev) => [...result.products, ...prev]);
           if (page === 1) setHasFirstPage(true);
         } else {
-          setProducts((prev) => [
-            ...prev,
-            ...(result.products as ProductSummaryFieldsFragment[]),
-          ]);
+          setProducts((prev) => [...prev, ...result.products]);
         }
 
         syncUrl(page, filterValues);
       } catch {
-        // Silently handle — error boundary will catch critical failures
+        // Keep the previous product list; loading flags clear in finally so the
+        // user can retry via the Load More button.
       } finally {
-        if (position === "before") setIsLoadingBefore(false);
-        else if (position === "after") setIsLoadingAfter(false);
-        else setIsLoading(false);
+        if (position === "before") {
+          isLoadingBeforeRef.current = false;
+          setIsLoadingBefore(false);
+        } else if (position === "after") {
+          isLoadingAfterRef.current = false;
+          setIsLoadingAfter(false);
+        } else {
+          isLoadingRef.current = false;
+          setIsLoading(false);
+        }
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       filterValues,
       categorySlug,
@@ -232,6 +265,17 @@ export function CollectionProvider({
       syncUrl,
     ],
   );
+
+  const loadMore = useCallback(() => {
+    if (isLoadingAfterRef.current) return;
+    if (productsCountRef.current >= totalProducts) return;
+    void fetchProducts(currentPage + 1, "after");
+  }, [currentPage, fetchProducts, totalProducts]);
+
+  const loadPrevious = useCallback(() => {
+    if (isLoadingBeforeRef.current || currentPage <= 1) return;
+    void fetchProducts(currentPage - 1, "before");
+  }, [currentPage, fetchProducts]);
 
   useEffect(() => {
     if (!isInitialLoad) {
@@ -282,10 +326,8 @@ export function CollectionProvider({
         filterValues,
         setFilterValues,
         clearFilters,
-        loadMore: () => fetchProducts(currentPage + 1, "after"),
-        loadPrevious: () => {
-          if (currentPage > 1) fetchProducts(currentPage - 1, "before");
-        },
+        loadMore,
+        loadPrevious,
         productFilter,
       }}
     >

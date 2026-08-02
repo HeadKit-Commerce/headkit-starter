@@ -16,7 +16,9 @@ const CategoryCarousel = ({ categories }: Props) => {
       renderItem={(item) => (
         <Link href={item?.uri ?? `/shop/categories/${item?.slug}`}>
           <FeaturedImage src={item?.thumbnail} alt={item?.name} />
-          <div className="pt-3 text-[17px] font-semibold">{item?.name}</div>
+          <h3 className="pt-3 text-[17px] font-semibold text-primary">
+            {item?.name}
+          </h3>
         </Link>
       )}
       className="w-full"

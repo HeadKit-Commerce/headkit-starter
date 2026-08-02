@@ -73,7 +73,7 @@ export function ProductEnquiry({
 
       {open && (
         <div className="mt-4 rounded-lg border border-gray-200 p-5">
-          <h3 className="text-lg font-semibold text-purple-900">
+          <h3 className="text-lg font-semibold text-primary">
             Product enquiry
           </h3>
           <p className="mb-4 mt-1 text-sm text-gray-600">

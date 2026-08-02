@@ -77,22 +77,22 @@ function mapRelatedToProduct(r: RelatedProduct): Product {
 }
 
 function StockSkeleton() {
-  return <div className="h-5 w-24 animate-pulse rounded bg-gray-200" />;
+  return <Skeleton className="h-5 w-24" />;
 }
 
 function ProductDetailSkeleton() {
   return (
     <div className="px-5 py-8 md:px-10">
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-        <Skeleton className="aspect-square w-full rounded-lg" />
+        <Skeleton className="aspect-square w-full rounded-brand" />
         <div className="space-y-4">
           <Skeleton className="h-4 w-48" />
           <Skeleton className="h-8 w-3/4" />
           <Skeleton className="h-6 w-32" />
           <Skeleton className="h-4 w-full" />
           <Skeleton className="h-4 w-5/6" />
-          <Skeleton className="h-10 w-full rounded-md" />
-          <Skeleton className="h-12 w-full rounded-md" />
+          <Skeleton className="h-10 w-full rounded-brand-button" />
+          <Skeleton className="h-12 w-full rounded-brand-button" />
         </div>
       </div>
     </div>

@@ -31,6 +31,8 @@
   --color-secondary: #000000;
   --color-primary-text: #ffffff;
   --color-purple-500: var(--color-primary);
+  /* Headings/links that still use purple-800 track branding primary */
+  --color-purple-800: var(--color-primary);
 }
 
 @theme inline {
@@ -40,7 +42,6 @@
 
   /* Purple neutrals – remapped via layout when branding sets primary/text */
   --color-purple-100: #eae3f2;
-  --color-purple-800: #23102e;
   --color-purple-900: #0b050f;
 
   /* Pink – sale, CTA hover, destructive */
@@ -67,10 +68,16 @@
   --color-gray-800: #56564e;
   --color-gray-900: #171717;
 
+  /* All radius utilities track branding --radius (set in layout.tsx).
+     Without 2xl/3xl aliases, hero/cards using rounded-2xl kept Tailwind’s
+     fixed 1rem and ignored soft/round/square cornerStyle. */
   --radius-sm: calc(var(--radius) * 0.5);
   --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) * 1.5);
-  --radius-xl: calc(var(--radius) * 2);
+  --radius-lg: calc(var(--radius) * 1.25);
+  --radius-xl: calc(var(--radius) * 1.5);
+  --radius-2xl: calc(var(--radius) * 2);
+  --radius-3xl: calc(var(--radius) * 2.5);
+  --radius-4xl: calc(var(--radius) * 3);
 }
 
 @layer base {
@@ -102,6 +109,20 @@
     color: var(--color-primary);
   }
 
+  /* Explicit utility so components can opt in without fighting prose resets */
+  .heading-primary {
+    color: var(--color-primary);
+  }
+
+  /*
+   * Tailwind Typography paints headings via --tw-prose-headings (gray by
+   * default), which beats the base h1–h6 rules above. Point it at branding
+   * primary so editorial/About/FAQ prose matches storefront headings.
+   */
+  .prose {
+    --tw-prose-headings: var(--color-primary);
+  }
+
   a {
     color: var(--color-primary);
   }
@@ -118,6 +139,12 @@
   .text-on-primary {
     color: var(--color-primary-text);
   }
+  .text-brand-bg {
+    color: var(--color-background);
+  }
+  .bg-brand-bg {
+    background-color: var(--color-background);
+  }
   .border-primary {
     border-color: var(--color-primary);
   }
@@ -126,5 +153,8 @@
   }
   .rounded-brand-button {
     border-radius: var(--radius-button);
+  }
+  .font-body {
+    font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
   }
 }

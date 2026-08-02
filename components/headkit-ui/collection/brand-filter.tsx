@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { createClientSDK } from "@headkit/sdk";
+import { useEffect, useState } from "react";
 import type { BrandSummary } from "@headkit/sdk";
 import { cn } from "@/lib/utils";
+import { listFilterBrands } from "@/lib/collection-actions";
 import { useCollection } from "./collection-context";
 
 /**
@@ -16,15 +16,13 @@ import { useCollection } from "./collection-context";
  */
 export function BrandFilter() {
   const { filterValues, setFilterValues } = useCollection();
-  const sdk = useMemo(() => createClientSDK(), []);
   const [brands, setBrands] = useState<BrandSummary[]>([]);
 
   useEffect(() => {
     let active = true;
-    sdk.brands
-      .list({ perPage: 100, orderby: "name", order: "asc" })
-      .then((res) => {
-        if (active) setBrands(res.brands);
+    void listFilterBrands()
+      .then((next) => {
+        if (active) setBrands(next);
       })
       .catch(() => {
         // Non-fatal: brand facet simply renders empty if the list fails.
@@ -32,7 +30,7 @@ export function BrandFilter() {
     return () => {
       active = false;
     };
-  }, [sdk]);
+  }, []);
 
   if (brands.length === 0) {
     return (

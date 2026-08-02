@@ -4,7 +4,7 @@ import { useForm, type Control } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import React, { useEffect, useState } from "react";
-import { HiArrowRight } from "react-icons/hi2";
+import { ArrowRightIcon } from "@/components/icon";
 import {
   Form,
   FormControl,
@@ -454,7 +454,7 @@ export const GravityForm = ({
           className={buttonClassName}
         >
           {formData?.gfForm?.submitButton?.text ?? "Submit Form"}
-          <HiArrowRight className="ml-[20px]" />
+          <ArrowRightIcon className="ml-[20px] text-primary" />
         </Button>
 
         {message && <div className="mt-0.5 flex flex-wrap">{message}</div>}

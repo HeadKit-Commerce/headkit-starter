@@ -21,7 +21,7 @@ interface HeaderActionsProps {
  * Right-side header icon row: Search · Wishlist · Account · Cart
  *
  * Icons come from the branding icon library (default Heroicons 2).
- * Colour: purple-800 at rest (tracks primary when branded), purple-500 on hover.
+ * Colour: primary at rest, slight opacity drop on hover.
  */
 export function HeaderActions({ initialCartCount = 0 }: HeaderActionsProps) {
   const { isAuthenticated } = useAuth();
@@ -39,7 +39,7 @@ export function HeaderActions({ initialCartCount = 0 }: HeaderActionsProps) {
             aria-label="Search"
             className="h-9 w-9 justify-end pr-0"
           >
-            <Search className="h-6 w-6 stroke-purple-800 stroke-2 hover:stroke-purple-500" />
+            <Search className="h-6 w-6 text-primary transition-opacity hover:opacity-70" />
           </Button>
         }
       />
@@ -52,7 +52,7 @@ export function HeaderActions({ initialCartCount = 0 }: HeaderActionsProps) {
         asChild
       >
         <Link href="/account/wishlist" aria-label="Wishlist">
-          <Heart className="h-6 w-6 stroke-purple-800 stroke-2 hover:stroke-purple-500" />
+          <Heart className="h-6 w-6 text-primary transition-opacity hover:opacity-70" />
         </Link>
       </Button>
 
@@ -67,7 +67,7 @@ export function HeaderActions({ initialCartCount = 0 }: HeaderActionsProps) {
           href="/account"
           aria-label={isAuthenticated ? "Account (signed in)" : "Account"}
         >
-          <User className="h-6 w-6 stroke-purple-800 stroke-2 hover:stroke-purple-500" />
+          <User className="h-6 w-6 text-primary transition-opacity hover:opacity-70" />
           {isAuthenticated && <AccountLoggedInBadge />}
         </Link>
       </Button>
@@ -79,7 +79,7 @@ export function HeaderActions({ initialCartCount = 0 }: HeaderActionsProps) {
         className="relative h-9 w-9 justify-end pr-0"
         onClick={() => toggleCart(true)}
       >
-        <Cart className="h-6 w-6 stroke-purple-800 stroke-2 hover:stroke-purple-500" />
+        <Cart className="h-6 w-6 text-primary transition-opacity hover:opacity-70" />
         <CartBadge count={cartCount} />
       </Button>
     </div>
@@ -89,6 +89,9 @@ export function HeaderActions({ initialCartCount = 0 }: HeaderActionsProps) {
 /**
  * Mobile variant: Search · Wishlist · Account (Cart stays in the
  * mobile header bar trigger, not duplicated here).
+ *
+ * Use `text-*` (currentColor), not `stroke-*` — Lucide / MD / FA packs
+ * ignore Tailwind stroke colour utilities and would look unchanged.
  */
 export function MobileHeaderActions() {
   const { isAuthenticated } = useAuth();
@@ -103,13 +106,13 @@ export function MobileHeaderActions() {
             aria-label="Search"
             className="h-9 w-9 p-0"
           >
-            <Search className="h-6 w-6 stroke-purple-800 stroke-2" />
+            <Search className="h-6 w-6 text-primary transition-opacity hover:opacity-70" />
           </Button>
         }
       />
 
       <Link href="/account/wishlist">
-        <Heart className="h-6 w-6 stroke-purple-800 stroke-2" />
+        <Heart className="h-6 w-6 text-primary transition-opacity hover:opacity-70" />
       </Link>
 
       <span className="relative">
@@ -117,7 +120,7 @@ export function MobileHeaderActions() {
           href="/account"
           aria-label={isAuthenticated ? "Account (signed in)" : "Account"}
         >
-          <User className="h-6 w-6 stroke-purple-800 stroke-2" />
+          <User className="h-6 w-6 text-primary transition-opacity hover:opacity-70" />
         </Link>
         {isAuthenticated && <AccountLoggedInBadge />}
       </span>

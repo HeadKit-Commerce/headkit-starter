@@ -61,7 +61,7 @@ export function ProductImageGallery({
           <Dialog key={index}>
             <DialogTrigger
               className={cn(
-                "relative cursor-pointer overflow-hidden rounded-[8px] bg-gray-200",
+                "relative cursor-pointer overflow-hidden rounded-brand bg-gray-200",
                 index === 0 ? "col-span-2" : "col-span-1",
               )}
             >
@@ -92,7 +92,7 @@ export function ProductImageGallery({
       </div>
 
       {/* Mobile: simple arrow carousel */}
-      <div className="relative block overflow-hidden rounded-lg border border-gray-200 md:hidden">
+      <div className="relative block overflow-hidden rounded-brand border border-gray-200 md:hidden">
         <div className="absolute left-2 top-2 z-10">
           <BadgeList isSale={isSale} isNewIn={isNew} />
         </div>

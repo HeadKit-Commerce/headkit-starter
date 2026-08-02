@@ -75,7 +75,9 @@ export function RecentlyViewed({ currentSlug }: RecentlyViewedProps) {
   return (
     <section className="py-10">
       <div className="px-5 md:px-10">
-        <h2 className="mb-5 text-2xl font-semibold">Recently Viewed</h2>
+        <h2 className="mb-5 text-2xl font-semibold text-primary">
+          Recently Viewed
+        </h2>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           {products.map((product) => (
             <ProductCard key={product.id} product={product} />

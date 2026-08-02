@@ -27,13 +27,13 @@ export function SectionHeader({
       )}
     >
       <div className="flex items-center">
-        <h2 className="text-2xl font-semibold">{title}</h2>
+        <h2 className="text-2xl font-semibold text-primary">{title}</h2>
       </div>
 
       {description ? (
         <div className="flex items-center">
           <h3
-            className="font-medium"
+            className="font-medium text-primary"
             dangerouslySetInnerHTML={{ __html: sanitize(description) }}
           />
         </div>

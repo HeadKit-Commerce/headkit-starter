@@ -381,7 +381,7 @@ export function ProductDetail({
             <Breadcrumb items={breadcrumbItems} />
           </div>
         )}
-        <h1 className="mb-3 text-2xl font-bold leading-tight text-purple-900 md:text-3xl">
+        <h1 className="mb-3 text-2xl font-bold leading-tight text-primary md:text-3xl">
           {product.name}
         </h1>
 

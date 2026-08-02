@@ -10,7 +10,7 @@ interface Props {
 const PostCard = ({ title, image, uri }: Props) => {
   return (
     <Link href={`/news/${uri}`} className="block group">
-      <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-gray-100">
+      <div className="relative aspect-video w-full overflow-hidden rounded-brand bg-gray-100">
         {image && (
           <Image
             src={image}
@@ -21,7 +21,7 @@ const PostCard = ({ title, image, uri }: Props) => {
           />
         )}
       </div>
-      <h3 className="mt-3 font-semibold leading-snug group-hover:underline">
+      <h3 className="mt-3 text-[17px] font-semibold leading-snug text-primary group-hover:underline">
         {title}
       </h3>
     </Link>

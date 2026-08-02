@@ -63,7 +63,7 @@ export default async function Page({ params }: Props) {
   return (
     <div className="px-5 md:px-10 my-10 min-h-[50vh]">
       <BreadcrumbJsonLD items={breadcrumbItems} />
-      <h1 className="font-extrabold text-3xl text-purple-800">{page.title}</h1>
+      <h1 className="font-extrabold text-3xl text-primary">{page.title}</h1>
       {/* Full-width symmetric wrapper: EditorialContent centers its own blocks
           at content width; .alignwide/.alignfull break out from viewport centre. */}
       <div className="mt-5">

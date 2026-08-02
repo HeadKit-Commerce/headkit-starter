@@ -12,9 +12,9 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Skeleton } from "@/components/ui/skeleton";
-import { SearchIcon } from "@/components/icon";
 import { ProductCard } from "@/components/headkit-ui/product-card";
+import { ProductCardSkeleton } from "@/components/headkit-ui/skeletons/product-card-skeleton";
+import { useChromeIcons } from "@/components/branding/branding-icons-provider";
 import type { ProductSummaryFieldsFragment } from "@headkit/sdk";
 import { searchProducts } from "@/lib/search-actions";
 
@@ -34,18 +34,9 @@ function debounce<T extends unknown[]>(
   };
 }
 
-function ProductSkeleton() {
-  return (
-    <div className="space-y-3">
-      <Skeleton className="aspect-square w-full" />
-      <Skeleton className="h-4 w-2/3" />
-      <Skeleton className="h-4 w-1/2" />
-    </div>
-  );
-}
-
 export function SearchDrawer({ trigger }: SearchDrawerProps) {
   const router = useRouter();
+  const { Search } = useChromeIcons();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -83,7 +74,7 @@ export function SearchDrawer({ trigger }: SearchDrawerProps) {
 
   const defaultTrigger = (
     <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Search">
-      <SearchIcon className="h-6 w-6 stroke-purple-800 stroke-2 hover:stroke-purple-500" />
+      <Search className="h-6 w-6 text-primary transition-opacity hover:opacity-70" />
     </Button>
   );
 
@@ -111,7 +102,7 @@ export function SearchDrawer({ trigger }: SearchDrawerProps) {
           {isLoading ? (
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
               {[1, 2, 3, 4].map((i) => (
-                <ProductSkeleton key={i} />
+                <ProductCardSkeleton key={i} />
               ))}
             </div>
           ) : products.length > 0 ? (

@@ -110,13 +110,15 @@ export default async function RootLayout({
   const cornerVars =
     CORNER_STYLE_VARS[branding.cornerStyle] ?? CORNER_STYLE_VARS.soft;
 
+  // CTA / on-primary text uses the brand background so primary-filled buttons
+  // and hero titles stay legible against the tenant primary colour.
   const brandVars = [
     primary
       ? `--color-primary: ${primary}; --color-purple-500: ${primary}; --color-purple-800: ${primary};`
       : "",
     secondary ? `--color-secondary: ${secondary};` : "",
     background
-      ? `--color-background: ${background}; --background: ${background};`
+      ? `--color-background: ${background}; --background: ${background}; --color-primary-text: ${background};`
       : "",
     text
       ? `--color-text: ${text}; --foreground: ${text}; --color-purple-900: ${text};`
@@ -149,7 +151,13 @@ export default async function RootLayout({
           />
         )}
       </head>
-      <body className={`${fonts.bodyClassName} antialiased`}>
+      {/*
+        Do not apply next/font `bodyClassName` here — that class sets
+        `font-family` outside @layer and beats `body { font-family: var(--font-body) }`,
+        so non-curated / mismatched Google body fonts never appear.
+        Variable classes on <html> + --font-body CSS vars are enough.
+      */}
+      <body className="antialiased font-sans">
         {/* GTM — per-tenant StoreSettings.gtmId, falling back to env (FE-08) */}
         {gtmId && <GoogleTagManager gtmId={gtmId} />}
 

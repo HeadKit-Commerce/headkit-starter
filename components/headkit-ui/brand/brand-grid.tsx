@@ -12,7 +12,7 @@ function BrandGridSkeleton() {
     <div className="grid grid-cols-1 gap-6 px-5 sm:grid-cols-2 md:grid-cols-3 md:px-10 lg:grid-cols-4">
       {Array.from({ length: 8 }).map((_, i) => (
         <div key={i} className="space-y-3">
-          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full rounded-brand" />
           <Skeleton className="h-4 w-3/4" />
         </div>
       ))}

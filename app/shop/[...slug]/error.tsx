@@ -12,7 +12,7 @@ export default function ProductError({
   return (
     <div className="flex min-h-[50vh] flex-col items-center justify-center px-5 md:px-10">
       <div className="mx-auto max-w-md text-center">
-        <h1 className="mb-2 text-3xl font-bold text-purple-800">
+        <h1 className="mb-2 text-3xl font-bold text-primary">
           Unable to load product
         </h1>
         <p className="mb-8 text-gray-600">

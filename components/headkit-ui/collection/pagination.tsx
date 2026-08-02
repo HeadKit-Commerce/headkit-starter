@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { useCollection } from "./collection-context";
 
@@ -11,36 +11,48 @@ import { useCollection } from "./collection-context";
  * reduced motion.
  */
 export function LoadMore() {
-  const { hasMore, isLoadingAfter, loadMore } = useCollection();
+  const { hasMore, isLoadingAfter, loadMore, currentPage } = useCollection();
   const sentinelRef = useRef<HTMLDivElement>(null);
-
-  const handleIntersect = useCallback(
-    (entries: IntersectionObserverEntry[]) => {
-      const entry = entries[0];
-      if (entry?.isIntersecting && hasMore && !isLoadingAfter) {
-        loadMore();
-      }
-    },
-    [hasMore, isLoadingAfter, loadMore],
-  );
+  const loadMoreRef = useRef(loadMore);
+  const hasMoreRef = useRef(hasMore);
+  const isLoadingAfterRef = useRef(isLoadingAfter);
+  loadMoreRef.current = loadMore;
+  hasMoreRef.current = hasMore;
+  isLoadingAfterRef.current = isLoadingAfter;
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
-    if (!sentinel) return;
+    if (!sentinel || !hasMore) return;
 
     const prefersReducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
     if (prefersReducedMotion) return;
 
-    const observer = new IntersectionObserver(handleIntersect, {
-      rootMargin: "400px",
-      threshold: 0,
-    });
+    // Re-bind only when the page advances (successful append) or hasMore
+    // changes — NOT when isLoadingAfter flips. Re-observing on every failed
+    // fetch caused a CORS/error retry storm that left the button stuck on
+    // "Loading…".
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (
+          entry?.isIntersecting &&
+          hasMoreRef.current &&
+          !isLoadingAfterRef.current
+        ) {
+          loadMoreRef.current();
+        }
+      },
+      {
+        rootMargin: "400px",
+        threshold: 0,
+      },
+    );
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [handleIntersect]);
+  }, [hasMore, currentPage]);
 
   if (!hasMore) return null;
 

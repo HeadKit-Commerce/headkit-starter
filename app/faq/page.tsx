@@ -67,11 +67,11 @@ export default async function FAQPage() {
       <div className="px-5 md:px-10 py-10 md:py-16">
         <div>
           <div className="mb-12">
-            <h1 className="mb-6 text-3xl font-bold text-purple-800">
+            <h1 className="mb-6 text-3xl font-bold text-primary">
               {page?.title ?? "Frequently Asked Questions"}
             </h1>
             {page?.content && (
-              <div className="text-purple-800">
+              <div className="text-primary">
                 <EditorialContent html={page.content} />
               </div>
             )}
@@ -90,7 +90,7 @@ export default async function FAQPage() {
                   </AccordionTrigger>
                   <AccordionContent>
                     <div
-                      className="prose text-purple-800 max-w-none pt-2"
+                      className="prose text-primary max-w-none pt-2"
                       dangerouslySetInnerHTML={{ __html: sanitize(faq.answer) }}
                     />
                   </AccordionContent>
@@ -99,7 +99,7 @@ export default async function FAQPage() {
             </Accordion>
           ) : (
             <div className="rounded-lg border border-purple-200 px-6 py-12 text-center">
-              <p className="text-lg font-medium text-purple-800">
+              <p className="text-lg font-medium text-primary">
                 No FAQs published yet
               </p>
               <p className="mt-2 text-sm text-gray-800">

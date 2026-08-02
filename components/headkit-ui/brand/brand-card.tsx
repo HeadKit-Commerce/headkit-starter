@@ -10,7 +10,7 @@ export function BrandCard({ brand }: BrandCardProps) {
   return (
     <Link href={`/brand/${brand.slug}`}>
       <div className="group relative flex flex-col">
-        <div className="aspect-3/2 w-full overflow-hidden flex justify-center items-center bg-white border border-gray-200 rounded-md">
+        <div className="aspect-3/2 w-full overflow-hidden flex justify-center items-center bg-white border border-gray-200 rounded-brand">
           {brand.image?.src ? (
             <div className="relative h-[50px] w-[160px]">
               <Image
@@ -36,7 +36,7 @@ export function BrandCard({ brand }: BrandCardProps) {
           )}
         </div>
         <div className="mt-4 flex flex-col">
-          <h3 className="text-xl font-semibold">{brand.name}</h3>
+          <h3 className="text-[17px] font-semibold text-primary">{brand.name}</h3>
         </div>
       </div>
     </Link>

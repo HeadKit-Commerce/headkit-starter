@@ -267,8 +267,8 @@ const Carousel = <T,>({
           >
             <ArrowLeftIcon
               className={cn(
-                "h-5 w-5 stroke-2",
-                !canScrollPrev && "stroke-[#DCDCDC]",
+                "h-5 w-5 text-primary transition-opacity hover:opacity-70",
+                !canScrollPrev && "text-gray-300",
               )}
             />
             <span className="sr-only">Previous slide</span>
@@ -282,8 +282,8 @@ const Carousel = <T,>({
           >
             <ArrowRightIcon
               className={cn(
-                "h-5 w-5 stroke-2",
-                !canScrollNext && "stroke-[#DCDCDC]",
+                "h-5 w-5 text-primary transition-opacity hover:opacity-70",
+                !canScrollNext && "text-gray-300",
               )}
             />
             <span className="sr-only">Next slide</span>
@@ -305,20 +305,17 @@ const Carousel = <T,>({
               aria-label="Carousel scroll"
               style={{ ["--thumb-w" as string]: "25%" }}
               className={cn(
-                // Basic styling for a subtle, thin slider matching original
                 "w-full h-1 cursor-pointer appearance-none bg-transparent",
-                // Track — width: full, height: 1px, border: 1px solid rgba(220,220,220,1)
                 "[&::-webkit-slider-runnable-track]:h-[1px] [&::-webkit-slider-runnable-track]:bg-transparent",
                 "[&::-webkit-slider-runnable-track]:border [&::-webkit-slider-runnable-track]:border-[rgba(220,220,220,1)]",
                 "[&::-moz-range-track]:h-[1px] [&::-moz-range-track]:bg-transparent",
                 "[&::-moz-range-track]:border [&::-moz-range-track]:border-[rgba(220,220,220,1)]",
-                // Thumb — width = 25%, height = 1px, border = 1px solid rgba(42,42,42,1)
                 "[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-[1px] [&::-webkit-slider-thumb]:w-[var(--thumb-w)]",
                 "[&::-webkit-slider-thumb]:-mt-[1px] [&::-webkit-slider-thumb]:rounded-none",
-                "[&::-webkit-slider-thumb]:bg-transparent [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-[rgba(42,42,42,1)]",
+                "[&::-webkit-slider-thumb]:bg-transparent [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-primary",
                 "[&::-webkit-slider-thumb]:shadow-none [&::-webkit-slider-thumb]:outline-none",
                 "[&::-moz-range-thumb]:h-[1px] [&::-moz-range-thumb]:w-[var(--thumb-w)] [&::-moz-range-thumb]:rounded-none",
-                "[&::-moz-range-thumb]:bg-transparent [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-[rgba(42,42,42,1)]",
+                "[&::-moz-range-thumb]:bg-transparent [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-primary",
                 "[&::-moz-range-thumb]:shadow-none [&::-moz-range-thumb]:outline-none",
               )}
             />
@@ -336,7 +333,7 @@ const Carousel = <T,>({
               className={cn(
                 "mx-1 h-2 w-2 cursor-pointer rounded-full",
                 paginationDotClassName,
-                currentIndex === index && "bg-blue-500",
+                currentIndex === index && "bg-primary",
               )}
             />
           ))}

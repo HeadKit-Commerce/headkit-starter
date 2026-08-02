@@ -13,29 +13,31 @@ interface Props {
 
 export const MainCarousel = ({ carouselItems }: Props) => {
   return (
-    <div className="bg-white overflow-hidden mx-5">
+    <div className="overflow-hidden mx-5">
       <Carousel
         items={carouselItems}
         renderItem={(carousel, index) => {
           const HeaderTag: ElementType = index === 0 ? "h1" : "h2";
           return (
             <div className="basis-full w-full relative">
-              <div className="relative flex flex-col-reverse rounded-2xl md:flex-col">
+              {/*
+                Single brand-radius shell: previously nested rounded-2xl on a
+                white parent + image child left a visible square background
+                behind the image when cornerStyle was soft/round/square.
+              */}
+              <div className="relative flex flex-col-reverse overflow-hidden rounded-brand md:flex-col">
                 <div className="z-10 h-full w-full md:absolute">
                   <div className="mx-auto flex h-full items-center">
                     <div className="py-[20px] md:w-[400px] md:pl-[20px] lg:w-[600px] lg:pl-[100px]">
-                      <HeaderTag className="max-md:text-primary text-3xl font-semibold leading-[1.3]! md:text-5xl md:text-white">
+                      <HeaderTag className="max-md:text-primary text-3xl font-semibold leading-[1.3]! text-brand-bg md:text-5xl md:text-brand-bg">
                         {carousel?.header}
                       </HeaderTag>
-                      <p className="mt-8 text-base font-semibold text-black md:text-3xl md:text-white">
+                      <p className="mt-8 text-base font-semibold text-black md:text-3xl md:text-brand-bg">
                         {carousel?.description}
                       </p>
                       <div className="mt-8">
                         <Link href={carousel?.url ?? "#"}>
-                          <Button
-                            className="min-w-full md:min-w-[300px]"
-                            rightIcon="arrowRight"
-                          >
+                          <Button className="min-w-full md:min-w-[300px] text-brand-bg">
                             {carousel?.buttonText}
                           </Button>
                         </Link>
@@ -43,7 +45,7 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                     </div>
                   </div>
                 </div>
-                <div className="relative h-[40vh] overflow-hidden rounded-2xl md:h-[60vh] lg:h-[80vh]">
+                <div className="relative h-[40vh] overflow-hidden md:h-[60vh] lg:h-[80vh]">
                   {carousel?.image
                     ? (() => {
                         // RC-4 perf fix: the previous two stacked <Image
@@ -85,9 +87,9 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                               />
                             </picture>
                             {/* Contrast scrim (md:+ only, where text overlays
-                                the image) so the white headline stays legible
-                                on any customer image. Mobile renders text
-                                below the image. */}
+                                the image) so the brand-bg headline stays
+                                legible on any customer image. Mobile renders
+                                text below the image. */}
                             <div
                               aria-hidden
                               className="absolute inset-0 hidden md:block bg-gradient-to-r from-black/50 via-black/25 to-transparent"

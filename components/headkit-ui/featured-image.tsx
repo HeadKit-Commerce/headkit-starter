@@ -12,6 +12,8 @@ interface Props {
    * deprioritized by the browser).
    */
   priority?: boolean;
+  /** `contain` keeps full product shots visible (PLP cards); `cover` crops to fill. */
+  fit?: "cover" | "contain";
 }
 
 const FALLBACK_IMAGE_SRC = "/assets/fallback-image.webp";
@@ -21,12 +23,14 @@ const FeaturedImage = ({
   alt = "",
   className,
   priority = false,
+  fit = "cover",
 }: Props) => {
   const imageSrc = src || FALLBACK_IMAGE_SRC;
   return (
     <div
       className={cn(
-        "relative aspect-square w-full overflow-hidden rounded-lg bg-gray-100",
+        "relative aspect-square w-full overflow-hidden rounded-brand",
+        fit === "contain" ? "bg-white" : "bg-gray-100",
         className,
       )}
     >
@@ -35,7 +39,10 @@ const FeaturedImage = ({
         alt={alt}
         fill
         priority={priority}
-        className="object-cover object-center"
+        className={cn(
+          "object-center",
+          fit === "contain" ? "object-contain" : "object-cover",
+        )}
         sizes="(max-width: 640px) 91vw, (max-width: 1024px) 50vw, 33vw"
       />
     </div>
