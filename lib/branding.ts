@@ -219,6 +219,17 @@ ${BRANDING_EXTENDED_SELECTION}
 `;
 
 /**
+ * Extended branding without SEO-gate fields. Used when dashboard-api has
+ * background/fonts/style/icons but not yet enableSitemap / allowIndexing.
+ */
+const BRANDING_QUERY_EXTENDED = /* GraphQL */ `
+  query StorefrontBrandingExtended {
+${BRANDING_EXTENDED_SELECTION}
+    }
+  }
+`;
+
+/**
  * Compat query for older dashboard-api revisions that lack enableSitemap /
  * allowIndexing / extended branding fields. gqlgen returns `data: null` for
  * unknown fields — that used to discard colors/logo/name entirely. We retry
@@ -397,6 +408,13 @@ export async function getBranding(): Promise<BrandingBundle> {
   try {
     const full = await fetchBrandingQuery(endpoint, token, BRANDING_QUERY);
     if (full) return full;
+
+    const extended = await fetchBrandingQuery(
+      endpoint,
+      token,
+      BRANDING_QUERY_EXTENDED,
+    );
+    if (extended) return extended;
 
     const compat = await fetchBrandingQuery(
       endpoint,
