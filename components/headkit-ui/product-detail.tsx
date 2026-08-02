@@ -528,7 +528,7 @@ export function ProductDetail({
               type="button"
               onClick={() => setQuantity((q) => Math.max(1, q - 1))}
               disabled={quantity <= 1}
-              className="px-3 py-2.5 text-gray-600 transition-colors hover:text-gray-900 disabled:opacity-40"
+              className="cursor-pointer px-3 py-2.5 text-gray-600 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Decrease quantity"
             >
               <MinusIcon className="h-4 w-4" />
@@ -553,7 +553,7 @@ export function ProductDetail({
                 )
               }
               disabled={maxStock !== null && quantity >= maxStock}
-              className="px-3 py-2.5 text-gray-600 transition-colors hover:text-gray-900 disabled:opacity-40"
+              className="cursor-pointer px-3 py-2.5 text-gray-600 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Increase quantity"
             >
               <PlusIcon className="h-4 w-4" />
@@ -612,7 +612,7 @@ export function ProductDetail({
                   type="button"
                   onClick={() => setActiveTab(tab.key)}
                   className={cn(
-                    "relative px-4 py-3 text-sm font-medium transition-colors",
+                    "relative cursor-pointer px-4 py-3 text-sm font-medium transition-colors",
                     activeTab === tab.key
                       ? "text-purple-800"
                       : "text-gray-800 hover:text-gray-900",

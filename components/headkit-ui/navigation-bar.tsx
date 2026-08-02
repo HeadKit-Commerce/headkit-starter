@@ -35,6 +35,8 @@ export interface NavMenuItem {
   label: string;
   uri: string;
   description?: string | null;
+  /** Provider CSS classes (e.g. "highlighted", "hidden", "preheader-title"). */
+  cssClasses?: string[];
   children: NavMenuItem[];
 }
 
@@ -216,7 +218,7 @@ function Preheader({
   links?: { label: string; uri: string }[];
 }) {
   return (
-    <div className="flex h-[30px] items-center justify-end sm:justify-between bg-purple-800 px-5 text-sm text-white md:px-10">
+    <div className="flex h-[30px] items-center justify-end sm:justify-between bg-primary px-5 text-sm text-white md:px-10">
       {title && <div className="hidden sm:block">{title}</div>}
       {(message ?? (links && links.length > 0)) && (
         <div className="flex items-center gap-4 md:gap-8">

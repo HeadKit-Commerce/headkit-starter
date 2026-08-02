@@ -23,6 +23,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const cacheTag = vi.fn<(...tags: string[]) => void>();
 const cacheLife = vi.fn<(profile: string) => void>();
 const menuGet = vi.fn<(location: string) => Promise<unknown[]>>();
+const menuGetMenu = vi.fn<
+  (location: string) => Promise<{
+    name: string;
+    description?: string | null;
+    items: unknown[];
+  }>
+>();
+const menuGetMenus = vi.fn<
+  (
+    locations: string[],
+  ) => Promise<
+    Array<{ name: string; description?: string | null; items: unknown[] }>
+  >
+>();
 
 vi.mock("next/cache", () => ({
   cacheTag: (...tags: string[]): void => cacheTag(...tags),
@@ -31,7 +45,25 @@ vi.mock("next/cache", () => ({
 
 vi.mock("@/lib/sdk", () => ({
   headkit: {
-    menu: { get: (location: string): Promise<unknown[]> => menuGet(location) },
+    menu: {
+      get: (location: string): Promise<unknown[]> => menuGet(location),
+      getMenu: (
+        location: string,
+      ): Promise<{
+        name: string;
+        description?: string | null;
+        items: unknown[];
+      }> => menuGetMenu(location),
+      getMenus: (
+        locations: string[],
+      ): Promise<
+        Array<{
+          name: string;
+          description?: string | null;
+          items: unknown[];
+        }>
+      > => menuGetMenus(locations),
+    },
   },
 }));
 
@@ -66,6 +98,14 @@ beforeEach(() => {
   cacheLife.mockClear();
   menuGet.mockReset();
   menuGet.mockResolvedValue([]);
+  menuGetMenu.mockReset();
+  menuGetMenu.mockResolvedValue({ name: "", description: null, items: [] });
+  menuGetMenus.mockReset();
+  menuGetMenus.mockResolvedValue([
+    { name: "", description: null, items: [] },
+    { name: "", description: null, items: [] },
+    { name: "", description: null, items: [] },
+  ]);
 });
 
 describe("fetchMenu — tagged by location, days backstop", () => {
@@ -104,32 +144,41 @@ describe("getFooterMenus — TAG.footer + all footer locations", () => {
   });
 
   it("fetches all three footer locations and returns stable slots", async () => {
-    menuGet.mockImplementation(async (location: string) => {
-      if (location === "FOOTER") {
-        return [{ id: "1", label: "Shop", uri: "/shop", children: [] }];
-      }
-      if (location === "FOOTER_POLICY") {
-        return [{ id: "2", label: "Privacy", uri: "/privacy", children: [] }];
-      }
-      return [];
-    });
+    menuGetMenus.mockResolvedValueOnce([
+      {
+        name: "Shop",
+        description: null,
+        items: [{ id: "1", label: "Shop", uri: "/shop", children: [] }],
+      },
+      { name: "Company", description: null, items: [] },
+      {
+        name: "Paralel Furniture Pty Ltd",
+        description: null,
+        items: [
+          { id: "2", label: "Privacy", uri: "/privacy", children: [] },
+        ],
+      },
+    ]);
 
     await expect(getFooterMenus()).resolves.toEqual([
       {
         location: "FOOTER",
-        name: "",
+        name: "Shop",
         items: [{ id: "1", label: "Shop", uri: "/shop" }],
       },
-      { location: "FOOTER_2", name: "", items: [] },
+      { location: "FOOTER_2", name: "Company", items: [] },
       {
         location: "FOOTER_POLICY",
-        name: "",
+        name: "Paralel Furniture Pty Ltd",
         items: [{ id: "2", label: "Privacy", uri: "/privacy" }],
       },
     ]);
-    expect(menuGet).toHaveBeenCalledWith("FOOTER");
-    expect(menuGet).toHaveBeenCalledWith("FOOTER_2");
-    expect(menuGet).toHaveBeenCalledWith("FOOTER_POLICY");
+    expect(menuGetMenus).toHaveBeenCalledWith([
+      "FOOTER",
+      "FOOTER_2",
+      "FOOTER_POLICY",
+    ]);
+    expect(menuGet).not.toHaveBeenCalled();
   });
 });
 
@@ -159,6 +208,17 @@ describe("NavigationWrapper — subscribes to the menus it composes", () => {
       "headkit:branding",
     );
     expect(cacheLife).toHaveBeenCalledWith("days");
+  });
+
+  it("fetches PRIMARY + SECONDARY + PRE_HEADER in one getMenus batch", async () => {
+    await NavigationWrapper();
+    expect(menuGetMenus).toHaveBeenCalledWith([
+      "PRIMARY",
+      "SECONDARY",
+      "PRE_HEADER",
+    ]);
+    expect(menuGet).not.toHaveBeenCalled();
+    expect(menuGetMenu).not.toHaveBeenCalled();
   });
 });
 

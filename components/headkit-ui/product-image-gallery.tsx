@@ -129,7 +129,7 @@ export function ProductImageGallery({
                 <button
                   type="button"
                   onClick={prevMobile}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/80 p-1 shadow transition hover:bg-white"
+                  className="absolute left-2 top-1/2 -translate-y-1/2 cursor-pointer rounded-full bg-white/80 p-1 shadow transition hover:bg-white"
                   aria-label="Previous image"
                 >
                   <ChevronLeftIcon className="h-5 w-5 text-gray-800" />
@@ -137,7 +137,7 @@ export function ProductImageGallery({
                 <button
                   type="button"
                   onClick={nextMobile}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/80 p-1 shadow transition hover:bg-white"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer rounded-full bg-white/80 p-1 shadow transition hover:bg-white"
                   aria-label="Next image"
                 >
                   <ChevronRightIcon className="h-5 w-5 text-gray-800" />
@@ -152,7 +152,7 @@ export function ProductImageGallery({
                       type="button"
                       onClick={() => setMobileIndex(i)}
                       aria-label={`Go to image ${i + 1}`}
-                      className="flex h-6 w-6 items-center justify-center"
+                      className="flex h-6 w-6 cursor-pointer items-center justify-center"
                     >
                       <span
                         className={cn(

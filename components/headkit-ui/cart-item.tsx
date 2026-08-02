@@ -147,7 +147,7 @@ export function CartItemRow({
           <div className="mt-0.5 flex items-center">
             <button
               className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-l-[3px] bg-purple-500",
+                "flex h-8 w-8 cursor-pointer items-center justify-center rounded-l-[3px] bg-purple-500",
                 loading && "cursor-not-allowed opacity-40",
               )}
               onClick={handleDecrement}
@@ -161,7 +161,7 @@ export function CartItemRow({
             </span>
             <button
               className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-r-[3px] bg-purple-500 hover:opacity-80",
+                "flex h-8 w-8 cursor-pointer items-center justify-center rounded-r-[3px] bg-purple-500 hover:opacity-80",
                 (loading || isAtStockLimit || isOutOfStock) &&
                   "cursor-not-allowed opacity-40",
               )}

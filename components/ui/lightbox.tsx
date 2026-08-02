@@ -53,7 +53,7 @@ const Lightbox = ({ images, initialSelectedIndex }: Props) => {
             <button
               type="button"
               onClick={prev}
-              className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white backdrop-blur-sm transition hover:bg-white/20"
+              className="absolute left-4 top-1/2 -translate-y-1/2 cursor-pointer rounded-full bg-white/10 p-2 text-white backdrop-blur-sm transition hover:bg-white/20"
               aria-label="Previous image"
             >
               <ChevronLeftIcon className="h-6 w-6" />
@@ -61,7 +61,7 @@ const Lightbox = ({ images, initialSelectedIndex }: Props) => {
             <button
               type="button"
               onClick={next}
-              className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white backdrop-blur-sm transition hover:bg-white/20"
+              className="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer rounded-full bg-white/10 p-2 text-white backdrop-blur-sm transition hover:bg-white/20"
               aria-label="Next image"
             >
               <ChevronRightIcon className="h-6 w-6" />

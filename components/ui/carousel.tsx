@@ -334,7 +334,7 @@ const Carousel = <T,>({
               key={index}
               onClick={() => scrollTo(index)}
               className={cn(
-                "h-2 w-2 mx-1 rounded-full",
+                "mx-1 h-2 w-2 cursor-pointer rounded-full",
                 paginationDotClassName,
                 currentIndex === index && "bg-blue-500",
               )}

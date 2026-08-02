@@ -79,13 +79,16 @@ export default async function RootLayout({
 }>) {
   // Per-tenant branding + CMS footer menus (Footer / Footer 2 / Footer Policy).
   // Both degrade gracefully (branding → defaults; empty menus → static footer).
-  const [{ branding, storeSettings }, footerMenus] = await Promise.all([
-    getBranding(),
-    getFooterMenus(),
-  ]);
+  const [{ branding, storeSettings, seoSettings }, footerMenus] =
+    await Promise.all([getBranding(), getFooterMenus()]);
 
   const siteName = storeSettings.name ?? "HeadKit";
   const gtmId = storeSettings.gtmId ?? ENV_GTM_ID;
+  // Site tagline for the footer blurb: dashboard SEO description (WP
+  // siteDescription / Yoast-style store SEO), not a hardcoded marketing string.
+  const siteDescription =
+    seoSettings.description?.trim() ||
+    "HeadKit is the cloud platform making it easy to build headless commerce stores.";
 
   // Inject per-tenant brand colors as :root CSS custom properties, overriding
   // the globals.css defaults at runtime (FE-08). Sanitized to color literals
@@ -149,7 +152,7 @@ export default async function RootLayout({
             <main>{children}</main>
             <Footer
               siteName={siteName}
-              description="HeadKit is the cloud platform making it easy to build headless commerce stores."
+              description={siteDescription}
               menus={footerMenus}
               iconUrl={branding.iconUrl}
               socialLinks={{

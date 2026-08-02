@@ -88,7 +88,7 @@ export default function Page() {
             <button
               onClick={() => handleRemove(product.id)}
               aria-label="Remove from wishlist"
-              className="absolute top-2 right-2 p-2 rounded-full bg-white shadow hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+              className="absolute top-2 right-2 cursor-pointer rounded-full bg-white p-2 shadow hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
             >
               ✕
             </button>

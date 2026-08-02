@@ -30,7 +30,7 @@ export function CategorySwiper({ categories }: Props) {
     <div className="relative">
       <button
         onClick={() => scroll("left")}
-        className="absolute left-0 top-1/2 z-10 -translate-y-1/2 transform rounded-full bg-white p-2 shadow-md hover:bg-gray-50"
+        className="absolute left-0 top-1/2 z-10 -translate-y-1/2 transform cursor-pointer rounded-full bg-white p-2 shadow-md hover:bg-gray-50"
       >
         <ArrowLeftIcon className="h-5 w-5 text-gray-600" />
       </button>
@@ -55,7 +55,7 @@ export function CategorySwiper({ categories }: Props) {
       </div>
       <button
         onClick={() => scroll("right")}
-        className="absolute right-0 top-1/2 z-10 -translate-y-1/2 transform rounded-full bg-white p-2 shadow-md hover:bg-gray-50"
+        className="absolute right-0 top-1/2 z-10 -translate-y-1/2 transform cursor-pointer rounded-full bg-white p-2 shadow-md hover:bg-gray-50"
       >
         <ArrowRightIcon className="h-5 w-5 text-gray-600" />
       </button>
