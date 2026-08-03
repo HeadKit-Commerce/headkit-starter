@@ -197,11 +197,28 @@ export function resolveBrandFonts(input: {
     body: pickCurated(slots.body),
   };
 
-  const unique = new Map<string, CuratedFont>();
-  unique.set(urbanist.variable, {
-    font: urbanist,
-    cssVar: "--font-slot-urbanist",
+  // Only ship Urbanist's next/font CSS when a slot actually needs it (curated
+  // Urbanist, or fallback when a slot has no curated/google/upload source).
+  // Always-including it forced an unused webfont download + swap CLS (ENG-856).
+  const needsUrbanistFallback = (
+    Object.keys(slots) as Array<keyof typeof slots>
+  ).some((slot) => {
+    const font = slots[slot];
+    if (curatedBySlot[slot]) return false;
+    if (font.source === "upload" && font.fileUrl) return false;
+    if (font.source === "google" && (font.googleSlug || font.family)) {
+      return false;
+    }
+    return true;
   });
+
+  const unique = new Map<string, CuratedFont>();
+  if (needsUrbanistFallback) {
+    unique.set(urbanist.variable, {
+      font: urbanist,
+      cssVar: "--font-slot-urbanist",
+    });
+  }
   for (const entry of Object.values(curatedBySlot)) {
     if (entry) unique.set(entry.font.variable, entry);
   }

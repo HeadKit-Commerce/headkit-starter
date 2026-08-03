@@ -82,6 +82,7 @@ export function ProductImageGallery({
                       : "(min-width: 768px) 25vw, 100vw"
                   }
                   priority={index === 0}
+                  fetchPriority={index === 0 ? "high" : "auto"}
                   loading={index === 0 ? undefined : "lazy"}
                 />
               </div>
@@ -115,6 +116,7 @@ export function ProductImageGallery({
                         : "100vw"
                     }
                     priority={mobileIndex === 0}
+                    fetchPriority={mobileIndex === 0 ? "high" : "auto"}
                   />
                 </div>
               </DialogTrigger>

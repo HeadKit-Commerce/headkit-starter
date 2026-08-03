@@ -39,12 +39,19 @@ export function ProductGrid() {
       <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
         {isLoadingBefore && <LoadingSkeleton count={skeletonCount} />}
         {products.map((product, index) => (
-          // First row (up to 4 cards at the widest breakpoint) is eager: the
-          // first visible card image is the PLP's LCP element (RC-2).
+          // Only the first two cards compete for LCP preload (ENG-856). Prefetching
+          // four images on a phone wastes bandwidth when only one card is above the fold.
+          // Off-screen rows defer layout/paint via content-visibility.
           <ProductCard
             key={product.id}
             product={product}
-            priority={index < 4}
+            priority={index < 2}
+            {...(index >= 4
+              ? {
+                  className:
+                    "[content-visibility:auto] [contain-intrinsic-size:auto_360px]",
+                }
+              : {})}
           />
         ))}
         {(isLoading || isLoadingAfter) && (

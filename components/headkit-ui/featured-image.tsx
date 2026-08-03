@@ -39,11 +39,13 @@ const FeaturedImage = ({
         alt={alt}
         fill
         priority={priority}
+        fetchPriority={priority ? "high" : "auto"}
         className={cn(
           "object-center",
           fit === "contain" ? "object-contain" : "object-cover",
         )}
-        sizes="(max-width: 640px) 91vw, (max-width: 1024px) 50vw, 33vw"
+        // Match product-grid breakpoints: 1 → 2 (≥480 → 3 ≥md → 4 ≥xl
+        sizes="(max-width: 479px) 91vw, (max-width: 767px) 50vw, (max-width: 1279px) 33vw, 25vw"
       />
     </div>
   );

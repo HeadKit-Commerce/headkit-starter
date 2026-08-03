@@ -48,6 +48,7 @@ describe("resolveBrandFonts", () => {
       "--font-heading: var(--font-slot-urbanist)",
     );
     expect(resolved.cssVars).toContain("--font-body: var(--font-slot-urbanist)");
+    expect(resolved.variableClassNames).toContain("--font-slot-urbanist");
     expect(resolved.googleStylesheetHrefs).toHaveLength(0);
     expect(resolved.fontFaceCss).toBe("");
   });
@@ -68,6 +69,33 @@ describe("resolveBrandFonts", () => {
       "--font-heading: var(--font-slot-inter)",
     );
     expect(resolved.variableClassNames.length).toBeGreaterThan(0);
+  });
+
+  it("omits unused Urbanist when every slot is curated elsewhere (ENG-856)", async () => {
+    const { resolveBrandFonts } = await import("@/lib/brand-fonts");
+    const resolved = resolveBrandFonts({
+      heading: {
+        source: "google",
+        family: "Playfair Display",
+        googleSlug: "Playfair Display",
+        fileUrl: "",
+      },
+      subheading: {
+        source: "google",
+        family: "Inter",
+        googleSlug: "Inter",
+        fileUrl: "",
+      },
+      body: {
+        source: "google",
+        family: "Inter",
+        googleSlug: "Inter",
+        fileUrl: "",
+      },
+    });
+    expect(resolved.variableClassNames).not.toContain("--font-slot-urbanist");
+    expect(resolved.variableClassNames).toContain("--font-slot-inter");
+    expect(resolved.variableClassNames).toContain("--font-slot-playfair");
   });
 
   it("emits @font-face for uploads", async () => {

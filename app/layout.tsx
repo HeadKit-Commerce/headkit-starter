@@ -191,17 +191,19 @@ export default async function RootLayout({
         {gtmId && <GoogleTagManager gtmId={gtmId} />}
 
         {/* Email marketing onsite scripts — Klaviyo (__kla_id) or HubSpot tracking */}
+        {/* ENG-856: defer marketing pixels until after load so they don't contend
+            with hydration / INP. GTM stays afterInteractive for tag timing. */}
         {klaviyoPublicKey ? (
           <Script
             src={`https://static.klaviyo.com/onsite/js/klaviyo.js?company_id=${encodeURIComponent(klaviyoPublicKey)}`}
-            strategy="afterInteractive"
+            strategy="lazyOnload"
           />
         ) : null}
         {hubspotPortalId ? (
           <Script
             id="hs-script-loader"
             src={`//js.hs-scripts.com/${encodeURIComponent(hubspotPortalId)}.js`}
-            strategy="afterInteractive"
+            strategy="lazyOnload"
           />
         ) : null}
 

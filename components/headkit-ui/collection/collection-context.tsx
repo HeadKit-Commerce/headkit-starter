@@ -7,6 +7,8 @@ import {
   useRef,
   useState,
   useCallback,
+  useTransition,
+  startTransition,
 } from "react";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import type {
@@ -85,6 +87,8 @@ export function CollectionProvider({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
+  // Filter / catalog updates are non-urgent — keep checkbox/toggle INP low (ENG-856).
+  const [, startFilterTransition] = useTransition();
 
   const [products, setProducts] = useState(initialProducts);
   const [totalProducts, setTotalProducts] = useState(initialTotal);
@@ -224,20 +228,24 @@ export function CollectionProvider({
           return;
         }
 
-        setCurrentPage(page);
-        setTotalProducts(result.total);
+        // Defer product-list commit so the click/scroll that triggered fetch
+        // can paint first (INP). Loading flags stay urgent above/below.
+        startTransition(() => {
+          setCurrentPage(page);
+          setTotalProducts(result.total);
 
-        if (position === "middle") {
-          setProducts(result.products);
-          setHasFirstPage(page === 1);
-        } else if (position === "before") {
-          setProducts((prev) => [...result.products, ...prev]);
-          if (page === 1) setHasFirstPage(true);
-        } else {
-          setProducts((prev) => [...prev, ...result.products]);
-        }
+          if (position === "middle") {
+            setProducts(result.products);
+            setHasFirstPage(page === 1);
+          } else if (position === "before") {
+            setProducts((prev) => [...result.products, ...prev]);
+            if (page === 1) setHasFirstPage(true);
+          } else {
+            setProducts((prev) => [...prev, ...result.products]);
+          }
 
-        syncUrl(page, filterValues);
+          syncUrl(page, filterValues);
+        });
       } catch {
         // Keep the previous product list; loading flags clear in finally so the
         // user can retry via the Load More button.
@@ -308,8 +316,17 @@ export function CollectionProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterValues]);
 
-  const clearFilters = () =>
-    setFilterValues({ ...DEFAULT_FILTER_VALUES, page: 1 });
+  const setFilterValuesDeferred = useCallback((values: FilterValues) => {
+    startFilterTransition(() => {
+      setFilterValues(values);
+    });
+  }, [startFilterTransition]);
+
+  const clearFilters = useCallback(() => {
+    startFilterTransition(() => {
+      setFilterValues({ ...DEFAULT_FILTER_VALUES, page: 1 });
+    });
+  }, [startFilterTransition]);
 
   return (
     <CollectionContext.Provider
@@ -324,7 +341,7 @@ export function CollectionProvider({
         hasMore,
         hasFirstPage,
         filterValues,
-        setFilterValues,
+        setFilterValues: setFilterValuesDeferred,
         clearFilters,
         loadMore,
         loadPrevious,
