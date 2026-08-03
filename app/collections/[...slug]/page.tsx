@@ -128,7 +128,44 @@ async function CollectionProductsServer({
   filterSlug: string | undefined;
   categoryBasePath: string;
 }) {
+  // searchParams MUST be awaited inside this Suspense child — never in the
+  // page shell. Awaiting them in `Page` opts the whole segment dynamic under
+  // Cache Components, so the CDN seals `loading.tsx` (full-page skeleton) as
+  // the HTML shell and every HIT flashes skeleton before content streams.
   const sp = await searchParams;
+
+  // Legacy redirect: fold query-string facets into the path form (308).
+  // Lives here (not in `Page`) for the same searchParams reason. Brand is
+  // path-encoded now (06.1), so old `?brands=` URLs canonicalize into the path.
+  if (!filterSlug) {
+    const legacyAttributes: Record<string, string[]> = {};
+    productFilter.attributes?.forEach((attr) => {
+      if (!attr?.slug) return;
+      const values = sp[attr.slug]?.split(",").filter(Boolean) ?? [];
+      if (values.length) legacyAttributes[attr.slug] = values;
+    });
+    const legacyBrands = sp.brands?.split(",").filter(Boolean) ?? [];
+    const legacySlug = encodeFilterSlug({
+      ...DEFAULT_FILTER_VALUES,
+      attributes: legacyAttributes,
+      brands: legacyBrands,
+    });
+    if (legacySlug) {
+      // Preserve non-facet query state (price/sort/page) on the redirect target.
+      const keep = new URLSearchParams();
+      if (sp.q) keep.set("q", sp.q);
+      if (sp.page && sp.page !== "1") keep.set("page", sp.page);
+      if (sp.sort) keep.set("sort", sp.sort);
+      if (sp.price_min) keep.set("price_min", sp.price_min);
+      if (sp.price_max) keep.set("price_max", sp.price_max);
+      if (sp.instock === "true") keep.set("instock", "true");
+      const qs = keep.toString();
+      permanentRedirect(
+        `${categoryBasePath}/f/${legacySlug}${qs ? `?${qs}` : ""}`,
+      );
+    }
+  }
+
   const page = sp.page ? parseInt(sp.page) : 1;
 
   // Path-decoded attributes + brand (filter-slug routing) take precedence over
@@ -416,44 +453,6 @@ export default async function Page({ params, searchParams }: Props) {
   // (mirrors the PDP route). Genuine 404s are still handled by the null check.
   const { category, productFilter } = await getCategoryData(categorySlug);
   if (!category) return notFound();
-
-  // Legacy redirect: fold query-string facets into the path form (308).
-  //   ?pa_color=red,blue        → /collections/hoodies/f/color.blue.red
-  //   ?brands=velocity          → /collections/hoodies/f/brand.velocity  (06.1)
-  //   ?pa_color=red&brands=acme → /collections/hoodies/f/brand.acme_color.red
-  // Path-based filter-slug routing. Runs OUTSIDE the try/catch above because
-  // permanentRedirect throws NEXT_REDIRECT internally — a catch here would
-  // swallow it (phase-5 redirect-correctness rule). Brand is path-encoded now,
-  // so old `?brands=` URLs canonicalize into the path (brand leaves the query).
-  if (!filterSlug) {
-    const sp = await searchParams;
-    const legacyAttributes: Record<string, string[]> = {};
-    productFilter.attributes?.forEach((attr) => {
-      if (!attr?.slug) return;
-      const values = sp[attr.slug]?.split(",").filter(Boolean) ?? [];
-      if (values.length) legacyAttributes[attr.slug] = values;
-    });
-    const legacyBrands = sp.brands?.split(",").filter(Boolean) ?? [];
-    const legacySlug = encodeFilterSlug({
-      ...DEFAULT_FILTER_VALUES,
-      attributes: legacyAttributes,
-      brands: legacyBrands,
-    });
-    if (legacySlug) {
-      // Preserve non-facet query state (price/sort/page) on the redirect target.
-      const keep = new URLSearchParams();
-      if (sp.q) keep.set("q", sp.q);
-      if (sp.page && sp.page !== "1") keep.set("page", sp.page);
-      if (sp.sort) keep.set("sort", sp.sort);
-      if (sp.price_min) keep.set("price_min", sp.price_min);
-      if (sp.price_max) keep.set("price_max", sp.price_max);
-      if (sp.instock === "true") keep.set("instock", "true");
-      const qs = keep.toString();
-      permanentRedirect(
-        `${categoryBasePath}/f/${legacySlug}${qs ? `?${qs}` : ""}`,
-      );
-    }
-  }
 
   const breadcrumbs = buildBreadcrumbFromCategory(category);
 
