@@ -20,6 +20,9 @@ type Props = {
  * await `params` + `searchParams` only inside a Suspense child — never in the
  * route segment shell — after ENG-859 removed `loading.tsx`.
  * `generateStaticParams` still supplies ≥1 param for build validation.
+ *
+ * `return null` after `permanentRedirect` is required: without a value return,
+ * TypeScript infers `Promise<void>`, which is not a valid JSX component type.
  */
 export function generateStaticParams(): { slug: string[] }[] {
   return [{ slug: [STATIC_GEN_PLACEHOLDER_SLUG] }];
@@ -43,6 +46,7 @@ async function ShopProductRedirect({
   permanentRedirect(
     qs ? `/products/${productSlug}?${qs}` : `/products/${productSlug}`,
   );
+  return null;
 }
 
 /** Sync shell — passes promises into Suspense (blocking-route recommended fix). */
