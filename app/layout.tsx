@@ -27,8 +27,9 @@ import { Toaster } from "@/components/ui/toaster";
 // Build-time env GTM id (kept as a fallback); per-tenant gtmId from
 // dashboard-api StoreSettings takes precedence at runtime (FE-08).
 const ENV_GTM_ID = process.env.NEXT_PUBLIC_GTM_ID;
-// Env Klaviyo public key fallback; store emailConnection.publicApiKey wins.
+// Env public key fallbacks; store emailConnection.publicApiKey wins.
 const ENV_KLAVIYO_PUBLIC_KEY = process.env.NEXT_PUBLIC_KLAVIYO_PUBLIC_KEY;
+const ENV_HUBSPOT_PORTAL_ID = process.env.NEXT_PUBLIC_HUBSPOT_PORTAL_ID;
 const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 
 const HEX_OR_RGB =
@@ -103,8 +104,19 @@ export default async function RootLayout({
 
   const siteName = resolveStoreName(storeSettings.name);
   const gtmId = storeSettings.gtmId ?? ENV_GTM_ID;
+  const emailProvider = emailMarketing.provider.toLowerCase();
   const klaviyoPublicKey =
-    emailMarketing.publicApiKey || ENV_KLAVIYO_PUBLIC_KEY || null;
+    emailProvider === "klaviyo"
+      ? emailMarketing.publicApiKey || ENV_KLAVIYO_PUBLIC_KEY || null
+      : emailProvider === ""
+        ? ENV_KLAVIYO_PUBLIC_KEY || null
+        : null;
+  const hubspotPortalId =
+    emailProvider === "hubspot"
+      ? emailMarketing.publicApiKey || ENV_HUBSPOT_PORTAL_ID || null
+      : emailProvider === "" && !klaviyoPublicKey
+        ? ENV_HUBSPOT_PORTAL_ID || null
+        : null;
   const showFooterSubscribe = emailMarketing.enabled;
   // Footer blurb: dashboard SEO description → else store name only.
   const siteDescription = resolveFooterDescription(
@@ -178,10 +190,17 @@ export default async function RootLayout({
         {/* GTM — per-tenant StoreSettings.gtmId, falling back to env (FE-08) */}
         {gtmId && <GoogleTagManager gtmId={gtmId} />}
 
-        {/* Klaviyo onsite — sets __kla_id for abandoned-cart identity when connected */}
+        {/* Email marketing onsite scripts — Klaviyo (__kla_id) or HubSpot tracking */}
         {klaviyoPublicKey ? (
           <Script
             src={`https://static.klaviyo.com/onsite/js/klaviyo.js?company_id=${encodeURIComponent(klaviyoPublicKey)}`}
+            strategy="afterInteractive"
+          />
+        ) : null}
+        {hubspotPortalId ? (
+          <Script
+            id="hs-script-loader"
+            src={`//js.hs-scripts.com/${encodeURIComponent(hubspotPortalId)}.js`}
             strategy="afterInteractive"
           />
         ) : null}

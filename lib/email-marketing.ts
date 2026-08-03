@@ -1,5 +1,5 @@
 /**
- * Cached email marketing (Klaviyo) status for layout / chrome.
+ * Cached email marketing (Klaviyo / HubSpot) status for layout / chrome.
  *
  * Must use Cache Components (`"use cache"`) so the root layout read does not
  * poison static prerender (blocking-route on `/_not-found` and every page).
