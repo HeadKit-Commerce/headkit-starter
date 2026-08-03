@@ -1,10 +1,9 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { cacheLife, cacheTag } from "next/cache";
 import type { Product, RelatedProduct } from "@headkit/sdk";
-import { TAG } from "@/lib/cache-tags";
 import { headkit } from "@/lib/sdk";
+import { getCachedProduct } from "@/lib/product-cache";
 import { ProductDetail } from "@/components/headkit-ui/product-detail";
 import { ProductStock } from "@/components/headkit-ui/product-stock";
 import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
@@ -29,17 +28,8 @@ type Props = {
   params: Promise<{ slug: string[] }>;
 };
 
-// Exported so the PDP tag/life guard (page.test.ts) can assert this def and the
-// sibling shop PDP def produce the identical contract tag string — the invariant
-// that makes one revalidateTag('headkit:product:{slug}') hit both cached entries.
-export async function getProduct(slug: string) {
-  "use cache";
-  // Finite `days` backstop (was `max`): a missed product webhook self-heals in
-  // ~1 day (threat T-09.5-12) instead of sticking until redeploy.
-  cacheLife("days");
-  cacheTag(TAG.product(slug), TAG.products);
-  return headkit.products.get(slug);
-}
+/** Re-export for PDP tag/life guard tests (ENG-853). */
+export const getProduct = getCachedProduct;
 
 function mapRelatedToProduct(r: RelatedProduct): Product {
   return {
@@ -142,7 +132,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   try {
     const [product, { seoSettings, storeSettings }, { iconUrl }] =
       await Promise.all([
-        getProduct(productSlug),
+        getCachedProduct(productSlug),
         getBranding(),
         getBrandingAssets(),
       ]);
@@ -209,7 +199,7 @@ export default async function ProductPage({ params }: Props) {
   }
 
   const [product, { storeSettings }] = await Promise.all([
-    getProduct(productSlug),
+    getCachedProduct(productSlug),
     getBranding(),
   ]);
 

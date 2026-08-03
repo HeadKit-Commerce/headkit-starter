@@ -3,9 +3,11 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
+import { TAG } from "@/lib/cache-tags";
 import { BrandHeader } from "@/components/headkit-ui/brand/brand-header";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
 import { buildProductListFilter } from "@/components/headkit-ui/collection/utils";
+import { getCachedCatalogPage } from "@/lib/catalog-cache";
 import { makeSeoMetadata } from "@/lib/make-metadata";
 import { CollectionPageSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import type { SortKeyType } from "@/components/headkit-ui/collection/utils";
@@ -16,61 +18,53 @@ interface Props {
   searchParams: Promise<Record<string, string>>;
 }
 
+const PER_PAGE = 24;
+
 async function getBrandData(brandSlug: string) {
   "use cache";
-  cacheLife("max");
-  cacheTag(`headkit:brand:${brandSlug}`, "headkit:brands");
+  // Finite days backstop — matches collections/product parity (was max).
+  cacheLife("days");
+  cacheTag(TAG.brand(brandSlug), TAG.brands);
   return sdk.brands.get(brandSlug);
 }
 
 async function getBrandFilters(brandSlug: string) {
-  "use cache";
-  cacheLife("max");
-  cacheTag(`headkit:brand:${brandSlug}`, "headkit:brands");
+  "use cache: remote";
+  cacheLife("minutes");
+  cacheTag(TAG.brand(brandSlug), "catalog:filters");
   return sdk.collections.getFilters();
-}
-
-async function getBrandProducts(
-  brandSlug: string,
-  filter: ReturnType<typeof buildProductListFilter>,
-  page: number,
-  perPage: number,
-) {
-  "use cache";
-  cacheLife("max");
-  cacheTag(`headkit:brand:${brandSlug}:products`, "headkit:products");
-  return sdk.collections.list(filter, page, perPage);
 }
 
 async function BrandProductsServer({
   brandSlug,
   productFilter,
   searchParams,
-  perPage,
 }: {
   brandSlug: string;
   productFilter: ProductFilters;
   searchParams: Promise<Record<string, string>>;
-  perPage: number;
 }) {
   const sp = await searchParams;
   const page = sp.page ? parseInt(sp.page) : 1;
 
-  const productsResult = await getBrandProducts(
-    brandSlug,
-    buildProductListFilter(
-      {
-        categories: sp.categories?.split(",").filter(Boolean) ?? [],
-        brands: [brandSlug],
-        attributes: {},
-        instock: sp.instock === "true",
-        sort: (sp.sort ?? "") as SortKeyType | "",
-        page,
-      },
-      { brandSlug },
-    ),
+  const filter = buildProductListFilter(
+    {
+      categories: sp.categories?.split(",").filter(Boolean) ?? [],
+      brands: [brandSlug],
+      attributes: {},
+      instock: sp.instock === "true",
+      sort: (sp.sort ?? "") as SortKeyType | "",
+      page,
+    },
+    { brandSlug },
+  );
+
+  // Shared remote catalog cache with Server Actions (ENG-853) — minutes TTL.
+  const productsResult = await getCachedCatalogPage(
+    filter,
     page,
-    perPage,
+    PER_PAGE,
+    { kind: "brand", slug: brandSlug },
   );
 
   return (
@@ -79,7 +73,7 @@ async function BrandProductsServer({
       initialTotal={productsResult.total}
       productFilter={productFilter}
       initialPage={page}
-      itemsPerPage={perPage}
+      itemsPerPage={PER_PAGE}
       brandSlug={brandSlug}
     />
   );
@@ -105,8 +99,6 @@ export default async function Page({ params, searchParams }: Props) {
   const { slug } = await params;
   const brandSlug = slug[slug.length - 1];
   if (!brandSlug) return notFound();
-
-  const perPage = 24;
 
   try {
     const [brand, productFilter] = await Promise.all([
@@ -135,7 +127,6 @@ export default async function Page({ params, searchParams }: Props) {
             brandSlug={brandSlug}
             productFilter={productFilter}
             searchParams={searchParams}
-            perPage={perPage}
           />
         </Suspense>
       </>

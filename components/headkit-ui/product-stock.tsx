@@ -8,14 +8,14 @@ interface Props {
 }
 
 /**
- * Server component that fetches fresh stock data, bypassing the static cache.
- * Intended to be wrapped in <Suspense> inside a PPR-enabled page so the rest
- * of the page remains statically pre-rendered.
+ * Server component that fetches lean stock data, bypassing the static PDP cache.
+ * Intended to be wrapped in <Suspense> so the rest of the page remains cached.
+ * Uses `products.getStock` (ENG-853) instead of the full product payload.
  */
 export async function ProductStock({ productSlug, colorSlug }: Props) {
   await connection(); // opts this component into dynamic rendering
 
-  const product = await headkit.products.get(productSlug);
+  const product = await headkit.products.getStock(productSlug);
   if (!product) return null;
 
   const variation = colorSlug

@@ -3,10 +3,13 @@
 import type {
   BrandSummary,
   ProductListFilter,
-  ProductListResult,
   ProductSummaryFieldsFragment,
 } from "@headkit/sdk";
-import { headkit } from "@/lib/sdk";
+import {
+  getCachedCatalogPage,
+  getCachedFilterBrands,
+  scopeFromFilter,
+} from "@/lib/catalog-cache";
 
 export type CollectionPageResult = {
   products: ProductSummaryFieldsFragment[];
@@ -19,8 +22,9 @@ export type CollectionPageResult = {
  * Same-origin catalog page fetch for PLP infinite scroll / filter refresh.
  *
  * Must run on the server: browser → GraphQL is blocked when the gateway CORS
- * allowlist does not include the tenant storefront origin (staging currently
- * defaults to localhost only). Server Actions avoid that entirely.
+ * allowlist does not include the tenant storefront origin. Server Actions avoid
+ * that entirely. Catalog reads go through the shared remote cache so load-more
+ * is not a permanent cache miss (ENG-853).
  */
 export async function listCollectionProducts(
   filter: ProductListFilter | undefined,
@@ -29,12 +33,15 @@ export async function listCollectionProducts(
 ): Promise<CollectionPageResult> {
   const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
   const safePerPage =
-    Number.isFinite(perPage) && perPage > 0 ? Math.min(Math.floor(perPage), 100) : 24;
+    Number.isFinite(perPage) && perPage > 0
+      ? Math.min(Math.floor(perPage), 100)
+      : 24;
 
-  const result: ProductListResult = await headkit.collections.list(
+  const result = await getCachedCatalogPage(
     filter,
     safePage,
     safePerPage,
+    scopeFromFilter(filter),
   );
 
   return {
@@ -47,10 +54,5 @@ export async function listCollectionProducts(
 
 /** Brand facet options for the PLP filter drawer (same-origin, no CORS). */
 export async function listFilterBrands(): Promise<BrandSummary[]> {
-  const result = await headkit.brands.list({
-    perPage: 100,
-    orderby: "name",
-    order: "asc",
-  });
-  return result.brands;
+  return getCachedFilterBrands();
 }
