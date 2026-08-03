@@ -8,7 +8,6 @@ import {
   useState,
   useCallback,
   useTransition,
-  startTransition,
 } from "react";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import type {
@@ -228,24 +227,25 @@ export function CollectionProvider({
           return;
         }
 
-        // Defer product-list commit so the click/scroll that triggered fetch
-        // can paint first (INP). Loading flags stay urgent above/below.
-        startTransition(() => {
-          setCurrentPage(page);
-          setTotalProducts(result.total);
+        // Commit product appends synchronously — do NOT wrap in startTransition.
+        // Loading flags clear in `finally` as urgent updates; an urgent clear
+        // after a transition-scheduled append interrupts that transition, so
+        // Load More flickered "Loading…" then never grew the grid (ENG-856
+        // regression). Filter checkbox INP still uses startFilterTransition.
+        setCurrentPage(page);
+        setTotalProducts(result.total);
 
-          if (position === "middle") {
-            setProducts(result.products);
-            setHasFirstPage(page === 1);
-          } else if (position === "before") {
-            setProducts((prev) => [...result.products, ...prev]);
-            if (page === 1) setHasFirstPage(true);
-          } else {
-            setProducts((prev) => [...prev, ...result.products]);
-          }
+        if (position === "middle") {
+          setProducts(result.products);
+          setHasFirstPage(page === 1);
+        } else if (position === "before") {
+          setProducts((prev) => [...result.products, ...prev]);
+          if (page === 1) setHasFirstPage(true);
+        } else {
+          setProducts((prev) => [...prev, ...result.products]);
+        }
 
-          syncUrl(page, filterValues);
-        });
+        syncUrl(page, filterValues);
       } catch {
         // Keep the previous product list; loading flags clear in finally so the
         // user can retry via the Load More button.
