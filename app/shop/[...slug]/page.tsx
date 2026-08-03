@@ -2,7 +2,10 @@ import type { ReactNode } from "react";
 import { Suspense } from "react";
 import { permanentRedirect } from "next/navigation";
 
-/** Satisfies Cache Components: `generateStaticParams` must not return []. */
+/**
+ * Satisfies Cache Components: `generateStaticParams` must not return [].
+ * @see https://nextjs.org/docs/messages/blocking-route#generatestaticparams
+ */
 const STATIC_GEN_PLACEHOLDER_SLUG = "__hk_static_placeholder";
 
 type Props = {
@@ -13,34 +16,16 @@ type Props = {
 /**
  * Legacy shop PDP → canonical `/products/[...slug]` (ENG-853).
  *
- * Keeps one RSC tree, one `getCachedProduct` entry, and ProductStock Suspense.
- * Color / variant query params are preserved for clients that still deep-link
- * via `/shop/{slug}?pa_color=…`.
- *
- * `generateStaticParams` + Suspense around `searchParams` are required after
- * ENG-859 removed segment `loading.tsx`: Cache Components treats catch-all
- * `params` / `searchParams` as uncached outside a boundary and fails the build
- * with blocking-route.
+ * Cache Components (next-cache-components skill / blocking-route docs):
+ * await `params` + `searchParams` only inside a Suspense child — never in the
+ * route segment shell — after ENG-859 removed `loading.tsx`.
+ * `generateStaticParams` still supplies ≥1 param for build validation.
  */
 export function generateStaticParams(): { slug: string[] }[] {
   return [{ slug: [STATIC_GEN_PLACEHOLDER_SLUG] }];
 }
 
-async function RedirectWithSearch({
-  productSlug,
-  searchParams,
-}: {
-  productSlug: string;
-  searchParams: Promise<Record<string, string>>;
-}): Promise<ReactNode> {
-  const sp = await searchParams;
-  const qs = new URLSearchParams(sp).toString();
-  permanentRedirect(
-    qs ? `/products/${productSlug}?${qs}` : `/products/${productSlug}`,
-  );
-}
-
-export default async function Page({
+async function ShopProductRedirect({
   params,
   searchParams,
 }: Props): Promise<ReactNode> {
@@ -53,12 +38,18 @@ export default async function Page({
     permanentRedirect("/shop");
   }
 
+  const sp = await searchParams;
+  const qs = new URLSearchParams(sp).toString();
+  permanentRedirect(
+    qs ? `/products/${productSlug}?${qs}` : `/products/${productSlug}`,
+  );
+}
+
+/** Sync shell — passes promises into Suspense (blocking-route recommended fix). */
+export default function Page(props: Props): ReactNode {
   return (
     <Suspense fallback={null}>
-      <RedirectWithSearch
-        productSlug={productSlug}
-        searchParams={searchParams}
-      />
+      <ShopProductRedirect {...props} />
     </Suspense>
   );
 }
