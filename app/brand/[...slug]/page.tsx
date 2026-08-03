@@ -13,6 +13,9 @@ import { CollectionPageSkeleton } from "@/components/headkit-ui/skeletons/collec
 import type { SortKeyType } from "@/components/headkit-ui/collection/utils";
 import type { ProductFilters } from "@headkit/sdk";
 
+/** Satisfies Cache Components: `generateStaticParams` must not return []. */
+const STATIC_GEN_PLACEHOLDER_SLUG = "__hk_static_placeholder";
+
 interface Props {
   params: Promise<{ slug: string[] }>;
   searchParams: Promise<Record<string, string>>;
@@ -79,8 +82,30 @@ async function BrandProductsServer({
   );
 }
 
+/**
+ * Prerender brand PLPs so Cache Components can build a real HTML shell after
+ * removing segment `loading.tsx` (ENG-859). Without this, awaiting `params` on
+ * the catch-all is treated as uncached data outside Suspense and the Vercel
+ * build fails with blocking-route.
+ */
+export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
+  try {
+    // perPage capped at 100 — headkit/v2/brands 400s above 100 (REST max arg).
+    const brandsRes = await sdk.brands.list({ perPage: 100 });
+    const paths = brandsRes.brands
+      .map((brand) => brand?.slug)
+      .filter((slug): slug is string => Boolean(slug))
+      .map((slug) => ({ slug: [slug] }));
+    if (paths.length > 0) return paths;
+  } catch {
+    /* Brands API unreachable at build — fall through */
+  }
+  return [{ slug: [STATIC_GEN_PLACEHOLDER_SLUG] }];
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
+  if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) return {};
   const brandSlug = slug[slug.length - 1];
   if (!brandSlug) return {};
   try {
@@ -97,6 +122,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function Page({ params, searchParams }: Props) {
   const { slug } = await params;
+  if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) return notFound();
   const brandSlug = slug[slug.length - 1];
   if (!brandSlug) return notFound();
 
