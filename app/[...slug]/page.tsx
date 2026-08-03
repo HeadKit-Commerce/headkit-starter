@@ -7,9 +7,37 @@ import { TAG } from "@/lib/cache-tags";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { EditorialContent } from "@/components/headkit-ui/editorial-content";
 
+/** Satisfies Cache Components: `generateStaticParams` must not return []. */
+const STATIC_GEN_PLACEHOLDER_SLUG = "__hk_static_placeholder";
+
+/**
+ * Common CMS page slugs to probe at build. Existing pages are prerendered into
+ * the CDN HTML shell (FAQ-like instant paint). Without this list + with a
+ * segment `loading.tsx`, Cache Components seals the skeleton as the shell and
+ * every HIT flashes loading UI before streamed content — even when
+ * `getPageData` is warm in `"use cache"`.
+ */
+const PRERENDER_PAGE_CANDIDATES = [
+  "services",
+  "about",
+  "shipping",
+  "returns",
+  "privacy",
+  "terms",
+  "warranty",
+  "care",
+  "contact-us",
+  "our-story",
+  "delivery",
+  "payment",
+  "size-guide",
+  "sustainability",
+  "trade",
+  "commercial",
+] as const;
+
 interface Props {
   params: Promise<{ slug: string[] }>;
-  searchParams: Promise<Record<string, string>>;
 }
 
 /**
@@ -33,8 +61,32 @@ export async function getPageData(
   return sdk.content.get(contentSlug, "PAGE").catch(() => null);
 }
 
+/**
+ * Prerender known CMS pages so their HTML shell contains real content (not a
+ * loading skeleton). Candidates that 404 at build are skipped; Cache Components
+ * still requires ≥1 param so we fall back to a placeholder.
+ */
+export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
+  try {
+    const results = await Promise.all(
+      PRERENDER_PAGE_CANDIDATES.map(async (slug) => {
+        const page = await sdk.content.get(slug, "PAGE").catch(() => null);
+        return page ? { slug: slug.split("/") } : null;
+      }),
+    );
+    const paths = results.filter((p): p is { slug: string[] } => p !== null);
+    if (paths.length > 0) return paths;
+  } catch {
+    /* API unreachable at build — fall through */
+  }
+  return [{ slug: [STATIC_GEN_PLACEHOLDER_SLUG] }];
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
+  if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) {
+    return { robots: { index: false, follow: false } };
+  }
   const page = await getPageData(slug.join("/"));
   if (!page) {
     return { robots: { index: false, follow: false } };
@@ -50,6 +102,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function Page({ params }: Props) {
   const { slug } = await params;
+  if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) return notFound();
   const page = await getPageData(slug.join("/"));
 
   if (!page) return notFound();
