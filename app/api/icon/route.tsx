@@ -2,7 +2,11 @@ import { ImageResponse } from "next/og";
 import { Logo } from "@/components/icon/logo";
 import type { NextRequest } from "next/server";
 import { createServerHeadkit } from "@/lib/sdk.server";
-import { executeRequest, HEADKIT_GRAPHQL_URL, GetBrandingDocument } from "@headkit/sdk";
+import {
+  executeRequest,
+  HEADKIT_GRAPHQL_URL,
+  GetBrandingDocument,
+} from "@headkit/sdk";
 import { env } from "@/lib/env";
 
 /**
@@ -22,7 +26,11 @@ export async function GET(request: NextRequest) {
     const apiKey = env.HEADKIT_PRIVATE_KEY;
     if (apiKey) {
       const url = env.NEXT_PUBLIC_GRAPHQL_URL ?? HEADKIT_GRAPHQL_URL;
-      const data = await executeRequest({ url, apiKey }, GetBrandingDocument, undefined);
+      const data = await executeRequest(
+        { url, apiKey },
+        GetBrandingDocument,
+        undefined,
+      );
       iconUrl = data.commerce.branding.iconUrl ?? null;
     }
   } catch {

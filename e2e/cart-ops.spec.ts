@@ -131,7 +131,6 @@ test.describe("Cart ops: UI add-to-cart, drawer ops, persistence (Gap 4)", () =>
       drawer(page).getByText(SIMPLE_NAME).first(),
       "cart line lost after reload",
     ).toBeVisible({ timeout: 20_000 });
-
   });
 
   /**
@@ -156,12 +155,9 @@ test.describe("Cart ops: UI add-to-cart, drawer ops, persistence (Gap 4)", () =>
    * cart on failure), then flip this to a real test: remove last item →
    * "No products in your cart!" in the drawer + badge cleared.
    */
-  test.fixme(
-    "KNOWN BUG: removing the last item can leave a phantom cart line (silent failure in CartItemRow.handleRemove)",
-    async () => {
-      // Blocked on the silent-failure fix described above.
-    },
-  );
+  test.fixme("KNOWN BUG: removing the last item can leave a phantom cart line (silent failure in CartItemRow.handleRemove)", async () => {
+    // Blocked on the silent-failure fix described above.
+  });
 
   test("P0-16: variable product — selected color+size lands the CORRECT variation in the WC cart", async ({
     page,

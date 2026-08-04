@@ -40,9 +40,7 @@ export default function ContactPage(): React.ReactElement {
     <div className="px-5 py-10 md:px-10 md:py-16">
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <div>
-          <h1 className="mb-6 text-3xl font-bold text-primary">
-            Contact Us
-          </h1>
+          <h1 className="mb-6 text-3xl font-bold text-primary">Contact Us</h1>
           <p className="text-primary">
             Have a question? Fill in the form and our team will get back to you
             shortly.

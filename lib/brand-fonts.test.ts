@@ -47,7 +47,9 @@ describe("resolveBrandFonts", () => {
     expect(resolved.cssVars).toContain(
       "--font-heading: var(--font-slot-urbanist)",
     );
-    expect(resolved.cssVars).toContain("--font-body: var(--font-slot-urbanist)");
+    expect(resolved.cssVars).toContain(
+      "--font-body: var(--font-slot-urbanist)",
+    );
     expect(resolved.variableClassNames).toContain("--font-slot-urbanist");
     expect(resolved.googleStylesheetHrefs).toHaveLength(0);
     expect(resolved.fontFaceCss).toBe("");

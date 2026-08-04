@@ -119,9 +119,7 @@ export async function EditorialContent({
   // Resolve every referenced product once (slugs can repeat across carousels).
   const uniqueSlugs = [...new Set(carousels.flatMap((c) => c.slugs))];
   const resolved = await Promise.all(
-    uniqueSlugs.map((slug) =>
-      headkit.products.get(slug).catch(() => null),
-    ),
+    uniqueSlugs.map((slug) => headkit.products.get(slug).catch(() => null)),
   );
   const bySlug = new Map<string, Product>();
   uniqueSlugs.forEach((slug, i) => {

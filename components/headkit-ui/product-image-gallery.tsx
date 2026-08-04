@@ -100,9 +100,7 @@ export function ProductImageGallery({
                   src={item.src}
                   alt={item.alt || "Product image"}
                   fill
-                  className={
-                    index === 0 ? "object-contain" : "object-cover"
-                  }
+                  className={index === 0 ? "object-contain" : "object-cover"}
                   sizes={
                     index === 0
                       ? "(min-width: 768px) 50vw, 100vw"
@@ -146,9 +144,7 @@ export function ProductImageGallery({
                   mobileIndex === 0 ? "object-contain" : "object-cover",
                 )}
                 sizes={
-                  mobileIndex === 0
-                    ? "(min-width: 768px) 50vw, 100vw"
-                    : "100vw"
+                  mobileIndex === 0 ? "(min-width: 768px) 50vw, 100vw" : "100vw"
                 }
                 priority={mobileIndex === 0}
                 fetchPriority={mobileIndex === 0 ? "high" : "auto"}
@@ -156,10 +152,7 @@ export function ProductImageGallery({
               />
             </div>
           </DialogTrigger>
-          <Lightbox
-            images={galleryImages}
-            initialSelectedIndex={mobileIndex}
-          />
+          <Lightbox images={galleryImages} initialSelectedIndex={mobileIndex} />
         </Dialog>
 
         {galleryImages.length > 1 && (

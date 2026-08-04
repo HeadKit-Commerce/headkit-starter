@@ -408,293 +408,296 @@ export function ProductDetail({
 
   return (
     <>
-    <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-      {/* Left: image gallery */}
-      <ProductImageGallery
-        images={galleryImages}
-        isSale={isOnSale}
-        isNew={product.isNew}
-      />
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+        {/* Left: image gallery */}
+        <ProductImageGallery
+          images={galleryImages}
+          isSale={isOnSale}
+          isNew={product.isNew}
+        />
 
-      {/* Right: product info */}
-      <div className="flex flex-col">
-        {breadcrumbItems && (
-          <div className="mb-4">
-            <Breadcrumb
-              items={breadcrumbItems.map((b) => ({
-                ...b,
-                name: decodeHtmlEntities(b.name),
-              }))}
-            />
-          </div>
-        )}
-        <h1 className="mb-3 text-2xl font-bold leading-tight text-primary md:text-3xl">
-          {decodeHtmlEntities(product.name)}
-        </h1>
+        {/* Right: product info */}
+        <div className="flex flex-col">
+          {breadcrumbItems && (
+            <div className="mb-4">
+              <Breadcrumb
+                items={breadcrumbItems.map((b) => ({
+                  ...b,
+                  name: decodeHtmlEntities(b.name),
+                }))}
+              />
+            </div>
+          )}
+          <h1 className="mb-3 text-2xl font-bold leading-tight text-primary md:text-3xl">
+            {decodeHtmlEntities(product.name)}
+          </h1>
 
-        {product.shortDescription && (
-          <div
-            className="mb-5 text-sm leading-relaxed text-primary"
-            dangerouslySetInnerHTML={{ __html: product.shortDescription }}
-          />
-        )}
-
-        {/* Variation attribute selectors */}
-        {isVariable && variationAttributes.length > 0 && (
-          <div className="mb-5 flex flex-col gap-4">
-            {variationAttributes.map((attr: ProductAttribute) => (
-              <div key={attr.id}>
-                <div className="mb-2 flex items-center gap-2">
-                  <p className="font-semibold text-primary">{attr.name}</p>
-                  {selectedAttributes[attr.slug] && (
-                    <span className="capitalize text-gray-700">
-                      {
-                        attr.fullOptions.find(
-                          (o) => o.slug === selectedAttributes[attr.slug],
-                        )?.name
-                      }
-                    </span>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  {attr.fullOptions.map((option) => {
-                    const isUnavailable = !product.variations.some(
-                      (v: ProductVariation) =>
-                        v.attributes.some(
-                          (a) => a.key === attr.slug && a.value === option.slug,
-                        ),
-                    );
-
-                    const isIncompatible =
-                      !isUnavailable &&
-                      !product.variations.some((v: ProductVariation) => {
-                        const matchesThis = v.attributes.some(
-                          (a) => a.key === attr.slug && a.value === option.slug,
-                        );
-                        const matchesOthers = variationAttributes
-                          .filter((other) => other.slug !== attr.slug)
-                          .every((other) => {
-                            const sel = selectedAttributes[other.slug];
-                            return (
-                              !sel ||
-                              v.attributes.some(
-                                (a) => a.key === other.slug && a.value === sel,
-                              )
-                            );
-                          });
-                        return matchesThis && matchesOthers;
-                      });
-
-                    return (
-                      <VariantSwatch
-                        key={option.slug}
-                        label={option.name}
-                        value={option.slug}
-                        color1={option.swatchColor}
-                        color2={option.swatchColor2}
-                        selectedOptionValue={
-                          selectedAttributes[attr.slug] ?? ""
-                        }
-                        onClick={() => {
-                          const next = {
-                            ...selectedAttributes,
-                            [attr.slug]: option.slug,
-                          };
-                          const isValid = product.variations.some(
-                            (v: ProductVariation) =>
-                              v.attributes.every(
-                                (a) => next[a.key] === a.value,
-                              ),
-                          );
-                          if (!isValid) {
-                            const fallback = product.variations.find(
-                              (v: ProductVariation) =>
-                                v.attributes.some(
-                                  (a) =>
-                                    a.key === attr.slug &&
-                                    a.value === option.slug,
-                                ),
-                            );
-                            if (fallback) {
-                              const cascaded: Record<string, string> = {};
-                              for (const a of fallback.attributes) {
-                                cascaded[a.key] = a.value;
-                              }
-                              updateAttributes(cascaded);
-                              return;
-                            }
-                          }
-                          updateAttributes(next);
-                        }}
-                        isUnavailable={isUnavailable}
-                        isIncompatible={isIncompatible}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Gift card recipient form */}
-        {isGiftCard && (
-          <Suspense fallback={null}>
-            <GiftCardForm
-              emitClickEvent={(values) => setGiftCardValues(values)}
-              onFormValid={(valid) => setIsGiftCardFormValid(valid)}
-            />
-          </Suspense>
-        )}
-
-        {/* Availability status */}
-        <div className="mb-4">
-          {stockSlot ?? (
-            <AvailabilityStatus
-              stockStatus={stockStatus}
-              stockQuantity={
-                (selectedVariation ?? product).stockQuantity ?? null
-              }
+          {product.shortDescription && (
+            <div
+              className="mb-5 text-sm leading-relaxed text-primary"
+              dangerouslySetInnerHTML={{ __html: product.shortDescription }}
             />
           )}
-        </div>
 
-        {/* Price */}
-        <div className="mb-6">
-          <ProductPrice
-            price={displayPrice}
-            regularPrice={displayRegularPrice}
-            onSale={isOnSale}
-          />
-        </div>
+          {/* Variation attribute selectors */}
+          {isVariable && variationAttributes.length > 0 && (
+            <div className="mb-5 flex flex-col gap-4">
+              {variationAttributes.map((attr: ProductAttribute) => (
+                <div key={attr.id}>
+                  <div className="mb-2 flex items-center gap-2">
+                    <p className="font-semibold text-primary">{attr.name}</p>
+                    {selectedAttributes[attr.slug] && (
+                      <span className="capitalize text-gray-700">
+                        {
+                          attr.fullOptions.find(
+                            (o) => o.slug === selectedAttributes[attr.slug],
+                          )?.name
+                        }
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {attr.fullOptions.map((option) => {
+                      const isUnavailable = !product.variations.some(
+                        (v: ProductVariation) =>
+                          v.attributes.some(
+                            (a) =>
+                              a.key === attr.slug && a.value === option.slug,
+                          ),
+                      );
 
-        {/* Quantity selector + Add to Cart */}
-        <div ref={atcSectionRef} className="mb-6 flex items-center gap-3">
-          <div className="flex items-center rounded-md border border-gray-300">
-            <button
-              type="button"
-              onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-              disabled={quantity <= 1}
-              className="cursor-pointer px-3 py-2.5 text-gray-600 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
-              aria-label="Decrease quantity"
-            >
-              <MinusIcon className="h-4 w-4" />
-            </button>
-            <input
-              type="number"
-              min={1}
-              max={maxStock ?? 99}
-              value={quantity}
-              onChange={(e) => {
-                const val = parseInt(e.target.value);
-                if (!isNaN(val) && val >= 1) setQuantity(val);
-              }}
-              className="w-12 border-x border-gray-300 py-2 text-center text-sm font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-              aria-label="Quantity"
-            />
-            <button
-              type="button"
-              onClick={() =>
-                setQuantity((q) =>
-                  maxStock ? Math.min(maxStock, q + 1) : q + 1,
-                )
-              }
-              disabled={maxStock !== null && quantity >= maxStock}
-              className="cursor-pointer px-3 py-2.5 text-gray-600 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
-              aria-label="Increase quantity"
-            >
-              <PlusIcon className="h-4 w-4" />
-            </button>
-          </div>
+                      const isIncompatible =
+                        !isUnavailable &&
+                        !product.variations.some((v: ProductVariation) => {
+                          const matchesThis = v.attributes.some(
+                            (a) =>
+                              a.key === attr.slug && a.value === option.slug,
+                          );
+                          const matchesOthers = variationAttributes
+                            .filter((other) => other.slug !== attr.slug)
+                            .every((other) => {
+                              const sel = selectedAttributes[other.slug];
+                              return (
+                                !sel ||
+                                v.attributes.some(
+                                  (a) =>
+                                    a.key === other.slug && a.value === sel,
+                                )
+                              );
+                            });
+                          return matchesThis && matchesOthers;
+                        });
 
-          <Button
-            className={cn(
-              "flex-1",
-              cartFeedback === "success" && "bg-green-600 hover:bg-green-700",
-              cartFeedback === "error" && "bg-red-600 hover:bg-red-700",
-            )}
-            disabled={!canAddToCart}
-            loading={addingToCart}
-            loadingText="Adding…"
-            rightIcon="shoppingBag"
-            onClick={handleAddToCart}
-          >
-            {addToCartLabel}
-          </Button>
-        </div>
-
-        {!isGiftCard && (
-          <div className="mb-6">
-            <ProductEnquiry
-              formId={ENQUIRY_FORM_ID}
-              productName={product.name}
-              initialValues={enquiryInitialValues}
-            />
-          </div>
-        )}
-
-        {/* SKU */}
-        {product.sku && (
-          <p className="mb-6 text-xs text-gray-800">SKU: {product.sku}</p>
-        )}
-
-        {/* Tabs: Description / Additional Info / Reviews */}
-        <div className="border-t pt-6">
-          <div className="flex border-b">
-            {tabs
-              .filter((t) => t.hasContent || t.key === "reviews")
-              .map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => setActiveTab(tab.key)}
-                  className={cn(
-                    "relative cursor-pointer px-4 py-3 text-sm font-medium transition-colors",
-                    activeTab === tab.key
-                      ? "text-primary"
-                      : "text-gray-800 hover:text-gray-900",
-                  )}
-                >
-                  {tab.label}
-                  {activeTab === tab.key && (
-                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-                  )}
-                </button>
+                      return (
+                        <VariantSwatch
+                          key={option.slug}
+                          label={option.name}
+                          value={option.slug}
+                          color1={option.swatchColor}
+                          color2={option.swatchColor2}
+                          selectedOptionValue={
+                            selectedAttributes[attr.slug] ?? ""
+                          }
+                          onClick={() => {
+                            const next = {
+                              ...selectedAttributes,
+                              [attr.slug]: option.slug,
+                            };
+                            const isValid = product.variations.some(
+                              (v: ProductVariation) =>
+                                v.attributes.every(
+                                  (a) => next[a.key] === a.value,
+                                ),
+                            );
+                            if (!isValid) {
+                              const fallback = product.variations.find(
+                                (v: ProductVariation) =>
+                                  v.attributes.some(
+                                    (a) =>
+                                      a.key === attr.slug &&
+                                      a.value === option.slug,
+                                  ),
+                              );
+                              if (fallback) {
+                                const cascaded: Record<string, string> = {};
+                                for (const a of fallback.attributes) {
+                                  cascaded[a.key] = a.value;
+                                }
+                                updateAttributes(cascaded);
+                                return;
+                              }
+                            }
+                            updateAttributes(next);
+                          }}
+                          isUnavailable={isUnavailable}
+                          isIncompatible={isIncompatible}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
               ))}
-          </div>
+            </div>
+          )}
 
-          <div className="py-6">
-            {activeTab === "description" && product.description && (
-              <div
-                className="prose prose-sm max-w-none text-primary"
-                dangerouslySetInnerHTML={{ __html: product.description }}
+          {/* Gift card recipient form */}
+          {isGiftCard && (
+            <Suspense fallback={null}>
+              <GiftCardForm
+                emitClickEvent={(values) => setGiftCardValues(values)}
+                onFormValid={(valid) => setIsGiftCardFormValid(valid)}
+              />
+            </Suspense>
+          )}
+
+          {/* Availability status */}
+          <div className="mb-4">
+            {stockSlot ?? (
+              <AvailabilityStatus
+                stockStatus={stockStatus}
+                stockQuantity={
+                  (selectedVariation ?? product).stockQuantity ?? null
+                }
               />
             )}
+          </div>
 
-            {activeTab === "additional" && (
-              <div className="space-y-3">
-                {product.attributes
-                  .filter((a) => a.visible && !a.variation)
-                  .map((attr) => (
-                    <div key={attr.id} className="flex gap-4 text-sm">
-                      <span className="w-32 shrink-0 font-medium text-gray-700">
-                        {attr.name}
-                      </span>
-                      <span className="text-gray-600">
-                        {attr.options.join(", ")}
-                      </span>
-                    </div>
-                  ))}
-              </div>
-            )}
+          {/* Price */}
+          <div className="mb-6">
+            <ProductPrice
+              price={displayPrice}
+              regularPrice={displayRegularPrice}
+              onSale={isOnSale}
+            />
+          </div>
 
-            {activeTab === "reviews" && (
-              <p className="text-sm text-gray-500">Reviews coming soon.</p>
-            )}
+          {/* Quantity selector + Add to Cart */}
+          <div ref={atcSectionRef} className="mb-6 flex items-center gap-3">
+            <div className="flex items-center rounded-md border border-gray-300">
+              <button
+                type="button"
+                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                disabled={quantity <= 1}
+                className="cursor-pointer px-3 py-2.5 text-gray-600 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Decrease quantity"
+              >
+                <MinusIcon className="h-4 w-4" />
+              </button>
+              <input
+                type="number"
+                min={1}
+                max={maxStock ?? 99}
+                value={quantity}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  if (!isNaN(val) && val >= 1) setQuantity(val);
+                }}
+                className="w-12 border-x border-gray-300 py-2 text-center text-sm font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                aria-label="Quantity"
+              />
+              <button
+                type="button"
+                onClick={() =>
+                  setQuantity((q) =>
+                    maxStock ? Math.min(maxStock, q + 1) : q + 1,
+                  )
+                }
+                disabled={maxStock !== null && quantity >= maxStock}
+                className="cursor-pointer px-3 py-2.5 text-gray-600 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Increase quantity"
+              >
+                <PlusIcon className="h-4 w-4" />
+              </button>
+            </div>
+
+            <Button
+              className={cn(
+                "flex-1",
+                cartFeedback === "success" && "bg-green-600 hover:bg-green-700",
+                cartFeedback === "error" && "bg-red-600 hover:bg-red-700",
+              )}
+              disabled={!canAddToCart}
+              loading={addingToCart}
+              loadingText="Adding…"
+              rightIcon="shoppingBag"
+              onClick={handleAddToCart}
+            >
+              {addToCartLabel}
+            </Button>
+          </div>
+
+          {!isGiftCard && (
+            <div className="mb-6">
+              <ProductEnquiry
+                formId={ENQUIRY_FORM_ID}
+                productName={product.name}
+                initialValues={enquiryInitialValues}
+              />
+            </div>
+          )}
+
+          {/* SKU */}
+          {product.sku && (
+            <p className="mb-6 text-xs text-gray-800">SKU: {product.sku}</p>
+          )}
+
+          {/* Tabs: Description / Additional Info / Reviews */}
+          <div className="border-t pt-6">
+            <div className="flex border-b">
+              {tabs
+                .filter((t) => t.hasContent || t.key === "reviews")
+                .map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setActiveTab(tab.key)}
+                    className={cn(
+                      "relative cursor-pointer px-4 py-3 text-sm font-medium transition-colors",
+                      activeTab === tab.key
+                        ? "text-primary"
+                        : "text-gray-800 hover:text-gray-900",
+                    )}
+                  >
+                    {tab.label}
+                    {activeTab === tab.key && (
+                      <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                    )}
+                  </button>
+                ))}
+            </div>
+
+            <div className="py-6">
+              {activeTab === "description" && product.description && (
+                <div
+                  className="prose prose-sm max-w-none text-primary"
+                  dangerouslySetInnerHTML={{ __html: product.description }}
+                />
+              )}
+
+              {activeTab === "additional" && (
+                <div className="space-y-3">
+                  {product.attributes
+                    .filter((a) => a.visible && !a.variation)
+                    .map((attr) => (
+                      <div key={attr.id} className="flex gap-4 text-sm">
+                        <span className="w-32 shrink-0 font-medium text-gray-700">
+                          {attr.name}
+                        </span>
+                        <span className="text-gray-600">
+                          {attr.options.join(", ")}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              )}
+
+              {activeTab === "reviews" && (
+                <p className="text-sm text-gray-500">Reviews coming soon.</p>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
       {/* Sticky ATC — desktop + mobile, after main ATC scrolls out of view */}
       <div

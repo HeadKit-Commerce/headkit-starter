@@ -153,8 +153,8 @@ const BlockEditor = ({ blocks, section }: Props) => {
                   />
                 ) : (
                   <p className="px-5 md:px-10 text-sm text-neutral-500">
-                    No brands to display yet. Mark brands Featured under Products
-                    → Brands, or upload brand logos.
+                    No brands to display yet. Mark brands Featured under
+                    Products → Brands, or upload brand logos.
                   </p>
                 )}
               </div>

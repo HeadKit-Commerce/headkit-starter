@@ -53,17 +53,21 @@ export async function getGravityFormById(id: string): Promise<GravityFormData> {
 export async function submitGravityForm(
   input: SubmitGravityFormInput,
 ): Promise<SubmitGravityFormResult> {
-  const data = await executeRequest(transportOpts(), SubmitGravityFormDocument, {
-    input: {
-      id: input.id,
-      saveAsDraft: input.saveAsDraft,
-      fieldValues: input.fieldValues.map((fv) =>
-        fv.id !== undefined
-          ? { id: fv.id, value: fv.value }
-          : { value: fv.value },
-      ),
+  const data = await executeRequest(
+    transportOpts(),
+    SubmitGravityFormDocument,
+    {
+      input: {
+        id: input.id,
+        saveAsDraft: input.saveAsDraft,
+        fieldValues: input.fieldValues.map((fv) =>
+          fv.id !== undefined
+            ? { id: fv.id, value: fv.value }
+            : { value: fv.value },
+        ),
+      },
     },
-  });
+  );
   const submitGfForm = data.commerce.submitGfForm;
   // Strip the GF confirmation message to plain text here (server) rather than
   // in the client component: the client renders it as React text anyway, and

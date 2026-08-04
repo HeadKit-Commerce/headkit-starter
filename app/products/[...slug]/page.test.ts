@@ -27,8 +27,7 @@ vi.mock("@/lib/sdk", () => ({
 
 vi.mock("@/lib/branding", () => ({
   getBranding: (): Promise<null> => Promise.resolve(null),
-  getBrandingAssets: (): Promise<Record<string, never>> =>
-    Promise.resolve({}),
+  getBrandingAssets: (): Promise<Record<string, never>> => Promise.resolve({}),
 }));
 
 vi.mock("@/lib/make-metadata", () => ({

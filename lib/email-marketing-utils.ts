@@ -6,7 +6,9 @@ const MARKETING_LABEL =
   /newsletter|mailing\s*list|email\s*me|marketing|subscribe|opt[\s-]?in|keep\s*me\s*(updated|informed)/i;
 
 /** True when a checkbox label looks like a marketing / list opt-in. */
-export function isMarketingOptInLabel(label: string | null | undefined): boolean {
+export function isMarketingOptInLabel(
+  label: string | null | undefined,
+): boolean {
   if (!label) return false;
   return MARKETING_LABEL.test(label);
 }
@@ -26,7 +28,10 @@ export function extractEmailFromFormValues(
   if (preferred?.[1]) return preferred[1].trim();
 
   for (const [, value] of entries) {
-    if (typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) {
+    if (
+      typeof value === "string" &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
+    ) {
       return value.trim();
     }
   }

@@ -60,9 +60,7 @@ test.describe("Search + navigation (P1-26..P1-30, P1-36, P1-39)", () => {
       "/search results page did not list the seeded product",
     ).toBeVisible({ timeout: 20_000 });
     // Results header copy renders the query + count.
-    await expect(
-      page.getByText(/Search results for/i).first(),
-    ).toBeVisible();
+    await expect(page.getByText(/Search results for/i).first()).toBeVisible();
   });
 
   test("P1-27: junk query shows the no-results state (drawer AND /search page)", async ({
@@ -97,7 +95,7 @@ test.describe("Search + navigation (P1-26..P1-30, P1-36, P1-39)", () => {
     // onClick (navigation-bar.tsx DesktopMenuSection) clicking the parent
     // only toggled the dropdown and never navigated.
     const menTrigger = page
-      .locator('nav a[aria-expanded], a[aria-controls]')
+      .locator("nav a[aria-expanded], a[aria-controls]")
       .filter({ hasText: /^Men$/ })
       .first();
     await expect(
@@ -115,7 +113,7 @@ test.describe("Search + navigation (P1-26..P1-30, P1-36, P1-39)", () => {
     await page.goto(`${BASE_URL}/`);
 
     const womenTrigger = page
-      .locator('a[aria-expanded]')
+      .locator("a[aria-expanded]")
       .filter({ hasText: /^Women$/ })
       .first();
     await expect(womenTrigger).toBeVisible({ timeout: 15_000 });
@@ -132,10 +130,9 @@ test.describe("Search + navigation (P1-26..P1-30, P1-36, P1-39)", () => {
     const panelId = await womenTrigger.getAttribute("aria-controls");
     expect(panelId, "trigger has no aria-controls panel id").toBeTruthy();
     const childLink = page.locator(`#${panelId} a[href^="/"]`).first();
-    await expect(
-      childLink,
-      "open submenu contains no child links",
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(childLink, "open submenu contains no child links").toBeVisible(
+      { timeout: 10_000 },
+    );
     const childHref = await childLink.getAttribute("href");
     await childLink.click();
     await page.waitForURL((url) => url.pathname === childHref, {

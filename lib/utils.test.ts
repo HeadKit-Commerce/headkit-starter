@@ -13,7 +13,9 @@ afterEach(() => {
 describe("decodeHtmlEntities", () => {
   it("decodes common named and numeric entities", () => {
     expect(decodeHtmlEntities("A &#038; B")).toBe("A & B");
-    expect(decodeHtmlEntities("Beds &amp; Mattresses")).toBe("Beds & Mattresses");
+    expect(decodeHtmlEntities("Beds &amp; Mattresses")).toBe(
+      "Beds & Mattresses",
+    );
     expect(decodeHtmlEntities("Tom&apos;s")).toBe("Tom's");
     expect(decodeHtmlEntities("&quot;Sale&quot;")).toBe('"Sale"');
   });

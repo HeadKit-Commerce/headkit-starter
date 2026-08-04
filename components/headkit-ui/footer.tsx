@@ -184,9 +184,9 @@ export function Footer({
   paymentMethods = DEFAULT_PAYMENT_METHODS,
   showSubscribe = false,
 }: FooterProps) {
-  const footerMenus = menus.slice(0, 2).filter(
-    (menu) => (menu.items?.length ?? 0) > 0,
-  );
+  const footerMenus = menus
+    .slice(0, 2)
+    .filter((menu) => (menu.items?.length ?? 0) > 0);
   const policyMenu =
     menus[2] && (menus[2].items?.length ?? 0) > 0 ? menus[2] : undefined;
 
@@ -208,9 +208,7 @@ export function Footer({
                   {iconUrl ? (
                     <Image
                       src={iconUrl}
-                      alt={
-                        siteName ? decodeHtmlEntities(siteName) : "Logo"
-                      }
+                      alt={siteName ? decodeHtmlEntities(siteName) : "Logo"}
                       sizes="20vw"
                       width={0}
                       height={0}
@@ -293,8 +291,7 @@ export function Footer({
         <div className="flex flex-col justify-between md:flex-row">
           <div className="flex flex-col md:flex-row">
             <div className="mb-2 mr-4">
-              © {new Date().getFullYear()}{" "}
-              {decodeHtmlEntities(policyMenu?.name || siteName || "")}
+              © 2026 {decodeHtmlEntities(policyMenu?.name || siteName || "")}
             </div>
             {policyMenu && (
               <div className="mb-2 flex flex-wrap items-center gap-[6px]">

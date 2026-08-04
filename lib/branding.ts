@@ -261,10 +261,12 @@ interface BrandingResponse {
   data?: {
     branding?: FlatBranding | null;
     storeSettings?: Partial<StoreSettings> | null;
-    seoSettings?: (Partial<SeoSettings> & {
-      enableSitemap?: boolean | null;
-      allowIndexing?: boolean | null;
-    }) | null;
+    seoSettings?:
+      | (Partial<SeoSettings> & {
+          enableSitemap?: boolean | null;
+          allowIndexing?: boolean | null;
+        })
+      | null;
   };
   errors?: Array<{ message: string }>;
 }

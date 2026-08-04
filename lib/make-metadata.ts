@@ -142,7 +142,10 @@ export function seoFallbackDescription(
  * title template appends `| {storeName}`. Callers with a complete Yoast
  * title should pass it via {@link makeSeoMetadata}, which uses `absolute`.
  */
-export function seoFallbackTitle(name?: OptSeoStr, storeName?: OptSeoStr): string {
+export function seoFallbackTitle(
+  name?: OptSeoStr,
+  storeName?: OptSeoStr,
+): string {
   const trimmed = (name ?? "").trim();
   if (trimmed.length > 0) return trimmed;
   return resolveStoreName(storeName);
@@ -171,7 +174,9 @@ export function makeRootMetadata(options?: {
     brandingIconUrl: options?.iconUrl,
   });
   const allowIndexing = options?.allowIndexing !== false;
-  const feedUrl = SITE_URL ? `${SITE_URL.replace(/\/$/, "")}/feed.xml` : "/feed.xml";
+  const feedUrl = SITE_URL
+    ? `${SITE_URL.replace(/\/$/, "")}/feed.xml`
+    : "/feed.xml";
 
   // Single-locale storefront: no hreflang alternates. lang="en" is set on <html>.
   // If/when i18n ships, add alternates.languages here (and self + x-default).

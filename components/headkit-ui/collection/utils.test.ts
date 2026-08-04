@@ -79,7 +79,9 @@ describe("isIndexableFacet (Tier-1 predicate)", () => {
 
   it("returns false for brand + size", () => {
     expect(
-      isIndexableFacet(fv({ brands: ["nike"], attributes: { pa_size: ["l"] } })),
+      isIndexableFacet(
+        fv({ brands: ["nike"], attributes: { pa_size: ["l"] } }),
+      ),
     ).toBe(false);
   });
 
@@ -121,13 +123,17 @@ describe("isIndexableFacet (Tier-1 predicate)", () => {
 
   it("returns false for color + instock", () => {
     expect(
-      isIndexableFacet(fv({ attributes: { pa_color: ["red"] }, instock: true })),
+      isIndexableFacet(
+        fv({ attributes: { pa_color: ["red"] }, instock: true }),
+      ),
     ).toBe(false);
   });
 
   it("returns false for color + a non-default sort", () => {
     expect(
-      isIndexableFacet(fv({ attributes: { pa_color: ["red"] }, sort: "PRICE" })),
+      isIndexableFacet(
+        fv({ attributes: { pa_color: ["red"] }, sort: "PRICE" }),
+      ),
     ).toBe(false);
   });
 

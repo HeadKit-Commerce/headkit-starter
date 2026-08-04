@@ -45,11 +45,17 @@ describe("getPriceDisplay", () => {
   });
 
   it("handles currency symbols and undefined regular price", () => {
+    expect(getPriceDisplay({ price: "$24.00", onSale: true })).toEqual({
+      min: 24,
+      max: null,
+      struck: null,
+    });
     expect(
-      getPriceDisplay({ price: "$24.00", onSale: true }),
-    ).toEqual({ min: 24, max: null, struck: null });
-    expect(
-      getPriceDisplay({ price: "$24.00", regularPrice: "$32.00", onSale: true }),
+      getPriceDisplay({
+        price: "$24.00",
+        regularPrice: "$32.00",
+        onSale: true,
+      }),
     ).toEqual({ min: 24, max: null, struck: 32 });
   });
 
@@ -63,7 +69,7 @@ describe("getPriceDisplay", () => {
 });
 
 describe("pickFirstPrice", () => {
-  it("skips empty strings the way ?? cannot (gateway sends salePrice: \"\")", () => {
+  it('skips empty strings the way ?? cannot (gateway sends salePrice: "")', () => {
     // The P1-14 regression: selectedVariation?.price ?? salePrice ?? price
     // kept "" and rendered A$0.00 on simple non-sale PDPs.
     expect(pickFirstPrice(undefined, "", "50.00")).toBe("50.00");

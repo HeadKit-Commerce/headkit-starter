@@ -63,7 +63,10 @@ export function stripeTestKeys(): string[] {
     resolve(process.cwd(), "services/commerce/.env"),
     // Worktree checkouts may not carry a commerce .env — fall back to the main
     // checkout's files (the commerce service actually RUNNING on :8080).
-    resolve(process.cwd(), "../../../../services/commerce/.env.development.local"),
+    resolve(
+      process.cwd(),
+      "../../../../services/commerce/.env.development.local",
+    ),
     resolve(process.cwd(), "../../../../services/commerce/.env"),
   ];
   for (const path of candidates) {
@@ -259,7 +262,9 @@ export async function createCheckoutSession(
     `createCheckoutSession errored: ${JSON.stringify(json.errors)}`,
   ).toBeUndefined();
   const result = json.data.commerce.createCheckoutSession;
-  expect(result.testMode, "Stripe must be in TEST mode (LOCAL-ONLY)").toBe(true);
+  expect(result.testMode, "Stripe must be in TEST mode (LOCAL-ONLY)").toBe(
+    true,
+  );
   expect(result.sessionId).toMatch(/^cs_test_/);
   return result.sessionId as string;
 }
@@ -595,10 +600,7 @@ export async function fillShippingOptionsStep(
     "Shipping Options step did not render (no Continue to Payment button)",
   ).toBeVisible({ timeout: 30_000 });
   if (rateName) {
-    await page
-      .locator("label", { hasText: rateName })
-      .first()
-      .click();
+    await page.locator("label", { hasText: rateName }).first().click();
   } else {
     // Ensure SOME rate is selected (first radio) — selection also syncs Stripe.
     const radios = page.locator('[role="radiogroup"] [role="radio"]');

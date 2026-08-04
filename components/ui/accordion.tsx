@@ -2,11 +2,7 @@
 
 import * as React from "react";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
-import {
-  ChevronDownIcon,
-  MinusIcon,
-  PlusIcon,
-} from "@/components/icon";
+import { ChevronDownIcon, MinusIcon, PlusIcon } from "@/components/icon";
 
 import { cn } from "@/lib/utils";
 

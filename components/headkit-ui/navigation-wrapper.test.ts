@@ -30,13 +30,14 @@ const menuGetMenu = vi.fn<
     items: unknown[];
   }>
 >();
-const menuGetMenus = vi.fn<
-  (
-    locations: string[],
-  ) => Promise<
-    Array<{ name: string; description?: string | null; items: unknown[] }>
-  >
->();
+const menuGetMenus =
+  vi.fn<
+    (
+      locations: string[],
+    ) => Promise<
+      Array<{ name: string; description?: string | null; items: unknown[] }>
+    >
+  >();
 
 vi.mock("next/cache", () => ({
   cacheTag: (...tags: string[]): void => cacheTag(...tags),
@@ -154,9 +155,7 @@ describe("getFooterMenus — TAG.footer + all footer locations", () => {
       {
         name: "Paralel Furniture Pty Ltd",
         description: null,
-        items: [
-          { id: "2", label: "Privacy", uri: "/privacy", children: [] },
-        ],
+        items: [{ id: "2", label: "Privacy", uri: "/privacy", children: [] }],
       },
     ]);
 

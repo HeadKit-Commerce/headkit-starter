@@ -40,7 +40,8 @@ import {
  * LOCAL-ONLY (HARD RULE): localhost Docker services; Stripe TEST mode only.
  */
 
-const PICKUP_NAME = process.env.E2E_PICKUP_LOCATION ?? "HeadKit Sydney Flagship";
+const PICKUP_NAME =
+  process.env.E2E_PICKUP_LOCATION ?? "HeadKit Sydney Flagship";
 const PICKUP_LINE1 = "123 George Street";
 const PICKUP_CITY = "Sydney";
 const PICKUP_POSTCODE = "2000";
@@ -182,12 +183,9 @@ test.describe("Click & Collect: no shipping charged, pickup address on the sessi
    * items-only payable; session shipping == the pickup location (123 George
    * Street, Sydney NSW 2000, AU — ISO codes); WC order paid.
    */
-  test.fixme(
-    "KNOWN BUG: pickup Pay Now fails — 'A shipping address is required to confirm this Checkout Session'",
-    async () => {
-      // Blocked on the session shipping-address wipe described above.
-    },
-  );
+  test.fixme("KNOWN BUG: pickup Pay Now fails — 'A shipping address is required to confirm this Checkout Session'", async () => {
+    // Blocked on the session shipping-address wipe described above.
+  });
 
   test("P0-06 regression: switching pickup back to Ship to Home resurfaces Shipping Options and charges a rate", async ({
     page,
