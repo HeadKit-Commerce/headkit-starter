@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { cn } from "@/lib/utils";
+import { cn, decodeHtmlEntities } from "@/lib/utils";
 import type { PostSummaryFieldsFragment } from "@headkit/sdk";
 
 interface PostCardProps {
@@ -16,6 +16,7 @@ export function PostCard({ post, textStyle = "dark" }: PostCardProps) {
   const categories = (post.categories ?? []).filter(
     (c) => c.slug !== "uncategorized",
   );
+  const title = decodeHtmlEntities(post.title ?? "");
 
   return (
     <Link href={href}>
@@ -23,7 +24,7 @@ export function PostCard({ post, textStyle = "dark" }: PostCardProps) {
         {post.featuredImage?.src ? (
           <div className="relative aspect-video w-full overflow-hidden rounded-brand">
             <Image
-              alt={post.featuredImage.alt ?? post.title}
+              alt={post.featuredImage.alt ?? title}
               src={post.featuredImage.src}
               fill
               className="object-cover"
@@ -38,12 +39,12 @@ export function PostCard({ post, textStyle = "dark" }: PostCardProps) {
               "text-pink-500": textStyle === "light",
             })}
           >
-            {post.title}
+            {title}
           </h3>
         </div>
         {categories.length > 0 && (
           <p className="text-sm text-muted-foreground mt-1">
-            {categories.map((c) => c.name).join(", ")}
+            {categories.map((c) => decodeHtmlEntities(c.name ?? "")).join(", ")}
           </p>
         )}
       </div>
