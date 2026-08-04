@@ -15,6 +15,11 @@ interface CarouselProps<T> {
   padding?: string;
   /** Extra classes on the horizontal scroll track (e.g. `justify-center`). */
   trackClassName?: string;
+  /**
+   * Apply `justify-center` only when all items fit (no overflow).
+   * Avoids the mobile bug where `justify-center` + overflow hides the first item.
+   */
+  centerWhenFits?: boolean;
   itemSizing?: {
     base: string;
     sm?: string;
@@ -46,6 +51,7 @@ const Carousel = <T,>({
   gap = "gap-[14px]",
   padding = "px-5 md:px-10",
   trackClassName,
+  centerWhenFits = false,
   itemSizing = {
     base: "w-[calc(91.666667%-7px)]",
     sm: "sm:w-[calc(50%-7px)]",
@@ -73,6 +79,8 @@ const Carousel = <T,>({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  /** True only after measure shows items fit — never center before that (mobile overflow). */
+  const [fitsViewport, setFitsViewport] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const updateScrollState = useCallback(() => {
@@ -81,11 +89,13 @@ const Carousel = <T,>({
     const scrollLeft = container.scrollLeft;
     const scrollWidth = container.scrollWidth;
     const clientWidth = container.clientWidth;
-    setCanScroll(scrollWidth > clientWidth);
+    const overflows = scrollWidth > clientWidth + 1;
+    setCanScroll(overflows);
+    setFitsViewport(!overflows);
     setCanScrollPrev(scrollLeft > 0);
     setCanScrollNext(scrollLeft < scrollWidth - clientWidth - 1);
     setScrollProgress(
-      scrollWidth > clientWidth ? scrollLeft / (scrollWidth - clientWidth) : 0,
+      overflows ? scrollLeft / (scrollWidth - clientWidth) : 0,
     );
     if (useScrollSnap) {
       // Each snap slide spans the full container, so a slide's width is the
@@ -221,6 +231,7 @@ const Carousel = <T,>({
           gap,
           padding,
           trackClassName,
+          centerWhenFits && fitsViewport && "justify-center",
           useScrollSnap && "snap-x snap-mandatory",
           "[&::-webkit-scrollbar]:hidden",
         )}

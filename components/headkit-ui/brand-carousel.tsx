@@ -31,7 +31,7 @@ const BrandCarousel = ({ brands }: Props) => {
       // Original 160px logo slots; 100px gap between logos (not wide columns).
       gap="gap-[100px]"
       padding="px-5 md:px-10"
-      trackClassName="justify-center"
+      centerWhenFits
       itemSizing={{
         base: "w-[160px]",
         sm: "sm:w-[160px]",
