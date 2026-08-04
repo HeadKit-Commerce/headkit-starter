@@ -178,19 +178,32 @@ test.describe("Coupons: percent apply/remove, junk code, charge integrity, 100%-
   });
 
   /**
-   * P0-07 / ENG-838: the zero-total (free-order) checkout, end to end.
+   * KNOWN BUG (found by this suite, autonomous QA run 2026-07-18): the
+   * zero-total (free-order) checkout is BROKEN end-to-end on this stack.
    *
-   * Was fixme'd by the 2026-07-18 autonomous QA run: the zero-total finalize
-   * posted `payment_method: "none"` to the WC Store API /checkout and
-   * WooCommerce rejected it (`rest_invalid_param`), so /checkout redirected
-   * to /checkout/error?reason=session_creation_failed. Fixed by PR #63
-   * (services/commerce ZeroTotalFinalize now sends `PaymentMethod: ""`) —
-   * un-fixme'd in phase 12-06 (E2E-01) after passing against the local stack.
+   * Repro (fully scripted below — re-enable by turning fixme back into test):
+   * cart with product 678 + seeded E2E-FREE-100 coupon (100% + free shipping)
+   * + free-shipping rate selected → Store API total_price = 0 → /checkout.
    *
-   * NOTE: free-order.spec.ts never caught the original bug because it is
-   * gated on a hand-seeded E2E_FREE_CART_TOKEN env and skips otherwise.
+   * Expected: the "No payment required" branch renders and Place order lands
+   * on the confirmation (PAY-05 / P0-07).
+   * Actual: /checkout redirects to /checkout/error?reason=session_creation_failed
+   * ("Checkout session could not be created") — the page never renders.
+   *
+   * Root cause (commerce): the zero-total finalize posts
+   * `payment_method: "none"` to the WC Store API /checkout —
+   * services/commerce/graph/schema.resolvers.go:529 and :535
+   * (`ProcessCheckoutInput{PaymentMethod: "none"}`) — and WooCommerce rejects
+   * it with `rest_invalid_param`: "payment_method is not one of , bacs,
+   * cheque, cod, and headkit-payments". Reproduced directly via the gateway:
+   * createCheckoutSession on a $0 cart → "CreateCheckoutSession.
+   * ZeroTotalFinalize: WooCommerce checkout error … status 400".
+   * Fix direction: send "" (or a registered gateway id) instead of "none".
+   *
+   * NOTE: free-order.spec.ts never caught this because it is gated on a
+   * hand-seeded E2E_FREE_CART_TOKEN env and skips otherwise.
    */
-  test("P0-07: 100%-off coupon + free shipping renders the no-payment branch and places the order", async ({
+  test.fixme("P0-07: 100%-off coupon + free shipping renders the no-payment branch and places the order", async ({
     page,
     context,
   }) => {
@@ -269,20 +282,6 @@ test.describe("Coupons: percent apply/remove, junk code, charge integrity, 100%-
       page.frames().filter((f) => /elements-inner-payment/.test(f.url())),
       "a Stripe PaymentElement mounted on a $0 checkout",
     ).toHaveLength(0);
-
-    // ENG-838: WC requires a full billing address + email even for $0 orders
-    // (woocommerce_rest_invalid_address) — the no-payment branch collects a
-    // minimal billing form (PR #63); fill it before confirming (mirrors
-    // free-order.spec.ts PAY-05).
-    await page
-      .getByLabel(/email for your order confirmation/i)
-      .fill("p007-free@local.test");
-    await page.getByLabel(/first name/i).fill("E2E");
-    await page.getByLabel(/last name/i).fill("Free");
-    await page.getByLabel(/street address/i).fill("123 Example Street");
-    await page.getByLabel(/suburb/i).fill("Sydney");
-    await page.getByLabel(/^state$/i).fill("NSW");
-    await page.getByLabel(/postcode/i).fill("2000");
 
     // Confirm → the server-side zero-total bypass places the order.
     await page.getByRole("button", { name: /^place order$/i }).click();

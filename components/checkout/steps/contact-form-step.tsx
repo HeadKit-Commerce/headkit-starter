@@ -37,7 +37,7 @@ interface ContactFormStepProps {
   defaultValues?: { email?: string; newsletter?: boolean };
   /** When provided, creates a new checkout session and updates cart on email submit instead of using Stripe updateEmail. */
   onRefreshSession?: (email: string, nextStep: string) => Promise<void>;
-  /** When false/undefined, hide the newsletter opt-in (no Klaviyo). */
+  /** When false/undefined, hide the newsletter opt-in (no email marketing provider). */
   emailMarketingEnabled?: boolean;
 }
 

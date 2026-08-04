@@ -265,9 +265,7 @@ export async function NavigationWrapper() {
     getBranding(),
   ]);
 
-  const primaryItems = normalizeMenuItems(
-    (headerMenus[0] ?? EMPTY_MENU).items,
-  );
+  const primaryItems = normalizeMenuItems((headerMenus[0] ?? EMPTY_MENU).items);
   const secondaryItems = normalizeMenuItems(
     (headerMenus[1] ?? EMPTY_MENU).items,
   );

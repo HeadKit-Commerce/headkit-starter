@@ -94,7 +94,7 @@ export function PriceFilter() {
         <Button
           type="button"
           variant="ghost"
-          className="h-10 self-start px-2 text-sm underline hover:text-purple-500"
+          className="h-10 self-start px-2 text-sm underline hover:text-primary"
           onClick={clear}
         >
           Clear price

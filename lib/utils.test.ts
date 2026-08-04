@@ -1,8 +1,28 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { formatPrice, getStoreCurrency, getFloatVal } from "@/lib/utils";
+import {
+  formatPrice,
+  getStoreCurrency,
+  getFloatVal,
+  decodeHtmlEntities,
+} from "@/lib/utils";
 
 afterEach(() => {
   vi.unstubAllEnvs();
+});
+
+describe("decodeHtmlEntities", () => {
+  it("decodes common named and numeric entities", () => {
+    expect(decodeHtmlEntities("A &#038; B")).toBe("A & B");
+    expect(decodeHtmlEntities("Beds &amp; Mattresses")).toBe(
+      "Beds & Mattresses",
+    );
+    expect(decodeHtmlEntities("Tom&apos;s")).toBe("Tom's");
+    expect(decodeHtmlEntities("&quot;Sale&quot;")).toBe('"Sale"');
+  });
+
+  it("is a no-op for plain text", () => {
+    expect(decodeHtmlEntities("Plain title")).toBe("Plain title");
+  });
 });
 
 describe("getStoreCurrency", () => {

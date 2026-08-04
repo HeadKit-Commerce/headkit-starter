@@ -18,10 +18,14 @@ import {
   formatOptionName,
   DEFAULT_FILTER_VALUES,
 } from "@/components/headkit-ui/collection/utils";
-import { makeSeoMetadata, seoFallbackDescription } from "@/lib/make-metadata";
+import {
+  makeSeoMetadata,
+  seoFallbackDescription,
+  resolveStoreName,
+} from "@/lib/make-metadata";
+import { getBranding } from "@/lib/branding";
 import { TAG } from "@/lib/cache-tags";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
-import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import type { SortKeyType } from "@/components/headkit-ui/collection/utils";
 import type { ProductFilters } from "@headkit/sdk";
 
@@ -344,8 +348,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     parseCollectionSlug(slug);
   if (!categorySlug) return {};
   try {
-    const { category, productFilter } = await getCategoryData(categorySlug);
+    const [{ category, productFilter }, { storeSettings }] = await Promise.all([
+      getCategoryData(categorySlug),
+      getBranding(),
+    ]);
     if (!category) return {};
+    const siteName = resolveStoreName(storeSettings.name);
 
     // Tier-1 branch: a single-color URL (e.g. /collections/<cat>/f/color.red)
     // earns its OWN indexable identity — self-canonical, facet title/desc, and
@@ -394,7 +402,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         const selfCanonical = `${categoryBasePath}/f/${filterSlug}`;
         const isProduction = process.env.VERCEL_ENV === "production";
         const title = facetTitle(category.name, facetLabel);
-        const description = facetDescription(category.name, facetLabel);
+        const description = facetDescription(
+          category.name,
+          facetLabel,
+          storeSettings.name,
+        );
         return {
           title,
           description,
@@ -405,7 +417,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
             title,
             description,
             url: selfCanonical,
-            siteName: "HeadKit",
+            siteName,
             ...(category.thumbnail ? { images: [category.thumbnail] } : {}),
           },
           twitter: {
@@ -423,7 +435,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       // description are absent (FE-09 / D-04). Real category.seo still wins.
       description:
         category.description ||
-        seoFallbackDescription("category", category.name),
+        seoFallbackDescription("category", category.name, storeSettings.name),
+      ...(storeSettings.name != null ? { storeName: storeSettings.name } : {}),
     });
     // Tier-2: any other filtered URL points back to the unfiltered collection
     // as canonical (R1: base). Unfiltered category metadata is unchanged.
@@ -472,8 +485,9 @@ export default async function Page({ params, searchParams }: Props) {
         {...(category.thumbnail ? { thumbnail: category.thumbnail } : {})}
         {...(category.children?.length ? { children: category.children } : {})}
       />
-      {/* Dynamic grid — reads searchParams + filter-slug, streamed under Suspense */}
-      <Suspense fallback={<CollectionProductsSkeleton />}>
+      {/* Dynamic grid — reads searchParams + filter-slug, streamed under Suspense.
+          fallback={null} keeps animate-pulse skeletons out of the CDN HIT shell. */}
+      <Suspense fallback={null}>
         <CollectionProductsServer
           categorySlug={categorySlug}
           productFilter={productFilter}

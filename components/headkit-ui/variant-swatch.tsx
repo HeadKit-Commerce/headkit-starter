@@ -50,12 +50,12 @@ const VariantSwatch = ({
         title={label}
         onClick={onClick}
         className={cn(
-          "relative cursor-pointer rounded-full border outline transition-all hover:outline-purple-500",
+          "relative cursor-pointer rounded-full border outline transition-all hover:outline-primary",
           size === "default"
             ? "h-6 w-6 outline-2 outline-offset-1"
             : "h-4 w-4 outline-1 outline-offset-1",
           isUnavailable ? "border-gray-500" : "border-gray-700",
-          isSelected ? "outline-purple-800" : "outline-transparent",
+          isSelected ? "outline-primary" : "outline-transparent",
           isIncompatible && !isSelected && "opacity-50",
         )}
         style={colorStyle}
@@ -73,10 +73,10 @@ const VariantSwatch = ({
       type="button"
       onClick={onClick}
       className={cn(
-        "relative inline-flex max-w-full cursor-pointer items-center justify-center truncate rounded-md border leading-none outline-2 outline-solid -outline-offset-1 transition-all hover:outline-purple-500",
+        "relative inline-flex max-w-full cursor-pointer items-center justify-center truncate rounded-md border leading-none outline-2 outline-solid -outline-offset-1 transition-all hover:outline-primary",
         size === "default" ? "h-8 px-[10px]" : "h-6 px-2 text-xs",
         isUnavailable ? "border-gray-500 text-gray-500" : "border-gray-700",
-        isSelected ? "font-semibold outline-purple-800" : "outline-transparent",
+        isSelected ? "font-semibold outline-primary" : "outline-transparent",
         isIncompatible && !isSelected && "opacity-50",
       )}
     >

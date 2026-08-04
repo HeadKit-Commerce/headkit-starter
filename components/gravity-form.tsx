@@ -393,7 +393,7 @@ export const GravityForm = ({
       });
 
       // Opt-in mailing list: when a marketing checkbox is checked and an email
-      // is present, best-effort subscribe (no-ops if Klaviyo is not connected).
+      // is present, best-effort subscribe (no-ops if email marketing is off).
       const stringValues = allValues as Record<string, string>;
       if (
         formFields &&

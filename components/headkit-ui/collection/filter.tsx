@@ -177,7 +177,7 @@ export function Filter() {
             >
               Filters
               {activeCount > 0 && (
-                <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-purple-500 px-1 text-[10px] font-medium text-white">
+                <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-white">
                   {activeCount}
                 </span>
               )}

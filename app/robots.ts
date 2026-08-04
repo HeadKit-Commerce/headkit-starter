@@ -56,9 +56,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
       },
     ],
     // Sitemap off = omit Sitemap line entirely (do not advertise a URL).
-    ...(seoSettings.enableSitemap
-      ? { sitemap: `${host}/sitemap.xml` }
-      : {}),
+    ...(seoSettings.enableSitemap ? { sitemap: `${host}/sitemap.xml` } : {}),
     host,
   };
 }

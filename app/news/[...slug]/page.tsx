@@ -29,7 +29,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!postSlug) return {};
   try {
     const [post, { seoSettings, storeSettings }, { iconUrl }] =
-      await Promise.all([getPost(postSlug), getBranding(), getBrandingAssets()]);
+      await Promise.all([
+        getPost(postSlug),
+        getBranding(),
+        getBrandingAssets(),
+      ]);
     if (!post) return {};
     return makeSeoMetadata(post.seo, {
       title: post.title,

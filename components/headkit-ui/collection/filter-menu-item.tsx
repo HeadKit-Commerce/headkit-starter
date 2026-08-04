@@ -28,7 +28,7 @@ export function FilterMenuItem({
         >
           <span>{label}</span>
           {count > 0 && (
-            <div className="absolute right-[-12px] top-[-2px] h-[14px] w-[14px] rounded-full bg-purple-500 text-center text-[10px] font-medium text-white">
+            <div className="absolute right-[-12px] top-[-2px] h-[14px] w-[14px] rounded-full bg-primary text-center text-[10px] font-medium text-white">
               {count}
             </div>
           )}

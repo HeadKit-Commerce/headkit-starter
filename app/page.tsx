@@ -40,16 +40,16 @@ const EMPTY_COLLECTION = {
 export async function generateMetadata(): Promise<Metadata> {
   try {
     const [{ homepage }, { seoSettings, storeSettings }, { iconUrl }] =
-      await Promise.all([getHomepageData(), getBranding(), getBrandingAssets()]);
+      await Promise.all([
+        getHomepageData(),
+        getBranding(),
+        getBrandingAssets(),
+      ]);
     const siteName = resolveStoreName(storeSettings.name);
     const yoastSeo = homepage?.page?.seo;
     const entityOg =
-      (
-        yoastSeo as
-          | { opengraphImageUrl?: string | null }
-          | null
-          | undefined
-      )?.opengraphImageUrl ?? null;
+      (yoastSeo as { opengraphImageUrl?: string | null } | null | undefined)
+        ?.opengraphImageUrl ?? null;
 
     return makeRootMetadata({
       title: resolveHomeTitle({
@@ -173,9 +173,7 @@ export async function HomeContent() {
             </section>
           );
         }
-        return (
-          <BlockEditor key={`wp-block-${index}`} blocks={[seg.block]} />
-        );
+        return <BlockEditor key={`wp-block-${index}`} blocks={[seg.block]} />;
       })}
 
       {/* Platform commerce modules (not WP page blocks) */}

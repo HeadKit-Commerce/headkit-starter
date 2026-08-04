@@ -33,7 +33,7 @@ The starter runs within the monorepo and requires the GraphQL gateway and commer
 - **Brands** — Brand listing and detail pages
 - **SEO** — JSON-LD (product, breadcrumb, article, FAQ, website, searchbox), sitemap, robots.txt, OpenGraph, Twitter cards
 - **CMS** — WordPress block editor integration for custom page content
-- **Performance** — `"use cache"` directives, route-level Suspense boundaries, loading skeletons, error boundaries
+- **Performance** — Next.js 16.3 Instant Navigations (`cacheComponents` + `partialPrefetching`), `"use cache"` directives, route-level Suspense boundaries, loading skeletons, error boundaries
 
 ```shellscript
 HEADKIT_PRIVATE_KEY

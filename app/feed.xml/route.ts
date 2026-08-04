@@ -1,11 +1,17 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
 import { getBranding } from "@/lib/branding";
-import { resolveStoreName, resolveFooterDescription } from "@/lib/make-metadata";
+import {
+  resolveStoreName,
+  resolveFooterDescription,
+} from "@/lib/make-metadata";
 
 // Cache Components bans `export const dynamic` — caching is via `"use cache"`
 // on getFeedPosts + Cache-Control on the Response.
-const SITE_URL = (process.env.NEXT_PUBLIC_FRONTEND_URL ?? "").replace(/\/$/, "");
+const SITE_URL = (process.env.NEXT_PUBLIC_FRONTEND_URL ?? "").replace(
+  /\/$/,
+  "",
+);
 
 function escapeXml(value: string): string {
   return value
@@ -17,7 +23,10 @@ function escapeXml(value: string): string {
 }
 
 function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+  return html
+    .replace(/<[^>]*>/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function postLink(slug: string, uri?: string | null): string {
@@ -40,9 +49,9 @@ async function getFeedPosts() {
 export async function GET(): Promise<Response> {
   const [{ storeSettings, seoSettings }, postsResult] = await Promise.all([
     getBranding(),
-    getFeedPosts().catch(() => ({ posts: [] as Awaited<
-      ReturnType<typeof getFeedPosts>
-    >["posts"] })),
+    getFeedPosts().catch(() => ({
+      posts: [] as Awaited<ReturnType<typeof getFeedPosts>>["posts"],
+    })),
   ]);
 
   const siteName = resolveStoreName(storeSettings.name);

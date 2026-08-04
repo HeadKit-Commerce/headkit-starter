@@ -16,10 +16,8 @@ export function ProductCardSkeleton({
   showSwatches = true,
 }: ProductCardSkeletonProps) {
   return (
-    <div
-      className={cn("relative w-full rounded-brand bg-white p-3", className)}
-    >
-      <Skeleton className="aspect-square w-full rounded-brand bg-primary/5" />
+    <div className={cn("relative w-full", className)}>
+      <Skeleton className="aspect-square w-full rounded-brand bg-white" />
       <div className="pt-3">
         <div className="flex flex-col gap-1 lg:flex-row lg:justify-between lg:gap-2">
           <div className="min-w-0 flex-1 space-y-2">

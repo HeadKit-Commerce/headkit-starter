@@ -55,6 +55,7 @@ export function ThemeCSS({ branding }: ThemeCSSProps) {
       --color-secondary: ${secondaryColor};
       --color-primary-text: ${primaryTextColor};
       --color-purple-500: ${primaryColor};
+      --color-purple-800: ${primaryColor};
     }
   `;
 

@@ -9,10 +9,9 @@ import { headkit } from "@/lib/sdk";
  */
 export async function getCachedProduct(slug: string) {
   "use cache";
-  // Finite `hours` backstop (was `days`): price/stock edits that miss the WP
-  // webhook (secret misconfig, variation-only save) self-heal within ~1 hour
-  // instead of sticking until the next day (threat T-09.5-12).
-  cacheLife("hours");
+  // Finite `days` backstop (was `max`): a missed product webhook self-heals in
+  // ~1 day (threat T-09.5-12) instead of sticking until redeploy.
+  cacheLife("days");
   cacheTag(TAG.product(slug), TAG.products);
   return headkit.products.get(slug);
 }

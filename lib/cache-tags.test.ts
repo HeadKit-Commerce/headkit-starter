@@ -252,6 +252,7 @@ const EXPECTED_TAG_SHAPE: readonly string[] = [
   "headkit:menu:",
   "headkit:footer",
   "headkit:branding",
+  "headkit:email-marketing",
   "headkit:route:",
   "headkit:catalog",
   "headkit:settings",

@@ -6,12 +6,13 @@ import type {
   ProductSummaryFieldsFragment,
   ProductAttribute,
 } from "@headkit/sdk";
-import { cn } from "@/lib/utils";
+import { cn, decodeHtmlEntities } from "@/lib/utils";
 import { productUrl } from "@/lib/convert-uri";
 import { FeaturedImage } from "@/components/headkit-ui/featured-image";
 import { ProductPrice } from "@/components/headkit-ui/product-price";
 import { BadgeList } from "@/components/headkit-ui/badge-list";
 import { VariantSwatch } from "@/components/headkit-ui/variant-swatch";
+import { getVariationCardPrice } from "@/lib/price-display";
 
 const isVariableProduct = (product: ProductSummaryFieldsFragment): boolean =>
   product?.type?.toUpperCase() === "VARIABLE";
@@ -86,22 +87,11 @@ export const ProductCard = ({
         regularPrice: product?.regularPrice ?? "",
       };
     }
-    const variations = product.variations ?? [];
-    if (variations.length === 0) {
-      return {
-        price: product?.price ?? "0",
-        regularPrice: product?.regularPrice ?? "0",
-      };
-    }
-    const prices = variations
-      .map((v) => parseFloat(v?.price ?? "0"))
-      .filter((p) => p > 0);
-    if (prices.length === 0) return { price: "0", regularPrice: "0" };
-    const minPrice = Math.min(...prices);
-    const maxPrice = Math.max(...prices);
-    if (minPrice === maxPrice)
-      return { price: minPrice.toString(), regularPrice: "" };
-    return { price: `${minPrice} - ${maxPrice}`, regularPrice: "" };
+    return getVariationCardPrice({
+      variations: product.variations ?? [],
+      fallbackPrice: product?.price,
+      fallbackRegularPrice: product?.regularPrice,
+    });
   };
 
   const { price: displayPrice, regularPrice: displayRegularPrice } =
@@ -110,13 +100,8 @@ export const ProductCard = ({
   if (!product) return null;
 
   return (
-    <div
-      className={cn(
-        "relative w-full rounded-brand bg-white p-3",
-        className,
-      )}
-    >
-      <div className="absolute left-5 top-5 z-10">
+    <div className={cn("relative w-full", className)}>
+      <div className="absolute left-2 top-2 z-10">
         <BadgeList isSale={product?.onSale ?? false} isNewIn={isNew} />
       </div>
       <Link href={uri} aria-label="Featured Image">
@@ -147,7 +132,7 @@ export const ProductCard = ({
                   dark && "text-white",
                 )}
               >
-                {product?.name}
+                {decodeHtmlEntities(product?.name ?? "")}
               </h3>
             </Link>
             <div className="flex flex-wrap items-center gap-2 min-w-0">
@@ -188,7 +173,7 @@ export const ProductCard = ({
                       {extra > 0 && (
                         <Link
                           href={uri}
-                          className="text-xs font-medium leading-4 text-gray-800 hover:text-purple-800"
+                          className="text-xs font-medium leading-4 text-gray-800 hover:text-primary"
                           aria-label={`${extra} more colours`}
                         >
                           +{extra}

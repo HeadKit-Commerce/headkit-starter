@@ -21,12 +21,8 @@ export function CarouselPostJsonLD({ posts }: CarouselPostJsonLDProps) {
     "@context": "https://schema.org",
     "@type": "ItemList",
     itemListElement: posts.map((post, index) => {
-      const path = post.uri?.startsWith("/")
-        ? post.uri
-        : `/news/${post.slug}/`;
-      const url = post.uri?.startsWith("http")
-        ? post.uri
-        : `${siteUrl}${path}`;
+      const path = post.uri?.startsWith("/") ? post.uri : `/news/${post.slug}/`;
+      const url = post.uri?.startsWith("http") ? post.uri : `${siteUrl}${path}`;
       return {
         "@type": "ListItem",
         position: index + 1,

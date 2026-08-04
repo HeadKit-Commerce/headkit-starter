@@ -29,7 +29,11 @@ export async function getCachedCatalogPage(
       cacheTag(TAG.route("shop"), TAG.products, `catalog:${filterKey}`);
       break;
     case "category":
-      cacheTag(TAG.catalogCat(scope.slug), TAG.products, `catalog:${filterKey}`);
+      cacheTag(
+        TAG.catalogCat(scope.slug),
+        TAG.products,
+        `catalog:${filterKey}`,
+      );
       break;
     case "brand":
       cacheTag(TAG.brand(scope.slug), TAG.products, `catalog:${filterKey}`);

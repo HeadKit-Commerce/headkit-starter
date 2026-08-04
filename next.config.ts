@@ -80,7 +80,12 @@ const staticGenConcurrency = positiveIntEnv(
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@headkit/sdk"],
+  // Cache Components (already on) + Partial Prefetching unlock Instant
+  // Navigations in Next.js 16.3: reusable App Shells, fewer prefetch
+  // requests, Instant Insights / Navigation Inspector in dev.
+  // https://nextjs.org/blog/next-16-3
   cacheComponents: true,
+  partialPrefetching: true,
   experimental: {
     optimizePackageImports: ["react-icons"],
     cpus: buildCpus,

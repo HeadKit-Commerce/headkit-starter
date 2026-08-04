@@ -486,7 +486,7 @@ const DeliveryMethodStep: React.FC<DeliveryMethodStepProps> = ({
                       className={cn(
                         "flex items-center space-x-2 cursor-pointer h-[40px] px-[16px] border rounded-[6px]",
                         field.value === DeliveryStepEnum.CLICK_AND_COLLECT &&
-                          "border-purple-500",
+                          "border-primary",
                       )}
                     >
                       <RadioGroupItem
@@ -502,7 +502,7 @@ const DeliveryMethodStep: React.FC<DeliveryMethodStepProps> = ({
                       className={cn(
                         "flex items-center space-x-2 cursor-pointer h-[40px] px-[16px] border rounded-[6px]",
                         field.value === DeliveryStepEnum.SHIPPING_TO_HOME &&
-                          "border-purple-500",
+                          "border-primary",
                       )}
                     >
                       <RadioGroupItem

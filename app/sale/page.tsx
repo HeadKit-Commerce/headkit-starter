@@ -5,7 +5,6 @@ import { headkit as sdk } from "@/lib/sdk";
 import { TAG } from "@/lib/cache-tags";
 import { CollectionHeader } from "@/components/headkit-ui/collection/collection-header";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
-import { CollectionPageSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import {
   buildProductListFilter,
   normalizeFilterKey,
@@ -92,7 +91,7 @@ export default function Page({ searchParams }: Props) {
         ]}
       />
       {/* Dynamic grid — reads searchParams, streamed under Suspense */}
-      <Suspense fallback={<CollectionPageSkeleton variant="collection" />}>
+      <Suspense fallback={null}>
         <LandingResults searchParams={searchParams} />
       </Suspense>
     </>

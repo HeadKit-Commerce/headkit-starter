@@ -214,11 +214,7 @@ export function CollectionProvider({
           ...(isNew !== undefined ? { isNew } : {}),
           ...(search !== undefined ? { search } : {}),
         });
-        const result = await listCollectionProducts(
-          filter,
-          page,
-          itemsPerPage,
-        );
+        const result = await listCollectionProducts(filter, page, itemsPerPage);
 
         // Empty "after" page means we've exhausted the list — clamp the total
         // so hasMore flips false and the sentinel stops firing.
@@ -316,11 +312,14 @@ export function CollectionProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterValues]);
 
-  const setFilterValuesDeferred = useCallback((values: FilterValues) => {
-    startFilterTransition(() => {
-      setFilterValues(values);
-    });
-  }, [startFilterTransition]);
+  const setFilterValuesDeferred = useCallback(
+    (values: FilterValues) => {
+      startFilterTransition(() => {
+        setFilterValues(values);
+      });
+    },
+    [startFilterTransition],
+  );
 
   const clearFilters = useCallback(() => {
     startFilterTransition(() => {

@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import Image from "next/image";
-import { ChevronLeftIcon, ChevronRightIcon } from "@/components/icon";
 import { cn } from "@/lib/utils";
 import { BadgeList } from "@/components/headkit-ui/badge-list";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
@@ -20,6 +19,7 @@ interface Props {
 }
 
 const FALLBACK_IMAGE_SRC = "/assets/fallback-image.webp";
+const SWIPE_THRESHOLD_PX = 40;
 
 export function ProductImageGallery({
   images: rawImages,
@@ -27,6 +27,8 @@ export function ProductImageGallery({
   isNew = false,
 }: Props) {
   const [mobileIndex, setMobileIndex] = useState(0);
+  const touchStartX = useRef<number | null>(null);
+  const touchDeltaX = useRef(0);
 
   // A product with no images still renders a placeholder rather than an
   // endless skeleton; downstream image src is always non-empty.
@@ -37,12 +39,35 @@ export function ProductImageGallery({
     ? images
     : [{ src: FALLBACK_IMAGE_SRC, alt: "No product image available" }];
 
-  const prevMobile = () =>
-    setMobileIndex(
-      (i) => (i - 1 + galleryImages.length) % galleryImages.length,
-    );
-  const nextMobile = () =>
-    setMobileIndex((i) => (i + 1) % galleryImages.length);
+  const goTo = useCallback(
+    (index: number) => {
+      const len = galleryImages.length;
+      if (len === 0) return;
+      setMobileIndex(((index % len) + len) % len);
+    },
+    [galleryImages.length],
+  );
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0]?.clientX ?? null;
+    touchDeltaX.current = 0;
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const x = e.touches[0]?.clientX ?? touchStartX.current;
+    touchDeltaX.current = x - touchStartX.current;
+  };
+
+  const onTouchEnd = () => {
+    if (touchStartX.current === null) return;
+    const delta = touchDeltaX.current;
+    touchStartX.current = null;
+    touchDeltaX.current = 0;
+    if (galleryImages.length <= 1) return;
+    if (delta <= -SWIPE_THRESHOLD_PX) goTo(mobileIndex + 1);
+    else if (delta >= SWIPE_THRESHOLD_PX) goTo(mobileIndex - 1);
+  };
 
   return (
     <div>
@@ -61,7 +86,7 @@ export function ProductImageGallery({
           <Dialog key={index}>
             <DialogTrigger
               className={cn(
-                "relative cursor-pointer overflow-hidden rounded-brand bg-gray-200",
+                "relative cursor-pointer overflow-hidden rounded-brand bg-white",
                 index === 0 ? "col-span-2" : "col-span-1",
               )}
             >
@@ -75,7 +100,7 @@ export function ProductImageGallery({
                   src={item.src}
                   alt={item.alt || "Product image"}
                   fill
-                  className="object-cover"
+                  className={index === 0 ? "object-contain" : "object-cover"}
                   sizes={
                     index === 0
                       ? "(min-width: 768px) 50vw, 100vw"
@@ -92,85 +117,66 @@ export function ProductImageGallery({
         ))}
       </div>
 
-      {/* Mobile: simple arrow carousel */}
-      <div className="relative block overflow-hidden rounded-brand border border-gray-200 md:hidden">
+      {/* Mobile: touch-swipe carousel (no arrow controls) */}
+      <div
+        className="relative block overflow-hidden rounded-brand bg-white md:hidden touch-pan-y"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchEnd}
+      >
         <div className="absolute left-2 top-2 z-10">
           <BadgeList isSale={isSale} isNewIn={isNew} />
         </div>
 
-        {
-          <>
-            <Dialog>
-              <DialogTrigger className="w-full">
-                <div className="relative aspect-square bg-gray-100">
-                  {/* First image mirrors the desktop hero's sizes so the two
-                      priority preloads/fetches dedupe into one (RC-3). */}
-                  <Image
-                    src={galleryImages[mobileIndex]?.src ?? FALLBACK_IMAGE_SRC}
-                    alt={galleryImages[mobileIndex]?.alt || "Product image"}
-                    fill
-                    className="object-cover object-center"
-                    sizes={
-                      mobileIndex === 0
-                        ? "(min-width: 768px) 50vw, 100vw"
-                        : "100vw"
-                    }
-                    priority={mobileIndex === 0}
-                    fetchPriority={mobileIndex === 0 ? "high" : "auto"}
-                  />
-                </div>
-              </DialogTrigger>
-              <Lightbox
-                images={galleryImages}
-                initialSelectedIndex={mobileIndex}
+        <Dialog>
+          <DialogTrigger className="w-full">
+            <div className="relative aspect-square bg-white">
+              {/* First image mirrors the desktop hero's sizes so the two
+                  priority preloads/fetches dedupe into one (RC-3).
+                  Only the first gallery image uses contain; others cover. */}
+              <Image
+                src={galleryImages[mobileIndex]?.src ?? FALLBACK_IMAGE_SRC}
+                alt={galleryImages[mobileIndex]?.alt || "Product image"}
+                fill
+                className={cn(
+                  "object-center",
+                  mobileIndex === 0 ? "object-contain" : "object-cover",
+                )}
+                sizes={
+                  mobileIndex === 0 ? "(min-width: 768px) 50vw, 100vw" : "100vw"
+                }
+                priority={mobileIndex === 0}
+                fetchPriority={mobileIndex === 0 ? "high" : "auto"}
+                draggable={false}
               />
-            </Dialog>
+            </div>
+          </DialogTrigger>
+          <Lightbox images={galleryImages} initialSelectedIndex={mobileIndex} />
+        </Dialog>
 
-            {galleryImages.length > 1 && (
-              <>
-                <button
-                  type="button"
-                  onClick={prevMobile}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 cursor-pointer rounded-full bg-white/80 p-1 shadow transition hover:bg-white"
-                  aria-label="Previous image"
-                >
-                  <ChevronLeftIcon className="h-5 w-5 text-gray-800" />
-                </button>
-                <button
-                  type="button"
-                  onClick={nextMobile}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer rounded-full bg-white/80 p-1 shadow transition hover:bg-white"
-                  aria-label="Next image"
-                >
-                  <ChevronRightIcon className="h-5 w-5 text-gray-800" />
-                </button>
-
-                {/* Pagination dots — 24x24 hit area (WCAG target-size), 6px
-                    visual dot */}
-                <div className="absolute bottom-1 left-1/2 flex -translate-x-1/2">
-                  {galleryImages.map((_, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setMobileIndex(i)}
-                      aria-label={`Go to image ${i + 1}`}
-                      className="flex h-6 w-6 cursor-pointer items-center justify-center"
-                    >
-                      <span
-                        className={cn(
-                          "h-1.5 w-1.5 rounded-full transition-colors",
-                          i === mobileIndex
-                            ? "bg-black/70"
-                            : "bg-black/30 hover:bg-black/50",
-                        )}
-                      />
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </>
-        }
+        {galleryImages.length > 1 && (
+          <div className="absolute bottom-1 left-1/2 flex -translate-x-1/2">
+            {galleryImages.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setMobileIndex(i)}
+                aria-label={`Go to image ${i + 1}`}
+                className="flex h-6 w-6 cursor-pointer items-center justify-center"
+              >
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full transition-colors",
+                    i === mobileIndex
+                      ? "bg-black/70"
+                      : "bg-black/30 hover:bg-black/50",
+                  )}
+                />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

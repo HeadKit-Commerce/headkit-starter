@@ -89,23 +89,23 @@ export function CartItemRow({
           <Link
             href={productHref}
             onClick={() => toggleCart(false)}
-            className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-[3px]"
+            className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-[3px] bg-white"
           >
             <Image
               src={imageSrc}
               fill
-              className="absolute left-0 top-0 h-full w-full object-cover"
+              className="absolute left-0 top-0 h-full w-full object-contain"
               alt={imageAlt}
               quality={50}
               sizes="100px"
             />
           </Link>
         ) : (
-          <div className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-[3px]">
+          <div className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-[3px] bg-white">
             <Image
               src={imageSrc}
               fill
-              className="absolute left-0 top-0 h-full w-full object-cover"
+              className="absolute left-0 top-0 h-full w-full object-contain"
               alt={imageAlt}
               quality={50}
               sizes="100px"
@@ -144,10 +144,11 @@ export function CartItemRow({
             )}
           </div>
 
-          <div className="mt-0.5 flex items-center">
+          <div className="mt-0.5 flex items-center overflow-hidden rounded-[3px]">
             <button
+              type="button"
               className={cn(
-                "flex h-8 w-8 cursor-pointer items-center justify-center rounded-l-[3px] bg-purple-500",
+                "flex h-8 w-8 cursor-pointer items-center justify-center border-0 bg-primary shadow-none outline-none ring-0 appearance-none focus:outline-none focus-visible:outline-none focus-visible:ring-0",
                 loading && "cursor-not-allowed opacity-40",
               )}
               onClick={handleDecrement}
@@ -156,12 +157,13 @@ export function CartItemRow({
             >
               <MinusIcon className="h-3 w-3 stroke-white stroke-2" />
             </button>
-            <span className="flex h-8 w-8 items-center justify-center border-b border-t border-gray-500 bg-white pt-[2px] font-medium text-purple-800">
+            <span className="flex h-8 w-8 items-center justify-center border-0 bg-white pt-[2px] font-medium text-primary">
               {quantity}
             </span>
             <button
+              type="button"
               className={cn(
-                "flex h-8 w-8 cursor-pointer items-center justify-center rounded-r-[3px] bg-purple-500 hover:opacity-80",
+                "flex h-8 w-8 cursor-pointer items-center justify-center border-0 bg-primary shadow-none outline-none ring-0 appearance-none hover:opacity-80 focus:outline-none focus-visible:outline-none focus-visible:ring-0",
                 (loading || isAtStockLimit || isOutOfStock) &&
                   "cursor-not-allowed opacity-40",
               )}
@@ -195,17 +197,18 @@ export function CartItemRow({
 
           {removeable && (
             <button
+              type="button"
               onClick={handleRemove}
               className={cn(
                 // p-3/-m-3 grows the tap target to ~40px (WCAG/HIG) without
                 // shifting the 16px icon's visual position (F8).
-                "-m-3 cursor-pointer p-3 hover:opacity-80",
+                "-m-3 cursor-pointer border-0 bg-transparent p-3 shadow-none outline-none ring-0 appearance-none hover:opacity-80 focus:outline-none focus-visible:outline-none focus-visible:ring-0",
                 loading && "cursor-not-allowed opacity-40",
               )}
               disabled={loading}
               aria-label="Remove item"
             >
-              <XIcon className="h-4 w-4 bg-transparent stroke-pink-500 stroke-2" />
+              <XIcon className="h-4 w-4 stroke-pink-500 stroke-2" />
             </button>
           )}
         </div>

@@ -20,7 +20,7 @@ export function ClearFiltersButton() {
     <NavigationMenuItem>
       <Button
         variant="ghost"
-        className="px-4 hover:text-purple-500 underline cursor-pointer text-sm"
+        className="px-4 hover:text-primary underline cursor-pointer text-sm"
         onClick={clearFilters}
       >
         Clear Filters

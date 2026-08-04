@@ -90,10 +90,9 @@ describe("processHomepageContent", () => {
   });
 
   it("returns empty leftover when only HeadKit sections exist", () => {
-    const { leftoverHtml, segments } = processHomepageContent(
-      HILIGHT_SECTION,
-      [{}],
-    );
+    const { leftoverHtml, segments } = processHomepageContent(HILIGHT_SECTION, [
+      {},
+    ]);
     expect(leftoverHtml.trim()).toBe("");
     expect(segments).toHaveLength(1);
     expect(segments[0]?.kind).toBe("block");
@@ -139,7 +138,11 @@ describe("hasEditorSectionClass", () => {
   it("detects HeadKit section classes used to skip hardcoded modules", () => {
     expect(
       hasEditorSectionClass(
-        [{ cssClasses: ["headkit-category-carousel", "headkit-block-section"] }],
+        [
+          {
+            cssClasses: ["headkit-category-carousel", "headkit-block-section"],
+          },
+        ],
         "headkit-category-carousel",
       ),
     ).toBe(true);

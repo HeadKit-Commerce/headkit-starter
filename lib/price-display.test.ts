@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { getPriceDisplay, pickFirstPrice } from "@/lib/price-display";
+import {
+  getPriceDisplay,
+  getVariationCardPrice,
+  pickFirstPrice,
+} from "@/lib/price-display";
 
 describe("getPriceDisplay", () => {
   it("shows a real discount: regular > sale, on sale", () => {
@@ -81,5 +85,33 @@ describe("pickFirstPrice", () => {
 
   it("returns empty string when nothing usable", () => {
     expect(pickFirstPrice(null, undefined, "")).toBe("");
+  });
+});
+
+describe("getVariationCardPrice", () => {
+  it("returns a single price when all variations match", () => {
+    expect(
+      getVariationCardPrice({
+        variations: [{ price: "12" }, { price: "12.00" }],
+      }),
+    ).toEqual({ price: "12", regularPrice: "" });
+  });
+
+  it("includes $0 variations in the range (e.g. $0 – $2.00)", () => {
+    expect(
+      getVariationCardPrice({
+        variations: [{ price: "0" }, { price: "2" }],
+      }),
+    ).toEqual({ price: "0 - 2", regularPrice: "" });
+  });
+
+  it("falls back when variations have no parseable prices", () => {
+    expect(
+      getVariationCardPrice({
+        variations: [{ price: "" }, { price: null }],
+        fallbackPrice: "9.99",
+        fallbackRegularPrice: "12",
+      }),
+    ).toEqual({ price: "9.99", regularPrice: "12" });
   });
 });

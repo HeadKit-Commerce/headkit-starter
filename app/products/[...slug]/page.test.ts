@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  *
  * Canonical PDP is `/products/[...slug]`; `/shop/[...slug]` permanently
  * redirects there. `getCachedProduct` owns the single cache entry tagged
- * `TAG.product(slug)` + `TAG.products` at `cacheLife('hours')`.
+ * `TAG.product(slug)` + `TAG.products` at `cacheLife('days')`.
  */
 
 const cacheTag = vi.fn<(...tags: string[]) => void>();
@@ -27,8 +27,7 @@ vi.mock("@/lib/sdk", () => ({
 
 vi.mock("@/lib/branding", () => ({
   getBranding: (): Promise<null> => Promise.resolve(null),
-  getBrandingAssets: (): Promise<Record<string, never>> =>
-    Promise.resolve({}),
+  getBrandingAssets: (): Promise<Record<string, never>> => Promise.resolve({}),
 }));
 
 vi.mock("@/lib/make-metadata", () => ({
@@ -74,16 +73,15 @@ beforeEach(() => {
   productsGet.mockResolvedValue(null);
 });
 
-describe("products/[...slug] getProduct — TAG.product + hours", () => {
-  it("tags TAG.product(slug) + TAG.products at cacheLife('hours')", async () => {
+describe("products/[...slug] getProduct — TAG.product + days", () => {
+  it("tags TAG.product(slug) + TAG.products at cacheLife('days')", async () => {
     await getProduct(SLUG);
     expect(cacheTag).toHaveBeenCalledWith(
       EXPECTED_ENTITY_TAG,
       EXPECTED_INDEX_TAG,
     );
-    expect(cacheLife).toHaveBeenCalledWith("hours");
+    expect(cacheLife).toHaveBeenCalledWith("days");
     expect(cacheLife).not.toHaveBeenCalledWith("max");
-    expect(cacheLife).not.toHaveBeenCalledWith("days");
   });
 });
 

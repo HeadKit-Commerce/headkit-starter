@@ -14,7 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "cursor-pointer inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-800 disabled:pointer-events-none disabled:opacity-50 rounded-[var(--radius-button)]",
+  "cursor-pointer inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary disabled:pointer-events-none disabled:opacity-50 rounded-[var(--radius-button)]",
   {
     variants: {
       variant: {

@@ -6,9 +6,7 @@ export default function NotFound() {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-5 py-16 md:px-10">
       <div className="mx-auto max-w-lg text-center">
-        <p className="text-6xl font-black text-purple-800/20 md:text-8xl">
-          404
-        </p>
+        <p className="text-6xl font-black text-primary/20 md:text-8xl">404</p>
         <h1 className="mt-2 text-2xl font-bold text-gray-900 md:text-3xl">
           Page not found
         </h1>
@@ -34,7 +32,7 @@ export default function NotFound() {
 
         <Link
           href="javascript:history.back()"
-          className="mt-6 inline-flex items-center gap-1 text-sm text- hover:text-purple-800"
+          className="mt-6 inline-flex items-center gap-1 text-sm text- hover:text-primary"
         >
           <ArrowLeftIcon className="h-3.5 w-3.5" />
           Go back to previous page
