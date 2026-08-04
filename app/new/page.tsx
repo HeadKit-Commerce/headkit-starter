@@ -10,6 +10,7 @@ import {
   normalizeFilterKey,
   parseSearchParams,
 } from "@/components/headkit-ui/collection/utils";
+import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 
 export const metadata: Metadata = {
   title: "New Arrivals",
@@ -90,8 +91,8 @@ export default function Page({ searchParams }: Props) {
           { name: "New Arrivals", uri: "/new", current: true },
         ]}
       />
-      {/* Dynamic grid — reads searchParams, streamed under Suspense */}
-      <Suspense fallback={null}>
+      {/* Dynamic grid — Instant Navigation shell streams results under Suspense. */}
+      <Suspense fallback={<CollectionProductsSkeleton />}>
         <LandingResults searchParams={searchParams} />
       </Suspense>
     </>

@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/collapsible";
 import { cn, decodeHtmlEntities } from "@/lib/utils";
 import { HeaderActions } from "@/components/headkit-ui/header-actions";
+import { CartTriggerButton } from "@/components/headkit-ui/cart-drawer";
 
 /** A navigation tree node returned by headkit.menu.get(). */
 export interface NavMenuItem {
@@ -177,6 +178,11 @@ export function NavigationBar({
               {desktopActions}
             </NavigationMenuItem>
           )}
+
+          {/* Mobile sticky cart — outside the sheet so shoppers can open bag without opening the menu */}
+          <NavigationMenuItem className="md:hidden">
+            <CartTriggerButton initialCartCount={initialCartCount ?? 0} />
+          </NavigationMenuItem>
 
           {/* Mobile hamburger */}
           <NavigationMenuItem className="md:hidden">

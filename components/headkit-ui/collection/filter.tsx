@@ -5,6 +5,7 @@ import {
   NavigationMenu,
   NavigationMenuItem,
   NavigationMenuList,
+  navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu";
 import {
   Sheet,
@@ -13,7 +14,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { Transition } from "@headlessui/react";
@@ -161,58 +161,75 @@ export function Filter() {
         </div>
       </NavigationMenu>
 
-      {/* Mobile: facets live in a drawer (D-02) */}
+      {/* Mobile: facets live in a drawer — trigger matches Sort / desktop FilterMenuItem chrome */}
       <div
         className={cn(
-          "sticky top-20 z-10 flex w-full items-center justify-between gap-2 bg-brand-bg/90 px-5 py-4 backdrop-blur-xs md:hidden",
+          "sticky top-20 z-10 flex w-full items-center justify-between gap-2 bg-brand-bg/80 px-5 py-5 backdrop-blur-xs md:hidden",
           { "opacity-50 pointer-events-none": isLoading },
         )}
       >
         <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
           <SheetTrigger asChild>
-            <Button
+            <button
               type="button"
-              variant="outline"
-              className="relative h-10 px-4 text-sm font-semibold"
+              className={cn(
+                navigationMenuTriggerStyle(),
+                "relative -ml-4 cursor-pointer font-semibold",
+              )}
             >
               Filters
-              {activeCount > 0 && (
-                <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-white">
+              {activeCount > 0 ? (
+                <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-white">
                   {activeCount}
                 </span>
-              )}
-            </Button>
+              ) : null}
+            </button>
           </SheetTrigger>
           <SheetContent
             side="left"
-            className="w-[88vw] max-w-sm overflow-y-auto bg-brand-bg"
+            className="w-[88vw] max-w-sm overflow-y-auto border-none bg-brand-bg px-0"
           >
-            <SheetHeader>
-              <SheetTitle>Filters</SheetTitle>
+            <SheetHeader className="border-b border-gray-200 px-5 pb-4 text-left">
+              <SheetTitle className="text-xl font-bold text-primary">
+                Filters
+              </SheetTitle>
             </SheetHeader>
-            <div className="mt-6 flex flex-col gap-6 pb-10">
+            <div className="flex flex-col gap-0 pb-10">
               {categories.length > 0 && (
-                <section>
-                  <h3 className="mb-3 text-sm font-bold">Category</h3>
+                <section className="border-b border-gray-200 px-5 py-5">
+                  <h3 className="mb-3 text-sm font-semibold text-primary">
+                    Category
+                  </h3>
                   <CategoryFilter categories={categories} />
                 </section>
               )}
-              <section>
-                <h3 className="mb-3 text-sm font-bold">Brand</h3>
+              <section className="border-b border-gray-200 px-5 py-5">
+                <h3 className="mb-3 text-sm font-semibold text-primary">
+                  Brand
+                </h3>
                 <BrandFilter />
               </section>
-              <section>
-                <h3 className="mb-3 text-sm font-bold">Price</h3>
+              <section className="border-b border-gray-200 px-5 py-5">
+                <h3 className="mb-3 text-sm font-semibold text-primary">
+                  Price
+                </h3>
                 <PriceFilter />
               </section>
               {attributes.map((attr) => (
-                <section key={attr.slug}>
-                  <h3 className="mb-3 text-sm font-bold">{attr.name}</h3>
+                <section
+                  key={attr.slug}
+                  className="border-b border-gray-200 px-5 py-5"
+                >
+                  <h3 className="mb-3 text-sm font-semibold text-primary">
+                    {attr.name}
+                  </h3>
                   <AttributeFilter attribute={attr} />
                 </section>
               ))}
-              <section>{inStockToggle}</section>
-              <div className="pt-2">
+              <section className="border-b border-gray-200 px-5 py-4">
+                {inStockToggle}
+              </section>
+              <div className="px-5 pt-4">
                 <ClearFiltersButton />
               </div>
             </div>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { Suspense } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
@@ -7,10 +8,13 @@ import { CollectionPage } from "@/components/headkit-ui/collection/collection-pa
 import { buildProductListFilter } from "@/components/headkit-ui/collection/utils";
 import type { SortKeyType } from "@/components/headkit-ui/collection/utils";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
+import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 
 interface Props {
   searchParams: Promise<Record<string, string>>;
 }
+
+const PER_PAGE = 24;
 
 export async function generateMetadata({
   searchParams,
@@ -31,24 +35,29 @@ export async function generateMetadata({
   };
 }
 
-export default async function Page({ searchParams }: Props) {
+async function getSearchFilters() {
+  "use cache";
+  cacheLife("max");
+  cacheTag("headkit:products");
+  return sdk.collections.getFilters();
+}
+
+/**
+ * Dynamic island: awaits searchParams inside Suspense so Instant Navigation
+ * can show the static Search shell immediately.
+ */
+async function SearchResults({
+  searchParams,
+}: Props): Promise<ReactNode> {
   const sp = await searchParams;
   const q = sp.q ?? "";
   const page = sp.page ? parseInt(sp.page) : 1;
-  const perPage = 24;
 
   const categories = sp.categories?.split(",").filter(Boolean) ?? [];
   const brands = sp.brands?.split(",").filter(Boolean) ?? [];
   const instock = sp.instock === "true";
   const sort = (sp.sort ?? "") as SortKeyType | "";
   const attributes: Record<string, string[]> = {};
-
-  async function getSearchFilters() {
-    "use cache";
-    cacheLife("max");
-    cacheTag("headkit:products");
-    return sdk.collections.getFilters();
-  }
 
   const [productsResult, productFilter] = await Promise.all([
     sdk.collections.list(
@@ -64,7 +73,7 @@ export default async function Page({ searchParams }: Props) {
         { search: q },
       ),
       page,
-      perPage,
+      PER_PAGE,
     ),
     getSearchFilters(),
   ]);
@@ -76,12 +85,6 @@ export default async function Page({ searchParams }: Props) {
 
   return (
     <>
-      <BreadcrumbJsonLD
-        items={[
-          { name: "Home", href: "/" },
-          { name: "Search", href: "/search" },
-        ]}
-      />
       <CollectionHeader
         name={title}
         description={description}
@@ -90,15 +93,47 @@ export default async function Page({ searchParams }: Props) {
           { name: "Search", uri: "/search", current: true },
         ]}
       />
-      <Suspense fallback={null}>
-        <CollectionPage
-          initialProducts={productsResult.products}
-          initialTotal={productsResult.total}
-          productFilter={productFilter}
-          initialPage={page}
-          itemsPerPage={perPage}
-          {...(q ? { search: q } : {})}
-        />
+      <CollectionPage
+        initialProducts={productsResult.products}
+        initialTotal={productsResult.total}
+        productFilter={productFilter}
+        initialPage={page}
+        itemsPerPage={PER_PAGE}
+        {...(q ? { search: q } : {})}
+      />
+    </>
+  );
+}
+
+/**
+ * Sync shell — Instant Navigation reuses this App Shell; query-dependent
+ * header + grid stream under Suspense with a product skeleton fallback.
+ */
+export default function Page({ searchParams }: Props): ReactNode {
+  return (
+    <>
+      <BreadcrumbJsonLD
+        items={[
+          { name: "Home", href: "/" },
+          { name: "Search", href: "/search" },
+        ]}
+      />
+      <Suspense
+        fallback={
+          <>
+            <CollectionHeader
+              name="Search"
+              description="Search for products in our store"
+              breadcrumbs={[
+                { name: "Home", uri: "/", current: false },
+                { name: "Search", uri: "/search", current: true },
+              ]}
+            />
+            <CollectionProductsSkeleton />
+          </>
+        }
+      >
+        <SearchResults searchParams={searchParams} />
       </Suspense>
     </>
   );

@@ -37,7 +37,7 @@ function FaqColumn({ items }: { items: FaqItem[] }): React.JSX.Element {
         >
           <AccordionTrigger
             icon="plus-minus"
-            className="gap-4 py-3 text-left text-xl font-bold text-primary no-underline hover:no-underline hover:opacity-80 md:text-2xl"
+            className="gap-4 cursor-pointer py-3 text-left text-xl font-bold text-primary no-underline hover:no-underline hover:opacity-80 md:text-2xl"
           >
             <span className="pr-2">{faq.question}</span>
           </AccordionTrigger>

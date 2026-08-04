@@ -11,29 +11,35 @@ interface Props {
 }
 const Breadcrumb = ({ items }: Props) => {
   return (
-    <div className="flex items-center gap-1 text-sm">
-      {items.map((item, i) => {
-        if (item.current) {
-          return (
-            <div key={i} className="text-primary">
-              {item.name}
-            </div>
-          );
-        } else {
-          return (
-            <Fragment key={i}>
-              <Link
-                href={convertToRelativePath(item?.uri) || ""}
-                className="text-gray-800 hover:underline"
-              >
+    <nav aria-label="Breadcrumb">
+      <ol className="flex flex-wrap items-center gap-x-1 gap-y-1 text-sm break-words">
+        {items.map((item, i) => {
+          if (item.current) {
+            return (
+              <li key={i} className="max-w-full text-primary">
                 {item.name}
-              </Link>
-              <div className="text-gray-800">{">"}</div>
-            </Fragment>
-          );
-        }
-      })}
-    </div>
+              </li>
+            );
+          } else {
+            return (
+              <Fragment key={i}>
+                <li className="max-w-full shrink">
+                  <Link
+                    href={convertToRelativePath(item?.uri) || ""}
+                    className="cursor-pointer text-gray-800 hover:underline"
+                  >
+                    {item.name}
+                  </Link>
+                </li>
+                <li className="text-gray-800" aria-hidden="true">
+                  {">"}
+                </li>
+              </Fragment>
+            );
+          }
+        })}
+      </ol>
+    </nav>
   );
 };
 

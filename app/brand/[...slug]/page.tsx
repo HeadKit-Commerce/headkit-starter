@@ -11,6 +11,7 @@ import { buildProductListFilter } from "@/components/headkit-ui/collection/utils
 import { getCachedCatalogPage } from "@/lib/catalog-cache";
 import { makeSeoMetadata } from "@/lib/make-metadata";
 import type { SortKeyType } from "@/components/headkit-ui/collection/utils";
+import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 
 /**
  * Satisfies Cache Components: `generateStaticParams` must not return [].
@@ -152,7 +153,7 @@ export default async function Page({
             { name: brand.name, uri: `/brand/${brandSlug}`, current: true },
           ]}
         />
-        <Suspense fallback={null}>
+        <Suspense fallback={<CollectionProductsSkeleton />}>
           <BrandProductsServer
             brandSlug={brandSlug}
             searchParams={searchParams}
