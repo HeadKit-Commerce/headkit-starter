@@ -7,7 +7,6 @@ import { Carousel } from "@/components/headkit-ui/carousel";
 import { Button } from "@/components/ui/button";
 import type { HeroCarouselItem } from "@headkit/sdk";
 import { decodeHtmlEntities } from "@/lib/utils";
-import { filterActiveSlides } from "@/lib/carousel-schedule";
 
 interface Props {
   carouselItems: HeroCarouselItem[];
@@ -16,8 +15,6 @@ interface Props {
 type HeroSlide = HeroCarouselItem & {
   video?: string | null;
   mobileVideo?: string | null;
-  startDate?: string | null;
-  endDate?: string | null;
 };
 
 function slideVideo(slide: HeroSlide, mobile: boolean): string {
@@ -28,7 +25,8 @@ function slideVideo(slide: HeroSlide, mobile: boolean): string {
 }
 
 export const MainCarousel = ({ carouselItems }: Props) => {
-  const items = filterActiveSlides(carouselItems as HeroSlide[]);
+  // Schedule windows are applied in WordPress (headkit_query_active_carousels).
+  const items = carouselItems as HeroSlide[];
 
   if (items.length === 0) return null;
 
