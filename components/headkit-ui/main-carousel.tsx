@@ -41,7 +41,7 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                       </p>
                       <div className="mt-8">
                         <Link href={carousel?.url ?? "#"}>
-                          <Button className="min-w-full md:min-w-[300px] text-brand-bg">
+                          <Button className="text-brand-bg">
                             {carousel?.buttonText}
                           </Button>
                         </Link>
