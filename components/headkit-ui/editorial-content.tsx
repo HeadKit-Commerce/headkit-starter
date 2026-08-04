@@ -4,6 +4,7 @@ import type { Product } from "@headkit/sdk";
 import { headkit } from "@/lib/sdk";
 import { sanitizeContent } from "@/lib/sanitize-content";
 import { EditorialProductGrid } from "@/components/headkit-ui/editorial-product-grid";
+import { GravityForm } from "@/components/gravity-form-lazy";
 
 interface Props {
   /** Untrusted WordPress `content.rendered` HTML (block-authored). */
@@ -150,6 +151,13 @@ export async function EditorialContent({
             columns={carousel.columns}
           />
         );
+      }
+
+      // Gravity Forms marker (theme shortcode/block → headless hydrate).
+      if (hasClass(domNode, "headkit-gravity-form")) {
+        const formId = domNode.attribs?.["data-form-id"];
+        if (!formId) return <></>;
+        return <GravityForm formId={formId} />;
       }
 
       // WP Accordion → native <details>. Each accordion-item becomes one

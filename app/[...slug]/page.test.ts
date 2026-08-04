@@ -46,6 +46,9 @@ vi.mock("@/components/seo/breadcrumb-json-ld", () => ({
 vi.mock("@/components/headkit-ui/editorial-content", () => ({
   EditorialContent: (): null => null,
 }));
+vi.mock("@/components/headkit-ui/cms-page-body", () => ({
+  CmsPageBody: (): null => null,
+}));
 
 import { getPageData } from "./page";
 

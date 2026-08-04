@@ -47,6 +47,9 @@ export function sanitizeContent(dirty: string): string {
     allowedAttributes: {
       ...sanitizeHtml.defaults.allowedAttributes,
       "*": ["class", "id", "style"], // wp-block-* classes + block inline styles
+      // HeadKit GF markers: theme replaces [gravityform] with a div carrying
+      // data-form-id so EditorialContent can hydrate the React GravityForm.
+      div: ["class", "id", "style", "data-form-id", "data-headkit-gf"],
       img: [
         "src",
         "srcset",

@@ -151,6 +151,10 @@ export async function HomeContent() {
   const showHardcodedBrands =
     !hasEditorSectionClass(editorBlocks, "headkit-brand-carousel") &&
     featuredBrands.length > 0;
+  // Prefer WP hero pattern placement over the hardcoded top carousel.
+  const showHardcodedHero =
+    !hasEditorSectionClass(editorBlocks, "headkit-hero-carousel") &&
+    carousels.length > 0;
 
   return (
     <>
@@ -158,8 +162,7 @@ export async function HomeContent() {
         <CarouselProductJsonLD products={featuredProducts} />
       )}
 
-      {/* Hero Carousel (carousel CPT — not WP page blocks) */}
-      {carousels.length > 0 && <MainCarousel carouselItems={carousels} />}
+      {showHardcodedHero && <MainCarousel carouselItems={carousels} />}
 
       {/* WP front-page content in editor document order */}
       {segments.map((seg, index) => {
