@@ -18,7 +18,7 @@ interface Props {
   isNew?: boolean;
 }
 
-const FALLBACK_IMAGE_SRC = "/assets/fallback-image.webp";
+const FALLBACK_IMAGE_SRC = "/assets/HeadKit-Fallback.png";
 const SWIPE_THRESHOLD_PX = 40;
 
 export function ProductImageGallery({

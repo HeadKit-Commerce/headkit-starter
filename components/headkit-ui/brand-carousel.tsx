@@ -9,7 +9,7 @@ interface Props {
   brands: Pick<FeaturedBrand, "name" | "slug" | "thumbnail">[];
 }
 
-const FALLBACK_IMAGE_SRC = "/assets/fallback-image.webp";
+const FALLBACK_IMAGE_SRC = "/assets/HeadKit-Fallback.png";
 
 const BrandCarousel = ({ brands }: Props) => {
   return (

@@ -77,7 +77,7 @@ export function CartItemRow({
     });
   };
 
-  const imageSrc = item.images[0]?.src ?? "/assets/fallback-image.webp";
+  const imageSrc = item.images[0]?.src ?? "/assets/HeadKit-Fallback.png";
   const imageAlt = item.images[0]?.alt ?? item.name;
   const productHref = item.slug ? `/products/${item.slug}` : null;
 
