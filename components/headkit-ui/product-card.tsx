@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useLinkStatus } from "next/link";
 import { Fragment, useEffect, useState } from "react";
 import type {
   ProductSummaryFieldsFragment,
@@ -19,6 +20,18 @@ const isVariableProduct = (product: ProductSummaryFieldsFragment): boolean =>
 
 /** Max colour swatches shown on a card before collapsing into a "+N" chip (F4). */
 const MAX_CARD_SWATCHES = 4;
+
+/** Instant Navigation pending cue — must render as a child of `<Link>`. */
+function LinkPendingOverlay(): React.JSX.Element | null {
+  const { pending } = useLinkStatus();
+  if (!pending) return null;
+  return (
+    <span
+      aria-hidden
+      className="pointer-events-none absolute inset-0 z-[1] animate-pulse bg-brand-bg/40"
+    />
+  );
+}
 
 interface Props {
   product: ProductSummaryFieldsFragment;
@@ -104,7 +117,8 @@ export const ProductCard = ({
       <div className="absolute left-2 top-2 z-10">
         <BadgeList isSale={product?.onSale ?? false} isNewIn={isNew} />
       </div>
-      <Link href={uri} aria-label="Featured Image">
+      <Link href={uri} aria-label="Featured Image" className="relative block">
+        <LinkPendingOverlay />
         <FeaturedImage
           src={imageSelected}
           alt={product?.name ?? "Product"}
@@ -123,7 +137,8 @@ export const ProductCard = ({
           )}
         >
           <div className="min-w-0">
-            <Link href={uri}>
+            <Link href={uri} className="relative cursor-pointer">
+              <LinkPendingOverlay />
               {/* Homepage carousels expect product titles as h3 under section h2.
                   Visual size stays class-driven. */}
               <h3

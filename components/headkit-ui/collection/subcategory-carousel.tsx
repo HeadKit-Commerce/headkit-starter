@@ -18,11 +18,12 @@ function plainDescription(html: string): string {
 
 export function SubcategoryCarousel({ subcategories }: Props) {
   return (
-    <div className="mt-8">
+    <div className="mt-8 pt-8">
       <Carousel
         items={subcategories}
         showControls={subcategories.length > 4}
-        showScrollbar={false}
+        showScrollbar
+        controlsPosition="top"
         gap="gap-[14px]"
         padding="px-4 md:px-10"
         // Mobile ~1.15 cards, sm 2, lg 4 columns (Figma: rect cards, desktop 4-up).

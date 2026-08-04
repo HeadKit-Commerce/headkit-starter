@@ -12,6 +12,7 @@ import {
 } from "@/components/headkit-ui/collection/utils";
 import { makeSeoMetadata } from "@/lib/make-metadata";
 import { getBranding } from "@/lib/branding";
+import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 
 const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 
@@ -107,9 +108,8 @@ export default function Page({ searchParams }: Props) {
           { name: "Shop", uri: "/shop", current: true },
         ]}
       />
-      {/* Dynamic grid — reads searchParams, streamed under Suspense.
-          fallback={null} keeps animate-pulse skeletons out of the CDN HIT shell. */}
-      <Suspense fallback={null}>
+      {/* Dynamic grid — Instant Navigation shell streams results under Suspense. */}
+      <Suspense fallback={<CollectionProductsSkeleton />}>
         <ProductResults searchParams={searchParams} />
       </Suspense>
     </>

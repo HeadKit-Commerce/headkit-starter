@@ -28,6 +28,7 @@ import { TAG } from "@/lib/cache-tags";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import type { SortKeyType } from "@/components/headkit-ui/collection/utils";
 import type { ProductFilters } from "@headkit/sdk";
+import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 
 /** Satisfies Cache Components: `generateStaticParams` must not return []. Never a real category slug. */
 const STATIC_GEN_PLACEHOLDER_SLUG = "__hk_static_placeholder";
@@ -485,9 +486,9 @@ export default async function Page({ params, searchParams }: Props) {
         {...(category.thumbnail ? { thumbnail: category.thumbnail } : {})}
         {...(category.children?.length ? { children: category.children } : {})}
       />
-      {/* Dynamic grid — reads searchParams + filter-slug, streamed under Suspense.
-          fallback={null} keeps animate-pulse skeletons out of the CDN HIT shell. */}
-      <Suspense fallback={null}>
+      {/* Dynamic grid — Instant Navigation shell shows CollectionProductsSkeleton
+          while searchParams-driven results stream in. */}
+      <Suspense fallback={<CollectionProductsSkeleton />}>
         <CollectionProductsServer
           categorySlug={categorySlug}
           productFilter={productFilter}

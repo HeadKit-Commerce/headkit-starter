@@ -16,14 +16,14 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
 
   return (
     <nav aria-label="Breadcrumb">
-      <ol className="flex flex-wrap items-center gap-1 text-sm text-gray-800">
+      <ol className="flex flex-wrap items-center gap-x-1 gap-y-1 text-sm text-gray-800 break-words">
         {items.map((item, i) => {
           const isLast = i === items.length - 1;
           return (
-            <li key={i} className="flex items-center gap-1">
+            <li key={i} className="flex max-w-full items-center gap-1">
               {i > 0 && (
                 <ChevronRightIcon
-                  className="h-3.5 w-3.5 text-gray-400"
+                  className="h-3.5 w-3.5 shrink-0 text-gray-400"
                   aria-hidden="true"
                 />
               )}
@@ -34,7 +34,7 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
               ) : (
                 <Link
                   href={item.uri}
-                  className="transition-colors hover:text-primary"
+                  className="cursor-pointer transition-colors hover:text-primary"
                 >
                   {item.name}
                 </Link>

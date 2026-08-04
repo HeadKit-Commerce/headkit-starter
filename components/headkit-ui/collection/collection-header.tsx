@@ -31,7 +31,7 @@ export function CollectionHeader({
   const showLeafFeatured = !hasChildren && Boolean(thumbnail);
 
   return (
-    <div className="overflow-x-hidden">
+    <div className="overflow-x-clip">
       {showLeafFeatured ? (
         <div className="mb-5 grid grid-cols-1 gap-6 md:grid-cols-5 md:gap-8">
           <div className="px-4 pt-5 md:col-span-2 md:px-10 md:pt-8">

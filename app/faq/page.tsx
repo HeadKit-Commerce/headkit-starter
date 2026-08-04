@@ -61,7 +61,7 @@ export default async function FAQPage() {
 
       <div className="px-5 py-10 md:px-10 md:py-14">
         <header className="mb-10 max-w-md md:mb-14">
-          <h1 className="mb-4 text-3xl font-medium text-primary md:text-4xl">
+          <h1 className="mb-4 text-3xl font-bold text-primary md:text-4xl">
             {title}
           </h1>
           {page?.content ? (

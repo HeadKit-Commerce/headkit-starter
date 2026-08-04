@@ -13,7 +13,7 @@ export function PostHeader({
   breadcrumbs,
 }: PostHeaderProps) {
   return (
-    <div className="overflow-x-hidden">
+    <div className="overflow-x-clip">
       <div className="mb-5 grid grid-cols-1 gap-5 px-4 md:grid-cols-2 md:px-10">
         <div className="pt-5">
           {breadcrumbs && <Breadcrumb items={breadcrumbs} />}

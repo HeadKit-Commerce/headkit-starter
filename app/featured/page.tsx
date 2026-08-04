@@ -9,6 +9,7 @@ import {
   normalizeFilterKey,
   parseSearchParams,
 } from "@/components/headkit-ui/collection/utils";
+import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 
 export const metadata: Metadata = {
   title: "Featured Products",
@@ -92,8 +93,8 @@ export default function Page({ searchParams }: Props) {
           { name: "Featured Products", uri: "/featured", current: true },
         ]}
       />
-      {/* Dynamic grid — reads searchParams, streamed under Suspense */}
-      <Suspense fallback={null}>
+      {/* Dynamic grid — Instant Navigation shell streams results under Suspense. */}
+      <Suspense fallback={<CollectionProductsSkeleton />}>
         <LandingResults searchParams={searchParams} />
       </Suspense>
     </>
