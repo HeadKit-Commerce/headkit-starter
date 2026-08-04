@@ -43,13 +43,14 @@ export function SectionHeader({
 
       {allButton && (
         <div className="flex items-center justify-start font-semibold md:justify-end">
-          <Link
+          <InstantLink
             href={allButtonPath ?? "/"}
+            pendingVariant="text"
             target={allButtonTarget ?? ""}
             className="underline"
           >
             {allButton}
-          </Link>
+          </InstantLink>
         </div>
       )}
     </div>
