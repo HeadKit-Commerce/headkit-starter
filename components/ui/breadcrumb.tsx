@@ -15,7 +15,7 @@ const Breadcrumb = ({ items }: Props) => {
       {items.map((item, i) => {
         if (item.current) {
           return (
-            <div key={i} className="text-purple-800">
+            <div key={i} className="text-primary">
               {item.name}
             </div>
           );

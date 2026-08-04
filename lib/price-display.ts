@@ -67,3 +67,44 @@ export function getPriceDisplay({
 
   return { min, max, struck };
 }
+
+/**
+ * Card price for variable products: min–max across variation prices.
+ * Includes $0 (free) variations — filtering `p > 0` dropped them and hid
+ * ranges like "$0.00 – $2.00".
+ */
+export function getVariationCardPrice(input: {
+  variations: Array<{ price?: string | null | undefined }>;
+  fallbackPrice?: string | null | undefined;
+  fallbackRegularPrice?: string | null | undefined;
+}): { price: string; regularPrice: string } {
+  const { variations, fallbackPrice, fallbackRegularPrice } = input;
+  if (variations.length === 0) {
+    return {
+      price: pickFirstPrice(fallbackPrice) || "0",
+      regularPrice: pickFirstPrice(fallbackRegularPrice) || "0",
+    };
+  }
+
+  const prices = variations
+    .map((v) => {
+      const raw = (v.price ?? "").trim();
+      if (raw === "") return Number.NaN;
+      return Number.parseFloat(raw);
+    })
+    .filter((p) => Number.isFinite(p) && p >= 0);
+
+  if (prices.length === 0) {
+    return {
+      price: pickFirstPrice(fallbackPrice) || "0",
+      regularPrice: pickFirstPrice(fallbackRegularPrice) || "0",
+    };
+  }
+
+  const minPrice = Math.min(...prices);
+  const maxPrice = Math.max(...prices);
+  if (minPrice === maxPrice) {
+    return { price: String(minPrice), regularPrice: "" };
+  }
+  return { price: `${minPrice} - ${maxPrice}`, regularPrice: "" };
+}

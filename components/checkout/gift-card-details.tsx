@@ -11,15 +11,15 @@ interface GiftCardDetailsProps {
 
 /**
  * GiftCardDetails renders the buyer-facing gift-card personalization (To / From
- * / message / Delivery) in a subtle purple panel. Shared across the order
+ * / message / Delivery) in a subtle branded panel. Shared across the order
  * confirmation line item, the cart drawer, and the checkout order summary so the
  * block looks identical everywhere. A missing/blank deliveryDate renders as
  * "Now" (immediate send).
  */
 export function GiftCardDetails({ giftCard }: GiftCardDetailsProps) {
   return (
-    <div className="rounded-[3px] bg-purple-50 px-3 py-2 text-xs text-gray-600 space-y-0.5">
-      <p className="font-semibold text-purple-700">Gift card</p>
+    <div className="rounded-[3px] bg-primary/5 px-3 py-2 text-xs text-gray-600 space-y-0.5">
+      <p className="font-semibold text-primary">Gift card</p>
       {giftCard.recipients.length > 0 && (
         <p>
           <span className="text-gray-400">To:</span>{" "}

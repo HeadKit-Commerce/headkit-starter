@@ -133,7 +133,7 @@ function AccountLoggedInBadge() {
     <span
       className={cn(
         "absolute right-0 top-[10px] z-10 flex h-[14px] min-w-[14px] items-center justify-center rounded-full",
-        "bg-purple-500 text-white",
+        "bg-primary text-white",
       )}
     >
       <CheckIcon className="h-2.5 w-2.5 stroke-[2.5]" />
@@ -147,7 +147,7 @@ function CartBadge({ count }: { count: number }) {
     <span
       className={cn(
         "absolute right-0 top-[10px] z-10 h-[14px] min-w-[14px] rounded-full",
-        "bg-purple-500 text-center text-[10px] font-medium leading-[14px] text-white px-0.5",
+        "bg-primary text-center text-[10px] font-medium leading-[14px] text-white px-0.5",
       )}
     >
       {count > 99 ? "99+" : count}

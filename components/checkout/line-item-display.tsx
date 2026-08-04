@@ -34,11 +34,11 @@ export function LineItemDisplay({
   return (
     <div className="space-y-1.5">
       <div className="flex gap-3">
-        <div className="relative h-[60px] w-[60px] shrink-0 overflow-hidden rounded-[3px]">
+        <div className="relative h-[60px] w-[60px] shrink-0 overflow-hidden rounded-[3px] bg-white">
           <Image
             src={imageSrc}
             fill
-            className="absolute left-0 top-0 h-full w-full object-cover"
+            className="absolute left-0 top-0 h-full w-full object-contain"
             alt={imageAlt}
             quality={50}
             sizes="60px"

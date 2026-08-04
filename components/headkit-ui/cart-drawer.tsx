@@ -37,7 +37,7 @@ export function CartDrawer() {
 
   return (
     <Sheet open={cartOpen} onOpenChange={(open) => toggleCart(open)}>
-      <SheetContent className="flex flex-col">
+      <SheetContent className="flex flex-col bg-brand-bg">
         <SheetHeader>
           <SheetTitle className="mt-3 text-left">Your Bag</SheetTitle>
           <SheetDescription hidden />
@@ -66,6 +66,7 @@ export function CartDrawer() {
                 <Button
                   fullWidth
                   suppressHydrationWarning
+                  className="shadow-none focus-visible:ring-0"
                   onClick={() => toggleCart(false)}
                 >
                   Start shopping
@@ -77,7 +78,7 @@ export function CartDrawer() {
 
         <SheetFooter>
           {items.length > 0 && (
-            <div className="w-full flex flex-col gap-2 mt-auto bg-white">
+            <div className="w-full flex flex-col gap-2 mt-auto bg-brand-bg">
               <div className="flex font-medium gap-1">
                 <p className="flex-1 flex items-end">
                   Shipping and tax calculated at checkout
@@ -91,7 +92,7 @@ export function CartDrawer() {
                   fullWidth
                   suppressHydrationWarning
                   onClick={() => toggleCart(false)}
-                  className="mt-3"
+                  className="mt-3 shadow-none focus-visible:ring-0"
                 >
                   Checkout
                 </Button>
@@ -127,7 +128,7 @@ export function CartTriggerButton({
     >
       <Cart className="h-6 w-6 text-primary transition-opacity hover:opacity-70" />
       {count > 0 && (
-        <span className="absolute right-0 top-[10px] z-10 h-[14px] min-w-[14px] rounded-full bg-purple-500 text-center text-[10px] font-medium leading-[14px] text-white px-0.5">
+        <span className="absolute right-0 top-[10px] z-10 h-[14px] min-w-[14px] rounded-full bg-primary text-center text-[10px] font-medium leading-[14px] text-white px-0.5">
           {count > 99 ? "99+" : count}
         </span>
       )}

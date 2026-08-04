@@ -5,6 +5,28 @@ export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * Decode common HTML entities in provider-sourced titles/labels.
+ * WooCommerce often returns names with `&amp;` etc. that must not render literally.
+ */
+export function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&quot;/g, '"')
+    .replace(/&#0*39;/g, "'")
+    .replace(/&#x27;/gi, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&#8217;/g, "\u2019")
+    .replace(/&#8216;/g, "\u2018")
+    .replace(/&#8220;/g, "\u201c")
+    .replace(/&#8221;/g, "\u201d")
+    .replace(/&#036;/g, "$")
+    .replace(/&#0*38;/g, "&")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
 export function addAlphaToHex(hex: string, alpha: number): string {
   const cleanHex = hex.replace("#", "");
   const r = parseInt(cleanHex.substring(0, 2), 16);

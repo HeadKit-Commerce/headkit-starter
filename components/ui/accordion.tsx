@@ -2,7 +2,11 @@
 
 import * as React from "react";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
-import { ChevronDownIcon } from "@/components/icon";
+import {
+  ChevronDownIcon,
+  MinusIcon,
+  PlusIcon,
+} from "@/components/icon";
 
 import { cn } from "@/lib/utils";
 
@@ -20,21 +24,36 @@ const AccordionItem = React.forwardRef<
 ));
 AccordionItem.displayName = "AccordionItem";
 
+type AccordionTriggerProps = React.ComponentPropsWithoutRef<
+  typeof AccordionPrimitive.Trigger
+> & {
+  /** Chevron (default) or plus/minus for minimalist FAQ-style lists. */
+  icon?: "chevron" | "plus-minus";
+};
+
 const AccordionTrigger = React.forwardRef<
   React.ElementRef<typeof AccordionPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Trigger>
->(({ className, children, ...props }, ref) => (
+  AccordionTriggerProps
+>(({ className, children, icon = "chevron", ...props }, ref) => (
   <AccordionPrimitive.Header className="flex">
     <AccordionPrimitive.Trigger
       ref={ref}
       className={cn(
-        "flex flex-1 items-center justify-between py-4 font-medium transition-all hover:underline [&[data-state=open]>svg]:rotate-180",
+        "group flex flex-1 items-center justify-between py-4 font-medium transition-all hover:underline",
+        icon === "chevron" && "[&[data-state=open]>svg]:rotate-180",
         className,
       )}
       {...props}
     >
       {children}
-      <ChevronDownIcon className="h-4 w-4 shrink-0 transition-transform duration-200" />
+      {icon === "plus-minus" ? (
+        <>
+          <PlusIcon className="h-6 w-6 shrink-0 text-primary group-data-[state=open]:hidden" />
+          <MinusIcon className="hidden h-6 w-6 shrink-0 text-primary group-data-[state=open]:block" />
+        </>
+      ) : (
+        <ChevronDownIcon className="h-4 w-4 shrink-0 transition-transform duration-200" />
+      )}
     </AccordionPrimitive.Trigger>
   </AccordionPrimitive.Header>
 ));

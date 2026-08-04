@@ -30,7 +30,7 @@ export function SortMenu() {
             <div
               key={key}
               className={cn(
-                "cursor-pointer p-2 hover:text-purple-500 flex items-center w-fit gap-x-2",
+                "cursor-pointer p-2 hover:text-primary flex items-center w-fit gap-x-2",
                 filterValues.sort === key && "font-bold",
               )}
               onClick={() => setFilterValues({ ...filterValues, sort: key })}
@@ -68,7 +68,7 @@ export function MobileSortMenu() {
               key={key}
               type="button"
               className={cn(
-                "w-full cursor-pointer px-2 py-2 text-left text-sm hover:text-purple-500",
+                "w-full cursor-pointer px-2 py-2 text-left text-sm hover:text-primary",
                 filterValues.sort === key && "font-bold",
               )}
               onClick={() => {

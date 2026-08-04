@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronDownIcon, MenuIcon, XIcon } from "@/components/icon";
@@ -26,7 +26,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { cn } from "@/lib/utils";
+import { cn, decodeHtmlEntities } from "@/lib/utils";
 import { HeaderActions } from "@/components/headkit-ui/header-actions";
 
 /** A navigation tree node returned by headkit.menu.get(). */
@@ -87,6 +87,26 @@ export function NavigationBar({
   );
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const navRef = useRef<React.ElementRef<typeof NavigationMenu>>(null);
+  const [mobileMenuTop, setMobileMenuTop] = useState(80);
+
+  // Keep the mobile drawer/overlay flush under the sticky logo bar (and any
+  // visible preheader) so the panel never covers the brand mark or hamburger.
+  useEffect(() => {
+    const updateMenuTop = () => {
+      const bottom = navRef.current?.getBoundingClientRect().bottom;
+      if (typeof bottom === "number" && bottom > 0) {
+        setMobileMenuTop(Math.round(bottom));
+      }
+    };
+    updateMenuTop();
+    window.addEventListener("scroll", updateMenuTop, { passive: true });
+    window.addEventListener("resize", updateMenuTop);
+    return () => {
+      window.removeEventListener("scroll", updateMenuTop);
+      window.removeEventListener("resize", updateMenuTop);
+    };
+  }, [mobileOpen, preheader]);
 
   return (
     <>
@@ -109,12 +129,17 @@ export function NavigationBar({
       />
 
       <NavigationMenu
+        ref={navRef}
         onValueChange={(val) => setMenuOpen(!!val)}
         className={cn(
-          "sticky top-0 flex items-center justify-between h-20 w-full max-w-full z-20 px-5 md:px-10 font-body text-primary backdrop-blur-xs",
-          menuOpen
+          "sticky top-0 flex items-center justify-between h-20 w-full max-w-full px-5 md:px-10 font-body text-primary backdrop-blur-xs transition-colors",
+          // Stay above the mobile sheet/overlay so logo + hamburger remain usable.
+          mobileOpen ? "z-[60]" : "z-20",
+          // Solid only while mega-menu / mobile sheet is open, or on hover.
+          // Scrolled alone keeps translucency so content shows through.
+          menuOpen || mobileOpen
             ? "bg-brand-bg"
-            : "bg-brand-bg/60 hover:bg-brand-bg/80",
+            : "bg-brand-bg/75 hover:bg-brand-bg",
         )}
       >
         {/* Left: logo + primary menu */}
@@ -155,7 +180,18 @@ export function NavigationBar({
 
           {/* Mobile hamburger */}
           <NavigationMenuItem className="md:hidden">
-            <Sheet open={mobileOpen} onOpenChange={setMobileOpen} modal={false}>
+            <Sheet
+              open={mobileOpen}
+              onOpenChange={(open) => {
+                if (open && navRef.current) {
+                  setMobileMenuTop(
+                    Math.round(navRef.current.getBoundingClientRect().bottom),
+                  );
+                }
+                setMobileOpen(open);
+              }}
+              modal={false}
+            >
               <SheetTrigger asChild>
                 <Button
                   variant="ghost"
@@ -172,7 +208,12 @@ export function NavigationBar({
               </SheetTrigger>
               <SheetContent
                 side="left"
-                className="px-0 py-0 w-full max-w-full sm:max-w-full rounded-none border-none [&>button]:hidden mt-20"
+                style={{ top: mobileMenuTop }}
+                overlayStyle={{ top: mobileMenuTop }}
+                overlayClassName="bg-black/40"
+                // Panel starts under the measured nav bottom so the logo bar
+                // stays visible; brand background fills the drawer.
+                className="inset-y-auto bottom-0 h-auto max-h-none px-0 py-0 w-full max-w-full sm:max-w-full rounded-none border-none bg-brand-bg [&>button]:hidden"
               >
                 <SheetTitle hidden />
                 <SheetDescription hidden />
@@ -227,7 +268,7 @@ function Preheader({
           {message && <span className="text-brand-bg">{message}</span>}
           {links?.map(({ label, uri }, i) => (
             <Link key={i} href={uri} className="underline text-brand-bg">
-              {label}
+              {decodeHtmlEntities(label)}
             </Link>
           ))}
         </div>
@@ -275,7 +316,7 @@ function DesktopMenuSection({
                     router.push(removeTrailingSlash(item.uri));
                   }}
                 >
-                  {item.label}
+                  {decodeHtmlEntities(item.label)}
                 </Link>
               </NavigationMenuTrigger>
               <NavigationMenuContent className="w-screen! rounded-none! bg-brand-bg">
@@ -293,7 +334,7 @@ function DesktopMenuSection({
                     "text-pink-500 hover:!text-pink-600",
                 )}
               >
-                {item.label}
+                {decodeHtmlEntities(item.label)}
               </Link>
             </NavigationMenuLink>
           )}
@@ -317,7 +358,7 @@ function MegaMenu({ items }: { items: NavMenuItem[] }) {
               href={removeTrailingSlash(item.uri)}
               className="font-semibold text-primary hover:opacity-80 uppercase block mb-2"
             >
-              {item.label}
+              {decodeHtmlEntities(item.label)}
             </Link>
           </NavigationMenuLink>
           {item.children.length > 0 && (
@@ -383,7 +424,7 @@ function MobileMenuItem({
       <Collapsible>
         <CollapsibleTrigger className="text-xl font-semibold font-body text-primary flex w-full justify-between items-center group focus-visible:outline-none">
           <span className="group-data-[state=open]:opacity-70">
-            {item.label}
+            {decodeHtmlEntities(item.label)}
           </span>
           <span className="group-data-[state=open]:hidden text-primary">
             <ChevronDownIcon size={20} />
@@ -443,7 +484,7 @@ function MobileMenuItem({
       )}
       {...(onSelect ? { onClick: onSelect } : {})}
     >
-      {item.label}
+      {decodeHtmlEntities(item.label)}
     </Link>
   );
 }

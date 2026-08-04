@@ -30,9 +30,21 @@
   --color-primary: #7f54b3;
   --color-secondary: #000000;
   --color-primary-text: #ffffff;
+  /* Page/surface background — theme colour so md:text-brand-bg /
+     bg-brand-bg/85 generate with responsive + opacity variants.
+     References runtime --background (layout.tsx), not --color-background,
+     so the token resolves even before @theme inline aliases apply. */
+  --color-brand-bg: var(--background);
   --color-purple-500: var(--color-primary);
   /* Headings/links that still use purple-800 track branding primary */
   --color-purple-800: var(--color-primary);
+  /* Remaining purple scale tracks primary so no default Woo purple leaks through */
+  --color-purple-50: color-mix(in srgb, var(--color-primary) 8%, white);
+  --color-purple-100: color-mix(in srgb, var(--color-primary) 14%, white);
+  --color-purple-200: color-mix(in srgb, var(--color-primary) 25%, white);
+  --color-purple-300: color-mix(in srgb, var(--color-primary) 40%, white);
+  --color-purple-400: color-mix(in srgb, var(--color-primary) 65%, white);
+  --color-purple-700: color-mix(in srgb, var(--color-primary) 85%, black);
 }
 
 @theme inline {
@@ -40,8 +52,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-body);
 
-  /* Purple neutrals – remapped via layout when branding sets primary/text */
-  --color-purple-100: #eae3f2;
+  /* Purple neutrals – remapped via @theme / layout when branding sets primary */
   --color-purple-900: #0b050f;
 
   /* Pink – sale, CTA hover, destructive */
@@ -139,12 +150,9 @@
   .text-on-primary {
     color: var(--color-primary-text);
   }
-  .text-brand-bg {
-    color: var(--color-background);
-  }
-  .bg-brand-bg {
-    background-color: var(--color-background);
-  }
+  /* brand-bg text/bg utilities come from @theme --color-brand-bg only —
+     manual @layer utilities do not get md: / opacity variants, which broke
+     hero overlay titles (md:text-brand-bg never applied on desktop). */
   .border-primary {
     border-color: var(--color-primary);
   }

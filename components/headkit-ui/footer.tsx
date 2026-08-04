@@ -245,7 +245,7 @@ export function Footer({
                   >
                     <IconComponent
                       size={24}
-                      className="fill-purple-800 transition-colors hover:fill-purple-500"
+                      className="fill-primary transition-colors hover:fill-primary"
                     />
                   </a>
                 );
@@ -298,7 +298,7 @@ export function Footer({
                     key={item.id}
                     href={item.uri}
                     target={item.target ?? "_self"}
-                    className="underline hover:text-purple-500"
+                    className="underline hover:text-primary"
                   >
                     {item.label}
                   </Link>
@@ -314,7 +314,7 @@ export function Footer({
               aria-label="headkit"
               className="group ml-1 flex"
             >
-              <span className="group-hover:text-purple-500 underline">
+              <span className="group-hover:text-primary underline">
                 HeadKit
               </span>
               <div className="ml-2">

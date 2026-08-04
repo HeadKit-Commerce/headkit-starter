@@ -40,7 +40,7 @@ const AccordionWrapper = ({
       className={cn(
         "relative mb-2 px-5 py-5 md:px-10 md:py-5 rounded-md bg-white border transition-all",
         {
-          "border-purple-500 shadow-sm": isActive,
+          "border-primary shadow-sm": isActive,
           "border-gray-200": !isActive,
           "cursor-pointer hover:border-gray-300":
             isCompleted && !isActive && clickable,
@@ -56,13 +56,13 @@ const AccordionWrapper = ({
       <div className="flex justify-between items-center">
         <div
           className={cn("flex items-center gap-3 text-2xl font-extrabold", {
-            "text-purple-500": isActive,
+            "text-primary": isActive,
             "text-gray-900": !isActive && isCompleted,
             "text-gray-400": !isActive && !isCompleted,
           })}
         >
           {isCompleted && !isActive ? (
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-purple-500 text-white">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-white">
               <svg
                 className="h-4 w-4"
                 fill="none"
@@ -82,7 +82,7 @@ const AccordionWrapper = ({
               className={cn(
                 "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold",
                 {
-                  "bg-purple-500 text-white": isActive,
+                  "bg-primary text-white": isActive,
                   "bg-gray-200 text-gray-500": !isActive,
                 },
               )}

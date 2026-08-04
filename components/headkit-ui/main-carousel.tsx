@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Carousel } from "@/components/headkit-ui/carousel";
 import { Button } from "@/components/ui/button";
 import type { HeroCarouselItem } from "@headkit/sdk";
+import { decodeHtmlEntities } from "@/lib/utils";
 
 interface Props {
   carouselItems: HeroCarouselItem[];
@@ -29,11 +30,14 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                 <div className="z-10 h-full w-full md:absolute">
                   <div className="mx-auto flex h-full items-center">
                     <div className="py-[20px] md:w-[400px] md:pl-[20px] lg:w-[600px] lg:pl-[100px]">
-                      <HeaderTag className="max-md:text-primary text-3xl font-semibold leading-[1.3]! text-brand-bg md:text-5xl md:text-brand-bg">
-                        {carousel?.header}
+                      {/* Mobile: title below image → brand primary.
+                          Desktop: title overlays image → light (brand-bg /
+                          page background). ! beats base h1/h2 { color: primary }. */}
+                      <HeaderTag className="text-3xl font-semibold leading-[1.3]! text-primary md:text-5xl md:text-brand-bg!">
+                        {decodeHtmlEntities(carousel?.header ?? "")}
                       </HeaderTag>
-                      <p className="mt-8 text-base font-semibold text-black md:text-3xl md:text-brand-bg">
-                        {carousel?.description}
+                      <p className="mt-8 text-base font-semibold text-black md:text-3xl md:text-brand-bg!">
+                        {decodeHtmlEntities(carousel?.description ?? "")}
                       </p>
                       <div className="mt-8">
                         <Link href={carousel?.url ?? "#"}>

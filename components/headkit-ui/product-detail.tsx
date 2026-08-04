@@ -6,6 +6,7 @@ import {
   useTransition,
   useCallback,
   useEffect,
+  useRef,
   lazy,
   Suspense,
   type ReactNode,
@@ -21,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { MinusIcon, PlusIcon } from "@/components/icon";
 import { addToCartAction } from "@/lib/cart-actions";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
-import { cn } from "@/lib/utils";
+import { cn, decodeHtmlEntities } from "@/lib/utils";
 import type { GiftCardFormValues } from "@/components/gift-card-form";
 import { DeliveryType } from "@/components/gift-card-delivery-type";
 import { Breadcrumb } from "@/components/headkit-ui/breadcrumb";
@@ -75,6 +76,8 @@ export function ProductDetail({
   >("idle");
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<TabKey>("description");
+  const [showStickyAtc, setShowStickyAtc] = useState(false);
+  const atcSectionRef = useRef<HTMLDivElement>(null);
   const { cartData, setCartData, toggleCart } = useCartContext();
 
   const isVariable = product.type?.toUpperCase() === VARIABLE;
@@ -301,51 +304,89 @@ export function ProductDetail({
       : !isOutOfStock && !isAtStockLimit) &&
     (!isGiftCard || (isGiftCardFormValid && giftCardValues !== null));
 
+  // Sticky ATC bar: only after the primary ATC scrolls above the viewport
+  // (not when it is still below the fold).
+  useEffect(() => {
+    const el = atcSectionRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry) return;
+        const scrolledPast =
+          !entry.isIntersecting && entry.boundingClientRect.top < 0;
+        setShowStickyAtc(scrolledPast);
+      },
+      { threshold: 0 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const addToCartLabel =
+    cartFeedback === "success"
+      ? "Added to cart!"
+      : cartFeedback === "error"
+        ? "Error — try again"
+        : isOutOfStock
+          ? "Out of stock"
+          : isAtStockLimit
+            ? "Max qty reached"
+            : isVariable && !selectedVariation
+              ? "Select options"
+              : "Add to cart";
+
   function handleAddToCart() {
     setCartFeedback("idle");
     startTransition(async () => {
-      const id = isVariable
-        ? (selectedVariation?.id ?? product.id)
-        : product.id;
+      try {
+        const id = isVariable
+          ? (selectedVariation?.id ?? product.id)
+          : product.id;
 
-      const hasVariation =
-        isVariable && Object.keys(selectedAttributes).length > 0;
-      const variation = Object.entries(selectedAttributes).map(
-        ([attribute, value]) => ({ attribute, value }),
-      );
+        const hasVariation =
+          isVariable && Object.keys(selectedAttributes).length > 0;
+        const variation = Object.entries(selectedAttributes).map(
+          ([attribute, value]) => ({ attribute, value }),
+        );
 
-      const giftConfig =
-        isGiftCard && giftCardValues
-          ? {
-              sendAsGift: true,
-              toMultiple: [giftCardValues.wc_gc_giftcard_to_multiple],
-              from: giftCardValues.wc_gc_giftcard_from,
-              message: giftCardValues.wc_gc_giftcard_message ?? "",
-              // "Now" (immediate) must OMIT the delivery date entirely — the
-              // WooCommerce Gift Cards plugin validates a supplied delivery_date as a
-              // future timestamp and rejects "today"/past (and empty) with "Invalid
-              // delivery date." Sending an empty string makes commerce drop the field
-              // (its `if DeliveryDate != ""` guard), so the plugin sends immediately.
-              // Only "Later" forwards the user-picked (future) date.
-              deliveryDate:
-                giftCardValues.wc_gc_giftcard_select_delivery ===
-                DeliveryType.Later
-                  ? giftCardValues.wc_gc_giftcard_delivery
-                  : "",
-            }
-          : undefined;
+        const giftConfig =
+          isGiftCard && giftCardValues
+            ? {
+                sendAsGift: true,
+                toMultiple: [giftCardValues.wc_gc_giftcard_to_multiple],
+                from: giftCardValues.wc_gc_giftcard_from,
+                message: giftCardValues.wc_gc_giftcard_message ?? "",
+                // "Now" (immediate) must OMIT the delivery date entirely — the
+                // WooCommerce Gift Cards plugin validates a supplied delivery_date as a
+                // future timestamp and rejects "today"/past (and empty) with "Invalid
+                // delivery date." Sending an empty string makes commerce drop the field
+                // (its `if DeliveryDate != ""` guard), so the plugin sends immediately.
+                // Only "Later" forwards the user-picked (future) date.
+                deliveryDate:
+                  giftCardValues.wc_gc_giftcard_select_delivery ===
+                  DeliveryType.Later
+                    ? giftCardValues.wc_gc_giftcard_delivery
+                    : "",
+              }
+            : undefined;
 
-      const result = await addToCartAction(
-        hasVariation
-          ? { id, quantity, variation, ...(giftConfig ? { giftConfig } : {}) }
-          : { id, quantity, ...(giftConfig ? { giftConfig } : {}) },
-      );
-      if (result.success) {
-        setCartData(result.cart);
-        toggleCart(true);
-        setQuantity(1);
+        const result = await addToCartAction(
+          hasVariation
+            ? { id, quantity, variation, ...(giftConfig ? { giftConfig } : {}) }
+            : { id, quantity, ...(giftConfig ? { giftConfig } : {}) },
+        );
+        if (result.success) {
+          setCartData(result.cart);
+          toggleCart(true);
+          setQuantity(1);
+        }
+        setCartFeedback(result.success ? "success" : "error");
+      } catch {
+        // Never let an unhandled rejection from the server action trip the
+        // route error boundary — show inline feedback instead.
+        setCartFeedback("error");
       }
-      setCartFeedback(result.success ? "success" : "error");
       setTimeout(() => setCartFeedback("idle"), 2000);
     });
   }
@@ -366,6 +407,7 @@ export function ProductDetail({
   ];
 
   return (
+    <>
     <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
       {/* Left: image gallery */}
       <ProductImageGallery
@@ -378,16 +420,21 @@ export function ProductDetail({
       <div className="flex flex-col">
         {breadcrumbItems && (
           <div className="mb-4">
-            <Breadcrumb items={breadcrumbItems} />
+            <Breadcrumb
+              items={breadcrumbItems.map((b) => ({
+                ...b,
+                name: decodeHtmlEntities(b.name),
+              }))}
+            />
           </div>
         )}
         <h1 className="mb-3 text-2xl font-bold leading-tight text-primary md:text-3xl">
-          {product.name}
+          {decodeHtmlEntities(product.name)}
         </h1>
 
         {product.shortDescription && (
           <div
-            className="mb-5 text-sm leading-relaxed text-purple-800"
+            className="mb-5 text-sm leading-relaxed text-primary"
             dangerouslySetInnerHTML={{ __html: product.shortDescription }}
           />
         )}
@@ -398,7 +445,7 @@ export function ProductDetail({
             {variationAttributes.map((attr: ProductAttribute) => (
               <div key={attr.id}>
                 <div className="mb-2 flex items-center gap-2">
-                  <p className="font-semibold text-purple-800">{attr.name}</p>
+                  <p className="font-semibold text-primary">{attr.name}</p>
                   {selectedAttributes[attr.slug] && (
                     <span className="capitalize text-gray-700">
                       {
@@ -522,7 +569,7 @@ export function ProductDetail({
         </div>
 
         {/* Quantity selector + Add to Cart */}
-        <div className="mb-6 flex items-center gap-3">
+        <div ref={atcSectionRef} className="mb-6 flex items-center gap-3">
           <div className="flex items-center rounded-md border border-gray-300">
             <button
               type="button"
@@ -572,17 +619,7 @@ export function ProductDetail({
             rightIcon="shoppingBag"
             onClick={handleAddToCart}
           >
-            {cartFeedback === "success"
-              ? "Added to cart!"
-              : cartFeedback === "error"
-                ? "Error — try again"
-                : isOutOfStock
-                  ? "Out of stock"
-                  : isAtStockLimit
-                    ? "Max qty reached"
-                    : isVariable && !selectedVariation
-                      ? "Select options"
-                      : "Add to cart"}
+            {addToCartLabel}
           </Button>
         </div>
 
@@ -614,13 +651,13 @@ export function ProductDetail({
                   className={cn(
                     "relative cursor-pointer px-4 py-3 text-sm font-medium transition-colors",
                     activeTab === tab.key
-                      ? "text-purple-800"
+                      ? "text-primary"
                       : "text-gray-800 hover:text-gray-900",
                   )}
                 >
                   {tab.label}
                   {activeTab === tab.key && (
-                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-800" />
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
                   )}
                 </button>
               ))}
@@ -629,7 +666,7 @@ export function ProductDetail({
           <div className="py-6">
             {activeTab === "description" && product.description && (
               <div
-                className="prose prose-sm max-w-none text-purple-800"
+                className="prose prose-sm max-w-none text-primary"
                 dangerouslySetInnerHTML={{ __html: product.description }}
               />
             )}
@@ -658,5 +695,74 @@ export function ProductDetail({
         </div>
       </div>
     </div>
+
+      {/* Sticky ATC — desktop + mobile, after main ATC scrolls out of view */}
+      <div
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-brand-bg/95 px-4 py-3 shadow-[0_-4px_24px_rgba(0,0,0,0.06)] backdrop-blur-sm transition-transform duration-300 md:px-10",
+          showStickyAtc
+            ? "translate-y-0"
+            : "pointer-events-none translate-y-full",
+        )}
+        aria-hidden={!showStickyAtc}
+      >
+        <div className="mx-auto flex max-w-7xl items-center gap-3 md:gap-6">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-primary md:text-base">
+              {decodeHtmlEntities(product.name)}
+            </p>
+            <div className="mt-0.5">
+              <ProductPrice
+                price={displayPrice}
+                regularPrice={displayRegularPrice}
+                onSale={isOnSale}
+                size="default"
+              />
+            </div>
+          </div>
+          <div className="hidden items-center rounded-md border border-gray-300 sm:flex">
+            <button
+              type="button"
+              onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+              disabled={quantity <= 1}
+              className="cursor-pointer px-3 py-2 text-gray-600 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label="Decrease quantity"
+            >
+              <MinusIcon className="h-4 w-4" />
+            </button>
+            <span className="w-10 border-x border-gray-300 py-2 text-center text-sm font-medium">
+              {quantity}
+            </span>
+            <button
+              type="button"
+              onClick={() =>
+                setQuantity((q) =>
+                  maxStock ? Math.min(maxStock, q + 1) : q + 1,
+                )
+              }
+              disabled={maxStock !== null && quantity >= maxStock}
+              className="cursor-pointer px-3 py-2 text-gray-600 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label="Increase quantity"
+            >
+              <PlusIcon className="h-4 w-4" />
+            </button>
+          </div>
+          <Button
+            className={cn(
+              "min-w-[140px] shrink-0 md:min-w-[180px]",
+              cartFeedback === "success" && "bg-green-600 hover:bg-green-700",
+              cartFeedback === "error" && "bg-red-600 hover:bg-red-700",
+            )}
+            disabled={!canAddToCart}
+            loading={addingToCart}
+            loadingText="Adding…"
+            rightIcon="shoppingBag"
+            onClick={handleAddToCart}
+          >
+            {addToCartLabel}
+          </Button>
+        </div>
+      </div>
+    </>
   );
 }

@@ -32,7 +32,7 @@ export function PostPage({
             onClick={() => setActiveFilter("")}
             className={`cursor-pointer whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors ${
               activeFilter === ""
-                ? "bg-purple-500 text-white"
+                ? "bg-primary text-white"
                 : "bg-gray-100 hover:bg-gray-200 text-gray-700"
             }`}
           >
@@ -44,7 +44,7 @@ export function PostPage({
               onClick={() => setActiveFilter(cat.slug)}
               className={`cursor-pointer whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                 activeFilter === cat.slug
-                  ? "bg-purple-500 text-white"
+                  ? "bg-primary text-white"
                   : "bg-gray-100 hover:bg-gray-200 text-gray-700"
               }`}
             >

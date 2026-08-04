@@ -12,7 +12,7 @@ const BadgeList = ({ isSale, isNewIn, className }: Props) => {
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       {isNewIn && (
-        <span className="outline rounded-[6px] uppercase font-semibold text-center px-2 py-1 bg-lime-400 outline-lime-400/50 text-purple-800 ">
+        <span className="outline rounded-[6px] uppercase font-semibold text-center px-2 py-1 bg-lime-400 outline-lime-400/50 text-primary ">
           New
         </span>
       )}
