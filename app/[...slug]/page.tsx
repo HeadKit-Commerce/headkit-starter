@@ -5,7 +5,7 @@ import { headkit as sdk } from "@/lib/sdk";
 import { makeSeoMetadata, seoFallbackDescription } from "@/lib/make-metadata";
 import { TAG } from "@/lib/cache-tags";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
-import { EditorialContent } from "@/components/headkit-ui/editorial-content";
+import { CmsPageBody } from "@/components/headkit-ui/cms-page-body";
 
 /** Satisfies Cache Components: `generateStaticParams` must not return []. */
 const STATIC_GEN_PLACEHOLDER_SLUG = "__hk_static_placeholder";
@@ -116,12 +116,7 @@ export default async function Page({ params }: Props) {
   return (
     <div className="px-5 md:px-10 my-10 min-h-[50vh]">
       <BreadcrumbJsonLD items={breadcrumbItems} />
-      <h1 className="font-extrabold text-3xl text-primary">{page.title}</h1>
-      {/* Full-width symmetric wrapper: EditorialContent centers its own blocks
-          at content width; .alignwide/.alignfull break out from viewport centre. */}
-      <div className="mt-5">
-        <EditorialContent html={page.content} />
-      </div>
+      <CmsPageBody title={page.title} html={page.content} />
     </div>
   );
 }

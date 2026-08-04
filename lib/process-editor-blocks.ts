@@ -401,8 +401,11 @@ function extractDescription(html: string, classList: string[]): string {
   }
   if (description) return description;
 
-  // Fallback for headkit-hilight: collect paragraphs from the first column
-  if (classList.includes("headkit-hilight")) {
+  // Fallback for callout / legacy hilight: collect paragraphs from the first column
+  if (
+    classList.includes("headkit-hilight") ||
+    classList.includes("headkit-callout")
+  ) {
     const colM = html.match(
       /<div\s+class="wp-block-column[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/i,
     );

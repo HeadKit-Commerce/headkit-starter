@@ -9,7 +9,8 @@ import {
 /**
  * Gravity Forms e2e (autonomous QA run — E2E-GAPS.md Gap 10).
  *
- * Closes UAT rows P1-38 (/contact GF form 1: validation + submit +
+ * Closes UAT rows P1-38 (/contact GF form via WP page marker / form 1:
+ * validation + submit +
  * ENTRY recorded), P1-23 (PDP enquiry GF form 3: hidden product-context
  * fields land on the entry — the ENG-794 id-loss regression makes the ENTRY
  * assertion the point, not the UI toast), and P1-24 (gift-card form

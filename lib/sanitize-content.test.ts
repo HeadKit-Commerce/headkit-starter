@@ -52,4 +52,12 @@ describe("sanitizeContent (R6 XSS allowlist)", () => {
     expect(output).not.toContain("onclick");
     expect(output).not.toContain("javascript:");
   });
+
+  it("keeps HeadKit Gravity Forms markers (data-form-id) for storefront hydration", () => {
+    const marker =
+      '<div class="headkit-gravity-form" data-form-id="1" data-headkit-gf="1"></div>';
+    const cleaned = sanitizeContent(`<p>Hi</p>${marker}`);
+    expect(cleaned).toContain('data-form-id="1"');
+    expect(cleaned).toContain("headkit-gravity-form");
+  });
 });

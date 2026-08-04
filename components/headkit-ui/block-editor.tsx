@@ -5,9 +5,14 @@ import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
 import { CategoryCarousel } from "@/components/headkit-ui/category-carousel";
 import { BrandCarousel } from "@/components/headkit-ui/brand-carousel";
 import { PostCarousel } from "@/components/headkit-ui/post/post-carousel";
+import { MainCarousel } from "@/components/headkit-ui/main-carousel";
 import { sanitizeContent } from "@/lib/sanitize-content";
 import type { ProcessedEditorBlock } from "@/lib/process-editor-blocks";
-import type { Product, PostSummaryFieldsFragment } from "@headkit/sdk";
+import type {
+  Product,
+  PostSummaryFieldsFragment,
+  HeroCarouselItem,
+} from "@headkit/sdk";
 
 interface Props {
   blocks: ProcessedEditorBlock[];
@@ -26,6 +31,17 @@ const MEDIA_CLASSES = [
 
 function isMediaBlock(cssClasses: string[]): boolean {
   return MEDIA_CLASSES.some((cls) => cssClasses.includes(cls));
+}
+
+/** Read hydrated carousel nodes from attrs.carousels ({ nodes: [...] }). */
+function hydrateHeroCarousels(raw: unknown): HeroCarouselItem[] {
+  if (!raw || typeof raw !== "object") return [];
+  const nodes = (raw as { nodes?: unknown }).nodes;
+  if (!Array.isArray(nodes)) return [];
+  return nodes.filter(
+    (n): n is HeroCarouselItem =>
+      Boolean(n) && typeof n === "object" && "id" in (n as object),
+  ) as HeroCarouselItem[];
 }
 
 function toPostSummaries(
@@ -66,9 +82,12 @@ const BlockEditor = ({ blocks, section }: Props) => {
   return (
     <>
       {result?.map((data: ProcessedEditorBlock, index: number) => {
-        if (data.cssClasses.includes("headkit-hilight")) {
+        if (
+          data.cssClasses.includes("headkit-hilight") ||
+          data.cssClasses.includes("headkit-callout")
+        ) {
           return (
-            <AboutUs
+            <Callout
               key={index}
               title={data.title}
               content={data.description}
@@ -77,6 +96,12 @@ const BlockEditor = ({ blocks, section }: Props) => {
               buttonTarget={data.button?.linkTarget}
             />
           );
+        }
+
+        if (data.cssClasses.includes("headkit-hero-carousel")) {
+          const nodes = hydrateHeroCarousels(data.attrs?.["carousels"]);
+          if (nodes.length === 0) return null;
+          return <MainCarousel key={index} carouselItems={nodes} />;
         }
 
         if (data.cssClasses.includes("headkit-product-carousel")) {
@@ -216,7 +241,7 @@ const BlockEditor = ({ blocks, section }: Props) => {
   );
 };
 
-interface AboutUsProps {
+interface CalloutProps {
   title: string;
   content: string;
   buttonText: string | null | undefined;
@@ -224,17 +249,18 @@ interface AboutUsProps {
   buttonTarget: string | null | undefined;
 }
 
-const AboutUs = ({
+/** Versatile callout / promo section (HeadKit Callout + legacy Hilight). */
+const Callout = ({
   title,
   content,
   buttonText,
   buttonLink,
   buttonTarget,
-}: AboutUsProps) => {
+}: CalloutProps) => {
   return (
     <div className="relative grid h-fit w-full grid-cols-1 gap-8 px-5 md:px-10 py-14 md:grid-cols-3">
       <div className="md:col-span-2">
-        <h1 className="mb-5 text-3xl font-semibold text-primary">{title}</h1>
+        <h2 className="mb-5 text-3xl font-semibold text-primary">{title}</h2>
         <div
           dangerouslySetInnerHTML={{ __html: content }}
           className="prose text-primary max-w-full"

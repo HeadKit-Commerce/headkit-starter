@@ -52,8 +52,18 @@ interface Props {
 const VARIABLE = "VARIABLE";
 
 /**
- * Gravity Forms form id for the PDP product-enquiry form. Hardcoded per the same
- * convention as the contact page's CONTACT_FORM_ID.
+ * Gravity Forms form id for the PDP product-enquiry form.
+ *
+ * Assign the right form in WordPress:
+ * 1. Create (or keep) a GF form titled "Product Enquiry".
+ * 2. Add visible fields (Name, Email, Message) plus HIDDEN fields labelled
+ *    exactly: Product Name, Product URL, Product Size, Product Colour
+ *    (snakeCase of those labels → product_name / product_url / …).
+ * 3. Set this constant to that form's numeric id (local seed creates id 3 —
+ *    see docker/wordpress/seed-gravity-forms.php).
+ *
+ * ProductEnquiry renders nothing when the form can't load, so a wrong id is a
+ * silent no-op rather than a broken Enquire button.
  */
 const ENQUIRY_FORM_ID = "3";
 
