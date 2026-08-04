@@ -5,6 +5,14 @@ import {
   SESSION_EXPIRED_MESSAGE,
 } from "@/components/headkit-ui/auth-context";
 
+// auth-context is a client provider that transitively imports server actions:
+// account-actions.ts is `server-only`, which throws when imported in the node
+// vitest env. Stub the server-action modules so the pure runSilentRefresh helper
+// (whose deps are injected as args, not read from these modules) can be imported.
+// Same approach navigation-wrapper.test.ts uses for `@/lib/branding`.
+vi.mock("@/lib/account-actions", () => ({ getCustomer: vi.fn() }));
+vi.mock("@/lib/cart-actions", () => ({ clearCartTokenAction: vi.fn() }));
+
 /**
  * FE-05 silent token refresh — success + hard-failure paths.
  *
