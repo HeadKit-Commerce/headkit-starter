@@ -48,8 +48,6 @@ export const DEFAULT_FILTER_VALUES: FilterValues = {
   price_max: "",
 };
 
-const SITE_NAME = "Store";
-
 /**
  * Attribute slugs treated as the indexable "color" facet (Tier-1).
  *
@@ -59,7 +57,12 @@ const SITE_NAME = "Store";
  * (`color`/`colour`). Both forms must be recognised so the predicate works on
  * decoded filter values AND raw filter-option slugs.
  */
-const COLOR_ATTR_SLUGS = ["pa_color", "pa_colour", "color", "colour"] as const;
+const COLOR_ATTR_SLUGS = [
+  "pa_color",
+  "pa_colour",
+  "color",
+  "colour",
+] as const;
 
 /** True if an attribute slug is the color facet, in either pa_/stripped form. */
 export function isColorAttrSlug(slug: string): boolean {
@@ -120,13 +123,17 @@ export function facetTitle(categoryName: string, facetLabel: string): string {
 
 /**
  * Tier-1 SEO description: a templated sentence for a single-facet collection.
- * `facetLabel` is a color or a brand label.
+ * `facetLabel` is a color or a brand label. Pass the real dashboard store name
+ * when available — never hardcode a placeholder like `"Store"`.
  */
 export function facetDescription(
   categoryName: string,
   facetLabel: string,
+  storeName?: string | null,
 ): string {
-  return `Shop ${facetLabel} ${categoryName} at ${SITE_NAME}. Browse the latest ${facetLabel.toLowerCase()} ${categoryName.toLowerCase()} with prices and availability.`;
+  const site = (storeName ?? "").trim();
+  const atSite = site.length > 0 ? ` at ${site}` : "";
+  return `Shop ${facetLabel} ${categoryName}${atSite}. Browse the latest ${facetLabel.toLowerCase()} ${categoryName.toLowerCase()} with prices and availability.`;
 }
 
 /** Convert slug-like option value to display name (e.g. "some-option" -> "Some Option"). */

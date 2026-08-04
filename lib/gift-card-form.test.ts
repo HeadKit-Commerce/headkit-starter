@@ -29,9 +29,7 @@ describe("giftCardSchema", () => {
   });
 
   it("trims surrounding whitespace before validating", () => {
-    const result = giftCardSchema.safeParse({
-      code: "  TEST-GIFT-CARD-0001  ",
-    });
+    const result = giftCardSchema.safeParse({ code: "  TEST-GIFT-CARD-0001  " });
     expect(result.success).toBe(true);
   });
 

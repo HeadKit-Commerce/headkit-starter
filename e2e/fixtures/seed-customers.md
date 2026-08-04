@@ -12,12 +12,12 @@ so we can prove customer A's JWT never returns customer B's order.
 
 Bring the stack up first (see `submodules/headkit-platform/docker/README.md`):
 
-| Service                 | URL                           |
-| ----------------------- | ----------------------------- |
-| WordPress + WooCommerce | http://localhost:8090         |
-| services/commerce (Go)  | http://localhost:8080         |
-| Hive Gateway            | http://localhost:4000/graphql |
-| starter (Next)          | http://localhost:3000         |
+| Service | URL |
+|---------|-----|
+| WordPress + WooCommerce | http://localhost:8090 |
+| services/commerce (Go) | http://localhost:8080 |
+| Hive Gateway | http://localhost:4000/graphql |
+| starter (Next) | http://localhost:3000 |
 
 ## 1. Create two customers
 

@@ -78,14 +78,17 @@ describe("buildFieldValues", () => {
   });
 
   it("sends unknown keys without an id (preserves prior contract)", () => {
-    expect(buildFieldValues({ mystery: "x" }, fieldIdByName)).toEqual([
-      { value: "x" },
-    ]);
+    expect(
+      buildFieldValues({ mystery: "x" }, fieldIdByName),
+    ).toEqual([{ value: "x" }]);
   });
 
   it("coerces nullish values to empty strings", () => {
     expect(
-      buildFieldValues({ name: undefined as unknown as string }, fieldIdByName),
+      buildFieldValues(
+        { name: undefined as unknown as string },
+        fieldIdByName,
+      ),
     ).toEqual([{ id: 1, value: "" }]);
   });
 });

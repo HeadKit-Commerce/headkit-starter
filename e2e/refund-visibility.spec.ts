@@ -74,10 +74,7 @@ function seedRefundedOrder(): { id: number; key: string } {
     key?: string;
     error?: string;
   };
-  expect(
-    parsed.error,
-    `refunded-order seed failed: ${parsed.error}`,
-  ).toBeUndefined();
+  expect(parsed.error, `refunded-order seed failed: ${parsed.error}`).toBeUndefined();
   expect(parsed.id, "seed returned no order id").toBeTruthy();
   return { id: Number(parsed.id), key: String(parsed.key) };
 }

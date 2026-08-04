@@ -41,7 +41,9 @@ function base64UrlDecode(segment: string): string | null {
  * Returns `null` for any malformed token, a missing `exp`, or a non-numeric
  * `exp` (never throws).
  */
-export function decodeJwtExp(token: string | null | undefined): number | null {
+export function decodeJwtExp(
+  token: string | null | undefined,
+): number | null {
   if (!token || typeof token !== "string") return null;
 
   const parts = token.split(".");
@@ -57,7 +59,11 @@ export function decodeJwtExp(token: string | null | undefined): number | null {
     return null;
   }
 
-  if (typeof payload !== "object" || payload === null || !("exp" in payload)) {
+  if (
+    typeof payload !== "object" ||
+    payload === null ||
+    !("exp" in payload)
+  ) {
     return null;
   }
 

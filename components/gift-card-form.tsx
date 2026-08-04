@@ -49,10 +49,7 @@ interface GiftCardFormProps {
   onFormValid?: (isValid: boolean) => void;
 }
 
-export function GiftCardForm({
-  emitClickEvent,
-  onFormValid,
-}: GiftCardFormProps) {
+export function GiftCardForm({ emitClickEvent, onFormValid }: GiftCardFormProps) {
   const form = useForm<GiftCardFormValues>({
     resolver: zodResolver(giftCardSchema),
     defaultValues: {

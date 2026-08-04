@@ -22,9 +22,6 @@ const serverSchema = clientSchema.extend({
   // Downloaded from the Stripe Dashboard per deploy domain; optional so local /
   // unregistered deploys boot fine (Apple Pay just stays hidden).
   APPLE_PAY_DOMAIN_ASSOCIATION: z.string().optional(),
-  // FE-08: dashboard-api GraphQL for colors/logo/SEO. Optional locally —
-  // getBranding() degrades to defaults when either is unset. Provisioner
-  // writes both on initial Vercel deploy.
   DASHBOARD_API_URL: z.string().url().optional(),
   DASHBOARD_API_TOKEN: z.string().min(1).optional(),
 });

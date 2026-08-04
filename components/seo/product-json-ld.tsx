@@ -90,7 +90,8 @@ export function ProductJsonLD({
   brandName,
 }: ProductJsonLDProps) {
   const siteUrl = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
-  const productUrl = url ?? `${siteUrl}/products/${product.slug}`;
+  const productUrl =
+    url ?? `${siteUrl}/products/${product.slug}`;
   const resolvedCurrency = currency ?? "AUD";
   const description = product.seo?.metaDesc ?? product.shortDescription;
   const images = collectImages(product);

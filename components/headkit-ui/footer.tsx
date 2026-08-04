@@ -15,6 +15,7 @@ import {
   GooglePayIcon,
 } from "@/components/icon";
 import { FooterSubscribe } from "@/components/headkit-ui/footer-subscribe";
+import { decodeHtmlEntities } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // HeadKit SVG assets
@@ -107,7 +108,7 @@ interface FooterProps {
   description?: string;
   socialLinks?: SocialLinks;
   paymentMethods?: PaymentMethod[];
-  /** When true, show the mailing-list subscribe box (Klaviyo connected). */
+  /** When true, show the mailing-list subscribe box (email marketing connected). */
   showSubscribe?: boolean;
 }
 
@@ -140,7 +141,6 @@ const SOCIAL_ICON_MAP = {
   youtube: YoutubeIcon,
 } as const;
 
-
 function FooterMenuColumn({
   name,
   items,
@@ -151,7 +151,9 @@ function FooterMenuColumn({
   return (
     <div>
       {name ? (
-        <div className="mb-[6px] text-lg font-semibold">{name}</div>
+        <div className="mb-[6px] text-lg font-semibold">
+          {decodeHtmlEntities(name)}
+        </div>
       ) : null}
       <div className="flex flex-col justify-center">
         {items.map((item) => (
@@ -161,7 +163,7 @@ function FooterMenuColumn({
             target={item.target ?? "_self"}
             className="w-fit hover:underline"
           >
-            {item.label}
+            {decodeHtmlEntities(item.label)}
           </Link>
         ))}
       </div>
@@ -206,7 +208,9 @@ export function Footer({
                   {iconUrl ? (
                     <Image
                       src={iconUrl}
-                      alt={siteName ?? "Logo"}
+                      alt={
+                        siteName ? decodeHtmlEntities(siteName) : "Logo"
+                      }
                       sizes="20vw"
                       width={0}
                       height={0}
@@ -220,7 +224,7 @@ export function Footer({
             </div>
             {description && (
               <div className="min-w-0 leading-5 text-primary">
-                {description}
+                {decodeHtmlEntities(description)}
               </div>
             )}
           </div>
@@ -265,7 +269,7 @@ export function Footer({
           ))}
         </div>
 
-        {/* Right: subscribe box (Klaviyo only) + payment icons */}
+        {/* Right: subscribe box (when email marketing connected) + payment icons */}
         <div className="flex flex-col justify-between">
           {showSubscribe ? <FooterSubscribe /> : null}
           {paymentMethods.length > 0 && (
@@ -289,7 +293,8 @@ export function Footer({
         <div className="flex flex-col justify-between md:flex-row">
           <div className="flex flex-col md:flex-row">
             <div className="mb-2 mr-4">
-              © 2026 {policyMenu?.name || siteName}
+              © {new Date().getFullYear()}{" "}
+              {decodeHtmlEntities(policyMenu?.name || siteName || "")}
             </div>
             {policyMenu && (
               <div className="mb-2 flex flex-wrap items-center gap-[6px]">
@@ -300,7 +305,7 @@ export function Footer({
                     target={item.target ?? "_self"}
                     className="underline hover:text-primary"
                   >
-                    {item.label}
+                    {decodeHtmlEntities(item.label)}
                   </Link>
                 ))}
               </div>

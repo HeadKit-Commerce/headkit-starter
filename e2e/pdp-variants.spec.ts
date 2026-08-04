@@ -96,10 +96,7 @@ test.describe("PDP: rendering, colorway paths, size persistence, stock, legacy U
     // (e.g. #related-products-item-N > "Navy"), so an unscoped strict-mode
     // locator resolves to 3 elements once the rail hydrates. The main PDP
     // variant selector always precedes the rail in the DOM.
-    await page
-      .getByRole("button", { name: /^Navy$/ })
-      .first()
-      .click();
+    await page.getByRole("button", { name: /^Navy$/ }).first().click();
     await page.waitForURL(new RegExp(`/products/${TEE}/navy$`), {
       timeout: 30_000,
     });
@@ -180,7 +177,10 @@ test.describe("PDP: rendering, colorway paths, size persistence, stock, legacy U
     ).toBeVisible({ timeout: 30_000 });
 
     // Desktop gallery images are DialogTriggers wrapping the image.
-    await page.locator('button[aria-haspopup="dialog"]').first().click();
+    await page
+      .locator('button[aria-haspopup="dialog"]')
+      .first()
+      .click();
     await expect(
       page.getByRole("dialog"),
       "clicking a gallery image did not open the lightbox dialog",
@@ -195,9 +195,9 @@ test.describe("PDP: rendering, colorway paths, size persistence, stock, legacy U
       page.getByRole("heading", { level: 1, name: "Classic Tee" }),
     ).toBeVisible({ timeout: 30_000 });
 
-    const relatedSection = page.locator("section").filter({
-      has: page.getByRole("heading", { name: "Something similar" }),
-    });
+    const relatedSection = page
+      .locator("section")
+      .filter({ has: page.getByRole("heading", { name: "Something similar" }) });
     await expect(
       relatedSection,
       "related-products section missing on the variable PDP",
@@ -240,19 +240,20 @@ test.describe("PDP: rendering, colorway paths, size persistence, stock, legacy U
     ).toBeVisible();
   });
 
-  test.fixme("P1-21 BLOCKED (app gap): recently-viewed rail appears after visiting 2 products", async ({
-    page,
-  }) => {
-    // BLOCKER — dead code, see spec header: RecentlyViewed /
-    // addToRecentlyViewed (recently-viewed.tsx) are exported but never
-    // imported by any route or component, so no PDP visit ever writes
-    // `hk-recently-viewed` and no page mounts the rail. Un-fixme once the
-    // PDP records visits and renders <RecentlyViewed/>.
-    await page.goto(`${BASE_URL}/products/test-product-12`);
-    await page.goto(`${BASE_URL}/products/${TEE}`);
-    await page.goto(`${BASE_URL}/products/test-product-11`);
-    await expect(
-      page.getByRole("heading", { name: "Recently Viewed" }),
-    ).toBeVisible({ timeout: 20_000 });
-  });
+  test.fixme(
+    "P1-21 BLOCKED (app gap): recently-viewed rail appears after visiting 2 products",
+    async ({ page }) => {
+      // BLOCKER — dead code, see spec header: RecentlyViewed /
+      // addToRecentlyViewed (recently-viewed.tsx) are exported but never
+      // imported by any route or component, so no PDP visit ever writes
+      // `hk-recently-viewed` and no page mounts the rail. Un-fixme once the
+      // PDP records visits and renders <RecentlyViewed/>.
+      await page.goto(`${BASE_URL}/products/test-product-12`);
+      await page.goto(`${BASE_URL}/products/${TEE}`);
+      await page.goto(`${BASE_URL}/products/test-product-11`);
+      await expect(
+        page.getByRole("heading", { name: "Recently Viewed" }),
+      ).toBeVisible({ timeout: 20_000 });
+    },
+  );
 });

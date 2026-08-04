@@ -79,43 +79,47 @@ test.describe("Wishlist read surface + home smoke (P1-40, P1-32)", () => {
     ).toBeVisible();
   });
 
-  test.fixme("P1-40 BLOCKED (app bug): seeded hk_wishlist ids render saved products", async ({
-    page,
-  }) => {
-    // BLOCKER — real app bug, do not un-fixme until fixed:
-    // app/account/(private)/wishlist/page.tsx:37 sends `{ include: ids }`
-    // but ProductListFilter (schema.graphqls:983) has no `include` field →
-    // gateway error → silent catch → the page ALWAYS shows the empty state.
-    // Repro (fails today):
-    await loginViaUi(page);
-    await page.evaluate(() => {
-      localStorage.setItem("hk_wishlist", JSON.stringify(["357", "678"]));
-    });
-    await page.goto(`${BASE_URL}/account/wishlist`);
-    await expect(
-      page.getByRole("heading", { name: "Classic Tee" }),
-    ).toBeVisible({ timeout: 20_000 });
-    await expect(
-      page.getByRole("heading", { name: "Test Product 12" }),
-    ).toBeVisible();
-    // Remove flow (also unreachable until the bug above is fixed):
-    await page
-      .getByRole("button", { name: "Remove from wishlist" })
-      .first()
-      .click();
-    await page.reload();
-    await expect(
-      page.getByRole("heading", { name: "Classic Tee" }),
-    ).toHaveCount(0);
-  });
+  test.fixme(
+    "P1-40 BLOCKED (app bug): seeded hk_wishlist ids render saved products",
+    async ({ page }) => {
+      // BLOCKER — real app bug, do not un-fixme until fixed:
+      // app/account/(private)/wishlist/page.tsx:37 sends `{ include: ids }`
+      // but ProductListFilter (schema.graphqls:983) has no `include` field →
+      // gateway error → silent catch → the page ALWAYS shows the empty state.
+      // Repro (fails today):
+      await loginViaUi(page);
+      await page.evaluate(() => {
+        localStorage.setItem("hk_wishlist", JSON.stringify(["357", "678"]));
+      });
+      await page.goto(`${BASE_URL}/account/wishlist`);
+      await expect(
+        page.getByRole("heading", { name: "Classic Tee" }),
+      ).toBeVisible({ timeout: 20_000 });
+      await expect(
+        page.getByRole("heading", { name: "Test Product 12" }),
+      ).toBeVisible();
+      // Remove flow (also unreachable until the bug above is fixed):
+      await page
+        .getByRole("button", { name: "Remove from wishlist" })
+        .first()
+        .click();
+      await page.reload();
+      await expect(
+        page.getByRole("heading", { name: "Classic Tee" }),
+      ).toHaveCount(0);
+    },
+  );
 
-  test.fixme("P1-40 BLOCKED (app gap): add-to-wishlist from product card / PDP", async () => {
-    // BLOCKER — no add/remove-wishlist control exists anywhere in the app.
-    // `hk_wishlist` is read by app/account/(private)/wishlist/page.tsx only;
-    // product-card.tsx and product-detail.tsx render no wishlist toggle, so
-    // the P1-40 "add from card/PDP" journey cannot be driven. Un-fixme once
-    // a wishlist toggle ships.
-  });
+  test.fixme(
+    "P1-40 BLOCKED (app gap): add-to-wishlist from product card / PDP",
+    async () => {
+      // BLOCKER — no add/remove-wishlist control exists anywhere in the app.
+      // `hk_wishlist` is read by app/account/(private)/wishlist/page.tsx only;
+      // product-card.tsx and product-detail.tsx render no wishlist toggle, so
+      // the P1-40 "add from card/PDP" journey cannot be driven. Un-fixme once
+      // a wishlist toggle ships.
+    },
+  );
 
   test("P1-32: home renders hero + all seeded sections; hero CTA navigates", async ({
     page,

@@ -10,7 +10,6 @@ import { CollectionPage } from "@/components/headkit-ui/collection/collection-pa
 import { buildProductListFilter } from "@/components/headkit-ui/collection/utils";
 import { getCachedCatalogPage } from "@/lib/catalog-cache";
 import { makeSeoMetadata } from "@/lib/make-metadata";
-import { CollectionPageSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import type { SortKeyType } from "@/components/headkit-ui/collection/utils";
 
 /**
@@ -153,7 +152,7 @@ export default async function Page({
             { name: brand.name, uri: `/brand/${brandSlug}`, current: true },
           ]}
         />
-        <Suspense fallback={<CollectionPageSkeleton />}>
+        <Suspense fallback={null}>
           <BrandProductsServer
             brandSlug={brandSlug}
             searchParams={searchParams}

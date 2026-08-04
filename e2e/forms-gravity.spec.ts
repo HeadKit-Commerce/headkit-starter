@@ -96,9 +96,9 @@ test.describe("Gravity Forms: contact, PDP enquiry entry integrity, gift-card va
     page,
   }) => {
     await page.goto(`${BASE_URL}/contact`);
-    await expect(page.getByRole("heading", { name: "Contact Us" })).toBeVisible(
-      { timeout: 30_000 },
-    );
+    await expect(
+      page.getByRole("heading", { name: "Contact Us" }),
+    ).toBeVisible({ timeout: 30_000 });
 
     // The GF form loads client-side (server action fetch of form 1).
     const sendButton = page.getByRole("button", { name: /send message/i });
@@ -215,9 +215,10 @@ test.describe("Gravity Forms: contact, PDP enquiry entry integrity, gift-card va
   }) => {
     await page.goto(`${BASE_URL}/products/headkit-gift-card`);
     const recipient = page.getByPlaceholder("Recipient Email");
-    await expect(recipient, "gift-card PDP form did not render").toBeVisible({
-      timeout: 30_000,
-    });
+    await expect(
+      recipient,
+      "gift-card PDP form did not render",
+    ).toBeVisible({ timeout: 30_000 });
 
     const addToCart = page.getByRole("button", { name: /^add to cart$/i });
     await expect(addToCart).toBeDisabled();
@@ -249,9 +250,8 @@ test.describe("Gravity Forms: contact, PDP enquiry entry integrity, gift-card va
     // captured-values gate needs a blur + async trigger round-trip).
     await recipient.fill("gift-recipient@example.com");
     await recipient.blur();
-    await expect(
-      addToCart,
-      "valid form did not enable add-to-cart",
-    ).toBeEnabled({ timeout: 15_000 });
+    await expect(addToCart, "valid form did not enable add-to-cart").toBeEnabled(
+      { timeout: 15_000 },
+    );
   });
 });

@@ -34,10 +34,7 @@ describe("resolveCheckoutEmail (CKA-04)", () => {
 
   it("prefers the cart billing email over the fallback", () => {
     expect(
-      resolveCheckoutEmail(
-        cartWith("cart@example.com"),
-        "fallback@example.com",
-      ),
+      resolveCheckoutEmail(cartWith("cart@example.com"), "fallback@example.com"),
     ).toBe("cart@example.com");
   });
 

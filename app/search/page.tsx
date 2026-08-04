@@ -7,7 +7,6 @@ import { CollectionPage } from "@/components/headkit-ui/collection/collection-pa
 import { buildProductListFilter } from "@/components/headkit-ui/collection/utils";
 import type { SortKeyType } from "@/components/headkit-ui/collection/utils";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
-import { CollectionPageSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 
 interface Props {
   searchParams: Promise<Record<string, string>>;
@@ -91,7 +90,7 @@ export default async function Page({ searchParams }: Props) {
           { name: "Search", uri: "/search", current: true },
         ]}
       />
-      <Suspense fallback={<CollectionPageSkeleton />}>
+      <Suspense fallback={null}>
         <CollectionPage
           initialProducts={productsResult.products}
           initialTotal={productsResult.total}

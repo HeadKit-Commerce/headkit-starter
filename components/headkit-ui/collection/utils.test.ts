@@ -79,9 +79,7 @@ describe("isIndexableFacet (Tier-1 predicate)", () => {
 
   it("returns false for brand + size", () => {
     expect(
-      isIndexableFacet(
-        fv({ brands: ["nike"], attributes: { pa_size: ["l"] } }),
-      ),
+      isIndexableFacet(fv({ brands: ["nike"], attributes: { pa_size: ["l"] } })),
     ).toBe(false);
   });
 
@@ -123,17 +121,13 @@ describe("isIndexableFacet (Tier-1 predicate)", () => {
 
   it("returns false for color + instock", () => {
     expect(
-      isIndexableFacet(
-        fv({ attributes: { pa_color: ["red"] }, instock: true }),
-      ),
+      isIndexableFacet(fv({ attributes: { pa_color: ["red"] }, instock: true })),
     ).toBe(false);
   });
 
   it("returns false for color + a non-default sort", () => {
     expect(
-      isIndexableFacet(
-        fv({ attributes: { pa_color: ["red"] }, sort: "PRICE" }),
-      ),
+      isIndexableFacet(fv({ attributes: { pa_color: ["red"] }, sort: "PRICE" })),
     ).toBe(false);
   });
 
@@ -179,16 +173,25 @@ describe("facetTitle / facetDescription (Tier-1 copy)", () => {
   });
 
   it("facetDescription mentions the color and category", () => {
-    const desc = facetDescription("Lifestyle Shoes", "Red");
+    const desc = facetDescription("Lifestyle Shoes", "Red", "Paralel");
     expect(desc).toContain("Red");
     expect(desc).toContain("Lifestyle Shoes");
+    expect(desc).toContain("Paralel");
+    expect(desc).not.toContain(" at Store");
     expect(desc.length).toBeGreaterThan(0);
   });
 
   it("facetDescription mentions the brand and category", () => {
-    const desc = facetDescription("Apparel", "Velocity");
+    const desc = facetDescription("Apparel", "Velocity", "Paralel");
     expect(desc).toContain("Velocity");
     expect(desc).toContain("Apparel");
+    expect(desc).toContain("Paralel");
+  });
+
+  it("facetDescription omits placeholder site when store name is missing", () => {
+    const desc = facetDescription("Lifestyle Shoes", "Red");
+    expect(desc).not.toContain(" at Store");
+    expect(desc).toContain("Shop Red Lifestyle Shoes.");
   });
 });
 

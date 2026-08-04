@@ -25,9 +25,7 @@ export function AttributeFilter({ attribute }: AttributeFilterProps) {
   const key = attrKey(attribute.slug);
   // Tolerate either keying form already present in state.
   const current =
-    filterValues.attributes[key] ??
-    filterValues.attributes[attribute.slug] ??
-    [];
+    filterValues.attributes[key] ?? filterValues.attributes[attribute.slug] ?? [];
 
   return (
     <div className="grid grid-cols-2 gap-4">

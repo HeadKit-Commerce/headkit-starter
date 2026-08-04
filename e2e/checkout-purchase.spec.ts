@@ -142,11 +142,13 @@ test.describe("Paid card checkout (Gap 1 — P0-01/02/03/18)", () => {
     // gateway storeOrder read cannot verify paid orders on this stack).
     const wcStatus = wpOrderStatus(orderId);
     if (wcStatus === null) {
-      test.info().annotations.push({
-        type: "warning",
-        description:
-          "wp-cli unavailable — WC order-status readback skipped (payment already proven via Stripe TEST API)",
-      });
+      test
+        .info()
+        .annotations.push({
+          type: "warning",
+          description:
+            "wp-cli unavailable — WC order-status readback skipped (payment already proven via Stripe TEST API)",
+        });
     } else {
       expect(
         wcStatus,
@@ -260,13 +262,16 @@ test.describe("Paid card checkout (Gap 1 — P0-01/02/03/18)", () => {
    * session_id-bearing confirmation URL. Fix the null-guard, then flip this to
    * a real test asserting the full order summary (line item + email) renders.
    */
-  test.fixme("KNOWN BUG: session_id-bearing confirmation render crashes to the error boundary when session metadata has no order id", async () => {
-    // Blocked on the processCheckoutOrderAction null-guard fix described
-    // above. Intended assertions once fixed:
-    //   - goto /checkout/success/{orderId}?key=…&session_id=… renders
-    //     "Order #{orderId}", the line item name, and the contact email
-    //     (never the "Something went wrong" boundary).
-  });
+  test.fixme(
+    "KNOWN BUG: session_id-bearing confirmation render crashes to the error boundary when session metadata has no order id",
+    async () => {
+      // Blocked on the processCheckoutOrderAction null-guard fix described
+      // above. Intended assertions once fixed:
+      //   - goto /checkout/success/{orderId}?key=…&session_id=… renders
+      //     "Order #{orderId}", the line item name, and the contact email
+      //     (never the "Something went wrong" boundary).
+    },
+  );
 
   test("P0-03: ?error=payment_failed renders the dismissible PaymentFailedBanner", async ({
     page,
@@ -278,7 +283,9 @@ test.describe("Paid card checkout (Gap 1 — P0-01/02/03/18)", () => {
     await installCartCookie(context, cartToken);
 
     await page.goto(`${BASE_URL}/checkout?error=payment_failed`);
-    const bannerText = page.getByText(/your payment was not successful/i);
+    const bannerText = page.getByText(
+      /your payment was not successful/i,
+    );
     await expect(
       bannerText.first(),
       "PaymentFailedBanner did not render on ?error=payment_failed",
@@ -301,9 +308,7 @@ test.describe("Paid card checkout (Gap 1 — P0-01/02/03/18)", () => {
     await page.goto(`${BASE_URL}/checkout`);
     await expect(
       page
-        .getByText(
-          /no products in your cart|cart is empty|session has expired/i,
-        )
+        .getByText(/no products in your cart|cart is empty|session has expired/i)
         .first(),
       "empty-cart checkout did not show an empty/expired state",
     ).toBeVisible({ timeout: 30_000 });

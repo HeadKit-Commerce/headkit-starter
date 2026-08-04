@@ -46,7 +46,8 @@ import { BASE_URL, allowGatewayCors, stackIsUp } from "./fixtures/helpers-2";
  * The UI sweep (#57) promoted card names h3 -> h2 (a11y heading order:
  * card names follow the page h1 directly on PLP/search).
  */
-const cards = (page: import("@playwright/test").Page) => page.locator("h2");
+const cards = (page: import("@playwright/test").Page) =>
+  page.locator("h2");
 
 test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-13)", () => {
   test.beforeAll(async () => {
@@ -72,7 +73,9 @@ test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-
     ).toBeVisible({ timeout: 30_000 });
 
     // Full first page (perPage=24) + accurate count line.
-    await expect.poll(() => cards(page).count(), { timeout: 15_000 }).toBe(24);
+    await expect
+      .poll(() => cards(page).count(), { timeout: 15_000 })
+      .toBe(24);
     await expect(
       page.getByText(/Viewing \d+ of \d+ products/),
       "ProductCount line missing",
@@ -83,7 +86,9 @@ test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-
     // fallback button: the auto-load can consume the last page mid-click and
     // unmount it (flaky detach race).
     const before = await cards(page).count();
-    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await page.evaluate(() =>
+      window.scrollTo(0, document.body.scrollHeight),
+    );
     await expect
       .poll(() => cards(page).count(), {
         message: "Load More did not append the next page",
@@ -158,16 +163,21 @@ test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-
       .filter({ hasText: /^Black/ })
       .locator('input[type="checkbox"]')
       .first();
-    await expect(blackBox, "Color facet options did not render").toBeAttached({
-      timeout: 15_000,
-    });
+    await expect(
+      blackBox,
+      "Color facet options did not render",
+    ).toBeAttached({ timeout: 15_000 });
     expect(
       await blackBox.isChecked(),
       "deep-linked color facet did not hydrate as checked",
     ).toBe(true);
 
     // Toggle a second color — the path slug must gain the value (sorted).
-    await page.locator("label").filter({ hasText: /^Navy/ }).first().click();
+    await page
+      .locator("label")
+      .filter({ hasText: /^Navy/ })
+      .first()
+      .click();
     await page.waitForURL(/\/collections\/apparel\/f\/color\.black\.navy/, {
       timeout: 30_000,
     });
@@ -264,48 +274,50 @@ test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-
       .toMatch(/Aero Road Bike/);
   });
 
-  test.fixme("P1-08 BLOCKED (app bug): PRICE asc/desc actually reorders by price", async ({
-    page,
-  }) => {
-    // BLOCKER — real app bug, see spec header BUG 1:
-    // headkit-products.php:286-295 forwards orderby=price into WP_Query
-    // unmapped (needs meta_value_num + meta_key=_price, as
-    // headkit-block-products.php does) → PRICE returns id-ASC and
-    // PRICE_DESC returns id-DESC. Un-fixme once the theme endpoint maps it.
-    await page.goto(`${BASE_URL}/shop?sort=PRICE`);
-    const prices = page.locator("h2 ~ * >> text=/\\$/");
-    await expect(cards(page).first()).toBeVisible({ timeout: 30_000 });
-    const first = await page
-      .locator("p", { hasText: /\$/ })
-      .first()
-      .textContent();
-    const last = await page
-      .locator("p", { hasText: /\$/ })
-      .last()
-      .textContent();
-    const parse = (s: string | null) =>
-      Number((s ?? "").replace(/[^0-9.]/g, ""));
-    expect(parse(first)).toBeLessThanOrEqual(parse(last));
-    void prices;
-  });
+  test.fixme(
+    "P1-08 BLOCKED (app bug): PRICE asc/desc actually reorders by price",
+    async ({ page }) => {
+      // BLOCKER — real app bug, see spec header BUG 1:
+      // headkit-products.php:286-295 forwards orderby=price into WP_Query
+      // unmapped (needs meta_value_num + meta_key=_price, as
+      // headkit-block-products.php does) → PRICE returns id-ASC and
+      // PRICE_DESC returns id-DESC. Un-fixme once the theme endpoint maps it.
+      await page.goto(`${BASE_URL}/shop?sort=PRICE`);
+      const prices = page.locator("h2 ~ * >> text=/\\$/");
+      await expect(cards(page).first()).toBeVisible({ timeout: 30_000 });
+      const first = await page
+        .locator("p", { hasText: /\$/ })
+        .first()
+        .textContent();
+      const last = await page
+        .locator("p", { hasText: /\$/ })
+        .last()
+        .textContent();
+      const parse = (s: string | null) =>
+        Number((s ?? "").replace(/[^0-9.]/g, ""));
+      expect(parse(first)).toBeLessThanOrEqual(parse(last));
+      void prices;
+    },
+  );
 
-  test.fixme("P1-07 BLOCKED (app bug): In Stock toggle hides out-of-stock products", async ({
-    page,
-  }) => {
-    // BLOCKER — real app bug, see spec header BUG 2:
-    // instock is neither mapped to the backend filter
-    // (collection/utils.ts:194-196) nor applied client-side
-    // (product-grid.tsx) → toggling it refetches an UNCHANGED filter.
-    // Verified: /collections/bikes?instock=true still lists Folding Bike
-    // (stock status outofstock). Un-fixme once instock filters for real.
-    await page.goto(`${BASE_URL}/collections/bikes?instock=true`);
-    await expect(
-      page.getByRole("heading", { name: /Mountain Explorer/ }),
-    ).toBeVisible({ timeout: 30_000 });
-    await expect(
-      page.getByRole("heading", { name: "Folding Bike" }),
-    ).toHaveCount(0);
-  });
+  test.fixme(
+    "P1-07 BLOCKED (app bug): In Stock toggle hides out-of-stock products",
+    async ({ page }) => {
+      // BLOCKER — real app bug, see spec header BUG 2:
+      // instock is neither mapped to the backend filter
+      // (collection/utils.ts:194-196) nor applied client-side
+      // (product-grid.tsx) → toggling it refetches an UNCHANGED filter.
+      // Verified: /collections/bikes?instock=true still lists Folding Bike
+      // (stock status outofstock). Un-fixme once instock filters for real.
+      await page.goto(`${BASE_URL}/collections/bikes?instock=true`);
+      await expect(
+        page.getByRole("heading", { name: /Mountain Explorer/ }),
+      ).toBeVisible({ timeout: 30_000 });
+      await expect(
+        page.getByRole("heading", { name: "Folding Bike" }),
+      ).toHaveCount(0);
+    },
+  );
 
   test("P1-12/13: filter landings — /sale all-sale, /new and /featured and /brand/{slug} populated, /brand index lists brands", async ({
     page,
@@ -359,15 +371,12 @@ test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-
     page,
   }) => {
     await page.goto(`${BASE_URL}/shop?price_min=99999`);
-    // The empty state renders in more than one layout slot (mobile + desktop),
-    // so getByText matches multiple nodes — assert the first to avoid a
-    // strict-mode violation (the test, not the storefront, was wrong).
     await expect(
-      page.getByText("No products found").first(),
+      page.getByText("No products found"),
       "zero-result PLP did not render its empty state",
     ).toBeVisible({ timeout: 30_000 });
     await expect(
-      page.getByText(/try adjusting your filters/i).first(),
+      page.getByText(/try adjusting your filters/i),
       "empty state recovery copy missing",
     ).toBeVisible();
   });

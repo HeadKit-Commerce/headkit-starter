@@ -64,7 +64,7 @@ export const TAG = {
   menu: (loc: string): string => `headkit:menu:${loc}`,
   footer: "headkit:footer",
   branding: "headkit:branding",
-  /** Store email marketing (Klaviyo) connection status — layout chrome. */
+  /** Store email marketing (Klaviyo / HubSpot) connection status — layout chrome. */
   emailMarketing: "headkit:email-marketing",
   // route / synthetic-landing (filter pages have no collection entity)
   route: (r: "home" | "shop" | "sale" | "new"): string => `headkit:route:${r}`,

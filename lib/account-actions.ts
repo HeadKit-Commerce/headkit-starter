@@ -311,11 +311,11 @@ function toAddressData(
 function isAddressPopulated(a: AddressData): boolean {
   return Boolean(
     a.firstName ||
-    a.lastName ||
-    a.address1 ||
-    a.city ||
-    a.postcode ||
-    a.country,
+      a.lastName ||
+      a.address1 ||
+      a.city ||
+      a.postcode ||
+      a.country,
   );
 }
 

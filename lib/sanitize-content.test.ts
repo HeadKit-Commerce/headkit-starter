@@ -15,16 +15,16 @@ import { sanitizeContent } from "./sanitize-content";
 // A single fixture that mixes the legitimate Gutenberg block markup we must keep
 // with the XSS vectors we must strip (mirrors the seed-editorial.php wp:html block).
 const MALICIOUS_FIXTURE = [
-  "<!-- wp:image -->",
+  '<!-- wp:image -->',
   '<figure class="wp-block-image"><img class="wp-block-image" src="http://localhost:8090/wp-content/uploads/sample.jpg" alt="x" /></figure>',
-  "<!-- /wp:image -->",
-  "<!-- wp:table -->",
+  '<!-- /wp:image -->',
+  '<!-- wp:table -->',
   '<figure class="wp-block-table"><table class="wp-block-table"><tbody><tr><td>a</td><td>b</td></tr></tbody></table></figure>',
-  "<!-- /wp:table -->",
-  "<!-- wp:html -->",
+  '<!-- /wp:table -->',
+  '<!-- wp:html -->',
   "<script>alert('xss')</script>",
-  "<!-- /wp:html -->",
-  "<a href=\"javascript:alert('xss')\" onclick=\"alert('xss')\">click</a>",
+  '<!-- /wp:html -->',
+  '<a href="javascript:alert(\'xss\')" onclick="alert(\'xss\')">click</a>',
 ].join("\n");
 
 describe("sanitizeContent (R6 XSS allowlist)", () => {

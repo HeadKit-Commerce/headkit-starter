@@ -18,7 +18,7 @@ import { decideContactSubmit } from "@/lib/contact-email-submit";
  */
 
 describe("decideContactSubmit (ENG-801)", () => {
-  it("advances when the email is unchanged and the session already has it", () => {
+  it('advances when the email is unchanged and the session already has it', () => {
     expect(
       decideContactSubmit({
         initialEmail: "a@x.com",
@@ -43,7 +43,7 @@ describe("decideContactSubmit (ENG-801)", () => {
     ).toBe("update-email");
   });
 
-  it("recreates the session when the email changed and a refresh path exists", () => {
+  it('recreates the session when the email changed and a refresh path exists', () => {
     expect(
       decideContactSubmit({
         initialEmail: "a@x.com",

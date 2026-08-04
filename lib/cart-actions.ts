@@ -183,6 +183,24 @@ export async function getFullCartAction(): Promise<FullCart | null> {
   }
 }
 
+/** Strip HTML / critical-error boilerplate from provider GraphQL messages. */
+function sanitizeCartErrorMessage(raw: string, fallback: string): string {
+  const stripped = raw
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!stripped) return fallback;
+  // WordPress critical-error HTML is useless to shoppers — show a short message.
+  if (
+    /critical error on this website/i.test(stripped) ||
+    /internal_server_error/i.test(stripped)
+  ) {
+    return "Unable to update cart right now. Please try again shortly.";
+  }
+  // Cap length so flight payloads stay small if the provider dumps a stack.
+  return stripped.length > 280 ? `${stripped.slice(0, 277)}…` : stripped;
+}
+
 export async function addToCartAction(
   input: AddToCartInput,
   opts?: CartMutationOptions,
@@ -191,8 +209,10 @@ export async function addToCartAction(
     const cart = await withCartRetry((sdk) => sdk.cart.addItem(input), opts);
     return { success: true, cart };
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Failed to add to cart";
+    const message = sanitizeCartErrorMessage(
+      err instanceof Error ? err.message : "",
+      "Failed to add to cart",
+    );
     return { success: false, error: message };
   }
 }
@@ -205,8 +225,10 @@ export async function removeCartItemAction(
     const cart = await withCartRetry((sdk) => sdk.cart.removeItem(key), opts);
     return { success: true, cart };
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Failed to remove cart item";
+    const message = sanitizeCartErrorMessage(
+      err instanceof Error ? err.message : "",
+      "Failed to remove cart item",
+    );
     return { success: false, error: message };
   }
 }
@@ -223,8 +245,10 @@ export async function updateCartItemAction(
     );
     return { success: true, cart };
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Failed to update cart item";
+    const message = sanitizeCartErrorMessage(
+      err instanceof Error ? err.message : "",
+      "Failed to update cart item",
+    );
     return { success: false, error: message };
   }
 }
@@ -237,8 +261,10 @@ export async function applyCouponAction(
     const cart = await withCartRetry((sdk) => sdk.cart.applyCoupon(code), opts);
     return { success: true, cart };
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Failed to apply coupon";
+    const message = sanitizeCartErrorMessage(
+      err instanceof Error ? err.message : "",
+      "Failed to apply coupon",
+    );
     return { success: false, error: message };
   }
 }
@@ -256,8 +282,10 @@ export async function applyGiftCardAction(
   } catch (err) {
     // The gift-cards plugin surfaces invalid-code / non-19-char failures as a
     // UserError; propagate its message verbatim. Never log the code (T-09-03).
-    const message =
-      err instanceof Error ? err.message : "Failed to apply gift card";
+    const message = sanitizeCartErrorMessage(
+      err instanceof Error ? err.message : "",
+      "Failed to apply gift card",
+    );
     return { success: false, error: message };
   }
 }
@@ -273,8 +301,10 @@ export async function removeCouponAction(
     );
     return { success: true, cart };
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Failed to remove coupon";
+    const message = sanitizeCartErrorMessage(
+      err instanceof Error ? err.message : "",
+      "Failed to remove coupon",
+    );
     return { success: false, error: message };
   }
 }
@@ -291,8 +321,10 @@ export async function selectShippingAction(
     );
     return { success: true, cart };
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Failed to select shipping";
+    const message = sanitizeCartErrorMessage(
+      err instanceof Error ? err.message : "",
+      "Failed to select shipping",
+    );
     return { success: false, error: message };
   }
 }
@@ -308,8 +340,10 @@ export async function updateCustomerAddressAction(
     );
     return { success: true, cart };
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Failed to update customer";
+    const message = sanitizeCartErrorMessage(
+      err instanceof Error ? err.message : "",
+      "Failed to update customer",
+    );
     return { success: false, error: message };
   }
 }

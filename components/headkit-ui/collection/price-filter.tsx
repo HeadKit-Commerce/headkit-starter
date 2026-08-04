@@ -51,9 +51,7 @@ export function PriceFilter() {
     commit("", "");
   };
 
-  const hasValue =
-    (filterValues.price_min ?? "") !== "" ||
-    (filterValues.price_max ?? "") !== "";
+  const hasValue = (filterValues.price_min ?? "") !== "" || (filterValues.price_max ?? "") !== "";
 
   return (
     <div className="flex flex-col gap-3">

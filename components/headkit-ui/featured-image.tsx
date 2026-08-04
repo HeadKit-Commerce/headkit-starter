@@ -44,7 +44,7 @@ const FeaturedImage = ({
           "object-center",
           fit === "contain" ? "object-contain" : "object-cover",
         )}
-        // Match product-grid breakpoints: 1 → 2 (≥480 → 3 ≥md → 4 ≥xl
+        // Match product-grid breakpoints: 1 → 2 ≥480 → 3 ≥md → 4 ≥xl
         sizes="(max-width: 479px) 91vw, (max-width: 767px) 50vw, (max-width: 1279px) 33vw, 25vw"
       />
     </div>
