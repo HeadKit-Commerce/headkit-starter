@@ -16,9 +16,14 @@ export function LoadMore() {
   const loadMoreRef = useRef(loadMore);
   const hasMoreRef = useRef(hasMore);
   const isLoadingAfterRef = useRef(isLoadingAfter);
-  loadMoreRef.current = loadMore;
-  hasMoreRef.current = hasMore;
-  isLoadingAfterRef.current = isLoadingAfter;
+
+  // Keep observer callbacks current without writing refs during render
+  // (eslint react-hooks/refs — "Cannot access refs during render").
+  useEffect(() => {
+    loadMoreRef.current = loadMore;
+    hasMoreRef.current = hasMore;
+    isLoadingAfterRef.current = isLoadingAfter;
+  }, [loadMore, hasMore, isLoadingAfter]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
