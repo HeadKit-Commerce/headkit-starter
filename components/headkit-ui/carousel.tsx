@@ -13,6 +13,8 @@ interface CarouselProps<T> {
   className?: string;
   gap?: string;
   padding?: string;
+  /** Extra classes on the horizontal scroll track (e.g. `justify-center`). */
+  trackClassName?: string;
   itemSizing?: {
     base: string;
     sm?: string;
@@ -43,6 +45,7 @@ const Carousel = <T,>({
   className,
   gap = "gap-[14px]",
   padding = "px-5 md:px-10",
+  trackClassName,
   itemSizing = {
     base: "w-[calc(91.666667%-7px)]",
     sm: "sm:w-[calc(50%-7px)]",
@@ -217,6 +220,7 @@ const Carousel = <T,>({
           "flex overflow-x-auto scroll-smooth",
           gap,
           padding,
+          trackClassName,
           useScrollSnap && "snap-x snap-mandatory",
           "[&::-webkit-scrollbar]:hidden",
         )}

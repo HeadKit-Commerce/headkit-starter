@@ -28,13 +28,14 @@ const BrandCarousel = ({ brands }: Props) => {
   return (
     <Carousel
       items={logos}
-      // Fixed logo slots — default carousel columns (~33% wide) left huge gaps.
-      gap="gap-3 md:gap-4"
+      // Original 160px logo slots; 100px gap between logos (not wide columns).
+      gap="gap-[100px]"
       padding="px-5 md:px-10"
+      trackClassName="justify-center"
       itemSizing={{
-        base: "w-[100px]",
-        sm: "sm:w-[120px]",
-        lg: "lg:w-[120px]",
+        base: "w-[160px]",
+        sm: "sm:w-[160px]",
+        lg: "lg:w-[160px]",
       }}
       showControls={false}
       showScrollbar={false}
@@ -46,7 +47,7 @@ const BrandCarousel = ({ brands }: Props) => {
         return (
           <Link
             href={href}
-            className="relative flex h-[50px] w-full items-center justify-center"
+            className="relative flex h-[50px] w-[160px] items-center justify-center"
             aria-label={name}
           >
             <Image
@@ -54,7 +55,7 @@ const BrandCarousel = ({ brands }: Props) => {
               src={src}
               fill
               quality={65}
-              sizes="120px"
+              sizes="160px"
               className="object-contain object-center"
             />
           </Link>
