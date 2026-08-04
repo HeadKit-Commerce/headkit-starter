@@ -28,7 +28,7 @@ export function LineItemDisplay({
   currency,
   giftCard = null,
 }: LineItemDisplayProps) {
-  const imageSrc = images[0]?.src ?? "/assets/fallback-image.webp";
+  const imageSrc = images[0]?.src ?? "/assets/HeadKit-Fallback.png";
   const imageAlt = images[0]?.alt ?? name;
 
   return (

@@ -21,7 +21,7 @@ interface Props {
 }
 
 /** Local fallback when a product/category has no thumbnail — never fetched from WP. */
-const FALLBACK_IMAGE_SRC = "/assets/fallback-image.webp";
+const FALLBACK_IMAGE_SRC = "/assets/HeadKit-Fallback.png";
 
 const FeaturedImage = ({
   src,
