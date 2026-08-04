@@ -46,6 +46,12 @@ const PER_PAGE = 24;
  * as parent collection pages). Cached so Instant Navigation / runtime prefetch
  * can resolve it with the shared App Shell.
  */
+/** WooCommerce default category — never show as a Shop carousel tile. */
+function isUncategorizedCategory(cat: ProductCategoryDetail): boolean {
+  const slug = cat.slug.trim().toLowerCase();
+  return slug === "uncategorized" || slug === "uncategorised";
+}
+
 async function getRootCategories(): Promise<ProductCategoryDetail[]> {
   "use cache";
   cacheLife({
@@ -54,7 +60,8 @@ async function getRootCategories(): Promise<ProductCategoryDetail[]> {
     expire: 60 * 60 * 24 * 14,
   });
   cacheTag(TAG.collections);
-  return sdk.collections.getCategories();
+  const categories = await sdk.collections.getCategories();
+  return categories.filter((cat) => !isUncategorizedCategory(cat));
 }
 
 /**
