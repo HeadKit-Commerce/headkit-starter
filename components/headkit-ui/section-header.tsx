@@ -1,5 +1,5 @@
-import Link from "next/link";
 import sanitize from "sanitize-html";
+import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { cn } from "@/lib/utils";
 
 interface SectionHeaderProps {

@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { Fragment } from "react";
+import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { convertToRelativePath } from "@/lib/convert-uri";
 
 interface Props {
@@ -9,6 +9,12 @@ interface Props {
     current: boolean;
   }[];
 }
+
+/**
+ * Collection / brand breadcrumbs. Non-current crumbs use InstantLink so
+ * `/shop` and `/collections/*` get runtime Partial Prefetching + click pending
+ * feedback (Next.js 16.3 Instant Navigation).
+ */
 const Breadcrumb = ({ items }: Props) => {
   return (
     <nav aria-label="Breadcrumb">
@@ -20,23 +26,25 @@ const Breadcrumb = ({ items }: Props) => {
                 {item.name}
               </li>
             );
-          } else {
-            return (
-              <Fragment key={i}>
-                <li className="max-w-full shrink">
-                  <Link
-                    href={convertToRelativePath(item?.uri) || ""}
-                    className="cursor-pointer text-gray-800 hover:underline"
-                  >
-                    {item.name}
-                  </Link>
-                </li>
-                <li className="text-gray-800" aria-hidden="true">
-                  {">"}
-                </li>
-              </Fragment>
-            );
           }
+
+          const href = convertToRelativePath(item?.uri) || "";
+          return (
+            <Fragment key={i}>
+              <li className="max-w-full shrink">
+                <InstantLink
+                  href={href}
+                  pendingVariant="text"
+                  className="cursor-pointer text-gray-800 hover:underline"
+                >
+                  {item.name}
+                </InstantLink>
+              </li>
+              <li className="text-gray-800" aria-hidden="true">
+                {">"}
+              </li>
+            </Fragment>
+          );
         })}
       </ol>
     </nav>

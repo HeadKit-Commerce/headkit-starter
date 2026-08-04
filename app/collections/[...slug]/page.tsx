@@ -28,7 +28,10 @@ import { TAG } from "@/lib/cache-tags";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import type { SortKeyType } from "@/components/headkit-ui/collection/utils";
 import type { ProductFilters } from "@headkit/sdk";
-import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
+import {
+  CollectionPageSkeleton,
+  CollectionProductsSkeleton,
+} from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 
 /** Satisfies Cache Components: `generateStaticParams` must not return []. Never a real category slug. */
 const STATIC_GEN_PLACEHOLDER_SLUG = "__hk_static_placeholder";
@@ -69,10 +72,11 @@ function parseCollectionSlug(slug: string[]): {
 }
 
 /**
- * Params-only category read for the STATIC shell (CollectionHeader + breadcrumb
- * JSON-LD). Cached (`'use cache'`) because it depends only on the route param,
- * never on searchParams — so it belongs in the cacheable, Suspense-free shell.
- * Drives both generateMetadata and the page header.
+ * Params-keyed category read for the Instant Navigation shell.
+ * Cached (`'use cache'`) so runtime prefetch (`prefetch={true}` on category
+ * links) can resolve header/breadcrumb/children before click. Must still be
+ * awaited inside `<Suspense>` — awaiting `params` in the default export blocks
+ * the App Shell under Partial Prefetching (Next.js 16.3 Instant Navigation).
  */
 async function getCategoryData(categorySlug: string) {
   "use cache";
@@ -450,21 +454,37 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-export default async function Page({ params, searchParams }: Props) {
+/**
+ * Instant Navigation (Next.js 16.3): keep the route segment sync so Partial
+ * Prefetching can ship an App Shell immediately. Awaiting `params` / category
+ * data in the default export blocks client navigations (blank wait on click).
+ * Stream via Suspense; `'use cache'` category reads pop in early when links use
+ * `prefetch={true}` (see InstantLink / SubcategoryCarousel).
+ *
+ * @see https://nextjs.org/docs/app/guides/instant-navigation
+ */
+export const instant = true;
+
+export default function Page({ params, searchParams }: Props) {
+  return (
+    <Suspense fallback={<CollectionPageSkeleton />}>
+      <CollectionRoute params={params} searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function CollectionRoute({ params, searchParams }: Props) {
   const { slug } = await params;
   if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) return notFound();
   const { categorySlug, filterSlug, categoryBasePath } =
     parseCollectionSlug(slug);
   if (!categorySlug) return notFound();
 
-  // Params-only cached read drives the STATIC shell (no searchParams here).
   // Do NOT catch→notFound here: the SDK returns null (never throws) for a
   // genuinely missing category, so a *thrown* error is always transport/infra
   // — e.g. a transient WooCommerce 429. Swallowing it into notFound() bakes a
-  // sticky 404 into the route cache (14-day stale), which is exactly how nested
-  // category pages 404'd while their data was fine. Let it propagate: Next then
-  // serves the last good render and retries instead of caching a not-found
-  // (mirrors the PDP route). Genuine 404s are still handled by the null check.
+  // sticky 404 into the route cache (14-day stale). Let it propagate: Next then
+  // serves the last good render and retries. Genuine 404s use the null check.
   const { category, productFilter } = await getCategoryData(categorySlug);
   if (!category) return notFound();
 
@@ -472,7 +492,6 @@ export default async function Page({ params, searchParams }: Props) {
 
   return (
     <>
-      {/* Static shell — outside <Suspense>, cacheable. Preserves 03-06 JSON-LD. */}
       <BreadcrumbJsonLD
         items={breadcrumbs.map((b) => ({
           name: b.name,
@@ -486,8 +505,8 @@ export default async function Page({ params, searchParams }: Props) {
         {...(category.thumbnail ? { thumbnail: category.thumbnail } : {})}
         {...(category.children?.length ? { children: category.children } : {})}
       />
-      {/* Dynamic grid — Instant Navigation shell shows CollectionProductsSkeleton
-          while searchParams-driven results stream in. */}
+      {/* Nested Suspense: header (params + use cache) can commit while
+          searchParams-driven catalog streams in. */}
       <Suspense fallback={<CollectionProductsSkeleton />}>
         <CollectionProductsServer
           categorySlug={categorySlug}

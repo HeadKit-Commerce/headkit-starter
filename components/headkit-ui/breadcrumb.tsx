@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { ChevronRightIcon } from "@/components/icon";
+import { InstantLink } from "@/components/headkit-ui/instant-link";
 
 interface BreadcrumbItem {
   name: string;
@@ -11,6 +11,10 @@ interface BreadcrumbProps {
   items: BreadcrumbItem[];
 }
 
+/**
+ * PDP / general breadcrumbs. InstantLink on ancestors so Shop + category
+ * crumbs prefetch under Partial Prefetching (Next.js 16.3 Instant Navigation).
+ */
 export function Breadcrumb({ items }: BreadcrumbProps) {
   if (items.length === 0) return null;
 
@@ -32,12 +36,13 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
                   {item.name}
                 </span>
               ) : (
-                <Link
+                <InstantLink
                   href={item.uri}
+                  pendingVariant="text"
                   className="cursor-pointer transition-colors hover:text-primary"
                 >
                   {item.name}
-                </Link>
+                </InstantLink>
               )}
             </li>
           );
