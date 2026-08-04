@@ -86,7 +86,7 @@ export function ProductImageGallery({
           <Dialog key={index}>
             <DialogTrigger
               className={cn(
-                "relative cursor-pointer overflow-hidden rounded-brand bg-white",
+                "relative block w-full cursor-pointer appearance-none overflow-hidden rounded-brand border-0 bg-white p-0 text-left",
                 index === 0 ? "col-span-2" : "col-span-1",
               )}
             >
@@ -95,12 +95,16 @@ export function ProductImageGallery({
                   <BadgeList isSale={isSale} isNewIn={isNew} />
                 </div>
               )}
-              <div className="relative aspect-square">
+              <div className="relative aspect-square overflow-hidden">
                 <Image
                   src={item.src}
                   alt={item.alt || "Product image"}
                   fill
-                  className={index === 0 ? "object-contain" : "object-cover"}
+                  className={
+                    index === 0
+                      ? "object-contain object-center"
+                      : "object-cover object-top"
+                  }
                   sizes={
                     index === 0
                       ? "(min-width: 768px) 50vw, 100vw"
@@ -130,19 +134,23 @@ export function ProductImageGallery({
         </div>
 
         <Dialog>
-          <DialogTrigger className="w-full">
-            <div className="relative aspect-square bg-white">
+          {/* `block p-0` kills UA button padding/baseline gap that otherwise
+              shows as a white strip under cover slides on mobile Safari. */}
+          <DialogTrigger className="block w-full appearance-none border-0 bg-transparent p-0 text-left">
+            <div className="relative aspect-square overflow-hidden bg-white">
               {/* First image mirrors the desktop hero's sizes so the two
                   priority preloads/fetches dedupe into one (RC-3).
-                  Only the first gallery image uses contain; others cover. */}
+                  First slide contains; later slides cover from the top so
+                  landscape lifestyle shots don't leave a bright floor band. */}
               <Image
                 src={galleryImages[mobileIndex]?.src ?? FALLBACK_IMAGE_SRC}
                 alt={galleryImages[mobileIndex]?.alt || "Product image"}
                 fill
-                className={cn(
-                  "object-center",
-                  mobileIndex === 0 ? "object-contain" : "object-cover",
-                )}
+                className={
+                  mobileIndex === 0
+                    ? "object-contain object-center"
+                    : "object-cover object-top"
+                }
                 sizes={
                   mobileIndex === 0 ? "(min-width: 768px) 50vw, 100vw" : "100vw"
                 }

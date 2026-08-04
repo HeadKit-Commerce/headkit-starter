@@ -1,6 +1,6 @@
 import sanitize from "sanitize-html";
 import { InstantLink } from "@/components/headkit-ui/instant-link";
-import { cn } from "@/lib/utils";
+import { cn, decodeHtmlEntities } from "@/lib/utils";
 
 interface SectionHeaderProps {
   title: string;
@@ -27,7 +27,9 @@ export function SectionHeader({
       )}
     >
       <div className="flex items-center">
-        <h2 className="text-2xl font-semibold text-primary">{title}</h2>
+        <h2 className="text-2xl font-semibold text-primary">
+          {decodeHtmlEntities(title)}
+        </h2>
       </div>
 
       {description ? (
@@ -49,7 +51,7 @@ export function SectionHeader({
             target={allButtonTarget ?? ""}
             className="underline"
           >
-            {allButton}
+            {decodeHtmlEntities(allButton)}
           </InstantLink>
         </div>
       )}

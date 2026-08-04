@@ -3,6 +3,7 @@
 import { Carousel } from "@/components/headkit-ui/carousel";
 import { FeaturedImage } from "@/components/headkit-ui/featured-image";
 import { InstantLink } from "@/components/headkit-ui/instant-link";
+import { decodeHtmlEntities } from "@/lib/utils";
 import type { FeaturedCategory } from "@headkit/sdk";
 
 interface Props {
@@ -25,19 +26,16 @@ const CategoryCarousel = ({ categories }: Props) => {
           ? `/collections/${item.slug}`
           : (item?.uri ?? "/shop");
         const thumbnail = item?.thumbnail?.trim() || null;
+        const name = decodeHtmlEntities(item?.name ?? "");
         return (
           <InstantLink
             href={href}
             pendingVariant="card"
             className="group block"
           >
-            <FeaturedImage
-              src={thumbnail}
-              alt={item?.name}
-              priority={index === 0}
-            />
+            <FeaturedImage src={thumbnail} alt={name} priority={index === 0} />
             <h3 className="pt-3 text-[17px] font-semibold text-primary">
-              {item?.name}
+              {name}
             </h3>
           </InstantLink>
         );
