@@ -167,9 +167,10 @@ export default async function RootLayout({
     >
       <head>
         <meta name="apple-mobile-web-app-title" content={siteName} />
-        {fonts.googleStylesheetHrefs.map((href) => (
-          <link key={href} rel="stylesheet" href={href} />
-        ))}
+        {/*
+          Brand fonts ship only via next/font (self-hosted) + upload @font-face.
+          No remote Google Fonts CSS — unknown dashboard families → Urbanist.
+        */}
         {/* Per-tenant brand token overrides. Empty pieces leave globals.css defaults. */}
         {(brandVars || fonts.fontFaceCss) && (
           <style
@@ -182,8 +183,7 @@ export default async function RootLayout({
       </head>
       {/*
         Do not apply next/font `bodyClassName` here — that class sets
-        `font-family` outside @layer and beats `body { font-family: var(--font-body) }`,
-        so non-curated / mismatched Google body fonts never appear.
+        `font-family` outside @layer and beats `body { font-family: var(--font-body) }`.
         Variable classes on <html> + --font-body CSS vars are enough.
       */}
       <body className="antialiased font-sans">

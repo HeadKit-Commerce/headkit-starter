@@ -18,19 +18,24 @@ const CategoryCarousel = ({ categories }: Props) => {
   return (
     <Carousel
       items={categories}
-      renderItem={(item) => {
+      renderItem={(item, index) => {
         // Prefer slug → storefront route. Raw WP `uri` may be absolute and
         // would navigate off the Next.js app (see e2e wishlist observation).
         const href = item?.slug
           ? `/collections/${item.slug}`
           : (item?.uri ?? "/shop");
+        const thumbnail = item?.thumbnail?.trim() || null;
         return (
           <InstantLink
             href={href}
             pendingVariant="card"
             className="group block"
           >
-            <FeaturedImage src={item?.thumbnail} alt={item?.name} />
+            <FeaturedImage
+              src={thumbnail}
+              alt={item?.name}
+              priority={index === 0}
+            />
             <h3 className="pt-3 text-[17px] font-semibold text-primary">
               {item?.name}
             </h3>

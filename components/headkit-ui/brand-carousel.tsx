@@ -33,6 +33,8 @@ const BrandCarousel = ({ brands }: Props) => {
                 alt={item?.name ?? ""}
                 src={src}
                 fill
+                quality={65}
+                sizes="160px"
                 className="object-contain object-center"
               />
             ) : (

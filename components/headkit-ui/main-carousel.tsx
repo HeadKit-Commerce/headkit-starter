@@ -58,11 +58,14 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                         // variants on every viewport. One art-directed
                         // <picture> lets the browser pick exactly one source;
                         // only the first slide is eager/high-priority.
+                        // Intrinsic dims guide the optimizer; CSS fills the
+                        // hero box. quality 75 keeps AVIF/WebP lean vs 100.
                         const common = {
                           alt: carousel.header,
                           sizes: "100vw",
-                          width: 0,
-                          height: 0,
+                          width: 1920,
+                          height: 1080,
+                          quality: 75 as const,
                           priority: index === 0,
                         };
                         const {
@@ -72,6 +75,8 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                           props: { srcSet: mobileSrcSet, ...mobileRest },
                         } = getImageProps({
                           ...common,
+                          width: 768,
+                          height: 960,
                           src: carousel.mobileImage || carousel.image,
                         });
                         return (
@@ -87,7 +92,10 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                                 {...mobileRest}
                                 srcSet={mobileSrcSet}
                                 alt={carousel.header}
-                                className="object-cover w-full h-full"
+                                className="h-full w-full object-cover"
+                                // Explicit dims avoid CLS; object-cover crops.
+                                width={768}
+                                height={960}
                               />
                             </picture>
                             {/* Contrast scrim (md:+ only, where text overlays

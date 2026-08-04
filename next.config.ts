@@ -92,7 +92,12 @@ const nextConfig: NextConfig = {
     staticGenerationMaxConcurrency: staticGenConcurrency,
   },
   images: {
-    qualities: [50, 75, 100],
+    // Prefer modern formats everywhere the optimizer runs (PLP cards, heroes,
+    // logos). AVIF first, WebP fallback — never serve source PNG/JPEG bytes
+    // when the optimizer can negotiate a smaller format.
+    formats: ["image/avif", "image/webp"],
+    // 65 = PLP/carousel default (FeaturedImage); 50 = cart thumbs; 75 = heroes.
+    qualities: [50, 65, 75, 100],
     remotePatterns,
     // Next 16 blocks image URLs that resolve to a private/loopback IP (SSRF
     // protection, default false). Local WP media is on http://localhost:8090,

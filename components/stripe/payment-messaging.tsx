@@ -105,12 +105,7 @@ export function PaymentMethodMessaging({
     <Elements
       stripe={stripePromise}
       options={{
-        fonts: [
-          {
-            cssSrc:
-              "https://fonts.googleapis.com/css2?family=Urbanist&display=swap",
-          },
-        ],
+        // Inherit storefront fonts — no remote Google Fonts CSS for Stripe.
         appearance: {
           theme: "flat",
           variables: {
@@ -119,7 +114,7 @@ export function PaymentMethodMessaging({
             colorTextSecondary: "#23102E",
             fontSizeBase: "16px",
             spacingUnit: "10px",
-            fontFamily: '"Urbanist", system-ui, sans-serif',
+            fontFamily: "var(--font-body), system-ui, sans-serif",
           },
         },
         currency: normalizedCurrency.toLowerCase(),

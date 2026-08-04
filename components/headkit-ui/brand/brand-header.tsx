@@ -32,6 +32,8 @@ export function BrandHeader({
                 src={thumbnailUrl}
                 alt={decodedName}
                 fill
+                quality={65}
+                sizes="160px"
                 className="object-contain object-left"
               />
             </div>

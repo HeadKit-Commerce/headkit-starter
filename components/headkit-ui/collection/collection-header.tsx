@@ -54,6 +54,7 @@ export function CollectionHeader({
               className="object-cover object-center"
               sizes="(max-width: 768px) 100vw, 60vw"
               priority
+              quality={75}
             />
           </div>
         </div>

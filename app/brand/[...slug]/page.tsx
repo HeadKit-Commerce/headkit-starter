@@ -11,7 +11,10 @@ import { buildProductListFilter } from "@/components/headkit-ui/collection/utils
 import { getCachedCatalogPage } from "@/lib/catalog-cache";
 import { makeSeoMetadata } from "@/lib/make-metadata";
 import type { SortKeyType } from "@/components/headkit-ui/collection/utils";
-import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
+import {
+  CollectionPageSkeleton,
+  CollectionProductsSkeleton,
+} from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 
 /**
  * Satisfies Cache Components: `generateStaticParams` must not return [].
@@ -28,8 +31,8 @@ const PER_PAGE = 24;
 
 /**
  * Params-only brand shell (header + facet options). Uses durable `"use cache"`
- * (not remote) so Cache Components can prerender it into the HTML shell after
- * ENG-859 removed segment `loading.tsx`. Mirrors collections `getCategoryData`.
+ * so Cache Components can prerender it into the HTML shell. Mirrors collections
+ * `getCategoryData`.
  */
 async function getBrandShell(brandSlug: string) {
   "use cache";
@@ -89,7 +92,7 @@ async function BrandProductsServer({
 }
 
 /**
- * Prerender known brand PLPs so awaiting `params` in the page shell is valid
+ * Prerender known brand PLPs so awaiting `params` under Suspense is valid
  * under Cache Components (blocking-route docs: generateStaticParams).
  */
 export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
@@ -125,43 +128,54 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 /**
- * Static shell = BrandHeader from `"use cache"` (FAQ-like CDN HTML).
- * Dynamic grid streams under Suspense (sale/shop landing pattern).
+ * Instant Navigation (Next.js 16.3): keep the route segment sync so Partial
+ * Prefetching can ship an App Shell immediately. Awaiting `params` / brand
+ * data in the default export blocks client navigations (same as collections).
+ *
+ * @see https://nextjs.org/docs/app/guides/instant-navigation
  */
-export default async function Page({
-  params,
-  searchParams,
-}: Props): Promise<ReactNode> {
+export const instant = true;
+
+export default function Page({ params, searchParams }: Props) {
+  return (
+    <Suspense fallback={<CollectionPageSkeleton variant="brand" />}>
+      <BrandRoute params={params} searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function BrandRoute({ params, searchParams }: Props) {
   const { slug } = await params;
   if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) return notFound();
   const brandSlug = slug[slug.length - 1];
   if (!brandSlug) return notFound();
 
-  try {
-    const { brand } = await getBrandShell(brandSlug);
-    if (!brand) return notFound();
+  // Do NOT catch→notFound on thrown errors: transport/infra failures must not
+  // bake sticky 404s into the route cache. Genuine misses use the null check.
+  const { brand } = await getBrandShell(brandSlug);
+  if (!brand) return notFound();
 
-    return (
-      <>
-        <BrandHeader
-          name={brand.name}
-          description={brand.description}
-          thumbnailUrl={brand.thumbnail || brand.image?.src}
-          breadcrumbs={[
-            { name: "Home", uri: "/", current: false },
-            { name: "Brands", uri: "/brand", current: false },
-            { name: brand.name, uri: `/brand/${brandSlug}`, current: true },
-          ]}
+  // Thumbnail only — no WP image fallback hunt when thumb is null.
+  const thumbnailUrl = brand.thumbnail?.trim() || undefined;
+
+  return (
+    <>
+      <BrandHeader
+        name={brand.name}
+        description={brand.description}
+        {...(thumbnailUrl ? { thumbnailUrl } : {})}
+        breadcrumbs={[
+          { name: "Home", uri: "/", current: false },
+          { name: "Brands", uri: "/brand", current: false },
+          { name: brand.name, uri: `/brand/${brandSlug}`, current: true },
+        ]}
+      />
+      <Suspense fallback={<CollectionProductsSkeleton />}>
+        <BrandProductsServer
+          brandSlug={brandSlug}
+          searchParams={searchParams}
         />
-        <Suspense fallback={<CollectionProductsSkeleton />}>
-          <BrandProductsServer
-            brandSlug={brandSlug}
-            searchParams={searchParams}
-          />
-        </Suspense>
-      </>
-    );
-  } catch {
-    return notFound();
-  }
+      </Suspense>
+    </>
+  );
 }

@@ -204,18 +204,18 @@ export function Footer({
           <div className="flex">
             <div className="shrink-0 pr-4">
               <Link href="/" aria-label="home">
-                <div className="relative h-auto w-full max-w-[60px] hover:opacity-70">
+                <div className="relative h-9 w-9 shrink-0 hover:opacity-70">
                   {iconUrl ? (
                     <Image
                       src={iconUrl}
                       alt={siteName ? decodeHtmlEntities(siteName) : "Logo"}
-                      sizes="20vw"
-                      width={0}
-                      height={0}
-                      className="h-9 w-auto"
+                      width={36}
+                      height={36}
+                      sizes="36px"
+                      className="h-9 w-9 object-contain"
                     />
                   ) : (
-                    <HeadkitMonoSvg className="h-9 w-auto text-primary" />
+                    <HeadkitMonoSvg className="h-9 w-9 text-primary" />
                   )}
                 </div>
               </Link>

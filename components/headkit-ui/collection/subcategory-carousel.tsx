@@ -36,7 +36,7 @@ export function SubcategoryCarousel({ subcategories }: Props) {
           sm: "sm:w-[calc(50%-7px)]",
           lg: "lg:w-[calc(25%-10.5px)]",
         }}
-        renderItem={(child) => {
+        renderItem={(child, index) => {
           // Always use the storefront catch-all route — WP `uri` can be an
           // absolute origin URL that would leave the Next.js app.
           const href = `/collections/${child.slug}`;
@@ -44,11 +44,14 @@ export function SubcategoryCarousel({ subcategories }: Props) {
           const description = child.description
             ? plainDescription(child.description)
             : "";
+          // First visible card is a likely LCP when thumbs exist on customer sites.
+          const thumbnail = child.thumbnail?.trim() || null;
           return (
             <InstantLink href={href} pendingVariant="card" className="group block">
               <FeaturedImage
-                src={child.thumbnail || null}
+                src={thumbnail}
                 alt={name}
+                priority={index === 0}
                 // Figma subcategory cards are landscape (~433×290 ≈ 3:2).
                 className="aspect-[433/290] rounded-brand"
               />

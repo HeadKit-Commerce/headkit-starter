@@ -1,7 +1,9 @@
 /**
  * Curated Google Fonts via next/font/google for storefront branding.
- * Only fonts listed here are loaded through next/font; other Google slugs
- * fall back to a stylesheet link, and uploads use @font-face.
+ *
+ * Only fonts selected in the dashboard that map to this list are shipped
+ * (self-hosted by Next.js). Unknown Google families fall back to Urbanist —
+ * no remote `fonts.googleapis.com` stylesheets. Uploads use @font-face.
  */
 
 import {
@@ -19,6 +21,7 @@ import {
   Source_Sans_3,
   DM_Sans,
   Space_Grotesk,
+  Instrument_Sans,
 } from "next/font/google";
 import type { NextFontWithVariable } from "next/dist/compiled/@next/font";
 
@@ -100,6 +103,11 @@ const spaceGrotesk = Space_Grotesk({
   display: "swap",
   variable: "--font-slot-space-grotesk",
 });
+const instrumentSans = Instrument_Sans({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-slot-instrument-sans",
+});
 
 /** Default storefront body font (Urbanist). */
 export const defaultBodyFont = urbanist;
@@ -124,6 +132,14 @@ const CURATED: Record<string, CuratedFont> = {
   "DM+Sans": { font: dmSans, cssVar: "--font-slot-dm-sans" },
   "Space Grotesk": { font: spaceGrotesk, cssVar: "--font-slot-space-grotesk" },
   "Space+Grotesk": { font: spaceGrotesk, cssVar: "--font-slot-space-grotesk" },
+  "Instrument Sans": {
+    font: instrumentSans,
+    cssVar: "--font-slot-instrument-sans",
+  },
+  "Instrument+Sans": {
+    font: instrumentSans,
+    cssVar: "--font-slot-instrument-sans",
+  },
 };
 
 export type BrandingFontInput = {
@@ -142,8 +158,6 @@ export type ResolvedBrandFonts = {
   cssVars: string;
   /** Extra <style> for @font-face uploads. */
   fontFaceCss: string;
-  /** Google Fonts stylesheet URLs for non-curated google selections. */
-  googleStylesheetHrefs: string[];
 };
 
 function pickCurated(font: BrandingFontInput): CuratedFont | null {
@@ -162,11 +176,6 @@ function cssFamilyLiteral(family: string): string {
   return trimmed.includes(" ") ? `"${trimmed}"` : trimmed;
 }
 
-function googleCssHref(slug: string): string {
-  const family = slug.trim().replace(/ /g, "+");
-  return `https://fonts.googleapis.com/css2?family=${family}:wght@400;500;600;700&display=swap`;
-}
-
 function fontFormat(url: string): string | null {
   const clean = url.split("?")[0]?.toLowerCase() ?? "";
   if (clean.endsWith(".woff2")) return "woff2";
@@ -178,7 +187,9 @@ function fontFormat(url: string): string | null {
 
 /**
  * Resolve heading / subheading / body fonts from branding into next/font
- * classes, CSS variables, upload @font-face rules, and optional Google links.
+ * classes, CSS variables, and upload @font-face rules.
+ *
+ * Non-curated Google selections fall back to Urbanist (no remote CSS).
  */
 export function resolveBrandFonts(input: {
   heading: BrandingFontInput;
@@ -198,7 +209,8 @@ export function resolveBrandFonts(input: {
   };
 
   // Only ship Urbanist's next/font CSS when a slot actually needs it (curated
-  // Urbanist, or fallback when a slot has no curated/google/upload source).
+  // Urbanist, or fallback when a slot has no curated/upload source — including
+  // unknown Google families that used to load via fonts.googleapis.com).
   // Always-including it forced an unused webfont download + swap CLS (ENG-856).
   const needsUrbanistFallback = (
     Object.keys(slots) as Array<keyof typeof slots>
@@ -206,9 +218,6 @@ export function resolveBrandFonts(input: {
     const font = slots[slot];
     if (curatedBySlot[slot]) return false;
     if (font.source === "upload" && font.fileUrl) return false;
-    if (font.source === "google" && (font.googleSlug || font.family)) {
-      return false;
-    }
     return true;
   });
 
@@ -231,7 +240,6 @@ export function resolveBrandFonts(input: {
 
   const cssVarLines: string[] = [];
   const fontFaceParts: string[] = [];
-  const googleHrefs: string[] = [];
 
   (Object.keys(slots) as Array<keyof typeof slots>).forEach((slot) => {
     const font = slots[slot];
@@ -253,15 +261,7 @@ export function resolveBrandFonts(input: {
       return;
     }
 
-    if (font.source === "google" && (font.googleSlug || font.family)) {
-      const slug = font.googleSlug || font.family;
-      googleHrefs.push(googleCssHref(slug));
-      cssVarLines.push(
-        `${cssVar}: ${cssFamilyLiteral(font.family || font.googleSlug)}, sans-serif;`,
-      );
-      return;
-    }
-
+    // Unknown Google family or empty slot → Urbanist via next/font only.
     cssVarLines.push(`${cssVar}: var(--font-slot-urbanist);`);
   });
 
@@ -270,6 +270,5 @@ export function resolveBrandFonts(input: {
     bodyClassName: bodyFont.className,
     cssVars: cssVarLines.join(" "),
     fontFaceCss: fontFaceParts.join(""),
-    googleStylesheetHrefs: [...new Set(googleHrefs)],
   };
 }

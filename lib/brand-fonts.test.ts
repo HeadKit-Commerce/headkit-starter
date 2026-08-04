@@ -23,6 +23,7 @@ vi.mock("next/font/google", () => ({
   Source_Sans_3: mockFont("--font-slot-source-sans"),
   DM_Sans: mockFont("--font-slot-dm-sans"),
   Space_Grotesk: mockFont("--font-slot-space-grotesk"),
+  Instrument_Sans: mockFont("--font-slot-instrument-sans"),
 }));
 
 const empty = {
@@ -51,7 +52,6 @@ describe("resolveBrandFonts", () => {
       "--font-body: var(--font-slot-urbanist)",
     );
     expect(resolved.variableClassNames).toContain("--font-slot-urbanist");
-    expect(resolved.googleStylesheetHrefs).toHaveLength(0);
     expect(resolved.fontFaceCss).toBe("");
   });
 
@@ -116,5 +116,52 @@ describe("resolveBrandFonts", () => {
     expect(resolved.fontFaceCss).toContain("@font-face");
     expect(resolved.fontFaceCss).toContain("Brand Sans");
     expect(resolved.cssVars).toContain("--font-body:");
+  });
+
+  it("uses curated next/font for Instrument Sans (no remote Google CSS)", async () => {
+    const { resolveBrandFonts } = await import("@/lib/brand-fonts");
+    const resolved = resolveBrandFonts({
+      heading: {
+        source: "google",
+        family: "Instrument Sans",
+        googleSlug: "Instrument Sans",
+        fileUrl: "",
+      },
+      subheading: empty,
+      body: {
+        source: "google",
+        family: "Instrument Sans",
+        googleSlug: "Instrument Sans",
+        fileUrl: "",
+      },
+    });
+    expect(resolved.cssVars).toContain(
+      "--font-heading: var(--font-slot-instrument-sans)",
+    );
+    expect(resolved.cssVars).toContain(
+      "--font-body: var(--font-slot-instrument-sans)",
+    );
+    expect(resolved.variableClassNames).toContain(
+      "--font-slot-instrument-sans",
+    );
+  });
+
+  it("falls back to Urbanist for unknown Google families (no remote CSS)", async () => {
+    const { resolveBrandFonts } = await import("@/lib/brand-fonts");
+    const resolved = resolveBrandFonts({
+      heading: {
+        source: "google",
+        family: "Some Obscure Display",
+        googleSlug: "Some Obscure Display",
+        fileUrl: "",
+      },
+      subheading: empty,
+      body: empty,
+    });
+    expect(resolved.cssVars).toContain(
+      "--font-heading: var(--font-slot-urbanist)",
+    );
+    expect(resolved.variableClassNames).toContain("--font-slot-urbanist");
+    expect(JSON.stringify(resolved)).not.toContain("fonts.googleapis.com");
   });
 });

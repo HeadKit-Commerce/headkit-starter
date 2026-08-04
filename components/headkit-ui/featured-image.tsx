@@ -6,16 +6,21 @@ interface Props {
   alt?: string;
   className?: string;
   /**
-   * Mark this image as the likely LCP element (first-row grid cards). Emits a
-   * preload + eager fetchPriority=high instead of the default lazy loading
-   * (RC-2 perf fix — a lazy-loaded LCP image is discovered late and
-   * deprioritized by the browser).
+   * Mark this image as the likely LCP element (first-row grid / carousel cards).
+   * Emits a preload + eager fetchPriority=high instead of the default lazy
+   * loading.
    */
   priority?: boolean;
   /** `contain` keeps full product shots visible (PLP cards); `cover` crops to fill. */
   fit?: "cover" | "contain";
+  /**
+   * Optimizer quality (must be listed in `next.config` images.qualities).
+   * PLP/carousel default 65 balances visual quality vs bytes; heroes can pass 75.
+   */
+  quality?: 50 | 65 | 75 | 100;
 }
 
+/** Local fallback when a product/category has no thumbnail — never fetched from WP. */
 const FALLBACK_IMAGE_SRC = "/assets/fallback-image.webp";
 
 const FeaturedImage = ({
@@ -24,8 +29,11 @@ const FeaturedImage = ({
   className,
   priority = false,
   fit = "cover",
+  quality = 65,
 }: Props) => {
-  const imageSrc = src || FALLBACK_IMAGE_SRC;
+  // Empty/whitespace means "no image" — use the storefront fallback asset only.
+  const trimmed = src?.trim();
+  const imageSrc = trimmed ? trimmed : FALLBACK_IMAGE_SRC;
   return (
     <div
       className={cn(
@@ -40,6 +48,7 @@ const FeaturedImage = ({
         fill
         priority={priority}
         fetchPriority={priority ? "high" : "auto"}
+        quality={quality}
         className={cn(
           "object-center",
           fit === "contain" ? "object-contain" : "object-cover",
