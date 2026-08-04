@@ -13,6 +13,7 @@ import {
 import { makeSeoMetadata } from "@/lib/make-metadata";
 import { getBranding } from "@/lib/branding";
 import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
+import type { ProductCategoryDetail } from "@headkit/sdk";
 
 const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 
@@ -41,6 +42,22 @@ interface Props {
 const PER_PAGE = 24;
 
 /**
+ * Root product categories for the Shop header carousel (same SubcategoryCarousel
+ * as parent collection pages). Cached so Instant Navigation / runtime prefetch
+ * can resolve it with the shared App Shell.
+ */
+async function getRootCategories(): Promise<ProductCategoryDetail[]> {
+  "use cache";
+  cacheLife({
+    stale: 60 * 60 * 24 * 14,
+    revalidate: 60 * 60,
+    expire: 60 * 60 * 24 * 14,
+  });
+  cacheTag(TAG.collections);
+  return sdk.collections.getCategories();
+}
+
+/**
  * Durable, shared catalog read for the PLP. Keyed on a STABLE normalized
  * filter key + page (never raw searchParams — that would explode the cache
  * key and re-evaluate per request on Fluid Compute). Filters are public
@@ -64,6 +81,24 @@ async function getFilters() {
   cacheLife("minutes");
   cacheTag("catalog:filters");
   return sdk.collections.getFilters();
+}
+
+/**
+ * Shop header with top-level category carousel. `'use cache'` via
+ * getRootCategories — safe outside Suspense under Cache Components.
+ */
+async function ShopHeader() {
+  const rootCategories = await getRootCategories();
+  return (
+    <CollectionHeader
+      name="Shop"
+      breadcrumbs={[
+        { name: "Home", uri: "/", current: false },
+        { name: "Shop", uri: "/shop", current: true },
+      ]}
+      {...(rootCategories.length > 0 ? { children: rootCategories } : {})}
+    />
+  );
 }
 
 /**
@@ -97,18 +132,17 @@ async function ProductResults({ searchParams }: Props) {
   );
 }
 
+/**
+ * Instant Navigation (Next.js 16.3): sync default export. Cached Shop header
+ * (incl. root category carousel) can commit with the App Shell; searchParams-
+ * driven grid streams under Suspense.
+ */
+export const instant = true;
+
 export default function Page({ searchParams }: Props) {
   return (
     <>
-      {/* Static shell — outside <Suspense>, cacheable */}
-      <CollectionHeader
-        name="Shop"
-        breadcrumbs={[
-          { name: "Home", uri: "/", current: false },
-          { name: "Shop", uri: "/shop", current: true },
-        ]}
-      />
-      {/* Dynamic grid — Instant Navigation shell streams results under Suspense. */}
+      <ShopHeader />
       <Suspense fallback={<CollectionProductsSkeleton />}>
         <ProductResults searchParams={searchParams} />
       </Suspense>

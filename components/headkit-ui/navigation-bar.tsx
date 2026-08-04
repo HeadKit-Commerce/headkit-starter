@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { ChevronDownIcon, MenuIcon, XIcon } from "@/components/icon";
 import {
   NavigationMenu,
@@ -315,15 +316,19 @@ function DesktopMenuSection({
                   Drive navigation explicitly so click → parent uri while the
                   href stays for SEO/a11y and hover still opens the MegaMenu.
                 */}
-                <Link
+                <InstantLink
                   href={removeTrailingSlash(item.uri)}
+                  pendingVariant="text"
                   onClick={(e) => {
+                    // Radix Trigger preventDefault()s before Next Link navigates;
+                    // drive navigation explicitly while keeping prefetch={true}
+                    // for Instant Navigation / Partial Prefetching.
                     e.preventDefault();
                     router.push(removeTrailingSlash(item.uri));
                   }}
                 >
                   {decodeHtmlEntities(item.label)}
-                </Link>
+                </InstantLink>
               </NavigationMenuTrigger>
               <NavigationMenuContent className="w-screen! rounded-none! bg-brand-bg">
                 <MegaMenu items={item.children} />
@@ -331,8 +336,9 @@ function DesktopMenuSection({
             </>
           ) : (
             <NavigationMenuLink asChild>
-              <Link
+              <InstantLink
                 href={removeTrailingSlash(item.uri)}
+                pendingVariant="text"
                 className={cn(
                   navigationMenuTriggerStyle(),
                   "font-body text-primary hover:text-primary",
@@ -341,7 +347,7 @@ function DesktopMenuSection({
                 )}
               >
                 {decodeHtmlEntities(item.label)}
-              </Link>
+              </InstantLink>
             </NavigationMenuLink>
           )}
         </NavigationMenuItem>
@@ -360,24 +366,26 @@ function MegaMenu({ items }: { items: NavMenuItem[] }) {
       {items.map((item) => (
         <li key={item.id}>
           <NavigationMenuLink asChild>
-            <Link
+            <InstantLink
               href={removeTrailingSlash(item.uri)}
+              pendingVariant="text"
               className="font-semibold text-primary hover:opacity-80 uppercase block mb-2"
             >
               {decodeHtmlEntities(item.label)}
-            </Link>
+            </InstantLink>
           </NavigationMenuLink>
           {item.children.length > 0 && (
             <ul className="flex flex-col gap-1">
               {item.children.map((child) => (
                 <li key={child.id}>
                   <NavigationMenuLink asChild>
-                    <Link
+                    <InstantLink
                       href={removeTrailingSlash(child.uri)}
+                      pendingVariant="text"
                       className="text-primary/70 hover:opacity-80 text-sm block py-0.5"
                     >
                       {child.label}
-                    </Link>
+                    </InstantLink>
                   </NavigationMenuLink>
                 </li>
               ))}
@@ -444,34 +452,37 @@ function MobileMenuItem({
             <div key={child.id}>
               {child.children.length > 0 ? (
                 <>
-                  <Link
+                  <InstantLink
                     href={removeTrailingSlash(child.uri)}
+                    pendingVariant="text"
                     className="font-medium text-primary hover:opacity-70 block py-1"
                     {...(onSelect ? { onClick: onSelect } : {})}
                   >
                     {child.label}
-                  </Link>
+                  </InstantLink>
                   <div className="flex flex-col gap-1 pl-3">
                     {child.children.map((sub) => (
-                      <Link
+                      <InstantLink
                         key={sub.id}
                         href={removeTrailingSlash(sub.uri)}
+                        pendingVariant="text"
                         className="text-primary/70 hover:opacity-70 text-[15px] block py-0.5"
                         {...(onSelect ? { onClick: onSelect } : {})}
                       >
                         {sub.label}
-                      </Link>
+                      </InstantLink>
                     ))}
                   </div>
                 </>
               ) : (
-                <Link
+                <InstantLink
                   href={removeTrailingSlash(child.uri)}
+                  pendingVariant="text"
                   className="text-primary/70 hover:opacity-70 text-lg block py-1"
                   {...(onSelect ? { onClick: onSelect } : {})}
                 >
                   {child.label}
-                </Link>
+                </InstantLink>
               )}
             </div>
           ))}
@@ -481,8 +492,9 @@ function MobileMenuItem({
   }
 
   return (
-    <Link
+    <InstantLink
       href={removeTrailingSlash(item.uri)}
+      pendingVariant="text"
       className={cn(
         "text-xl font-semibold font-body text-primary hover:opacity-70",
         isHighlightedItem(item, highlightedLinks) &&
@@ -491,6 +503,6 @@ function MobileMenuItem({
       {...(onSelect ? { onClick: onSelect } : {})}
     >
       {decodeHtmlEntities(item.label)}
-    </Link>
+    </InstantLink>
   );
 }

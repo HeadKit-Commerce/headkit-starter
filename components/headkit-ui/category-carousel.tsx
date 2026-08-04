@@ -1,26 +1,42 @@
 "use client";
 
 import { Carousel } from "@/components/headkit-ui/carousel";
-import Link from "next/link";
 import { FeaturedImage } from "@/components/headkit-ui/featured-image";
+import { InstantLink } from "@/components/headkit-ui/instant-link";
 import type { FeaturedCategory } from "@headkit/sdk";
 
 interface Props {
   categories: Pick<FeaturedCategory, "name" | "slug" | "uri" | "thumbnail">[];
 }
 
+/**
+ * Homepage / editor "Shop by Category" carousel.
+ * Prefetch={true} (via InstantLink) so Partial Prefetching can warm each
+ * collection PLP before click (Next.js 16.3 Instant Navigation).
+ */
 const CategoryCarousel = ({ categories }: Props) => {
   return (
     <Carousel
       items={categories}
-      renderItem={(item) => (
-        <Link href={item?.uri ?? `/shop/categories/${item?.slug}`}>
-          <FeaturedImage src={item?.thumbnail} alt={item?.name} />
-          <h3 className="pt-3 text-[17px] font-semibold text-primary">
-            {item?.name}
-          </h3>
-        </Link>
-      )}
+      renderItem={(item) => {
+        // Prefer slug → storefront route. Raw WP `uri` may be absolute and
+        // would navigate off the Next.js app (see e2e wishlist observation).
+        const href = item?.slug
+          ? `/collections/${item.slug}`
+          : (item?.uri ?? "/shop");
+        return (
+          <InstantLink
+            href={href}
+            pendingVariant="card"
+            className="group block"
+          >
+            <FeaturedImage src={item?.thumbnail} alt={item?.name} />
+            <h3 className="pt-3 text-[17px] font-semibold text-primary">
+              {item?.name}
+            </h3>
+          </InstantLink>
+        );
+      }}
       className="w-full"
       showPagination={false}
     />

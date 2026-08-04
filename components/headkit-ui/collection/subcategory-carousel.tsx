@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import sanitize from "sanitize-html";
 import { Carousel } from "@/components/headkit-ui/carousel";
 import { FeaturedImage } from "@/components/headkit-ui/featured-image";
+import { InstantLink } from "@/components/headkit-ui/instant-link";
 import type { ProductCategoryDetail } from "@headkit/sdk";
 import { decodeHtmlEntities } from "@/lib/utils";
 
@@ -16,6 +16,10 @@ function plainDescription(html: string): string {
   return decodeHtmlEntities(stripped).replace(/\s+/g, " ").trim();
 }
 
+/**
+ * Parent-category child carousel. InstantLink + prefetch={true} warms each
+ * collection PLP for Next.js 16.3 Instant Navigation / Partial Prefetching.
+ */
 export function SubcategoryCarousel({ subcategories }: Props) {
   return (
     <div className="mt-8 pt-8">
@@ -33,13 +37,15 @@ export function SubcategoryCarousel({ subcategories }: Props) {
           lg: "lg:w-[calc(25%-10.5px)]",
         }}
         renderItem={(child) => {
-          const uri = child.uri || `/collections/${child.slug}`;
+          // Always use the storefront catch-all route — WP `uri` can be an
+          // absolute origin URL that would leave the Next.js app.
+          const href = `/collections/${child.slug}`;
           const name = decodeHtmlEntities(child.name);
           const description = child.description
             ? plainDescription(child.description)
             : "";
           return (
-            <Link href={uri} className="group block">
+            <InstantLink href={href} pendingVariant="card" className="group block">
               <FeaturedImage
                 src={child.thumbnail || null}
                 alt={name}
@@ -54,7 +60,7 @@ export function SubcategoryCarousel({ subcategories }: Props) {
                   {description}
                 </p>
               ) : null}
-            </Link>
+            </InstantLink>
           );
         }}
       />

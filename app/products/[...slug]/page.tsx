@@ -14,6 +14,7 @@ import { makeSeoMetadata, resolveStoreName } from "@/lib/make-metadata";
 import { getBranding, getBrandingAssets } from "@/lib/branding";
 import { isColorAttrSlug } from "@/components/headkit-ui/collection/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ProductPageShell } from "./product-page-shell";
 
 const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 
@@ -23,6 +24,12 @@ const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 // a transient backend error must not fail the whole tenant deploy. Mirrors the
 // pattern in app/collections/[...slug]/page.tsx.
 const STATIC_GEN_PLACEHOLDER_SLUG = "__hk_static_placeholder";
+
+/**
+ * WooCommerce shop archive slug (WP product permalinks use `/shop/…`).
+ * Keep PDP crumbs aligned with category/shop pages — never `/products`.
+ */
+const SHOP_BREADCRUMB = { name: "Shop", href: "/shop" } as const;
 
 type Props = {
   params: Promise<{ slug: string[] }>;
@@ -68,25 +75,6 @@ function mapRelatedToProduct(r: RelatedProduct): Product {
 
 function StockSkeleton() {
   return <Skeleton className="h-5 w-24" />;
-}
-
-function ProductDetailSkeleton() {
-  return (
-    <div className="px-5 py-8 md:px-10">
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-        <Skeleton className="aspect-square w-full rounded-brand" />
-        <div className="space-y-4">
-          <Skeleton className="h-4 w-48" />
-          <Skeleton className="h-8 w-3/4" />
-          <Skeleton className="h-6 w-32" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-5/6" />
-          <Skeleton className="h-10 w-full rounded-brand-button" />
-          <Skeleton className="h-12 w-full rounded-brand-button" />
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
@@ -188,7 +176,22 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-export default async function ProductPage({ params }: Props) {
+/**
+ * Instant Navigation (Next.js 16.3): keep the route segment sync so Partial
+ * Prefetching can ship an App Shell immediately. Awaiting `params` / product
+ * data in the default export blocks the shell (and is a known Partial
+ * Prefetching footgun). Stream via Suspense; `'use cache'` product reads can
+ * still pop in early when links use `prefetch={true}`.
+ */
+export default function ProductPage({ params }: Props) {
+  return (
+    <Suspense fallback={<ProductPageShell />}>
+      <ProductPageContent params={params} />
+    </Suspense>
+  );
+}
+
+async function ProductPageContent({ params }: Props) {
   const { slug } = await params;
   const productSlug = slug[0]!;
   const colorSlug = slug[1]; // undefined for simple products or base variable URL
@@ -213,7 +216,7 @@ export default async function ProductPage({ params }: Props) {
 
   const breadcrumbs = [
     { name: "Home", href: "/" },
-    { name: "Products", href: "/products" },
+    SHOP_BREADCRUMB,
     ...(product.categories?.length
       ? [
           {

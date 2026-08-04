@@ -117,7 +117,17 @@ export const ProductCard = ({
       <div className="absolute left-2 top-2 z-10">
         <BadgeList isSale={product?.onSale ?? false} isNewIn={isNew} />
       </div>
-      <Link href={uri} aria-label="Featured Image" className="relative block">
+      {/*
+        prefetch={true}: with Partial Prefetching, default links only pull the
+        route App Shell. Opt into per-URL prefetch so `'use cache'` PDP data
+        can resolve before click (Next.js 16.3 Instant Navigations).
+      */}
+      <Link
+        href={uri}
+        prefetch={true}
+        aria-label="Featured Image"
+        className="relative block"
+      >
         <LinkPendingOverlay />
         <FeaturedImage
           src={imageSelected}
@@ -137,7 +147,11 @@ export const ProductCard = ({
           )}
         >
           <div className="min-w-0">
-            <Link href={uri} className="relative cursor-pointer">
+            <Link
+              href={uri}
+              prefetch={true}
+              className="relative cursor-pointer"
+            >
               <LinkPendingOverlay />
               {/* Homepage carousels expect product titles as h3 under section h2.
                   Visual size stays class-driven. */}

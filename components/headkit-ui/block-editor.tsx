@@ -115,7 +115,8 @@ const BlockEditor = ({ blocks, section }: Props) => {
                     categories={categories.map((c) => ({
                       name: c.name,
                       slug: c.slug,
-                      uri: c.uri ?? `/shop/categories/${c.slug}`,
+                      // Storefront catch-all — never absolute WP permalinks.
+                      uri: `/collections/${c.slug}`,
                       thumbnail: c.thumbnail ?? "",
                     }))}
                   />

@@ -1,5 +1,5 @@
-import Link from "next/link";
 import sanitize from "sanitize-html";
+import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { cn } from "@/lib/utils";
 
 interface SectionHeaderProps {
@@ -43,13 +43,14 @@ export function SectionHeader({
 
       {allButton && (
         <div className="flex items-center justify-start font-semibold md:justify-end">
-          <Link
+          <InstantLink
             href={allButtonPath ?? "/"}
+            pendingVariant="text"
             target={allButtonTarget ?? ""}
             className="underline"
           >
             {allButton}
-          </Link>
+          </InstantLink>
         </div>
       )}
     </div>
