@@ -25,6 +25,7 @@ describe("TAG builders emit the D2 taxonomy strings", () => {
     expect(TAG.product("blue-tee")).toBe("headkit:product:blue-tee");
     expect(TAG.brand("nike")).toBe("headkit:brand:nike");
     expect(TAG.post("launch")).toBe("headkit:post:launch");
+    expect(TAG.project("showroom")).toBe("headkit:project:showroom");
     expect(TAG.page("faq")).toBe("headkit:page:faq");
   });
 
@@ -33,6 +34,7 @@ describe("TAG builders emit the D2 taxonomy strings", () => {
     expect(TAG.collections).toBe("headkit:collections");
     expect(TAG.brands).toBe("headkit:brands");
     expect(TAG.posts).toBe("headkit:posts");
+    expect(TAG.projects).toBe("headkit:projects");
     expect(TAG.pages).toBe("headkit:pages");
   });
 
@@ -242,11 +244,13 @@ const EXPECTED_TAG_SHAPE: readonly string[] = [
   "headkit:collection:",
   "headkit:brand:",
   "headkit:post:",
+  "headkit:project:",
   "headkit:page:",
   "headkit:products",
   "headkit:collections",
   "headkit:brands",
   "headkit:posts",
+  "headkit:projects",
   "headkit:pages",
   "headkit:catalog:cat:",
   "headkit:menu:",
@@ -265,11 +269,13 @@ describe("TAG taxonomy parity guard (anchors the 09.5-06 PHP mirror)", () => {
       TAG.collection("x").replace(/x$/, ""),
       TAG.brand("x").replace(/x$/, ""),
       TAG.post("x").replace(/x$/, ""),
+      TAG.project("x").replace(/x$/, ""),
       TAG.page("x").replace(/x$/, ""),
       TAG.products,
       TAG.collections,
       TAG.brands,
       TAG.posts,
+      TAG.projects,
       TAG.pages,
       TAG.catalogCat("x").replace(/x$/, ""),
       TAG.menu("X").replace(/X$/, ""),
