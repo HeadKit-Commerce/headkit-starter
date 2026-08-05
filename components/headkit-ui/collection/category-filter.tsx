@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@/lib/utils";
+import { cn, decodeHtmlEntities } from "@/lib/utils";
 import { useCollection } from "./collection-context";
 
 interface CategoryFilterProps {
@@ -35,7 +35,7 @@ export function CategoryFilter({ categories }: CategoryFilterProps) {
               }}
             />
             <span className={cn("text-sm", isSelected && "font-bold")}>
-              {cat.name}
+              {decodeHtmlEntities(cat.name)}
             </span>
           </label>
         );

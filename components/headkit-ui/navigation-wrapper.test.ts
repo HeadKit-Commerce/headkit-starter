@@ -106,6 +106,7 @@ beforeEach(() => {
     { name: "", description: null, items: [] },
     { name: "", description: null, items: [] },
     { name: "", description: null, items: [] },
+    { name: "", description: null, items: [] },
   ]);
 });
 
@@ -133,18 +134,19 @@ describe("fetchMenu — tagged by location, days backstop", () => {
 });
 
 describe("getFooterMenus — TAG.footer + all footer locations", () => {
-  it("tags footer + FOOTER/FOOTER_2/FOOTER_POLICY at cacheLife('days')", async () => {
+  it("tags footer + FOOTER/FOOTER_2/FOOTER_3/FOOTER_POLICY at cacheLife('days')", async () => {
     await getFooterMenus();
     expect(cacheTag).toHaveBeenCalledWith(
       "headkit:footer",
       "headkit:menu:FOOTER",
       "headkit:menu:FOOTER_2",
+      "headkit:menu:FOOTER_3",
       "headkit:menu:FOOTER_POLICY",
     );
     expect(cacheLife).toHaveBeenCalledWith("days");
   });
 
-  it("fetches all three footer locations and returns stable slots", async () => {
+  it("fetches all four footer locations and returns stable slots", async () => {
     menuGetMenus.mockResolvedValueOnce([
       {
         name: "Shop",
@@ -152,6 +154,7 @@ describe("getFooterMenus — TAG.footer + all footer locations", () => {
         items: [{ id: "1", label: "Shop", uri: "/shop", children: [] }],
       },
       { name: "Company", description: null, items: [] },
+      { name: "Support", description: null, items: [] },
       {
         name: "Paralel Furniture Pty Ltd",
         description: null,
@@ -166,6 +169,7 @@ describe("getFooterMenus — TAG.footer + all footer locations", () => {
         items: [{ id: "1", label: "Shop", uri: "/shop" }],
       },
       { location: "FOOTER_2", name: "Company", items: [] },
+      { location: "FOOTER_3", name: "Support", items: [] },
       {
         location: "FOOTER_POLICY",
         name: "Paralel Furniture Pty Ltd",
@@ -175,6 +179,7 @@ describe("getFooterMenus — TAG.footer + all footer locations", () => {
     expect(menuGetMenus).toHaveBeenCalledWith([
       "FOOTER",
       "FOOTER_2",
+      "FOOTER_3",
       "FOOTER_POLICY",
     ]);
     expect(menuGet).not.toHaveBeenCalled();

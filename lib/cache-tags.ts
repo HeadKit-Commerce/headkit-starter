@@ -38,6 +38,7 @@ export const KNOWN_MENU_LOCATIONS = [
   "PRE_HEADER",
   "FOOTER",
   "FOOTER_2",
+  "FOOTER_3",
   "FOOTER_POLICY",
 ] as const;
 

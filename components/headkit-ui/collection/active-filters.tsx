@@ -1,6 +1,7 @@
 "use client";
 
 import { XIcon } from "@/components/icon";
+import { decodeHtmlEntities } from "@/lib/utils";
 import { useCollection } from "./collection-context";
 import { SortKeyLabels, formatOptionName, type SortKeyType } from "./utils";
 
@@ -12,7 +13,7 @@ export function ActiveFilters() {
   for (const cat of filterValues.categories) {
     const category = productFilter.categories?.find((c) => c?.slug === cat);
     chips.push({
-      label: category?.name ?? cat,
+      label: decodeHtmlEntities(category?.name ?? cat),
       onRemove: () =>
         setFilterValues({
           ...filterValues,
@@ -24,7 +25,7 @@ export function ActiveFilters() {
 
   for (const brand of filterValues.brands) {
     chips.push({
-      label: brand,
+      label: decodeHtmlEntities(brand),
       onRemove: () =>
         setFilterValues({
           ...filterValues,
@@ -44,7 +45,7 @@ export function ActiveFilters() {
     );
     for (const val of values) {
       chips.push({
-        label: `${attr?.name ?? slug}: ${formatOptionName(val)}`,
+        label: `${decodeHtmlEntities(attr?.name ?? slug)}: ${formatOptionName(val)}`,
         onRemove: () => {
           const next = { ...filterValues.attributes };
           next[slug] = values.filter((v) => v !== val);
