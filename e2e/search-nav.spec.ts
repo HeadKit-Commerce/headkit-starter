@@ -148,10 +148,13 @@ test.describe("Search + navigation (P1-26..P1-30, P1-36, P1-39)", () => {
 
     await page.getByRole("button", { name: "Open menu" }).click();
     // Childless top-level items ("Shop") render as plain links in the sheet.
-    // NOTE: the hidden DESKTOP nav also carries an /shop anchor — scope to the
-    // VISIBLE one inside the opened sheet.
+    // `:visible` alone is NOT enough: the FOOTER also carries a visible /shop
+    // anchor, and it is the one this used to match — the open sheet then
+    // intercepts the click ("subtree intercepts pointer events"). Scope to the
+    // dialog so only the sheet's own link can match.
     const shopLink = page
-      .locator('a[href="/shop"]:visible')
+      .getByRole("dialog")
+      .locator('a[href="/shop"]')
       .filter({ hasText: /^Shop$/i })
       .first();
     await expect(
@@ -169,15 +172,17 @@ test.describe("Search + navigation (P1-26..P1-30, P1-36, P1-39)", () => {
     await expect(footer, "no <footer> rendered").toBeVisible({
       timeout: 15_000,
     });
-    // The local seed carries no WP footer menus, so the guaranteed links are
-    // the social row + newsletter block; assert the footer is populated
-    // rather than an empty shell.
+    // The local seed carries no WP footer menus, so the guaranteed content is
+    // the social row; assert the footer is populated rather than an empty
+    // shell.
     const linkCount = await footer.locator("a[href]").count();
     expect(linkCount, "footer rendered zero links").toBeGreaterThan(0);
-    await expect(
-      footer.getByPlaceholder(/enter your email/i),
-      "footer newsletter input missing",
-    ).toBeVisible();
+    // The newsletter block is NOT guaranteed: layout.tsx gates it on
+    // `emailMarketing.enabled` (showFooterSubscribe), which the local stack
+    // does not turn on. Asserting it here made a config-dependent feature look
+    // like a footer invariant. Covering it needs its own spec that enables the
+    // config first — tracked rather than asserted conditionally, because an
+    // if-present assertion passes silently when the feature disappears.
   });
 
   test("P1-36: /posts lands on /news (legacy blog URL kept working)", async ({

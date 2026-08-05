@@ -52,7 +52,12 @@ function drawer(page: Page) {
  * badge only while the drawer is CLOSED.
  */
 function cartBadge(page: Page) {
-  return page.locator('button[aria-label="Cart"] span');
+  // TWO cart triggers exist by design and both sit in the DOM at all times:
+  // HeaderActions (desktop) and CartTriggerButton inside a `md:hidden`
+  // NavigationMenuItem (the mobile sticky cart). CSS hides one per breakpoint,
+  // so an unscoped locator matches both and fails Playwright strict mode even
+  // though the badge is correct in each. Scope to the visible one.
+  return page.locator('button[aria-label="Cart"]:visible span');
 }
 
 /** Close the drawer (Radix Sheet closes on Escape). */
