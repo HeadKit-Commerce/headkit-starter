@@ -51,6 +51,14 @@ function drawer(page: Page) {
  * so role-based lookups on the header fail — use a CSS path and assert the
  * badge only while the drawer is CLOSED.
  */
+/**
+ * The VISIBLE cart trigger. Two exist in the DOM at every breakpoint (see
+ * cartBadge), so an unscoped locator fails Playwright strict mode.
+ */
+function openCartTrigger(page: Page) {
+  return page.locator('button[aria-label="Cart"]:visible');
+}
+
 function cartBadge(page: Page) {
   // TWO cart triggers exist by design and both sit in the DOM at all times:
   // HeaderActions (desktop) and CartTriggerButton inside a `md:hidden`
@@ -131,7 +139,7 @@ test.describe("Cart ops: UI add-to-cart, drawer ops, persistence (Gap 4)", () =>
       cartBadge(page),
       "cart badge lost after reload — cart persistence (hk-cart-token) broken",
     ).toHaveText("1", { timeout: 20_000 });
-    await page.locator('button[aria-label="Cart"]').click();
+    await openCartTrigger(page).click();
     await expect(
       drawer(page).getByText(SIMPLE_NAME).first(),
       "cart line lost after reload",
