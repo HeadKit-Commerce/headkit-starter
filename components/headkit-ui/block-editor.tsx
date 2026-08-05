@@ -128,14 +128,18 @@ const BlockEditor = ({ blocks, section }: Props) => {
           data.cssClasses.includes("headkit-hilight") ||
           data.cssClasses.includes("headkit-callout")
         ) {
+          const buttons =
+            data.buttons && data.buttons.length > 0
+              ? data.buttons
+              : data.button
+                ? [data.button]
+                : [];
           return (
             <Callout
               key={index}
               title={data.title}
               content={data.description}
-              buttonText={data.button?.text}
-              buttonLink={data.button?.url}
-              buttonTarget={data.button?.linkTarget}
+              buttons={buttons}
             />
           );
         }
@@ -304,39 +308,38 @@ const BlockEditor = ({ blocks, section }: Props) => {
 interface CalloutProps {
   title: string;
   content: string;
-  buttonText: string | null | undefined;
-  buttonLink: string | null | undefined;
-  buttonTarget: string | null | undefined;
+  buttons: Array<{
+    text?: string | null;
+    url?: string | null;
+    linkTarget?: string | null;
+  }>;
 }
 
-/** Versatile callout / promo section (HeadKit Callout + legacy Hilight). */
-const Callout = ({
-  title,
-  content,
-  buttonText,
-  buttonLink,
-  buttonTarget,
-}: CalloutProps) => {
+/** Versatile callout / promo — title + body, then CTA button(s) on a row below. */
+const Callout = ({ title, content, buttons }: CalloutProps) => {
   return (
-    <div className="relative grid h-fit w-full grid-cols-1 gap-8 px-5 md:px-10 py-14 md:grid-cols-3">
-      <div className="md:col-span-2">
+    <div className="relative flex h-fit w-full flex-col gap-6 px-5 py-14 md:px-10">
+      <div>
         <h2 className="mb-5 text-3xl font-semibold text-primary">{title}</h2>
         <div
           dangerouslySetInnerHTML={{ __html: content }}
-          className="prose text-primary max-w-full"
+          className="prose max-w-full text-primary"
         />
       </div>
-      <div className="flex items-center">
-        <a
-          href={buttonLink ?? "#"}
-          target={buttonTarget ?? ""}
-          className="w-full"
-        >
-          <Button variant="outline" fullWidth>
-            {buttonText}
-          </Button>
-        </a>
-      </div>
+      {buttons.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-3">
+          {buttons.map((btn, i) => (
+            <a
+              key={`${btn.url ?? ""}-${btn.text ?? ""}-${i}`}
+              href={btn.url ?? "#"}
+              target={btn.linkTarget ?? undefined}
+              className="inline-flex"
+            >
+              <Button variant="outline">{btn.text}</Button>
+            </a>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 };
