@@ -94,9 +94,7 @@ const Carousel = <T,>({
     setFitsViewport(!overflows);
     setCanScrollPrev(scrollLeft > 0);
     setCanScrollNext(scrollLeft < scrollWidth - clientWidth - 1);
-    setScrollProgress(
-      overflows ? scrollLeft / (scrollWidth - clientWidth) : 0,
-    );
+    setScrollProgress(overflows ? scrollLeft / (scrollWidth - clientWidth) : 0);
     if (useScrollSnap) {
       // Each snap slide spans the full container, so a slide's width is the
       // total scrollable width divided by the slide count. Clamp so the active

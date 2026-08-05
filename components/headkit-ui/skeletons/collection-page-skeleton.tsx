@@ -29,7 +29,10 @@ export function CollectionPageSkeleton({
               className="mb-3 h-16 w-32 rounded-brand"
             />
           ) : null}
-          <Skeleton animated={false} className="mb-[10px] h-8 w-44 max-w-full" />
+          <Skeleton
+            animated={false}
+            className="mb-[10px] h-8 w-44 max-w-full"
+          />
           <Skeleton animated={false} className="h-4 w-full max-w-sm" />
         </div>
         {variant === "collection" ? (

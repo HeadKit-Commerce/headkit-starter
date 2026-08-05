@@ -10,11 +10,7 @@ type SkeletonProps = HTMLAttributes<HTMLDivElement> & {
   animated?: boolean;
 };
 
-function Skeleton({
-  className,
-  animated = true,
-  ...props
-}: SkeletonProps) {
+function Skeleton({ className, animated = true, ...props }: SkeletonProps) {
   return (
     <div
       className={cn(

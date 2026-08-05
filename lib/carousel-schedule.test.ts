@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  filterActiveSlides,
-  isSlideActiveOn,
-} from "./carousel-schedule";
+import { filterActiveSlides, isSlideActiveOn } from "./carousel-schedule";
 
 describe("carousel-schedule", () => {
   const noon = new Date("2026-08-04T12:00:00.000Z");
@@ -13,15 +10,11 @@ describe("carousel-schedule", () => {
   });
 
   it("hides slides before startDate", () => {
-    expect(
-      isSlideActiveOn({ startDate: "2026-08-10" }, noon),
-    ).toBe(false);
+    expect(isSlideActiveOn({ startDate: "2026-08-10" }, noon)).toBe(false);
   });
 
   it("shows slides on startDate and after", () => {
-    expect(
-      isSlideActiveOn({ startDate: "2026-08-04" }, noon),
-    ).toBe(true);
+    expect(isSlideActiveOn({ startDate: "2026-08-04" }, noon)).toBe(true);
   });
 
   it("hides slides after endDate (inclusive calendar day)", () => {

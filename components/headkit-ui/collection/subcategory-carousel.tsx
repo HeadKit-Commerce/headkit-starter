@@ -47,7 +47,11 @@ export function SubcategoryCarousel({ subcategories }: Props) {
           // First visible card is a likely LCP when thumbs exist on customer sites.
           const thumbnail = child.thumbnail?.trim() || null;
           return (
-            <InstantLink href={href} pendingVariant="card" className="group block">
+            <InstantLink
+              href={href}
+              pendingVariant="card"
+              className="group block"
+            >
               <FeaturedImage
                 src={thumbnail}
                 alt={name}

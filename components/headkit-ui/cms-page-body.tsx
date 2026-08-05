@@ -54,11 +54,7 @@ export async function CmsPageBody({
       <div className="space-y-8">
         {formIds.map((formId) =>
           formFallback ? (
-            <GravityForm
-              key={formId}
-              formId={formId}
-              fallback={formFallback}
-            />
+            <GravityForm key={formId} formId={formId} fallback={formFallback} />
           ) : (
             <GravityForm key={formId} formId={formId} />
           ),
