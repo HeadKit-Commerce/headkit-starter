@@ -116,7 +116,17 @@ export default async function Page({ params }: Props) {
   return (
     <div className="px-5 md:px-10 my-10 min-h-[50vh]">
       <BreadcrumbJsonLD items={breadcrumbItems} />
-      <CmsPageBody title={page.title} html={page.content} />
+      <CmsPageBody
+        title={page.title}
+        html={page.content}
+        editorBlocks={
+          (page.editorBlocks ?? []) as Array<{
+            products?: unknown[];
+            attrs?: Record<string, unknown> | null;
+            queryType?: string | null;
+          }>
+        }
+      />
     </div>
   );
 }

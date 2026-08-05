@@ -73,6 +73,13 @@ export default async function ContactPage(): Promise<React.ReactElement> {
       <CmsPageBody
         title={title}
         html={html}
+        editorBlocks={
+          (page?.editorBlocks ?? []) as Array<{
+            products?: unknown[];
+            attrs?: Record<string, unknown> | null;
+            queryType?: string | null;
+          }>
+        }
         formFallback={<ContactFormFallback />}
       />
     </div>
