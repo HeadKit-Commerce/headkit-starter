@@ -110,10 +110,7 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                         priority: index === 0,
                       };
                       const {
-                        props: {
-                          srcSet: desktopSrcSet,
-                          sizes: desktopSizes,
-                        },
+                        props: { srcSet: desktopSrcSet, sizes: desktopSizes },
                       } = getImageProps({ ...common, src: slide.image });
                       const {
                         props: { srcSet: mobileSrcSet, ...mobileRest },

@@ -159,8 +159,7 @@ const BlockEditor = ({ blocks, section }: Props) => {
 
         if (data.cssClasses.includes("headkit-brand-carousel")) {
           const brands = (data.brands ?? []).filter(
-            (b) =>
-              typeof b.thumbnail === "string" && b.thumbnail.trim() !== "",
+            (b) => typeof b.thumbnail === "string" && b.thumbnail.trim() !== "",
           );
           return (
             <div className="py-[30px] overflow-hidden" key={index}>

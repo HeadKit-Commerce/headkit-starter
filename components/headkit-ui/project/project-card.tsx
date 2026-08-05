@@ -7,9 +7,7 @@ interface ProjectCardProps {
   project: ProjectSummaryFieldsFragment;
 }
 
-export function ProjectCard({
-  project,
-}: ProjectCardProps): React.ReactElement {
+export function ProjectCard({ project }: ProjectCardProps): React.ReactElement {
   const href = project.uri ?? `/projects/${project.slug}/`;
   const title = decodeHtmlEntities(project.title ?? "");
   const meta = [
@@ -36,7 +34,9 @@ export function ProjectCard({
           <h3 className="text-[17px] font-semibold text-primary">{title}</h3>
         </div>
         {meta.length > 0 ? (
-          <p className="mt-1 text-sm text-muted-foreground">{meta.join(" · ")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {meta.join(" · ")}
+          </p>
         ) : null}
       </div>
     </Link>

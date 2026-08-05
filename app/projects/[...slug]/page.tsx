@@ -68,9 +68,7 @@ export default async function Page({
     const gallery = project.gallery ?? [];
     const siteName = resolveStoreName(storeSettings.name);
     const metaBits = [
-      project.brand?.name
-        ? decodeHtmlEntities(project.brand.name)
-        : null,
+      project.brand?.name ? decodeHtmlEntities(project.brand.name) : null,
       project.location ? decodeHtmlEntities(project.location) : null,
     ].filter(Boolean);
 

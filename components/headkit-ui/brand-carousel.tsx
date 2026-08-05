@@ -11,9 +11,7 @@ interface Props {
 }
 
 /** Logo strip: only brands with a real logo (skips name-only top-brand fallbacks). */
-function brandsWithLogos(
-  brands: Props["brands"],
-): Props["brands"] {
+function brandsWithLogos(brands: Props["brands"]): Props["brands"] {
   return brands.filter(
     (b) => typeof b?.thumbnail === "string" && b.thumbnail.trim() !== "",
   );

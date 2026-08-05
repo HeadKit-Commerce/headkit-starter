@@ -46,9 +46,7 @@ async function getSearchFilters() {
  * Dynamic island: awaits searchParams inside Suspense so Instant Navigation
  * can show the static Search shell immediately.
  */
-async function SearchResults({
-  searchParams,
-}: Props): Promise<ReactNode> {
+async function SearchResults({ searchParams }: Props): Promise<ReactNode> {
   const sp = await searchParams;
   const q = sp.q ?? "";
   const page = sp.page ? parseInt(sp.page) : 1;
