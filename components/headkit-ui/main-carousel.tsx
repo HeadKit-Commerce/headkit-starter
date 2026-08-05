@@ -15,8 +15,6 @@ interface Props {
 type HeroSlide = HeroCarouselItem & {
   video?: string | null;
   mobileVideo?: string | null;
-  startDate?: string | null;
-  endDate?: string | null;
 };
 
 function slideVideo(slide: HeroSlide, mobile: boolean): string {
@@ -26,13 +24,8 @@ function slideVideo(slide: HeroSlide, mobile: boolean): string {
   return slide.video || "";
 }
 
-/**
- * Presentational only. Slide SCHEDULING is applied upstream by
- * `ScheduledMainCarousel`, which evaluates it at request time — doing it here
- * would call `new Date()` during render, which Next 16 rejects while
- * prerendering a Client Component.
- */
 export const MainCarousel = ({ carouselItems }: Props) => {
+  // Schedule windows are applied in WordPress (headkit_query_active_carousels).
   const items = carouselItems as HeroSlide[];
 
   if (items.length === 0) return null;

@@ -20,7 +20,7 @@ import {
   resolveStoreName,
 } from "@/lib/make-metadata";
 import { getBranding, getBrandingAssets } from "@/lib/branding";
-import { ScheduledMainCarousel } from "@/components/headkit-ui/scheduled-main-carousel";
+import { MainCarousel } from "@/components/headkit-ui/main-carousel";
 import { BlockEditor } from "@/components/headkit-ui/block-editor";
 import { EditorialContent } from "@/components/headkit-ui/editorial-content";
 import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
@@ -151,12 +151,18 @@ export async function HomeContent() {
   const showHardcodedBrands =
     !hasEditorSectionClass(editorBlocks, "headkit-brand-carousel") &&
     featuredBrands.length > 0;
+  // Prefer WP hero pattern placement over the hardcoded top carousel.
+  const showHardcodedHero =
+    !hasEditorSectionClass(editorBlocks, "headkit-hero-carousel") &&
+    carousels.length > 0;
 
   return (
     <>
       {featuredProducts.length > 0 && (
         <CarouselProductJsonLD products={featuredProducts} />
       )}
+
+      {showHardcodedHero && <MainCarousel carouselItems={carousels} />}
 
       {/* WP front-page content in editor document order */}
       {segments.map((seg, index) => {
@@ -245,55 +251,12 @@ export async function HomeContent() {
   );
 }
 
-/**
- * Which hero slides the homepage OWNS, before any schedule is applied.
- *
- * Cached, because the slide set and the "does WP already place a hero pattern"
- * decision are both content, not time. The SCHEDULE is deliberately not applied
- * here — see ScheduledMainCarousel.
- */
-export async function getHeroCarouselSlides(): Promise<HeroCarouselItem[]> {
-  "use cache";
-  cacheLife("days");
-  cacheTag(...HOME_TAGS);
-
-  const { homepage } = await getHomepageData();
-  const carousels = (homepage?.carousels ??
-    []) as unknown as HeroCarouselItem[];
-  if (carousels.length === 0) return [];
-
-  const { blocks: editorBlocks } = processHomepageContent(
-    homepage?.page?.content ?? "",
-    (homepage?.page?.editorBlocks ?? []) as Array<{
-      products?: unknown[];
-      attrs?: Record<string, unknown> | null;
-      queryType?: string | null;
-    }>,
-  );
-
-  // Prefer WP hero pattern placement over the hardcoded top carousel.
-  return hasEditorSectionClass(editorBlocks, "headkit-hero-carousel")
-    ? []
-    : carousels;
-}
-
-export default async function Home() {
-  // The hero is hoisted OUT of HomeContent on purpose. Its schedule must be
-  // read at request time, and `connection()` is illegal anywhere inside a
-  // `'use cache'` subtree — a Suspense boundary in there does not create a
-  // dynamic hole, it is simply cached along with everything else:
-  //
-  //   Route / used `connection()` inside "use cache".
-  //
-  // So the request-time part lives here, in the uncached route component.
-  const heroSlides = await getHeroCarouselSlides();
-
-  // HomeContent stays cached and un-Suspended — rendering it without a
-  // boundary bakes it into the prerendered shell in document order, so the
-  // homepage is visible without JavaScript. Only the hero streams.
+export default function Home() {
+  // HomeContent is fully cached ('use cache') — rendering it without a
+  // Suspense boundary bakes it into the prerendered shell in document order,
+  // so the homepage is visible without JavaScript.
   return (
     <div className="overflow-hidden">
-      <ScheduledMainCarousel carouselItems={heroSlides} />
       <HomeContent />
     </div>
   );

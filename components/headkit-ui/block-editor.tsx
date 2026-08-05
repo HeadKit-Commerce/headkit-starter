@@ -5,12 +5,14 @@ import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
 import { CategoryCarousel } from "@/components/headkit-ui/category-carousel";
 import { BrandCarousel } from "@/components/headkit-ui/brand-carousel";
 import { PostCarousel } from "@/components/headkit-ui/post/post-carousel";
+import { ProjectCarousel } from "@/components/headkit-ui/project/project-carousel";
 import { MainCarousel } from "@/components/headkit-ui/main-carousel";
 import { sanitizeContent } from "@/lib/sanitize-content";
 import type { ProcessedEditorBlock } from "@/lib/process-editor-blocks";
 import type {
   Product,
   PostSummaryFieldsFragment,
+  ProjectSummaryFieldsFragment,
   HeroCarouselItem,
 } from "@headkit/sdk";
 
@@ -74,6 +76,46 @@ function toPostSummaries(
   }));
 }
 
+function toProjectSummaries(
+  projects: NonNullable<ProcessedEditorBlock["projects"]>,
+): ProjectSummaryFieldsFragment[] {
+  return projects.map((project) => ({
+    __typename: "Project" as const,
+    id: String(project.id ?? project.slug),
+    title: project.title,
+    slug: project.slug,
+    excerpt: project.excerpt ?? "",
+    date: project.date ?? "",
+    uri: project.uri ?? `/projects/${project.slug}/`,
+    location: project.location ?? null,
+    featuredImage: project.featuredImage?.src
+      ? {
+          __typename: "Image" as const,
+          src: project.featuredImage.src,
+          alt: project.featuredImage.alt ?? project.title,
+          width: project.featuredImage.width ?? 0,
+          height: project.featuredImage.height ?? 0,
+        }
+      : null,
+    brand: project.brand?.name
+      ? {
+          __typename: "ProjectBrand" as const,
+          id: String(project.brand.id ?? project.brand.slug ?? ""),
+          name: project.brand.name,
+          slug: project.brand.slug ?? "",
+          thumbnail: project.brand.thumbnail ?? "",
+        }
+      : null,
+    tags: (project.tags ?? []).map((t) => ({
+      __typename: "ProjectTag" as const,
+      id: String(t.id ?? t.slug ?? ""),
+      name: t.name ?? "",
+      slug: t.slug ?? "",
+      count: t.count ?? 0,
+    })),
+  }));
+}
+
 const BlockEditor = ({ blocks, section }: Props) => {
   const result =
     section === undefined
@@ -86,14 +128,18 @@ const BlockEditor = ({ blocks, section }: Props) => {
           data.cssClasses.includes("headkit-hilight") ||
           data.cssClasses.includes("headkit-callout")
         ) {
+          const buttons =
+            data.buttons && data.buttons.length > 0
+              ? data.buttons
+              : data.button
+                ? [data.button]
+                : [];
           return (
             <Callout
               key={index}
               title={data.title}
               content={data.description}
-              buttonText={data.button?.text}
-              buttonLink={data.button?.url}
-              buttonTarget={data.button?.linkTarget}
+              buttons={buttons}
             />
           );
         }
@@ -215,6 +261,25 @@ const BlockEditor = ({ blocks, section }: Props) => {
           );
         }
 
+        if (data.cssClasses.includes("headkit-project-carousel")) {
+          const projects = data.projects ?? [];
+          if (projects.length === 0) return null;
+          return (
+            <div className="py-[30px] overflow-hidden" key={index}>
+              <SectionHeader
+                title={data.title}
+                description={data.description}
+                allButton={data.button?.text ?? ""}
+                allButtonPath={data.button?.url ?? ""}
+                className="px-5 md:px-10"
+              />
+              <div className="mt-5">
+                <ProjectCarousel projects={toProjectSummaries(projects)} />
+              </div>
+            </div>
+          );
+        }
+
         if (isMediaBlock(data.cssClasses) || data.html) {
           const clean = sanitizeContent(data.html ?? "");
           if (!clean.trim()) return null;
@@ -249,39 +314,38 @@ const BlockEditor = ({ blocks, section }: Props) => {
 interface CalloutProps {
   title: string;
   content: string;
-  buttonText: string | null | undefined;
-  buttonLink: string | null | undefined;
-  buttonTarget: string | null | undefined;
+  buttons: Array<{
+    text?: string | null;
+    url?: string | null;
+    linkTarget?: string | null;
+  }>;
 }
 
-/** Versatile callout / promo section (HeadKit Callout + legacy Hilight). */
-const Callout = ({
-  title,
-  content,
-  buttonText,
-  buttonLink,
-  buttonTarget,
-}: CalloutProps) => {
+/** Versatile callout / promo — title + body, then CTA button(s) on a row below. */
+const Callout = ({ title, content, buttons }: CalloutProps) => {
   return (
-    <div className="relative grid h-fit w-full grid-cols-1 gap-8 px-5 md:px-10 py-14 md:grid-cols-3">
-      <div className="md:col-span-2">
+    <div className="relative flex h-fit w-full flex-col gap-6 px-5 py-14 md:px-10">
+      <div>
         <h2 className="mb-5 text-3xl font-semibold text-primary">{title}</h2>
         <div
           dangerouslySetInnerHTML={{ __html: content }}
-          className="prose text-primary max-w-full"
+          className="prose max-w-full text-primary"
         />
       </div>
-      <div className="flex items-center">
-        <a
-          href={buttonLink ?? "#"}
-          target={buttonTarget ?? ""}
-          className="w-full"
-        >
-          <Button variant="outline" fullWidth>
-            {buttonText}
-          </Button>
-        </a>
-      </div>
+      {buttons.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-3">
+          {buttons.map((btn, i) => (
+            <a
+              key={`${btn.url ?? ""}-${btn.text ?? ""}-${i}`}
+              href={btn.url ?? "#"}
+              target={btn.linkTarget ?? undefined}
+              className="inline-flex"
+            >
+              <Button variant="outline">{btn.text}</Button>
+            </a>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 };

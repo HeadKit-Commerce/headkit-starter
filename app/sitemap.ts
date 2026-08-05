@@ -207,6 +207,23 @@ async function makePostSitemap(): Promise<SitemapItem[]> {
   }
 }
 
+async function makeProjectSitemap(): Promise<SitemapItem[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("headkit:projects");
+  try {
+    const result = await headkit.projects.list({ perPage: 200 });
+    return result.projects.map((p) => ({
+      url: `${SITE_URL}/projects/${p.slug}`,
+      lastModified: p.date ? new Date(p.date) : new Date(),
+      changeFrequency: "weekly" as const,
+      priority: 0.8,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Sitemap off = remove completely (no entries). robots.ts omits the Sitemap line.
   const { seoSettings } = await getBranding();
@@ -214,13 +231,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     return [];
   }
 
-  const [productSitemap, collectionSitemap, brandSitemap, postSitemap] =
-    await Promise.all([
-      makeProductSitemap(),
-      makeCollectionSitemap(),
-      makeBrandSitemap(),
-      makePostSitemap(),
-    ]);
+  const [
+    productSitemap,
+    collectionSitemap,
+    brandSitemap,
+    postSitemap,
+    projectSitemap,
+  ] = await Promise.all([
+    makeProductSitemap(),
+    makeCollectionSitemap(),
+    makeBrandSitemap(),
+    makePostSitemap(),
+    makeProjectSitemap(),
+  ]);
 
   const staticPages: SitemapItem[] = [
     {
@@ -245,6 +268,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: `${SITE_URL}/news`,
       lastModified: new Date(),
       changeFrequency: "daily",
+      priority: 0.7,
+    },
+    {
+      url: `${SITE_URL}/projects`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
       priority: 0.7,
     },
     {
@@ -291,5 +320,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...collectionSitemap,
     ...brandSitemap,
     ...postSitemap,
+    ...projectSitemap,
   ];
 }

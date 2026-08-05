@@ -64,6 +64,35 @@ export type HydratedPost = {
   categories?: Array<{ id?: string; name?: string; slug?: string }>;
 };
 
+/** Project shape hydrated into attrs.projects (Project summary-like). */
+export type HydratedProject = {
+  id?: string | number;
+  title: string;
+  slug: string;
+  excerpt?: string;
+  date?: string;
+  uri?: string | null;
+  location?: string | null;
+  featuredImage?: {
+    src?: string | null;
+    alt?: string | null;
+    width?: number | null;
+    height?: number | null;
+  } | null;
+  brand?: {
+    id?: string | number;
+    name?: string;
+    slug?: string;
+    thumbnail?: string | null;
+  } | null;
+  tags?: Array<{
+    id?: string | number;
+    name?: string;
+    slug?: string;
+    count?: number;
+  }>;
+};
+
 /** Storefront block with optional section HTML for media / passthrough render. */
 export type ProcessedEditorBlock = EditorBlock & {
   /** Full outer section markup (sanitized at render time). */
@@ -74,6 +103,10 @@ export type ProcessedEditorBlock = EditorBlock & {
   brands?: HydratedBrand[];
   /** Posts from WP hydration (post carousel / latest-posts). */
   posts?: HydratedPost[];
+  /** Projects from WP hydration (project carousel). */
+  projects?: HydratedProject[];
+  /** All CTA buttons in the section (callout may have multiple). */
+  buttons?: ContentButton[];
 };
 
 /** Ordered homepage CMS segment (HeadKit block or leftover HTML). */
@@ -263,6 +296,85 @@ function hydratePosts(raw: unknown): HydratedPost[] {
     .filter((p): p is HydratedPost => p !== null);
 }
 
+function hydrateProjects(raw: unknown): HydratedProject[] {
+  if (!Array.isArray(raw)) return [];
+  return asRecordArray(raw)
+    .map((item): HydratedProject | null => {
+      const title = typeof item["title"] === "string" ? item["title"] : "";
+      const slug = typeof item["slug"] === "string" ? item["slug"] : "";
+      if (!title && !slug) return null;
+
+      const project: HydratedProject = {
+        title,
+        slug,
+        ...(typeof item["id"] === "string" || typeof item["id"] === "number"
+          ? { id: item["id"] }
+          : {}),
+        ...(typeof item["excerpt"] === "string"
+          ? { excerpt: item["excerpt"] }
+          : {}),
+        ...(typeof item["date"] === "string" ? { date: item["date"] } : {}),
+        ...(typeof item["uri"] === "string" || item["uri"] === null
+          ? { uri: item["uri"] as string | null }
+          : {}),
+        ...(typeof item["location"] === "string" || item["location"] === null
+          ? { location: item["location"] as string | null }
+          : {}),
+      };
+
+      const fi = item["featuredImage"];
+      if (fi && typeof fi === "object") {
+        const img = fi as Record<string, unknown>;
+        const src =
+          typeof img["src"] === "string"
+            ? img["src"]
+            : typeof img["sourceUrl"] === "string"
+              ? img["sourceUrl"]
+              : null;
+        project.featuredImage = {
+          src,
+          alt: typeof img["alt"] === "string" ? img["alt"] : null,
+          width: typeof img["width"] === "number" ? img["width"] : null,
+          height: typeof img["height"] === "number" ? img["height"] : null,
+        };
+      } else if (fi === null) {
+        project.featuredImage = null;
+      }
+
+      const brand = item["brand"];
+      if (brand && typeof brand === "object") {
+        const b = brand as Record<string, unknown>;
+        project.brand = {
+          ...(typeof b["id"] === "string" || typeof b["id"] === "number"
+            ? { id: b["id"] }
+            : {}),
+          ...(typeof b["name"] === "string" ? { name: b["name"] } : {}),
+          ...(typeof b["slug"] === "string" ? { slug: b["slug"] } : {}),
+          ...(typeof b["thumbnail"] === "string" || b["thumbnail"] === null
+            ? { thumbnail: b["thumbnail"] as string | null }
+            : {}),
+        };
+      } else if (brand === null) {
+        project.brand = null;
+      }
+
+      const tags = item["tags"];
+      if (Array.isArray(tags)) {
+        project.tags = asRecordArray(tags).map((t) => ({
+          ...(typeof t["id"] === "string" || typeof t["id"] === "number"
+            ? { id: t["id"] }
+            : {}),
+          ...(typeof t["name"] === "string" ? { name: t["name"] } : {}),
+          ...(typeof t["slug"] === "string" ? { slug: t["slug"] } : {}),
+          ...(typeof t["count"] === "number" ? { count: t["count"] } : {}),
+        }));
+      }
+
+      return project;
+    })
+    .filter((p): p is HydratedProject => p !== null);
+}
+
 /**
  * Parse rendered WordPress HTML into EditorBlock[] and attach products/attrs
  * from the parallel rawEditorBlocks array. Also returns leftover HTML and
@@ -279,6 +391,7 @@ export function processHomepageContent(
   const leftoverParts: string[] = [];
   const sections = extractHeadkitSections(html);
   let cursor = 0;
+  const usedRaw = new Set<number>();
 
   sections.forEach((sec, index) => {
     const before = trimLeftoverChunk(html.slice(cursor, sec.start));
@@ -291,7 +404,7 @@ export function processHomepageContent(
     const section =
       classList.find((c) => c.startsWith("section-")) ?? "section-1";
 
-    const raw = rawEditorBlocks[index];
+    const raw = pickRawEditorBlock(rawEditorBlocks, classList, index, usedRaw);
     const queryType =
       raw?.queryType ??
       (typeof raw?.attrs?.["queryType"] === "string"
@@ -308,6 +421,9 @@ export function processHomepageContent(
     const categories = hydrateCategories(attrs["categories"]);
     const brands = hydrateBrands(attrs["brands"]);
     const posts = hydratePosts(attrs["posts"]);
+    const projects = hydrateProjects(attrs["projects"]);
+    const buttons = extractButtons(sec.innerHtml);
+    const primaryButton = buttons[0] ?? extractButton(sec.innerHtml);
 
     const block: ProcessedEditorBlock = {
       name: "",
@@ -315,13 +431,15 @@ export function processHomepageContent(
       section,
       title: extractTitle(sec.innerHtml),
       description: extractDescription(sec.innerHtml, classList),
-      button: extractButton(sec.innerHtml),
+      button: primaryButton,
       products: (raw?.products ?? []) as Product[],
       attrs,
       html: sec.fullMatch,
       ...(categories.length > 0 ? { categories } : {}),
       ...(brands.length > 0 ? { brands } : {}),
       ...(posts.length > 0 ? { posts } : {}),
+      ...(projects.length > 0 ? { projects } : {}),
+      ...(buttons.length > 0 ? { buttons } : {}),
     };
 
     result.push(block);
@@ -442,43 +560,76 @@ function extractDescription(html: string, classList: string[]): string {
 }
 
 function extractButton(html: string): ContentButton | null {
-  // Pattern 1: href before target
-  const re1 =
-    /<div[^>]*class="[^"]*headkit-block-button[^"]*"[^>]*>\s*<a[^>]*class="[^"]*wp-block-button__link[^"]*"[^>]*href="([^"]*)"[^>]*(?:target="([^"]*)")?[^>]*>([^<]*)<\/a>/i;
-  const m1 = html.match(re1);
-  if (m1) {
-    return {
-      url: decodeEntities(m1[1] ?? ""),
-      linkTarget: m1[2] ?? "",
-      text: decodeEntities(m1[3]?.trim() ?? ""),
-    };
-  }
+  const all = extractButtons(html);
+  return all[0] ?? null;
+}
 
-  // Pattern 2: target before href
-  const re2 =
-    /<div[^>]*class="[^"]*headkit-block-button[^"]*"[^>]*>\s*<a[^>]*class="[^"]*wp-block-button__link[^"]*"[^>]*(?:target="([^"]*)")?[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/i;
-  const m2 = html.match(re2);
-  if (m2) {
-    return {
-      url: decodeEntities(m2[2] ?? ""),
-      linkTarget: m2[1] ?? "",
-      text: decodeEntities(m2[3]?.trim() ?? ""),
-    };
-  }
-
-  // Pattern 3: flexible — any href inside headkit-block-button
-  const re3 =
-    /<div[^>]*class="[^"]*headkit-block-button[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/i;
-  const m3 = html.match(re3);
-  if (m3) {
-    const targetM = html.match(/target="([^"]*)"/i);
-    return {
-      url: decodeEntities(m3[1] ?? ""),
+/** Collect every headkit-block-button CTA in document order. */
+function extractButtons(html: string): ContentButton[] {
+  const buttons: ContentButton[] = [];
+  const re =
+    /<div[^>]*class="[^"]*headkit-block-button[^"]*"[^>]*>[\s\S]*?<a([^>]*)>([^<]*)<\/a>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const attrs = m[1] ?? "";
+    const text = decodeEntities((m[2] ?? "").trim());
+    const hrefM = attrs.match(/href="([^"]*)"/i);
+    const targetM = attrs.match(/target="([^"]*)"/i);
+    const url = decodeEntities(hrefM?.[1] ?? "");
+    if (!url && !text) continue;
+    buttons.push({
+      url,
       linkTarget: targetM?.[1] ?? "",
-      text: decodeEntities(m3[2]?.trim() ?? ""),
-    };
+      text,
+    });
+  }
+  return buttons;
+}
+
+/**
+ * Pick the best matching hydrated editorBlocks entry for an HTML section.
+ * Prefers queryType ↔ cssClass alignment so index drift does not drop carousels.
+ */
+function pickRawEditorBlock(
+  rawEditorBlocks: RawEditorBlock[],
+  classList: string[],
+  index: number,
+  used: Set<number>,
+): RawEditorBlock | undefined {
+  const expectedQt = expectedQueryTypeForClasses(classList);
+  if (expectedQt) {
+    for (let i = 0; i < rawEditorBlocks.length; i++) {
+      if (used.has(i)) continue;
+      const raw = rawEditorBlocks[i];
+      if (!raw) continue;
+      const qt =
+        raw.queryType ??
+        (typeof raw.attrs?.["queryType"] === "string"
+          ? raw.attrs["queryType"]
+          : null);
+      if (qt === expectedQt) {
+        used.add(i);
+        return raw;
+      }
+    }
   }
 
+  if (!used.has(index) && rawEditorBlocks[index]) {
+    used.add(index);
+    return rawEditorBlocks[index];
+  }
+
+  return undefined;
+}
+
+function expectedQueryTypeForClasses(classList: string[]): string | null {
+  if (classList.includes("headkit-hero-carousel")) return "hero-carousel";
+  if (classList.includes("headkit-project-carousel")) return "projects";
+  if (classList.includes("headkit-post-carousel")) return "latest-posts";
+  if (classList.includes("headkit-category-carousel"))
+    return "featured-categories";
+  if (classList.includes("headkit-brand-carousel")) return "featured-brands";
+  if (classList.includes("headkit-product-carousel")) return "product-carousel";
   return null;
 }
 

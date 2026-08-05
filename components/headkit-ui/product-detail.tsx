@@ -583,12 +583,12 @@ export function ProductDetail({
 
           {/* Quantity selector + Add to Cart */}
           <div ref={atcSectionRef} className="mb-6 flex items-center gap-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center rounded-md border border-gray-300">
               <button
                 type="button"
                 onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                 disabled={quantity <= 1}
-                className="flex h-10 w-10 cursor-pointer items-center justify-center border-none bg-transparent p-0 text-primary transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
+                className="cursor-pointer px-3 py-2.5 text-gray-600 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="Decrease quantity"
               >
                 <MinusIcon className="h-4 w-4" />
@@ -602,7 +602,7 @@ export function ProductDetail({
                   const val = parseInt(e.target.value);
                   if (!isNaN(val) && val >= 1) setQuantity(val);
                 }}
-                className="w-12 border-none bg-transparent py-2 text-center text-sm font-medium tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                className="w-12 border-x border-gray-300 py-2 text-center text-sm font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 aria-label="Quantity"
               />
               <button
@@ -613,7 +613,7 @@ export function ProductDetail({
                   )
                 }
                 disabled={maxStock !== null && quantity >= maxStock}
-                className="flex h-10 w-10 cursor-pointer items-center justify-center border-none bg-transparent p-0 text-primary transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
+                className="cursor-pointer px-3 py-2.5 text-gray-600 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="Increase quantity"
               >
                 <PlusIcon className="h-4 w-4" />
@@ -733,17 +733,17 @@ export function ProductDetail({
               />
             </div>
           </div>
-          <div className="hidden items-center gap-2 sm:flex">
+          <div className="hidden items-center rounded-md border border-gray-300 sm:flex">
             <button
               type="button"
               onClick={() => setQuantity((q) => Math.max(1, q - 1))}
               disabled={quantity <= 1}
-              className="flex h-10 w-10 cursor-pointer items-center justify-center border-none bg-transparent p-0 text-primary transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
+              className="cursor-pointer px-3 py-2 text-gray-600 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Decrease quantity"
             >
               <MinusIcon className="h-4 w-4" />
             </button>
-            <span className="min-w-10 py-2 text-center text-sm font-medium tabular-nums">
+            <span className="w-10 border-x border-gray-300 py-2 text-center text-sm font-medium">
               {quantity}
             </span>
             <button
@@ -754,7 +754,7 @@ export function ProductDetail({
                 )
               }
               disabled={maxStock !== null && quantity >= maxStock}
-              className="flex h-10 w-10 cursor-pointer items-center justify-center border-none bg-transparent p-0 text-primary transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
+              className="cursor-pointer px-3 py-2 text-gray-600 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Increase quantity"
             >
               <PlusIcon className="h-4 w-4" />
