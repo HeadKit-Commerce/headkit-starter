@@ -84,7 +84,8 @@ export default function Page() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {products.map((product) => (
           <div key={product.id} className="relative">
-            <ProductCard product={product} />
+            {/* Follows this page's h1 directly — see ProductCard#titleAs. */}
+            <ProductCard product={product} titleAs="h2" />
             <button
               onClick={() => handleRemove(product.id)}
               aria-label="Remove from wishlist"
