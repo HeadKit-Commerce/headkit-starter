@@ -5,12 +5,14 @@ import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
 import { CategoryCarousel } from "@/components/headkit-ui/category-carousel";
 import { BrandCarousel } from "@/components/headkit-ui/brand-carousel";
 import { PostCarousel } from "@/components/headkit-ui/post/post-carousel";
+import { ProjectCarousel } from "@/components/headkit-ui/project/project-carousel";
 import { MainCarousel } from "@/components/headkit-ui/main-carousel";
 import { sanitizeContent } from "@/lib/sanitize-content";
 import type { ProcessedEditorBlock } from "@/lib/process-editor-blocks";
 import type {
   Product,
   PostSummaryFieldsFragment,
+  ProjectSummaryFieldsFragment,
   HeroCarouselItem,
 } from "@headkit/sdk";
 
@@ -70,6 +72,46 @@ function toPostSummaries(
       name: c.name ?? "",
       slug: c.slug ?? "",
       count: 0,
+    })),
+  }));
+}
+
+function toProjectSummaries(
+  projects: NonNullable<ProcessedEditorBlock["projects"]>,
+): ProjectSummaryFieldsFragment[] {
+  return projects.map((project) => ({
+    __typename: "Project" as const,
+    id: String(project.id ?? project.slug),
+    title: project.title,
+    slug: project.slug,
+    excerpt: project.excerpt ?? "",
+    date: project.date ?? "",
+    uri: project.uri ?? `/projects/${project.slug}/`,
+    location: project.location ?? null,
+    featuredImage: project.featuredImage?.src
+      ? {
+          __typename: "Image" as const,
+          src: project.featuredImage.src,
+          alt: project.featuredImage.alt ?? project.title,
+          width: project.featuredImage.width ?? 0,
+          height: project.featuredImage.height ?? 0,
+        }
+      : null,
+    brand: project.brand?.name
+      ? {
+          __typename: "ProjectBrand" as const,
+          id: String(project.brand.id ?? project.brand.slug ?? ""),
+          name: project.brand.name,
+          slug: project.brand.slug ?? "",
+          thumbnail: project.brand.thumbnail ?? "",
+        }
+      : null,
+    tags: (project.tags ?? []).map((t) => ({
+      __typename: "ProjectTag" as const,
+      id: String(t.id ?? t.slug ?? ""),
+      name: t.name ?? "",
+      slug: t.slug ?? "",
+      count: t.count ?? 0,
     })),
   }));
 }
@@ -204,6 +246,25 @@ const BlockEditor = ({ blocks, section }: Props) => {
               />
               <div className="mt-5">
                 <PostCarousel posts={toPostSummaries(posts)} />
+              </div>
+            </div>
+          );
+        }
+
+        if (data.cssClasses.includes("headkit-project-carousel")) {
+          const projects = data.projects ?? [];
+          if (projects.length === 0) return null;
+          return (
+            <div className="py-[30px] overflow-hidden" key={index}>
+              <SectionHeader
+                title={data.title}
+                description={data.description}
+                allButton={data.button?.text ?? ""}
+                allButtonPath={data.button?.url ?? ""}
+                className="px-5 md:px-10"
+              />
+              <div className="mt-5">
+                <ProjectCarousel projects={toProjectSummaries(projects)} />
               </div>
             </div>
           );

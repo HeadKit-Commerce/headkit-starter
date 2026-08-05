@@ -64,6 +64,35 @@ export type HydratedPost = {
   categories?: Array<{ id?: string; name?: string; slug?: string }>;
 };
 
+/** Project shape hydrated into attrs.projects (Project summary-like). */
+export type HydratedProject = {
+  id?: string | number;
+  title: string;
+  slug: string;
+  excerpt?: string;
+  date?: string;
+  uri?: string | null;
+  location?: string | null;
+  featuredImage?: {
+    src?: string | null;
+    alt?: string | null;
+    width?: number | null;
+    height?: number | null;
+  } | null;
+  brand?: {
+    id?: string | number;
+    name?: string;
+    slug?: string;
+    thumbnail?: string | null;
+  } | null;
+  tags?: Array<{
+    id?: string | number;
+    name?: string;
+    slug?: string;
+    count?: number;
+  }>;
+};
+
 /** Storefront block with optional section HTML for media / passthrough render. */
 export type ProcessedEditorBlock = EditorBlock & {
   /** Full outer section markup (sanitized at render time). */
@@ -74,6 +103,8 @@ export type ProcessedEditorBlock = EditorBlock & {
   brands?: HydratedBrand[];
   /** Posts from WP hydration (post carousel / latest-posts). */
   posts?: HydratedPost[];
+  /** Projects from WP hydration (project carousel). */
+  projects?: HydratedProject[];
 };
 
 /** Ordered homepage CMS segment (HeadKit block or leftover HTML). */
@@ -263,6 +294,85 @@ function hydratePosts(raw: unknown): HydratedPost[] {
     .filter((p): p is HydratedPost => p !== null);
 }
 
+function hydrateProjects(raw: unknown): HydratedProject[] {
+  if (!Array.isArray(raw)) return [];
+  return asRecordArray(raw)
+    .map((item): HydratedProject | null => {
+      const title = typeof item["title"] === "string" ? item["title"] : "";
+      const slug = typeof item["slug"] === "string" ? item["slug"] : "";
+      if (!title && !slug) return null;
+
+      const project: HydratedProject = {
+        title,
+        slug,
+        ...(typeof item["id"] === "string" || typeof item["id"] === "number"
+          ? { id: item["id"] }
+          : {}),
+        ...(typeof item["excerpt"] === "string"
+          ? { excerpt: item["excerpt"] }
+          : {}),
+        ...(typeof item["date"] === "string" ? { date: item["date"] } : {}),
+        ...(typeof item["uri"] === "string" || item["uri"] === null
+          ? { uri: item["uri"] as string | null }
+          : {}),
+        ...(typeof item["location"] === "string" || item["location"] === null
+          ? { location: item["location"] as string | null }
+          : {}),
+      };
+
+      const fi = item["featuredImage"];
+      if (fi && typeof fi === "object") {
+        const img = fi as Record<string, unknown>;
+        const src =
+          typeof img["src"] === "string"
+            ? img["src"]
+            : typeof img["sourceUrl"] === "string"
+              ? img["sourceUrl"]
+              : null;
+        project.featuredImage = {
+          src,
+          alt: typeof img["alt"] === "string" ? img["alt"] : null,
+          width: typeof img["width"] === "number" ? img["width"] : null,
+          height: typeof img["height"] === "number" ? img["height"] : null,
+        };
+      } else if (fi === null) {
+        project.featuredImage = null;
+      }
+
+      const brand = item["brand"];
+      if (brand && typeof brand === "object") {
+        const b = brand as Record<string, unknown>;
+        project.brand = {
+          ...(typeof b["id"] === "string" || typeof b["id"] === "number"
+            ? { id: b["id"] }
+            : {}),
+          ...(typeof b["name"] === "string" ? { name: b["name"] } : {}),
+          ...(typeof b["slug"] === "string" ? { slug: b["slug"] } : {}),
+          ...(typeof b["thumbnail"] === "string" || b["thumbnail"] === null
+            ? { thumbnail: b["thumbnail"] as string | null }
+            : {}),
+        };
+      } else if (brand === null) {
+        project.brand = null;
+      }
+
+      const tags = item["tags"];
+      if (Array.isArray(tags)) {
+        project.tags = asRecordArray(tags).map((t) => ({
+          ...(typeof t["id"] === "string" || typeof t["id"] === "number"
+            ? { id: t["id"] }
+            : {}),
+          ...(typeof t["name"] === "string" ? { name: t["name"] } : {}),
+          ...(typeof t["slug"] === "string" ? { slug: t["slug"] } : {}),
+          ...(typeof t["count"] === "number" ? { count: t["count"] } : {}),
+        }));
+      }
+
+      return project;
+    })
+    .filter((p): p is HydratedProject => p !== null);
+}
+
 /**
  * Parse rendered WordPress HTML into EditorBlock[] and attach products/attrs
  * from the parallel rawEditorBlocks array. Also returns leftover HTML and
@@ -308,6 +418,7 @@ export function processHomepageContent(
     const categories = hydrateCategories(attrs["categories"]);
     const brands = hydrateBrands(attrs["brands"]);
     const posts = hydratePosts(attrs["posts"]);
+    const projects = hydrateProjects(attrs["projects"]);
 
     const block: ProcessedEditorBlock = {
       name: "",
@@ -322,6 +433,7 @@ export function processHomepageContent(
       ...(categories.length > 0 ? { categories } : {}),
       ...(brands.length > 0 ? { brands } : {}),
       ...(posts.length > 0 ? { posts } : {}),
+      ...(projects.length > 0 ? { projects } : {}),
     };
 
     result.push(block);
