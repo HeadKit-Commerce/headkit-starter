@@ -113,8 +113,12 @@ export default async function Page({ params }: Props) {
     { name: page.title, href: `/${slug.join("/")}` },
   ];
 
+  // No outer px/my — CmsPageBody pads HTML/GF segments like the homepage and
+  // leaves hero carousels full-bleed (`mx-5` inside MainCarousel). Outer
+  // `px-5 md:px-10 my-10` previously double-inset carousels and left a gap
+  // under the nav on pages like /hospitality.
   return (
-    <div className="px-5 md:px-10 my-10 min-h-[50vh]">
+    <div className="min-h-[50vh] overflow-hidden">
       <BreadcrumbJsonLD items={breadcrumbItems} />
       <CmsPageBody
         title={page.title}

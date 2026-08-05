@@ -36,10 +36,10 @@ import { cacheLife, cacheTag } from "next/cache";
 import { TAG } from "@/lib/cache-tags";
 import {
   executeRequest,
-  HEADKIT_GRAPHQL_URL,
   GetBrandingDocument,
 } from "@headkit/sdk";
 import { env } from "@/lib/env";
+import { headkitTransportOpts } from "@/lib/headkit-transport";
 
 // ---------------------------------------------------------------------------
 // Types — mirror the dashboard-api schema (schema.graphqls)
@@ -460,12 +460,9 @@ function brandingRequestHeaders(token: string): Record<string, string> {
  * file-convention favicon and the default `<Logo/>`.
  */
 async function fetchCommerceBrandingIcon(): Promise<string | null> {
-  const apiKey = env.HEADKIT_PRIVATE_KEY;
-  if (!apiKey) return null;
   try {
-    const url = env.NEXT_PUBLIC_GRAPHQL_URL ?? HEADKIT_GRAPHQL_URL;
     const data = await executeRequest(
-      { url, apiKey },
+      headkitTransportOpts(),
       GetBrandingDocument,
       undefined,
     );

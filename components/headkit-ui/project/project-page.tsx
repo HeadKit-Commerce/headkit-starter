@@ -41,7 +41,7 @@ export function ProjectPage({
           <button
             type="button"
             onClick={() => setBrandFilter("")}
-            className={`cursor-pointer whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+            className={`cursor-pointer whitespace-nowrap rounded-brand-button px-4 py-2 text-sm font-medium transition-colors ${
               brandFilter === ""
                 ? "bg-primary text-white"
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -54,7 +54,7 @@ export function ProjectPage({
               type="button"
               key={brand.id}
               onClick={() => setBrandFilter(brand.slug)}
-              className={`cursor-pointer whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+              className={`cursor-pointer whitespace-nowrap rounded-brand-button px-4 py-2 text-sm font-medium transition-colors ${
                 brandFilter === brand.slug
                   ? "bg-primary text-white"
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -71,7 +71,7 @@ export function ProjectPage({
           <button
             type="button"
             onClick={() => setTagFilter("")}
-            className={`cursor-pointer whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+            className={`cursor-pointer whitespace-nowrap rounded-brand-button px-4 py-2 text-sm font-medium transition-colors ${
               tagFilter === ""
                 ? "bg-primary text-white"
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -84,7 +84,7 @@ export function ProjectPage({
               type="button"
               key={tag.id}
               onClick={() => setTagFilter(tag.slug)}
-              className={`cursor-pointer whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+              className={`cursor-pointer whitespace-nowrap rounded-brand-button px-4 py-2 text-sm font-medium transition-colors ${
                 tagFilter === tag.slug
                   ? "bg-primary text-white"
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"

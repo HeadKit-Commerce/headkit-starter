@@ -1,13 +1,8 @@
 import { ImageResponse } from "next/og";
 import { Logo } from "@/components/icon/logo";
 import type { NextRequest } from "next/server";
-import { createServerHeadkit } from "@/lib/sdk.server";
-import {
-  executeRequest,
-  HEADKIT_GRAPHQL_URL,
-  GetBrandingDocument,
-} from "@headkit/sdk";
-import { env } from "@/lib/env";
+import { executeRequest, GetBrandingDocument } from "@headkit/sdk";
+import { headkitTransportOpts } from "@/lib/headkit-transport";
 
 /**
  * GET /api/icon?size=192|512
@@ -23,16 +18,12 @@ export async function GET(request: NextRequest) {
   // Attempt to fetch branding icon URL; fall back silently on error.
   let iconUrl: string | null = null;
   try {
-    const apiKey = env.HEADKIT_PRIVATE_KEY;
-    if (apiKey) {
-      const url = env.NEXT_PUBLIC_GRAPHQL_URL ?? HEADKIT_GRAPHQL_URL;
-      const data = await executeRequest(
-        { url, apiKey },
-        GetBrandingDocument,
-        undefined,
-      );
-      iconUrl = data.commerce.branding.iconUrl ?? null;
-    }
+    const data = await executeRequest(
+      headkitTransportOpts(),
+      GetBrandingDocument,
+      undefined,
+    );
+    iconUrl = data.commerce.branding.iconUrl ?? null;
   } catch {
     // Fall through to Logo fallback
   }
