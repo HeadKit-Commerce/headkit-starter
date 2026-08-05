@@ -7,6 +7,7 @@ import {
   removeGravityFormMarkers,
 } from "@/lib/gravity-form-content";
 import {
+  hasEditorSectionClass,
   processHomepageContent,
   type RawEditorBlock,
 } from "@/lib/process-editor-blocks";
@@ -28,6 +29,9 @@ interface Props {
    */
   formFallback?: React.ReactNode;
 }
+
+/** Matches homepage HTML segment padding (`app/page.tsx` HomeContent). */
+const CONTENT_PAD = "hk-section-content px-5 md:px-10 py-10";
 
 function GravityFormColumn({
   html,
@@ -101,7 +105,11 @@ function HtmlSegment({
  * form marker, render title + EditorialContent as a normal single column.
  *
  * When `editorBlocks` include HeadKit sections (hero/project carousels, etc.),
- * those hydrate via BlockEditor in WordPress document order.
+ * those hydrate via BlockEditor in WordPress document order — full-bleed like
+ * the homepage (no outer page padding). HTML leftovers keep homepage padding.
+ *
+ * A `headkit-hero-carousel` replaces the page title H1 (carousel slide already
+ * renders an H1) so CMS pages like /hospitality do not double up.
  */
 export async function CmsPageBody({
   title,
@@ -111,17 +119,21 @@ export async function CmsPageBody({
 }: Props): Promise<React.JSX.Element> {
   const rawBlocks = editorBlocks ?? [];
   const { segments, blocks } = processHomepageContent(html, rawBlocks);
+  const suppressPageTitle = hasEditorSectionClass(
+    blocks,
+    "headkit-hero-carousel",
+  );
 
   // No HeadKit section patterns — keep the simple title + GF / editorial path.
   if (blocks.length === 0) {
     if (!hasGravityFormMarker(html)) {
       return (
-        <>
+        <div className={CONTENT_PAD}>
           <h1 className="font-extrabold text-3xl text-primary">{title}</h1>
           <div className="mt-5">
             <EditorialContent html={html} />
           </div>
-        </>
+        </div>
       );
     }
 
@@ -129,29 +141,33 @@ export async function CmsPageBody({
     const copyHtml = removeGravityFormMarkers(html);
 
     return (
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-        <div>
-          <h1 className="mb-6 font-extrabold text-3xl text-primary">{title}</h1>
-          {copyHtml ? <EditorialContent html={copyHtml} /> : null}
-        </div>
-        <div className="space-y-8">
-          {formIds.map((formId) =>
-            formFallback ? (
-              <GravityForm
-                key={formId}
-                formId={formId}
-                fallback={formFallback}
-              />
-            ) : (
-              <GravityForm key={formId} formId={formId} />
-            ),
-          )}
+      <div className={CONTENT_PAD}>
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+          <div>
+            <h1 className="mb-6 font-extrabold text-3xl text-primary">
+              {title}
+            </h1>
+            {copyHtml ? <EditorialContent html={copyHtml} /> : null}
+          </div>
+          <div className="space-y-8">
+            {formIds.map((formId) =>
+              formFallback ? (
+                <GravityForm
+                  key={formId}
+                  formId={formId}
+                  fallback={formFallback}
+                />
+              ) : (
+                <GravityForm key={formId} formId={formId} />
+              ),
+            )}
+          </div>
         </div>
       </div>
     );
   }
 
-  // Document-order: HeadKit blocks + leftover HTML (GF markers supported).
+  // Document-order: HeadKit blocks (full-bleed) + leftover HTML (padded).
   let titleShown = false;
   return (
     <>
@@ -162,20 +178,24 @@ export async function CmsPageBody({
           );
         }
 
-        const showTitle = !titleShown;
-        titleShown = true;
+        const showTitle = !suppressPageTitle && !titleShown;
+        if (showTitle) titleShown = true;
+        if (!seg.html.trim() && !showTitle) return null;
         return (
-          <HtmlSegment
-            key={`cms-html-${index}`}
-            html={seg.html}
-            formFallback={formFallback}
-            showTitle={showTitle}
-            title={title}
-          />
+          <section key={`cms-html-${index}`} className={CONTENT_PAD}>
+            <HtmlSegment
+              html={seg.html}
+              formFallback={formFallback}
+              showTitle={showTitle}
+              title={title}
+            />
+          </section>
         );
       })}
-      {!titleShown ? (
-        <h1 className="font-extrabold text-3xl text-primary">{title}</h1>
+      {!suppressPageTitle && !titleShown ? (
+        <section className={CONTENT_PAD}>
+          <h1 className="font-extrabold text-3xl text-primary">{title}</h1>
+        </section>
       ) : null}
     </>
   );

@@ -62,8 +62,10 @@ export default async function ContactPage(): Promise<React.ReactElement> {
       '<div class="headkit-gravity-form" data-form-id="1" data-headkit-gf="1"></div>',
     ].join("");
 
+  // Padding lives in CmsPageBody (same as other CMS pages) so a Contact page
+  // with a hero carousel stays flush with the homepage layout.
   return (
-    <div className="min-h-[50vh] px-5 py-10 md:px-10 md:py-16">
+    <div className="min-h-[50vh] overflow-hidden">
       <BreadcrumbJsonLD
         items={[
           { name: "Home", href: "/" },

@@ -3,13 +3,12 @@
 import sanitizeHtml from "sanitize-html";
 import {
   executeRequest,
-  HEADKIT_GRAPHQL_URL,
   GetGravityFormDocument,
   SubmitGravityFormDocument,
   type GetGravityFormQuery,
   type SubmitGravityFormMutation,
 } from "@headkit/sdk";
-import { env } from "@/lib/env";
+import { headkitTransportOpts } from "@/lib/headkit-transport";
 
 /**
  * Gravity Forms server actions.
@@ -18,15 +17,10 @@ import { env } from "@/lib/env";
  * The commerce subgraph exposes gravity-forms operations:
  *   - Query:    commerce { gfForm(id: ID!) { ... } }
  *   - Mutation: commerce { submitGfForm(input: SubmitGfFormInput!) { ... } }
+ *
+ * Identity header is the PUBLIC key — see headkitTransportOpts (sk_ as
+ * x-headkit-key 500s store resolution).
  */
-
-const GRAPHQL_URL = env.NEXT_PUBLIC_GRAPHQL_URL ?? HEADKIT_GRAPHQL_URL;
-
-function transportOpts() {
-  const apiKey = env.HEADKIT_PRIVATE_KEY;
-  if (!apiKey) throw new Error("HEADKIT_PRIVATE_KEY is not configured");
-  return { url: GRAPHQL_URL, apiKey };
-}
 
 // Re-export the GravityForm type shape the component expects
 export type GravityFormData = {
@@ -44,9 +38,13 @@ export type SubmitGravityFormResult = {
 };
 
 export async function getGravityFormById(id: string): Promise<GravityFormData> {
-  const data = await executeRequest(transportOpts(), GetGravityFormDocument, {
-    id,
-  });
+  const data = await executeRequest(
+    headkitTransportOpts(),
+    GetGravityFormDocument,
+    {
+      id,
+    },
+  );
   return { gfForm: data.commerce.gfForm };
 }
 
@@ -54,7 +52,7 @@ export async function submitGravityForm(
   input: SubmitGravityFormInput,
 ): Promise<SubmitGravityFormResult> {
   const data = await executeRequest(
-    transportOpts(),
+    headkitTransportOpts(),
     SubmitGravityFormDocument,
     {
       input: {
