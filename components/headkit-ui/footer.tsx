@@ -185,10 +185,13 @@ export function Footer({
   showSubscribe = false,
 }: FooterProps) {
   const footerMenus = menus
-    .slice(0, 2)
+    .filter((menu) => menu.location !== "FOOTER_POLICY")
     .filter((menu) => (menu.items?.length ?? 0) > 0);
+  const policyCandidate = menus.find((menu) => menu.location === "FOOTER_POLICY");
   const policyMenu =
-    menus[2] && (menus[2].items?.length ?? 0) > 0 ? menus[2] : undefined;
+    policyCandidate && (policyCandidate.items?.length ?? 0) > 0
+      ? policyCandidate
+      : undefined;
 
   const hasSocialLinks =
     socialLinks &&
@@ -256,8 +259,14 @@ export function Footer({
           )}
         </div>
 
-        {/* Center: footer menu columns */}
-        <div className="grid grid-cols-2 gap-8 text-primary">
+        {/* Center: footer menu columns (1–3 when assigned) */}
+        <div
+          className={
+            footerMenus.length >= 3
+              ? "grid grid-cols-2 gap-8 text-primary lg:grid-cols-3"
+              : "grid grid-cols-2 gap-8 text-primary"
+          }
+        >
           {footerMenus.map((menu) => (
             <FooterMenuColumn
               key={menu.location}

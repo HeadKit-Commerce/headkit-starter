@@ -117,6 +117,7 @@ const HEADER_LOCATIONS = [
 const FOOTER_LOCATIONS = [
   "FOOTER",
   "FOOTER_2",
+  "FOOTER_3",
   "FOOTER_POLICY",
 ] as const satisfies readonly MenuLocation[];
 
@@ -174,16 +175,18 @@ export async function fetchMenu(
 /**
  * CMS footer menus for the root layout Footer.
  *
- * WordPress registers three locations that the Footer UI consumes in order:
- *   [0] FOOTER       → column title = menu name; links = items
- *   [1] FOOTER_2     → column title = menu name; links = items
- *   [2] FOOTER_POLICY → copyright line = menu name; links = policy items
+ * WordPress registers up to four locations that the Footer UI consumes in order:
+ *   [0] FOOTER        → column title = menu name; links = items
+ *   [1] FOOTER_2      → column title = menu name; links = items
+ *   [2] FOOTER_3      → optional third column (omitted in UI when empty)
+ *   [3] FOOTER_POLICY → copyright line = menu name; links = policy items
  *
  * Fetched via a single `menus(locations:)` GraphQL query (one storefront RTT;
- * commerce hits WP locations in parallel). Always returns three sections so
- * Footer's `menus[2]` policy/copyright slot stays stable when unassigned.
+ * commerce hits WP locations in parallel). Always returns four sections so
+ * Footer's policy/copyright slot stays at `menus` location FOOTER_POLICY when
+ * FOOTER_3 is unassigned.
  *
- * Tags: `TAG.footer` plus each location's `TAG.menu(...)` so any of the three
+ * Tags: `TAG.footer` plus each location's `TAG.menu(...)` so any of the
  * WP menu edits (or the legacy footer tag) invalidate this entry.
  */
 export async function getFooterMenus(): Promise<
@@ -199,13 +202,15 @@ export async function getFooterMenus(): Promise<
     TAG.footer,
     TAG.menu("FOOTER"),
     TAG.menu("FOOTER_2"),
+    TAG.menu("FOOTER_3"),
     TAG.menu("FOOTER_POLICY"),
   );
 
   const menus = await loadMenusBatch(FOOTER_LOCATIONS);
   const footer = menus[0] ?? EMPTY_MENU;
   const footer2 = menus[1] ?? EMPTY_MENU;
-  const policy = menus[2] ?? EMPTY_MENU;
+  const footer3 = menus[2] ?? EMPTY_MENU;
+  const policy = menus[3] ?? EMPTY_MENU;
 
   const toSection = (
     location: (typeof FOOTER_LOCATIONS)[number],
@@ -227,6 +232,7 @@ export async function getFooterMenus(): Promise<
   return [
     toSection("FOOTER", footer),
     toSection("FOOTER_2", footer2),
+    toSection("FOOTER_3", footer3),
     toSection("FOOTER_POLICY", policy),
   ];
 }

@@ -5,47 +5,40 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/headkit-ui/product-card";
 import { headkit } from "@/lib/sdk";
+import {
+  getWishlistEntries,
+  removeFromWishlist,
+  type WishlistEntry,
+} from "@/lib/wishlist";
 import type { ProductSummaryFieldsFragment } from "@headkit/sdk";
-
-const STORAGE_KEY = "hk_wishlist";
-
-function getWishlistIds(): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]") as string[];
-  } catch {
-    return [];
-  }
-}
-
-function removeFromWishlist(id: string) {
-  const list = getWishlistIds().filter((i) => i !== id);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-}
 
 export default function Page() {
   const [products, setProducts] = useState<ProductSummaryFieldsFragment[]>([]);
+  const [entries, setEntries] = useState<WishlistEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const ids = getWishlistIds();
-    if (ids.length === 0) {
+    const wishlist = getWishlistEntries();
+    setEntries(wishlist);
+    if (wishlist.length === 0) {
       setLoading(false);
       return;
     }
-    headkit.collections
-      .list(
-        { include: ids } as Parameters<typeof headkit.collections.list>[0],
-        1,
-        ids.length,
-      )
-      .then((r) => setProducts(r.products))
+    // Fetch by slug — ProductListFilter has no include/ids field.
+    Promise.all(wishlist.map((entry) => headkit.products.get(entry.slug)))
+      .then((results) => {
+        const found = results.filter(
+          (p): p is NonNullable<typeof p> => p !== null,
+        );
+        setProducts(found as ProductSummaryFieldsFragment[]);
+      })
       .catch(() => setProducts([]))
       .finally(() => setLoading(false));
   }, []);
 
   const handleRemove = (id: string) => {
-    removeFromWishlist(id);
+    const next = removeFromWishlist(id);
+    setEntries(next);
     setProducts((prev) => prev.filter((p) => p.id !== id));
   };
 
@@ -69,6 +62,9 @@ export default function Page() {
         <div className="bg-white rounded-lg shadow-sm p-6 text-center">
           <p className="text-gray-500 py-8">
             Your wishlist is currently empty.
+            {entries.length > 0
+              ? " Saved items could not be loaded — try adding them again from a product page."
+              : null}
           </p>
           <Button asChild>
             <Link href="/shop">Start Shopping</Link>
@@ -86,6 +82,7 @@ export default function Page() {
           <div key={product.id} className="relative">
             <ProductCard product={product} />
             <button
+              type="button"
               onClick={() => handleRemove(product.id)}
               aria-label="Remove from wishlist"
               className="absolute top-2 right-2 cursor-pointer rounded-full bg-white p-2 shadow hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"

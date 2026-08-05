@@ -4,7 +4,6 @@ import { useForm, type Control } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import React, { useEffect, useState } from "react";
-import { ArrowRightIcon } from "@/components/icon";
 import {
   Form,
   FormControl,
@@ -292,9 +291,38 @@ export const GravityForm = ({
     void fetchForm();
   }, [formId]);
 
+  const injectedFieldNames = new Set(
+    (initialValues ?? []).map((v) => v.fieldName),
+  );
+
+  // When the host injects product context (enquiry PDP), also suppress common
+  // product-attribute field labels even before commerce returns `visibility`.
+  // GF Visibility→Hidden still leaves type=text in older API responses.
+  const suppressProductContextLabels = injectedFieldNames.size > 0;
+  const productContextLabels = new Set([
+    "product_name",
+    "product_url",
+    "product_size",
+    "product_colour",
+    "product_color",
+    "product_options",
+    "selected_variations",
+    "size",
+    "colour",
+    "color",
+  ]);
+
   const formFields = (formData?.gfForm?.formFields?.nodes ?? [])
     .map((node) => {
       if (!node?.type || !node?.label) return null;
+
+      // Respect GF Field Visibility (visible|hidden|administrative). This is
+      // independent of field type — a Text field with Visibility→Hidden stays
+      // type=text in the API and must not render as an input.
+      const visibility = (node.visibility ?? "visible").toLowerCase();
+      if (visibility === "hidden" || visibility === "administrative") {
+        return null;
+      }
 
       const type = node.type.toLowerCase();
       if (
@@ -327,13 +355,15 @@ export const GravityForm = ({
       }
       return config;
     })
-    .filter(
-      (field): field is NonNullable<typeof field> =>
-        field !== null &&
-        !initialValues
-          ?.map((v) => v.fieldName)
-          ?.includes(snakeCase(field.label)),
-    );
+    .filter((field): field is NonNullable<typeof field> => {
+      if (field === null) return false;
+      const name = snakeCase(field.label);
+      if (injectedFieldNames.has(name)) return false;
+      if (suppressProductContextLabels && productContextLabels.has(name)) {
+        return false;
+      }
+      return true;
+    });
 
   // Resolve every field's databaseId by snakeCased label across ALL fields —
   // including hidden/injected ones filtered out of the rendered `formFields` —
@@ -472,7 +502,6 @@ export const GravityForm = ({
           className={buttonClassName}
         >
           {formData?.gfForm?.submitButton?.text ?? "Submit Form"}
-          <ArrowRightIcon className="ml-[20px] text-primary" />
         </Button>
 
         {message && <div className="mt-0.5 flex flex-wrap">{message}</div>}

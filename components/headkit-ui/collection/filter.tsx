@@ -15,7 +15,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
-import { cn } from "@/lib/utils";
+import { cn, decodeHtmlEntities } from "@/lib/utils";
 import { Transition } from "@headlessui/react";
 import { useCollection } from "./collection-context";
 import { FilterMenuItem } from "./filter-menu-item";
@@ -133,7 +133,7 @@ export function Filter() {
               {attributes.map((attr) => (
                 <FilterMenuItem
                   key={attr.slug}
-                  label={attr.name}
+                  label={decodeHtmlEntities(attr.name)}
                   count={
                     (
                       filterValues.attributes[`pa_${attr.slug}`] ??
@@ -221,7 +221,7 @@ export function Filter() {
                   className="border-b border-gray-200 px-5 py-5"
                 >
                   <h3 className="mb-3 text-sm font-semibold text-primary">
-                    {attr.name}
+                    {decodeHtmlEntities(attr.name)}
                   </h3>
                   <AttributeFilter attribute={attr} />
                 </section>
