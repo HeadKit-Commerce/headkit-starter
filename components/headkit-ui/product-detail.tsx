@@ -32,6 +32,7 @@ import { DeliveryType } from "@/components/gift-card-delivery-type";
 import { Breadcrumb } from "@/components/headkit-ui/breadcrumb";
 import { ProductEnquiry } from "@/components/headkit-ui/product-enquiry";
 import { isColorAttrSlug } from "@/components/headkit-ui/collection/utils";
+import { buildEnquiryInitialValues } from "@/lib/enquiry-form-values";
 import {
   Accordion,
   AccordionContent,
@@ -241,35 +242,22 @@ export function ProductDetail({
   }, [isVariable, product.variations, selectedAttributes]);
 
   // Hidden product context injected into the enquiry form so the WordPress entry
-  // captures which product/variant the shopper asked about. The fieldNames must
-  // match the snakeCased labels of the enquiry form's hidden fields (ENG-794).
-  const enquiryInitialValues = useMemo<
-    { fieldName: string; value: string }[]
-  >(() => {
-    const values: { fieldName: string; value: string }[] = [
-      { fieldName: "product_name", value: product.name },
-    ];
-    if (typeof window !== "undefined") {
-      values.push({
-        fieldName: "product_url",
-        value: `${window.location.origin}${pathname}`,
-      });
-    }
-    for (const attr of variationAttributes) {
-      const selectedSlug = selectedAttributes[attr.slug];
-      if (!selectedSlug) continue;
-      const optionName =
-        attr.fullOptions.find((o) => o.slug === selectedSlug)?.name ??
-        selectedSlug;
-      const fieldName = isColorAttrSlug(attr.slug)
-        ? "product_colour"
-        : attr.slug.includes("size")
-          ? "product_size"
-          : attr.slug;
-      values.push({ fieldName, value: optionName });
-    }
-    return values;
-  }, [product.name, pathname, variationAttributes, selectedAttributes]);
+  // captures which product/variant the shopper asked about. Field names must
+  // match snakeCased GF labels — see buildEnquiryInitialValues (ENG-794).
+  const enquiryInitialValues = useMemo(
+    () =>
+      buildEnquiryInitialValues({
+        productName: product.name,
+        productUrl:
+          typeof window !== "undefined"
+            ? `${window.location.origin}${pathname}`
+            : undefined,
+        variationAttributes,
+        selectedAttributes,
+        isColourAttrSlug: isColorAttrSlug,
+      }),
+    [product.name, pathname, variationAttributes, selectedAttributes],
+  );
 
   const galleryImages = useMemo(() => {
     const base = product.images.map((img) => ({
@@ -706,12 +694,12 @@ export function ProductDetail({
           )}
 
           {/* Accordion: Description / Additional Info / Reviews */}
-          {visibleTabs.length > 0 && (
+          {visibleTabs.length > 0 && visibleTabs[0] && (
             <div className="border-t pt-2">
               <Accordion
                 type="single"
                 collapsible
-                defaultValue={visibleTabs[0]?.key}
+                defaultValue={visibleTabs[0].key}
                 className="w-full"
               >
                 {visibleTabs.map((tab) => (
