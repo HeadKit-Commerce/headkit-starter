@@ -5,7 +5,7 @@ import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
 import { CategoryCarousel } from "@/components/headkit-ui/category-carousel";
 import { BrandCarousel } from "@/components/headkit-ui/brand-carousel";
 import { PostCarousel } from "@/components/headkit-ui/post/post-carousel";
-import { ScheduledMainCarousel } from "@/components/headkit-ui/scheduled-main-carousel";
+import { MainCarousel } from "@/components/headkit-ui/main-carousel";
 import { sanitizeContent } from "@/lib/sanitize-content";
 import type { ProcessedEditorBlock } from "@/lib/process-editor-blocks";
 import type {
@@ -101,7 +101,13 @@ const BlockEditor = ({ blocks, section }: Props) => {
         if (data.cssClasses.includes("headkit-hero-carousel")) {
           const nodes = hydrateHeroCarousels(data.attrs?.["carousels"]);
           if (nodes.length === 0) return null;
-          return <ScheduledMainCarousel key={index} carouselItems={nodes} />;
+          // Unscheduled on purpose. This renderer runs inside the
+          // homepage's `'use cache'` tree, and the request-time scheduler
+          // cannot: `connection()` is illegal in a cached subtree. So the
+          // WP hero-pattern path shows every slide regardless of its
+          // start/end dates. Scheduling it needs this block hoisted out of
+          // the cached tree, which is a larger change than this fix.
+          return <MainCarousel key={index} carouselItems={nodes} />;
         }
 
         if (data.cssClasses.includes("headkit-product-carousel")) {
