@@ -20,7 +20,7 @@ import {
   resolveStoreName,
 } from "@/lib/make-metadata";
 import { getBranding, getBrandingAssets } from "@/lib/branding";
-import { MainCarousel } from "@/components/headkit-ui/main-carousel";
+import { ScheduledMainCarousel } from "@/components/headkit-ui/scheduled-main-carousel";
 import { BlockEditor } from "@/components/headkit-ui/block-editor";
 import { EditorialContent } from "@/components/headkit-ui/editorial-content";
 import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
@@ -162,7 +162,7 @@ export async function HomeContent() {
         <CarouselProductJsonLD products={featuredProducts} />
       )}
 
-      {showHardcodedHero && <MainCarousel carouselItems={carousels} />}
+      {showHardcodedHero && <ScheduledMainCarousel carouselItems={carousels} />}
 
       {/* WP front-page content in editor document order */}
       {segments.map((seg, index) => {

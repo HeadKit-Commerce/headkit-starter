@@ -5,7 +5,7 @@ import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
 import { CategoryCarousel } from "@/components/headkit-ui/category-carousel";
 import { BrandCarousel } from "@/components/headkit-ui/brand-carousel";
 import { PostCarousel } from "@/components/headkit-ui/post/post-carousel";
-import { MainCarousel } from "@/components/headkit-ui/main-carousel";
+import { ScheduledMainCarousel } from "@/components/headkit-ui/scheduled-main-carousel";
 import { sanitizeContent } from "@/lib/sanitize-content";
 import type { ProcessedEditorBlock } from "@/lib/process-editor-blocks";
 import type {
@@ -101,7 +101,7 @@ const BlockEditor = ({ blocks, section }: Props) => {
         if (data.cssClasses.includes("headkit-hero-carousel")) {
           const nodes = hydrateHeroCarousels(data.attrs?.["carousels"]);
           if (nodes.length === 0) return null;
-          return <MainCarousel key={index} carouselItems={nodes} />;
+          return <ScheduledMainCarousel key={index} carouselItems={nodes} />;
         }
 
         if (data.cssClasses.includes("headkit-product-carousel")) {

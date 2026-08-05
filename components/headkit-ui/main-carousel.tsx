@@ -7,7 +7,6 @@ import { Carousel } from "@/components/headkit-ui/carousel";
 import { Button } from "@/components/ui/button";
 import type { HeroCarouselItem } from "@headkit/sdk";
 import { decodeHtmlEntities } from "@/lib/utils";
-import { filterActiveSlides } from "@/lib/carousel-schedule";
 
 interface Props {
   carouselItems: HeroCarouselItem[];
@@ -27,8 +26,14 @@ function slideVideo(slide: HeroSlide, mobile: boolean): string {
   return slide.video || "";
 }
 
+/**
+ * Presentational only. Slide SCHEDULING is applied upstream by
+ * `ScheduledMainCarousel`, which evaluates it at request time — doing it here
+ * would call `new Date()` during render, which Next 16 rejects while
+ * prerendering a Client Component.
+ */
 export const MainCarousel = ({ carouselItems }: Props) => {
-  const items = filterActiveSlides(carouselItems as HeroSlide[]);
+  const items = carouselItems as HeroSlide[];
 
   if (items.length === 0) return null;
 
