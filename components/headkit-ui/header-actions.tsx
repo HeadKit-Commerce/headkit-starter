@@ -8,6 +8,8 @@ import { useAuth } from "@/components/headkit-ui/auth-context";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { SearchDrawer } from "@/components/headkit-ui/search-drawer";
 import { useChromeIcons } from "@/components/branding/branding-icons-provider";
+import { useIsQuoteMode } from "@/components/checkout/checkout-mode-provider";
+import { PlusIcon } from "@/components/icon";
 import {
   HeaderActionExtras,
   MobileHeaderActionExtras,
@@ -33,6 +35,7 @@ export function HeaderActions({ initialCartCount = 0 }: HeaderActionsProps) {
   const { cartData, toggleCart } = useCartContext();
   const cartCount = cartData?.itemsCount ?? initialCartCount;
   const { Search, Heart, User, Cart } = useChromeIcons();
+  const isQuoteMode = useIsQuoteMode();
 
   return (
     <div className="flex items-center">
@@ -79,16 +82,30 @@ export function HeaderActions({ initialCartCount = 0 }: HeaderActionsProps) {
 
       <HeaderActionExtras />
 
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label="Cart"
-        className="relative h-9 w-9 justify-end pr-0"
-        onClick={() => toggleCart(true)}
-      >
-        <Cart className="h-6 w-6 text-primary transition-opacity hover:opacity-70" />
-        <CartBadge count={cartCount} />
-      </Button>
+      {isQuoteMode ? (
+        <Button
+          variant="outline"
+          size="sm"
+          aria-label="My Quote"
+          className="relative ml-1 h-9 gap-1.5 px-3"
+          onClick={() => toggleCart(true)}
+        >
+          <span>My Quote</span>
+          <PlusIcon className="h-4 w-4" />
+          <CartBadge count={cartCount} className="-right-1 -top-1" />
+        </Button>
+      ) : (
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Cart"
+          className="relative h-9 w-9 justify-end pr-0"
+          onClick={() => toggleCart(true)}
+        >
+          <Cart className="h-6 w-6 text-primary transition-opacity hover:opacity-70" />
+          <CartBadge count={cartCount} className="right-0 top-[10px]" />
+        </Button>
+      )}
     </div>
   );
 }
@@ -150,13 +167,20 @@ function AccountLoggedInBadge() {
   );
 }
 
-function CartBadge({ count }: { count: number }) {
+function CartBadge({
+  count,
+  className,
+}: {
+  count: number;
+  className?: string;
+}) {
   if (count <= 0) return null;
   return (
     <span
       className={cn(
-        "absolute right-0 top-[10px] z-10 h-[14px] min-w-[14px] rounded-full",
+        "absolute z-10 h-[14px] min-w-[14px] rounded-full",
         "bg-primary text-center text-[10px] font-medium leading-[14px] text-white px-0.5",
+        className ?? "right-0 top-[10px]",
       )}
     >
       {count > 99 ? "99+" : count}

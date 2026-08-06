@@ -1,3 +1,6 @@
+"use client";
+
+import { useIsQuoteMode } from "@/components/checkout/checkout-mode-provider";
 import { cn, formatPrice } from "@/lib/utils";
 import { getPriceDisplay } from "@/lib/price-display";
 
@@ -7,6 +10,12 @@ interface Props {
   onSale: boolean;
   dark?: boolean;
   size?: "default" | "big";
+  /**
+   * When set in quote mode, show this body copy instead of hiding the price
+   * (used on the product detail page).
+   */
+  quoteMessage?: string;
+  className?: string;
 }
 
 const ProductPrice = ({
@@ -15,7 +24,28 @@ const ProductPrice = ({
   onSale,
   dark = false,
   size = "default",
+  quoteMessage,
+  className,
 }: Props) => {
+  const isQuoteMode = useIsQuoteMode();
+
+  if (isQuoteMode) {
+    if (quoteMessage) {
+      return (
+        <p
+          className={cn(
+            "font-normal leading-5 text-primary",
+            size === "big" ? "text-lg" : "text-base",
+            className,
+          )}
+        >
+          {quoteMessage}
+        </p>
+      );
+    }
+    return null;
+  }
+
   // Display logic (incl. when a strikethrough is warranted) lives in
   // lib/price-display.ts — a strikethrough renders ONLY for a genuine
   // discount (known regular price > current price), never as a fallback.
@@ -29,7 +59,7 @@ const ProductPrice = ({
   const sizeClass = size === "big" ? "text-lg" : "text-base";
 
   return (
-    <div className="flex gap-3 font-semibold">
+    <div className={cn("flex gap-3 font-semibold", className)}>
       {struck !== null && (
         <p
           className={cn(

@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { getFloatVal, formatPrice } from "@/lib/utils";
 import { removeCartItemAction, updateCartItemAction } from "@/lib/cart-actions";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
+import { useIsQuoteMode } from "@/components/checkout/checkout-mode-provider";
 import { GiftCardDetails } from "@/components/checkout/gift-card-details";
 import type { CartFieldsFragment } from "@headkit/sdk";
 
@@ -29,6 +30,7 @@ export function CartItemRow({
   const [quantity, setQuantity] = useState(item.quantity);
   const [loading, startTransition] = useTransition();
   const { toggleCart } = useCartContext();
+  const isQuoteMode = useIsQuoteMode();
 
   const isOnSale =
     item.prices.price !== "" &&
@@ -178,22 +180,24 @@ export function CartItemRow({
 
         {/* Price + remove */}
         <div className="flex shrink-0 flex-col items-end justify-between">
-          <div className="flex flex-col items-end">
-            {isOnSale && (
-              <p className="font-medium line-through">
+          {!isQuoteMode && (
+            <div className="flex flex-col items-end">
+              {isOnSale && (
+                <p className="font-medium line-through">
+                  {formatPrice(
+                    getFloatVal(item.prices.regularPrice) * quantity,
+                    currency.code,
+                  )}
+                </p>
+              )}
+              <p className={cn("font-medium", isOnSale && "text-pink-600")}>
                 {formatPrice(
-                  getFloatVal(item.prices.regularPrice) * quantity,
+                  getFloatVal(item.totals.lineSubtotal),
                   currency.code,
                 )}
               </p>
-            )}
-            <p className={cn("font-medium", isOnSale && "text-pink-600")}>
-              {formatPrice(
-                getFloatVal(item.totals.lineSubtotal),
-                currency.code,
-              )}
-            </p>
-          </div>
+            </div>
+          )}
 
           {removeable && (
             <button
@@ -204,6 +208,7 @@ export function CartItemRow({
                 // shifting the 16px icon's visual position (F8).
                 "-m-3 cursor-pointer border-none bg-transparent p-3 shadow-none outline-none ring-0 appearance-none hover:opacity-70 focus:outline-none focus-visible:outline-none focus-visible:ring-0",
                 loading && "cursor-not-allowed opacity-40",
+                isQuoteMode && "mt-auto",
               )}
               disabled={loading}
               aria-label="Remove item"

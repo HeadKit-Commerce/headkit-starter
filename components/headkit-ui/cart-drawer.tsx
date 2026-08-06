@@ -14,11 +14,14 @@ import { Button } from "@/components/ui/button";
 import { CartItemRow } from "@/components/headkit-ui/cart-item";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { useChromeIcons } from "@/components/branding/branding-icons-provider";
+import { useIsQuoteMode } from "@/components/checkout/checkout-mode-provider";
 import { getCartAction } from "@/lib/cart-actions";
 import { getFloatVal, formatPrice, getStoreCurrency } from "@/lib/utils";
+import { PlusIcon } from "@/components/icon";
 
 export function CartDrawer() {
   const { cartData, setCartData, cartOpen, toggleCart } = useCartContext();
+  const isQuoteMode = useIsQuoteMode();
 
   useEffect(() => {
     getCartAction().then((cart) => {
@@ -34,12 +37,15 @@ export function CartDrawer() {
     minorUnit: 2,
   };
   const totalPrice = getFloatVal(cartData?.totals?.totalItems ?? "0");
+  const checkoutHref = isQuoteMode ? "/quote" : "/checkout";
 
   return (
     <Sheet open={cartOpen} onOpenChange={(open) => toggleCart(open)}>
       <SheetContent className="flex flex-col bg-brand-bg">
         <SheetHeader>
-          <SheetTitle className="mt-3 text-left">Your Bag</SheetTitle>
+          <SheetTitle className="mt-3 text-left">
+            {isQuoteMode ? "My Quote" : "Your Bag"}
+          </SheetTitle>
           <SheetDescription hidden />
         </SheetHeader>
 
@@ -57,10 +63,15 @@ export function CartDrawer() {
             </div>
           ) : (
             <>
-              <p className="mb-4">No products in your cart!</p>
+              <p className="mb-4">
+                {isQuoteMode
+                  ? "No products in your quote yet."
+                  : "No products in your cart!"}
+              </p>
               <p className="mb-10 font-medium">
-                Have a look around our selection of products to get ready for
-                your next adventure.
+                {isQuoteMode
+                  ? "Browse our selection and add products to request pricing."
+                  : "Have a look around our selection of products to get ready for your next adventure."}
               </p>
               <Link href="/shop">
                 <Button
@@ -79,22 +90,25 @@ export function CartDrawer() {
         <SheetFooter>
           {items.length > 0 && (
             <div className="w-full flex flex-col gap-2 mt-auto bg-brand-bg">
-              <div className="flex font-medium gap-1">
-                <p className="flex-1 flex items-end">
-                  Shipping and tax calculated at checkout
-                </p>
-                <p className="flex items-end text-xl">
-                  {formatPrice(totalPrice, currency.code)}
-                </p>
-              </div>
-              <Link href="/checkout">
+              {!isQuoteMode && (
+                <div className="flex font-medium gap-1">
+                  <p className="flex-1 flex items-end">
+                    Shipping and tax calculated at checkout
+                  </p>
+                  <p className="flex items-end text-xl">
+                    {formatPrice(totalPrice, currency.code)}
+                  </p>
+                </div>
+              )}
+              <Link href={checkoutHref}>
                 <Button
                   fullWidth
                   suppressHydrationWarning
                   onClick={() => toggleCart(false)}
                   className="mt-3 shadow-none focus-visible:ring-0"
+                  {...(isQuoteMode ? { rightIcon: "plus" as const } : {})}
                 >
-                  Checkout
+                  {isQuoteMode ? "Review Quote" : "Checkout"}
                 </Button>
               </Link>
             </div>
@@ -108,6 +122,7 @@ export function CartDrawer() {
 /**
  * Standalone cart icon button that opens the CartDrawer.
  * Can be dropped anywhere inside a CartProvider.
+ * In quote mode, renders a "My Quote" CTA with a plus icon.
  */
 export function CartTriggerButton({
   initialCartCount = 0,
@@ -116,7 +131,28 @@ export function CartTriggerButton({
 }) {
   const { cartData, toggleCart } = useCartContext();
   const { Cart } = useChromeIcons();
+  const isQuoteMode = useIsQuoteMode();
   const count = cartData?.itemsCount ?? initialCartCount;
+
+  if (isQuoteMode) {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        aria-label="My Quote"
+        className="relative h-9 gap-1.5 px-3"
+        onClick={() => toggleCart(true)}
+      >
+        <span>My Quote</span>
+        <PlusIcon className="h-4 w-4" />
+        {count > 0 && (
+          <span className="absolute -right-1 -top-1 z-10 h-[14px] min-w-[14px] rounded-full bg-primary text-center text-[10px] font-medium leading-[14px] text-white px-0.5">
+            {count > 99 ? "99+" : count}
+          </span>
+        )}
+      </Button>
+    );
+  }
 
   return (
     <Button

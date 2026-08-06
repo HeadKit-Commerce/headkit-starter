@@ -1,8 +1,8 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { validateCartStock, autoCorrectCart } from "@/lib/cart-validation";
-import { createCheckoutSessionAction } from "./actions";
-import { CheckoutPageContent } from "./checkout-page-content";
+import { createCheckoutSessionAction } from "@/app/checkout/actions";
+import { CheckoutPageContent } from "@/app/checkout/checkout-page-content";
 import type { CartFieldsFragment } from "@headkit/sdk";
 import { getFullCartAction } from "@/lib/cart-actions";
 import { getCustomer } from "@/lib/account-actions";
@@ -15,42 +15,34 @@ import { CartChangedBanner } from "@/components/checkout/cart-changed-banner";
 import { getBranding } from "@/lib/branding";
 import { normalizeCheckoutMode } from "@/lib/checkout-mode";
 
-export default async function CheckoutPage({
+/**
+ * HeadKit Quote checkout — duplicated from /checkout as a starting point.
+ * Quote-mode storefronts land here; further Quote UX customisation comes next.
+ */
+export default async function QuoteCheckoutPage({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  // HeadKit Quote stores use /quote instead of the payment checkout.
   const { storeSettings } = await getBranding();
-  if (normalizeCheckoutMode(storeSettings.checkoutType) === "quote") {
-    const { error: quoteError } = await searchParams;
-    const qs = quoteError ? `?error=${encodeURIComponent(quoteError)}` : "";
-    redirect(`/quote${qs}`);
+  const mode = normalizeCheckoutMode(storeSettings.checkoutType);
+  if (mode !== "quote") {
+    redirect("/checkout");
   }
 
-  // ENG-789: the checkout return page redirects failed/canceled payments
-  // (e.g. Afterpay declines) back here with ?error=payment_failed for an
-  // in-place retry. Reading searchParams keeps the page dynamic — it already
-  // is (cookie-based cart fetch).
   const { error } = await searchParams;
   const paymentFailed = error === "payment_failed";
-  // ENG-784: BNPL returns whose session was deliberately expired because the
-  // cart drifted land here with ?error=cart_changed — cart intact, fresh
-  // session minted below, honest banner on top.
   const cartChanged = error === "cart_changed";
 
   let cart = await getFullCartAction();
 
-  // null  = no cookie, or WooCommerce session expired (stale cookie was cleared)
-  // empty = user genuinely has an empty cart
   if (!cart) {
-    redirect("/checkout/error?reason=session_expired");
+    redirect("/quote/error?reason=session_expired");
   }
   if (cart.itemsCount === 0) {
-    redirect("/checkout/error?reason=empty_cart");
+    redirect("/quote/error?reason=empty_cart");
   }
 
-  // Server-side stock validation — auto-correct before showing the page.
   const validation = validateCartStock(cart.items);
   let stockCorrectionMessage: string | null = null;
 
@@ -58,37 +50,19 @@ export default async function CheckoutPage({
     const correction = await autoCorrectCart(validation.issues);
     stockCorrectionMessage = correction.message;
 
-    // Re-fetch the cart after corrections.
     cart = await getFullCartAction();
 
     if (!cart || cart.itemsCount === 0) {
-      redirect("/checkout/error?reason=stock_correction_empty");
+      redirect("/quote/error?reason=stock_correction_empty");
     }
   }
 
+  // Until Quote checkout is customised, reuse the same Stripe session flow and
+  // success URLs as HeadKit Custom so payment/webhooks keep working.
   const returnUrl = `${process.env.NEXT_PUBLIC_FRONTEND_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`;
   const successBaseUrl = process.env.NEXT_PUBLIC_FRONTEND_URL;
 
-  // CKA-04 prefill + ENG-801: resolve the shopper's email server-side SOLELY
-  // to seed the Contact step prefill via the `customerEmail` prop below. The
-  // session itself is created email-LESS — Stripe renders a session created
-  // with `customer_email` as "prefilled and not editable", which locked the
-  // ContactDetailsElement input on reload/recreate. The session receives the
-  // email post-create via `actions.updateEmail` (one-shot push effect in
-  // CheckoutSteps / contact-step submit), so the field stays editable.
-  // A1: the authed Store API cart natively surfaces the WP billing email;
-  // `getCustomer(authToken)` is a defensive fallback only when the cart has
-  // none. Guest (no cookie / no email) → undefined → no prefill (unchanged).
-  // The token/email are never logged (T-04.1-15).
   const authToken = getAuthToken(await cookies());
-  // ENG-783: a logged-in shopper (WP auth cookie present) has a server-known
-  // identity. CheckoutForm uses this to suppress the provider-level
-  // `defaultValues.email` prefill — against a session with a bound email-ful
-  // customer the init-time prefill triggers IntegrationError → loaderror on
-  // all elements. The ContactDetailsElement itself always mounts; a bound
-  // email-ful session displays the fixed email inside it.
-  // Auth is the cookie ONLY — never inferred from `customerEmail` (a guest who
-  // typed a billing email also has one).
   const isAuthenticated = !!authToken;
   let fallbackEmail: string | undefined;
   if (authToken && !cart.billingAddress?.email?.trim()) {
@@ -109,15 +83,7 @@ export default async function CheckoutPage({
       stripeShippingRateId: string;
     }> | null;
   } | null = null;
-  // ENG-838: a settled-free cart ($0 total AND shipping settled — no shipping
-  // needed, or a rate already selected) renders the no-payment confirm and
-  // must NOT create a checkout session here: on the zero-total path the
-  // server-side createCheckoutSession FINALIZES the WC order, so doing it
-  // during SSR would place an order at page VIEW (and a reload would try to
-  // finalize the consumed cart again → "This order cannot be paid for").
-  // The finalize belongs to the Place-order click (placeFreeOrder). Mirrors
-  // isZeroTotalCart in commerce and the free-branch condition in
-  // checkout-page-content.tsx.
+
   const zeroTotal = getFloatVal(cart.totals.totalPrice ?? "0") <= 0;
   const shippingSettled =
     !cart.needsShipping ||
@@ -127,11 +93,7 @@ export default async function CheckoutPage({
   const isSettledFreeCart = zeroTotal && shippingSettled;
   if (!isSettledFreeCart) {
     try {
-      // Only request shipping-address collection when the cart actually needs
-      // shipping. For digital/no-shipping carts the session must NOT require a
-      // shipping address (the billing-only UI never sets one → confirm() would fail).
       const shippingCountries = cart.needsShipping ? ["AU", "NZ"] : [];
-      // ENG-801: no email at create — see comment above `customerEmail`.
       const session = await createCheckoutSessionAction(
         returnUrl,
         undefined,
@@ -143,7 +105,7 @@ export default async function CheckoutPage({
         !session.sessionId ||
         !session.publishableKey
       ) {
-        redirect("/checkout/error?reason=invalid_session");
+        redirect("/quote/error?reason=invalid_session");
       }
       checkoutSession = {
         clientSecret: session.clientSecret,
@@ -152,13 +114,13 @@ export default async function CheckoutPage({
         stripeAccountId: session.stripeAccountId ?? null,
         shippingOptionMapping: session.shippingOptionMapping ?? null,
       };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       const params = new URLSearchParams({
         reason: "session_creation_failed",
         message,
       });
-      redirect(`/checkout/error?${params.toString()}`);
+      redirect(`/quote/error?${params.toString()}`);
     }
   }
 
@@ -193,12 +155,8 @@ export default async function CheckoutPage({
 
   return (
     <div className="min-h-screen bg-brand-bg">
-      {/* Payment failed banner (ENG-789: retry after Afterpay/BNPL decline) */}
       {paymentFailed && <PaymentFailedBanner />}
-      {/* Cart changed banner (ENG-784: session expired mid-redirect because
-          the cart drifted; nothing was charged) */}
       {cartChanged && <CartChangedBanner />}
-      {/* Stock correction banner */}
       {stockCorrectionMessage && (
         <div className="mx-auto max-w-6xl px-4 pt-6">
           <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">

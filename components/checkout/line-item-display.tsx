@@ -17,6 +17,8 @@ export interface LineItemDisplayProps {
   lineSubtotal: string;
   currency: string;
   giftCard?: GiftCardDisplay | null;
+  /** When true, omit the line price (HeadKit Quote mode). */
+  hidePrice?: boolean;
 }
 
 export function LineItemDisplay({
@@ -27,6 +29,7 @@ export function LineItemDisplay({
   lineSubtotal,
   currency,
   giftCard = null,
+  hidePrice = false,
 }: LineItemDisplayProps) {
   const imageSrc = images[0]?.src ?? "/assets/HeadKit-Fallback.png";
   const imageAlt = images[0]?.alt ?? name;
@@ -62,9 +65,11 @@ export function LineItemDisplay({
           <p className="text-xs text-gray-400">Qty {quantity}</p>
         </div>
 
-        <div className="shrink-0 text-sm font-medium text-gray-900">
-          {formatPrice(getFloatVal(lineSubtotal), currency)}
-        </div>
+        {!hidePrice && (
+          <div className="shrink-0 text-sm font-medium text-gray-900">
+            {formatPrice(getFloatVal(lineSubtotal), currency)}
+          </div>
+        )}
       </div>
 
       {giftCard && <GiftCardDetails giftCard={giftCard} />}

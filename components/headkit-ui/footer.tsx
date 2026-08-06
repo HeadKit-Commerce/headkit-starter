@@ -110,6 +110,8 @@ interface FooterProps {
   paymentMethods?: PaymentMethod[];
   /** When true, show the mailing-list subscribe box (email marketing connected). */
   showSubscribe?: boolean;
+  /** When true, hide the payment method icon row (e.g. HeadKit Quote mode). */
+  hidePaymentIcons?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -218,7 +220,9 @@ export function Footer({
   socialLinks,
   paymentMethods = DEFAULT_PAYMENT_METHODS,
   showSubscribe = false,
+  hidePaymentIcons = false,
 }: FooterProps) {
+  const visiblePaymentMethods = hidePaymentIcons ? [] : paymentMethods;
   const footerMenus = menus
     .filter((menu) => menu.location !== "FOOTER_POLICY")
     .filter((menu) => (menu.items?.length ?? 0) > 0);
@@ -322,9 +326,9 @@ export function Footer({
       </div>
 
       {/* Payment icons — own row above copyright, left-aligned */}
-      {paymentMethods.length > 0 ? (
+      {visiblePaymentMethods.length > 0 ? (
         <div className="headkit-footer-payment-methods flex flex-wrap justify-start gap-3 border-t border-[#E2E2DF] pt-8">
-          {paymentMethods.map((method) => {
+          {visiblePaymentMethods.map((method) => {
             const IconComponent = PAYMENT_ICON_MAP[method];
             return (
               <IconComponent

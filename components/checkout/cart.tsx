@@ -5,6 +5,7 @@ import { CouponBox } from "@/components/checkout/coupon-box";
 import { LineItemDisplay } from "@/components/checkout/line-item-display";
 import { getFloatVal, formatPrice } from "@/lib/utils";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
+import { useIsQuoteMode } from "@/components/checkout/checkout-mode-provider";
 
 interface Props {
   showDisplayShipping?: boolean;
@@ -12,6 +13,7 @@ interface Props {
 
 const Cart = ({ showDisplayShipping }: Props) => {
   const { cartData } = useCartContext();
+  const isQuoteMode = useIsQuoteMode();
 
   if (!cartData) return null;
 
@@ -51,52 +53,65 @@ const Cart = ({ showDisplayShipping }: Props) => {
             lineSubtotal={item.totals.lineSubtotal}
             currency={currency}
             giftCard={item.giftCard ?? null}
+            hidePrice={isQuoteMode}
           />
         ))}
       </div>
 
-      {/* Unified coupon / gift-card redemption. One input discriminates on the
-          gift-card format; applying either re-syncs the Stripe session amount
-          via the shared checkout-actions context. */}
-      <div className="mt-[32px] mb-[20px] space-y-[16px]">
-        <CouponBox cart={cartData as CartFieldsFragment} />
-      </div>
+      {!isQuoteMode && (
+        <>
+          {/* Unified coupon / gift-card redemption. One input discriminates on the
+              gift-card format; applying either re-syncs the Stripe session amount
+              via the shared checkout-actions context. */}
+          <div className="mt-[32px] mb-[20px] space-y-[16px]">
+            <CouponBox cart={cartData as CartFieldsFragment} />
+          </div>
 
-      {/* Totals */}
-      <div className="flex justify-between font-medium">
-        <p>Subtotal</p>
-        <p>{formatPrice(getFloatVal(cartData.totals.totalItems), currency)}</p>
-      </div>
+          {/* Totals */}
+          <div className="flex justify-between font-medium">
+            <p>Subtotal</p>
+            <p>
+              {formatPrice(getFloatVal(cartData.totals.totalItems), currency)}
+            </p>
+          </div>
 
-      {getFloatVal(cartData.totals.totalDiscount) > 0 && (
-        <div className="flex justify-between font-medium mt-[8px]">
-          <p>Discount</p>
-          <p>
-            −{formatPrice(getFloatVal(cartData.totals.totalDiscount), currency)}
-          </p>
-        </div>
+          {getFloatVal(cartData.totals.totalDiscount) > 0 && (
+            <div className="flex justify-between font-medium mt-[8px]">
+              <p>Discount</p>
+              <p>
+                −
+                {formatPrice(
+                  getFloatVal(cartData.totals.totalDiscount),
+                  currency,
+                )}
+              </p>
+            </div>
+          )}
+
+          <div className="flex justify-between font-medium mt-[8px]">
+            <p>Shipping</p>
+            <p>{calculateShipping()}</p>
+          </div>
+
+          {getFloatVal(cartData.totals.totalTax) > 0 && (
+            <div className="flex justify-between font-medium mt-[8px]">
+              <p>Tax</p>
+              <p>
+                {formatPrice(getFloatVal(cartData.totals.totalTax), currency)}
+              </p>
+            </div>
+          )}
+
+          <div className="flex justify-between text-xl mt-[20px]">
+            <div>
+              <p className="font-medium">Total</p>
+            </div>
+            <div className="text-right font-medium">
+              <p>{calculateTotal()}</p>
+            </div>
+          </div>
+        </>
       )}
-
-      <div className="flex justify-between font-medium mt-[8px]">
-        <p>Shipping</p>
-        <p>{calculateShipping()}</p>
-      </div>
-
-      {getFloatVal(cartData.totals.totalTax) > 0 && (
-        <div className="flex justify-between font-medium mt-[8px]">
-          <p>Tax</p>
-          <p>{formatPrice(getFloatVal(cartData.totals.totalTax), currency)}</p>
-        </div>
-      )}
-
-      <div className="flex justify-between text-xl mt-[20px]">
-        <div>
-          <p className="font-medium">Total</p>
-        </div>
-        <div className="text-right font-medium">
-          <p>{calculateTotal()}</p>
-        </div>
-      </div>
     </div>
   );
 };

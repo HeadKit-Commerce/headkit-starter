@@ -50,6 +50,7 @@ describe("sitemap enableSitemap gate", () => {
         name: "Acme",
         gtmId: null,
         domain: null,
+        checkoutType: null,
       },
       seoSettings: {
         title: null,
@@ -79,6 +80,7 @@ describe("robots allowIndexing + enableSitemap", () => {
         name: "Acme",
         gtmId: null,
         domain: null,
+        checkoutType: null,
       },
       seoSettings: {
         title: null,
@@ -103,6 +105,7 @@ describe("robots allowIndexing + enableSitemap", () => {
         name: "Acme",
         gtmId: null,
         domain: null,
+        checkoutType: null,
       },
       seoSettings: {
         title: null,
@@ -127,6 +130,7 @@ describe("robots allowIndexing + enableSitemap", () => {
         name: "Acme",
         gtmId: null,
         domain: null,
+        checkoutType: null,
       },
       seoSettings: {
         title: null,

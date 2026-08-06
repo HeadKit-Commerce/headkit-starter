@@ -7,6 +7,7 @@ import {
   ArrowRightIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  PlusIcon,
   ShoppingBagIcon,
   SpinnerIcon,
 } from "@/components/icon";
@@ -45,13 +46,15 @@ type RightIconType =
   | "arrowRight"
   | "chevronLeft"
   | "chevronRight"
-  | "shoppingBag";
+  | "shoppingBag"
+  | "plus";
 
 const RightIconMap: Record<RightIconType, React.ElementType> = {
   arrowRight: ArrowRightIcon,
   chevronLeft: ChevronLeftIcon,
   chevronRight: ChevronRightIcon,
   shoppingBag: ShoppingBagIcon,
+  plus: PlusIcon,
 };
 
 export interface ButtonProps

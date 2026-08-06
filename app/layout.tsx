@@ -20,6 +20,8 @@ import {
   resolveStoreName,
 } from "@/lib/make-metadata";
 import { getBranding, getBrandingAssets } from "@/lib/branding";
+import { normalizeCheckoutMode } from "@/lib/checkout-mode";
+import { CheckoutModeProvider } from "@/components/checkout/checkout-mode-provider";
 import { resolveBrandFonts } from "@/lib/brand-fonts";
 import { BrandingIconsProvider } from "@/components/branding/branding-icons-provider";
 import { GoogleTagManager } from "@next/third-parties/google";
@@ -106,6 +108,7 @@ export default async function RootLayout({
 
   const siteName = resolveStoreName(storeSettings.name);
   const gtmId = storeSettings.gtmId ?? ENV_GTM_ID;
+  const checkoutMode = normalizeCheckoutMode(storeSettings.checkoutType);
   const emailProvider = emailMarketing.provider.toLowerCase();
   const klaviyoPublicKey =
     emailProvider === "klaviyo"
@@ -221,29 +224,32 @@ export default async function RootLayout({
         />
 
         <BrandingIconsProvider library={branding.iconLibrary}>
-          <AuthProvider>
-            <CartProvider>
-              <CartDrawer />
-              <NavigationWrapper />
-              <main>{children}</main>
-              <Footer
-                siteName={siteName}
-                description={siteDescription}
-                menus={footerMenus}
-                iconUrl={branding.iconUrl}
-                showSubscribe={showFooterSubscribe}
-                socialLinks={{
-                  instagram: "https://www.instagram.com/headkitcommerce",
-                  discord: "https://discord.gg/bSNe29JtsX",
-                  github: "https://github.com/headkit-commerce",
-                  linkedin:
-                    "https://www.linkedin.com/company/headkit-commerce/",
-                  youtube: "https://www.youtube.com/@headkit-commerce",
-                }}
-              />
-              <Toaster />
-            </CartProvider>
-          </AuthProvider>
+          <CheckoutModeProvider mode={checkoutMode}>
+            <AuthProvider>
+              <CartProvider>
+                <CartDrawer />
+                <NavigationWrapper />
+                <main>{children}</main>
+                <Footer
+                  siteName={siteName}
+                  description={siteDescription}
+                  menus={footerMenus}
+                  iconUrl={branding.iconUrl}
+                  showSubscribe={showFooterSubscribe}
+                  hidePaymentIcons={checkoutMode === "quote"}
+                  socialLinks={{
+                    instagram: "https://www.instagram.com/headkitcommerce",
+                    discord: "https://discord.gg/bSNe29JtsX",
+                    github: "https://github.com/headkit-commerce",
+                    linkedin:
+                      "https://www.linkedin.com/company/headkit-commerce/",
+                    youtube: "https://www.youtube.com/@headkit-commerce",
+                  }}
+                />
+                <Toaster />
+              </CartProvider>
+            </AuthProvider>
+          </CheckoutModeProvider>
         </BrandingIconsProvider>
       </body>
     </html>

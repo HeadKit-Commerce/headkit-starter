@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { MinusIcon, PlusIcon, HeartIcon } from "@/components/icon";
 import { addToCartAction } from "@/lib/cart-actions";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
+import { useIsQuoteMode } from "@/components/checkout/checkout-mode-provider";
 import { cn, decodeHtmlEntities } from "@/lib/utils";
 import { isInWishlist, toggleWishlist } from "@/lib/wishlist";
 import type { GiftCardFormValues } from "@/components/gift-card-form";
@@ -95,6 +96,7 @@ export function ProductDetail({
   const [showStickyAtc, setShowStickyAtc] = useState(false);
   const atcSectionRef = useRef<HTMLDivElement>(null);
   const { cartData, setCartData, toggleCart } = useCartContext();
+  const isQuoteMode = useIsQuoteMode();
 
   useEffect(() => {
     setWishlisted(isInWishlist(product.id));
@@ -332,7 +334,9 @@ export function ProductDetail({
 
   const addToCartLabel =
     cartFeedback === "success"
-      ? "Added to cart!"
+      ? isQuoteMode
+        ? "Added to quote!"
+        : "Added to cart!"
       : cartFeedback === "error"
         ? "Error — try again"
         : isOutOfStock
@@ -341,7 +345,9 @@ export function ProductDetail({
             ? "Max qty reached"
             : isVariable && !selectedVariation
               ? "Select options"
-              : "Add to cart";
+              : isQuoteMode
+                ? "Add to Quote"
+                : "Add to cart";
 
   function handleAddToCart() {
     setCartFeedback("idle");
@@ -586,6 +592,7 @@ export function ProductDetail({
               price={displayPrice}
               regularPrice={displayRegularPrice}
               onSale={isOnSale}
+              quoteMessage="Add to Quote for pricing"
             />
           </div>
 
@@ -637,7 +644,7 @@ export function ProductDetail({
               disabled={!canAddToCart}
               loading={addingToCart}
               loadingText="Adding…"
-              rightIcon="shoppingBag"
+              rightIcon={isQuoteMode ? "plus" : "shoppingBag"}
               onClick={handleAddToCart}
             >
               {addToCartLabel}
@@ -768,6 +775,7 @@ export function ProductDetail({
                 regularPrice={displayRegularPrice}
                 onSale={isOnSale}
                 size="default"
+                quoteMessage="Add to Quote for pricing"
               />
             </div>
           </div>
@@ -807,7 +815,7 @@ export function ProductDetail({
             disabled={!canAddToCart}
             loading={addingToCart}
             loadingText="Adding…"
-            rightIcon="shoppingBag"
+            rightIcon={isQuoteMode ? "plus" : "shoppingBag"}
             onClick={handleAddToCart}
           >
             {addToCartLabel}

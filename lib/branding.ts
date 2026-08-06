@@ -69,6 +69,8 @@ export interface StoreSettings {
   name: string | null;
   gtmId: string | null;
   domain: string | null;
+  /** Dashboard checkout experience: custom | quote (GraphQL may send CUSTOM/QUOTE). */
+  checkoutType: string | null;
 }
 
 export interface SeoSettings {
@@ -126,6 +128,7 @@ const DEFAULT_BUNDLE: BrandingBundle = {
     name: null,
     gtmId: null,
     domain: null,
+    checkoutType: null,
   },
   seoSettings: {
     title: null,
@@ -239,6 +242,18 @@ ${BRANDING_CORE_SELECTION}
   }
 `;
 
+/**
+ * Isolated checkout-type read so unknown-field failures on older
+ * dashboard-api do not discard branding colors / SEO via the main queries.
+ */
+const CHECKOUT_TYPE_QUERY = /* GraphQL */ `
+  query StorefrontCheckoutType {
+    storeSettings {
+      checkoutType
+    }
+  }
+`;
+
 interface FlatBranding extends Partial<Branding> {
   headingFontSource?: string | null;
   headingFontFamily?: string | null;
@@ -322,6 +337,7 @@ function coerce(data: NonNullable<BrandingResponse["data"]>): BrandingBundle {
       name: s.name ?? null,
       gtmId: s.gtmId ?? null,
       domain: s.domain ?? null,
+      checkoutType: s.checkoutType ?? null,
     },
     seoSettings: {
       title: seo.title ?? null,
@@ -405,27 +421,67 @@ export async function getBranding(): Promise<BrandingBundle> {
   if (!endpoint || !token) return DEFAULT_BUNDLE;
 
   try {
-    const full = await fetchBrandingQuery(endpoint, token, BRANDING_QUERY);
-    if (full) return full;
+    const [bundle, checkoutType] = await Promise.all([
+      fetchBrandingBundle(endpoint, token),
+      fetchCheckoutType(endpoint, token),
+    ]);
 
-    const extended = await fetchBrandingQuery(
-      endpoint,
-      token,
-      BRANDING_QUERY_EXTENDED,
-    );
-    if (extended) return extended;
+    if (!bundle) return DEFAULT_BUNDLE;
+    if (checkoutType === null) return bundle;
 
-    const compat = await fetchBrandingQuery(
-      endpoint,
-      token,
-      BRANDING_QUERY_COMPAT,
-    );
-    if (compat) return compat;
-
-    return DEFAULT_BUNDLE;
+    return {
+      ...bundle,
+      storeSettings: {
+        ...bundle.storeSettings,
+        checkoutType,
+      },
+    };
   } catch {
     // Unreachable / timeout / parse error — degrade silently.
     return DEFAULT_BUNDLE;
+  }
+}
+
+/** Resolve branding via full → extended → compat fallbacks (no checkoutType). */
+async function fetchBrandingBundle(
+  endpoint: string,
+  token: string,
+): Promise<BrandingBundle | null> {
+  const full = await fetchBrandingQuery(endpoint, token, BRANDING_QUERY);
+  if (full) return full;
+
+  const extended = await fetchBrandingQuery(
+    endpoint,
+    token,
+    BRANDING_QUERY_EXTENDED,
+  );
+  if (extended) return extended;
+
+  return fetchBrandingQuery(endpoint, token, BRANDING_QUERY_COMPAT);
+}
+
+/**
+ * Best-effort checkout type. Returns null when the field is missing or the
+ * request fails — callers keep the default HeadKit Custom experience.
+ */
+async function fetchCheckoutType(
+  endpoint: string,
+  token: string,
+): Promise<string | null> {
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: brandingRequestHeaders(token),
+      body: JSON.stringify({ query: CHECKOUT_TYPE_QUERY }),
+    });
+    if (!res.ok) return null;
+
+    const json = (await res.json()) as {
+      data?: { storeSettings?: { checkoutType?: string | null } | null } | null;
+    };
+    return json.data?.storeSettings?.checkoutType ?? null;
+  } catch {
+    return null;
   }
 }
 
