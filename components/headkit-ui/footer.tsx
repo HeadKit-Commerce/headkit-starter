@@ -239,7 +239,7 @@ export function Footer({
   const threeMenuDesktop = footerMenus.length >= 3;
 
   return (
-    <footer className="border-t-2 border-t-[#E2E2DF] px-5 md:px-10">
+    <footer className="headkit-footer border-t-2 border-t-[#E2E2DF] px-5 md:px-10">
       <div
         className={cn(
           "grid gap-x-8 gap-y-8 py-10 md:py-14",
@@ -323,7 +323,7 @@ export function Footer({
 
       {/* Payment icons — own row above copyright, left-aligned */}
       {paymentMethods.length > 0 ? (
-        <div className="flex flex-wrap justify-start gap-3 border-t border-[#E2E2DF] pt-8">
+        <div className="headkit-footer-payment-methods flex flex-wrap justify-start gap-3 border-t border-[#E2E2DF] pt-8">
           {paymentMethods.map((method) => {
             const IconComponent = PAYMENT_ICON_MAP[method];
             return (

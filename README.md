@@ -69,7 +69,7 @@ Open [http://localhost:3000](http://localhost:3000).
 2. **`overrides/`** — preferred place for CSS and future UI overrides; safe across template upgrades.
 3. **Full repo** — escape hatch for deep changes; expect manual merges when upgrading the starter.
 
-See [`overrides/README.md`](./overrides/README.md).
+See [`overrides/README.md`](./overrides/README.md) for CSS hook classes. Agents should read [`AGENTS.md`](./AGENTS.md).
 
 ## SEO Features
 

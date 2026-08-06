@@ -219,7 +219,7 @@ export async function HomeContent() {
 
       {/* Shop by Category — skipped when WP provides headkit-category-carousel */}
       {showHardcodedCategories && (
-        <section className="overflow-hidden py-10">
+        <section className="headkit-category-carousel overflow-hidden py-10">
           <SectionHeader
             title="Shop by Category"
             description=""
@@ -235,7 +235,7 @@ export async function HomeContent() {
 
       {/* Brands — skipped when WP provides headkit-brand-carousel */}
       {showHardcodedBrands && (
-        <section className="overflow-hidden py-10">
+        <section className="headkit-brand-carousel overflow-hidden py-10">
           <SectionHeader
             title="Our Brands"
             description=""
@@ -256,7 +256,7 @@ export default function Home() {
   // Suspense boundary bakes it into the prerendered shell in document order,
   // so the homepage is visible without JavaScript.
   return (
-    <div className="overflow-hidden">
+    <div className="headkit-home overflow-hidden">
       <HomeContent />
     </div>
   );

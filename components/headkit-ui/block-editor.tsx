@@ -154,7 +154,7 @@ const BlockEditor = ({ blocks, section }: Props) => {
           const products: Product[] = data.products ?? [];
           if (products.length === 0) return null;
           return (
-            <div className="overflow-hidden py-10" key={index}>
+            <div className="headkit-product-carousel overflow-hidden py-10" key={index}>
               <SectionHeader
                 title={data.title}
                 description={data.description}
@@ -172,7 +172,7 @@ const BlockEditor = ({ blocks, section }: Props) => {
         if (data.cssClasses.includes("headkit-category-carousel")) {
           const categories = data.categories ?? [];
           return (
-            <div className="overflow-hidden py-10" key={index}>
+            <div className="headkit-category-carousel overflow-hidden py-10" key={index}>
               <SectionHeader
                 title={data.title}
                 description={data.description}
@@ -208,7 +208,7 @@ const BlockEditor = ({ blocks, section }: Props) => {
             (b) => typeof b.thumbnail === "string" && b.thumbnail.trim() !== "",
           );
           return (
-            <div className="overflow-hidden py-10" key={index}>
+            <div className="headkit-brand-carousel overflow-hidden py-10" key={index}>
               <SectionHeader
                 title={data.title}
                 description={data.description}
@@ -240,7 +240,7 @@ const BlockEditor = ({ blocks, section }: Props) => {
           const posts = data.posts ?? [];
           if (posts.length === 0) return null;
           return (
-            <div className="overflow-hidden py-10" key={index}>
+            <div className="headkit-post-carousel overflow-hidden py-10" key={index}>
               <SectionHeader
                 title={data.title}
                 description={data.description}
@@ -259,7 +259,7 @@ const BlockEditor = ({ blocks, section }: Props) => {
           const projects = data.projects ?? [];
           if (projects.length === 0) return null;
           return (
-            <div className="overflow-hidden py-10" key={index}>
+            <div className="headkit-project-carousel overflow-hidden py-10" key={index}>
               <SectionHeader
                 title={data.title}
                 description={data.description}
@@ -322,7 +322,7 @@ interface CalloutProps {
 const Callout = ({ title, content, buttons }: CalloutProps) => {
   return (
     <div className="px-10 py-10">
-      <div className="rounded-brand border border-gray-200 px-6 py-10 md:px-10 md:py-14">
+      <div className="headkit-callout rounded-brand border border-gray-200 px-6 py-10 md:px-10 md:py-14">
         <div className="grid grid-cols-1 md:grid-cols-12">
           <div className="flex flex-col gap-6 md:col-span-6 md:col-start-4">
             <div>

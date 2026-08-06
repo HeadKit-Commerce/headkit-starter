@@ -134,7 +134,7 @@ export function NavigationBar({
         ref={navRef}
         onValueChange={(val) => setMenuOpen(!!val)}
         className={cn(
-          "sticky top-0 flex items-center justify-between h-20 w-full max-w-full px-5 md:px-10 font-body text-primary backdrop-blur-xs transition-colors",
+          "headkit-nav sticky top-0 flex items-center justify-between h-20 w-full max-w-full px-5 md:px-10 font-body text-primary backdrop-blur-xs transition-colors",
           // Stay above the mobile sheet/overlay so logo + hamburger remain usable.
           mobileOpen ? "z-[60]" : "z-20",
           // Solid only while mega-menu / mobile sheet is open, or on hover.

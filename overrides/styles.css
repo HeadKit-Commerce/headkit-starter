@@ -20,6 +20,22 @@
  *   display: none;
  * }
  *
+ * Nav typography (uses platform hook .headkit-nav):
+ * .headkit-nav a {
+ *   text-transform: uppercase;
+ *   letter-spacing: 0.05em;
+ * }
+ *
+ * Homepage section styling (uses platform hook .headkit-home):
+ * .headkit-home .headkit-brand-carousel {
+ *   background-color: #f5f5f4;
+ * }
+ *
+ * Hide footer payment icons:
+ * .headkit-footer-payment-methods {
+ *   display: none;
+ * }
+ *
  * Tighten product card spacing:
  * .product-card {
  *   gap: 0.75rem;
