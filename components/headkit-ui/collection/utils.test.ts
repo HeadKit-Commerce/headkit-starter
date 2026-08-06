@@ -6,6 +6,7 @@ import {
   facetDescription,
   encodeFilterSlug,
   decodeFilterSlug,
+  buildBreadcrumbFromCategory,
   DEFAULT_FILTER_VALUES,
   type FilterValues,
 } from "./utils";
@@ -282,5 +283,86 @@ describe("encodeFilterSlug / decodeFilterSlug (delimiter-safe values)", () => {
     expect(encodeFilterSlug(fv({ attributes: { pa_color: ["black"] } }))).toBe(
       "color.black",
     );
+  });
+});
+
+describe("buildBreadcrumbFromCategory", () => {
+  it("orders ancestors root-first and builds nested collection URIs", () => {
+    // Woo/HeadKit REST returns ancestors already root → parent (see
+    // headkit_build_category_response_item + array_reverse). Do not reverse.
+    const category = {
+      id: "551",
+      name: "Outdoor Benches",
+      slug: "outdoor-benches",
+      description: "",
+      thumbnail: "",
+      uri: "",
+      children: [],
+      ancestors: [
+        {
+          id: "1",
+          name: "Outdoor Furniture",
+          slug: "outdoor-furniture",
+          description: "",
+          thumbnail: "",
+          uri: "",
+          children: [],
+          ancestors: [],
+        },
+        {
+          id: "2",
+          name: "Outdoor Seating",
+          slug: "outdoor-seating",
+          description: "",
+          thumbnail: "",
+          uri: "",
+          children: [],
+          ancestors: [],
+        },
+      ],
+    };
+
+    expect(buildBreadcrumbFromCategory(category)).toEqual([
+      { name: "Home", uri: "/", current: false },
+      { name: "Shop", uri: "/shop", current: false },
+      {
+        name: "Outdoor Furniture",
+        uri: "/collections/outdoor-furniture",
+        current: false,
+      },
+      {
+        name: "Outdoor Seating",
+        uri: "/collections/outdoor-furniture/outdoor-seating",
+        current: false,
+      },
+      {
+        name: "Outdoor Benches",
+        uri: "/collections/outdoor-furniture/outdoor-seating/outdoor-benches",
+        current: true,
+      },
+    ]);
+  });
+
+  it("handles a root category with no ancestors", () => {
+    const category = {
+      id: "1",
+      name: "Outdoor Furniture",
+      slug: "outdoor-furniture",
+      description: "",
+      thumbnail: "",
+      uri: "",
+      children: [],
+      ancestors: [],
+    };
+
+    expect(buildBreadcrumbFromCategory(category)).toEqual([
+      { name: "Home", uri: "/", current: false },
+      { name: "Shop", uri: "/shop", current: false },
+      {
+        name: "Outdoor Furniture",
+        uri: "/collections/outdoor-furniture",
+        current: true,
+      },
+    ]);
   });
 });

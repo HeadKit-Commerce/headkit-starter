@@ -51,6 +51,9 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-body);
+  /* Align Tailwind text-base with body (15px) */
+  --text-base: 15px;
+  --text-base--line-height: 1.5;
 
   /* Purple neutrals – remapped via @theme / layout when branding sets primary */
   --color-purple-900: #0b050f;
@@ -104,6 +107,7 @@
     background-color: var(--color-background, var(--background));
     color: var(--color-text, var(--foreground));
     font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+    font-size: 15px;
     /* WordPress "Auto" line height — font default, not a fixed ratio */
     line-height: normal;
   }

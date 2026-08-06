@@ -387,7 +387,10 @@ export function buildBreadcrumbFromCategory(
     { name: "Shop", uri: "/shop", current: false },
   ];
 
-  const ancestors = [...(category.ancestors ?? [])].reverse();
+  // Ancestors are root → immediate parent (Woo HeadKit REST already
+  // array_reverse's the walk-up). Reversing again inverts labels and
+  // produces invalid nested URIs (SEO + broken crumb links).
+  const ancestors = category.ancestors ?? [];
   const pathSegments: string[] = [];
 
   for (const ancestor of ancestors) {
