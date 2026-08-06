@@ -21,7 +21,8 @@
  * }
  *
  * Nav typography (uses platform hook .headkit-nav):
- * .headkit-nav a {
+ * .headkit-nav > ul > li > a,
+ * .headkit-nav > ul > li > button {
  *   text-transform: uppercase;
  *   letter-spacing: 0.05em;
  * }
@@ -29,6 +30,17 @@
  * Homepage section styling (uses platform hook .headkit-home):
  * .headkit-home .headkit-brand-carousel {
  *   background-color: #f5f5f4;
+ * }
+ *
+ * Callout / promo band (uses platform hook .headkit-callout):
+ * .headkit-callout {
+ *   background-color: hsl(var(--primary));
+ *   color: hsl(var(--primary-foreground));
+ * }
+ *
+ * Footer background (uses platform hook .headkit-footer):
+ * .headkit-footer {
+ *   background-color: var(--brand-bg, #fff);
  * }
  *
  * Hide footer payment icons:

@@ -37,7 +37,7 @@ export function useBrandIcons(): BrandUiIcons {
   return useContext(BrandingIconsContext);
 }
 
-/** Chrome icon set for nav search / wishlist / account / cart. */
+/** Chrome icon set for nav search / wishlist / account / cart / phone. */
 export function useChromeIcons(): ChromeIcons {
   const icons = useBrandIcons();
   return {
@@ -45,5 +45,6 @@ export function useChromeIcons(): ChromeIcons {
     Heart: icons.Heart,
     User: icons.User,
     Cart: icons.Cart,
+    Phone: icons.Phone,
   };
 }

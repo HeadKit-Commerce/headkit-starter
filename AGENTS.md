@@ -6,8 +6,9 @@ Instructions for AI agents customising a customer storefront derived from this t
 
 1. **Dashboard branding** — colours, fonts, corner radius, icons. No code changes.
 2. **`overrides/styles.css`** — cosmetic UI (layout, spacing, visibility, typography tweaks).
-3. **New routes / local components** — one-off pages or behaviour that cannot be expressed in CSS.
-4. **Edit core components** — last resort; creates merge pain on starter upgrades.
+3. **`overrides/header-actions.tsx`** — extra header icons (phone, etc.) that CSS cannot inject.
+4. **New routes / local components** — one-off pages or behaviour that cannot be expressed in CSS.
+5. **Edit core components** — last resort; creates merge pain on starter upgrades.
 
 ## Do not edit for cosmetic work
 
@@ -28,6 +29,7 @@ Use **CSS hook classes** documented in [`overrides/README.md`](./overrides/READM
 | Hide prices | `overrides/styles.css` → `.price`, `[data-price]` |
 | Hide footer payment icons | `overrides/styles.css` → `.headkit-footer-payment-methods` |
 | Restyle callout / promo | `overrides/styles.css` → `.headkit-callout` |
+| Add header phone / extra icon | `overrides/header-actions.tsx` → `HeaderActionExtras` |
 | New landing page | `app/<route>/page.tsx` + optional local components |
 | Change checkout logic | `lib/` + `app/checkout/` (behaviour, not cosmetics) |
 

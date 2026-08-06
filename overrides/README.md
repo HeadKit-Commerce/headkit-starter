@@ -9,6 +9,7 @@ Platform template upgrades should leave `overrides/` alone. You still have the f
 | Path | Purpose |
 |------|---------|
 | `styles.css` | CSS beyond dashboard branding (layout, spacing, hide elements, tweaks) |
+| `header-actions.tsx` | Extra header icons (e.g. phone) between Account and Cart |
 
 ## What stays elsewhere
 
@@ -32,6 +33,11 @@ Dashboard branding still sets primary colour, fonts, and radii at runtime. Use o
 }
 ```
 
+## Header action extras
+
+`header-actions.tsx` is mounted by the core header between Account and Cart (desktop) and after Account (mobile sheet). Put store-specific actions here (phone, etc.) so template upgrades do not overwrite them.
+
+Return `null` from `HeaderActionExtras` / `MobileHeaderActionExtras` to hide them (default in the starter template).
 
 ## CSS hook classes (stable selectors)
 
@@ -53,8 +59,9 @@ The starter ships **hook classes** on key layout regions so you can target them 
 ### Examples
 
 ```css
-/* Nav: uppercase links */
-.headkit-nav a {
+/* Nav: uppercase top-level links (desktop mega-menu) */
+.headkit-nav > ul > li > a,
+.headkit-nav > ul > li > button {
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -68,6 +75,11 @@ The starter ships **hook classes** on key layout regions so you can target them 
 .headkit-callout {
   background-color: hsl(var(--primary));
   color: hsl(var(--primary-foreground));
+}
+
+/* Footer: background tint */
+.headkit-footer {
+  background-color: var(--brand-bg, #fff);
 }
 
 /* Footer: hide payment icons */
@@ -88,4 +100,4 @@ Store owners and agents can still change any file in this repo. That works, but 
 
 ## Future
 
-Named React slots, copy overrides, and feature flags may land here later. Start with CSS only.
+Named React slots, copy overrides, and feature flags may land here later.
