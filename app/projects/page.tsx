@@ -9,13 +9,26 @@ import { getBranding } from "@/lib/branding";
 import { TAG } from "@/lib/cache-tags";
 
 const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
+const FALLBACK_TITLE = "Projects";
+const FALLBACK_DESCRIPTION = "Explore our latest projects and case studies.";
+
+async function getProjectsLanding() {
+  "use cache";
+  cacheLife("max");
+  // Interim: CMS intro page must use slug "projects" (see ENG-860 for Reading picker).
+  cacheTag(TAG.page("projects"), TAG.projects, TAG.pages);
+  return sdk.content.get("projects", "PAGE").catch(() => null);
+}
 
 export async function generateMetadata(): Promise<Metadata> {
   try {
-    const { seoSettings, storeSettings } = await getBranding();
-    return makeSeoMetadata(null, {
-      title: "Projects",
-      description: "Explore our latest projects and case studies.",
+    const [page, { seoSettings, storeSettings }] = await Promise.all([
+      getProjectsLanding(),
+      getBranding(),
+    ]);
+    return makeSeoMetadata(page?.seo ?? null, {
+      title: page?.title?.trim() || FALLBACK_TITLE,
+      description: page?.seo?.metaDesc?.trim() || FALLBACK_DESCRIPTION,
       storeName: storeSettings.name ?? undefined,
       allowIndexing: seoSettings.allowIndexing,
       canonical: SITE_URL
@@ -24,8 +37,8 @@ export async function generateMetadata(): Promise<Metadata> {
     });
   } catch {
     return makeSeoMetadata(null, {
-      title: "Projects",
-      description: "Explore our latest projects and case studies.",
+      title: FALLBACK_TITLE,
+      description: FALLBACK_DESCRIPTION,
       canonical: SITE_URL
         ? `${SITE_URL.replace(/\/$/, "")}/projects`
         : "/projects",
@@ -75,14 +88,20 @@ async function ProjectsServer({
 export default async function Page({
   searchParams,
 }: Props): Promise<React.ReactElement> {
+  const page = await getProjectsLanding();
+  const title = page?.title?.trim() || FALLBACK_TITLE;
+  const content = page?.content?.trim();
+
   return (
     <>
       <PostHeader
-        name="Projects"
-        description="Explore our latest projects and case studies"
+        name={title}
+        {...(content
+          ? { content }
+          : { description: FALLBACK_DESCRIPTION })}
         breadcrumbs={[
           { name: "Home", uri: "/", current: false },
-          { name: "Projects", uri: "/projects", current: true },
+          { name: title, uri: "/projects", current: true },
         ]}
       />
       <Suspense>

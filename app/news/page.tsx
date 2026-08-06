@@ -7,23 +7,38 @@ import { PostPage } from "@/components/headkit-ui/post/post-page";
 import { CarouselPostJsonLD } from "@/components/seo/carousel-post-json-ld";
 import { makeSeoMetadata } from "@/lib/make-metadata";
 import { getBranding } from "@/lib/branding";
+import { TAG } from "@/lib/cache-tags";
 
 const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
+const FALLBACK_TITLE = "News";
+const FALLBACK_DESCRIPTION =
+  "Stay up to date with our latest news and articles.";
+
+async function getNewsLanding() {
+  "use cache";
+  cacheLife("max");
+  // Posts page may use any WP slug; always tag the storefront news route.
+  cacheTag(TAG.page("news"), TAG.posts, TAG.pages);
+  return sdk.posts.getLanding().catch(() => null);
+}
 
 export async function generateMetadata(): Promise<Metadata> {
   try {
-    const { seoSettings, storeSettings } = await getBranding();
-    return makeSeoMetadata(null, {
-      title: "News",
-      description: "Stay up to date with our latest news and articles.",
+    const [page, { seoSettings, storeSettings }] = await Promise.all([
+      getNewsLanding(),
+      getBranding(),
+    ]);
+    return makeSeoMetadata(page?.seo ?? null, {
+      title: page?.title?.trim() || FALLBACK_TITLE,
+      description: page?.seo?.metaDesc?.trim() || FALLBACK_DESCRIPTION,
       storeName: storeSettings.name ?? undefined,
       allowIndexing: seoSettings.allowIndexing,
       canonical: SITE_URL ? `${SITE_URL.replace(/\/$/, "")}/news` : "/news",
     });
   } catch {
     return makeSeoMetadata(null, {
-      title: "News",
-      description: "Stay up to date with our latest news and articles.",
+      title: FALLBACK_TITLE,
+      description: FALLBACK_DESCRIPTION,
       canonical: SITE_URL ? `${SITE_URL.replace(/\/$/, "")}/news` : "/news",
     });
   }
@@ -36,7 +51,7 @@ interface Props {
 async function getPostFilters() {
   "use cache";
   cacheLife("max");
-  cacheTag("headkit:posts");
+  cacheTag(TAG.posts);
   return sdk.posts.getFilters();
 }
 
@@ -71,14 +86,20 @@ async function PostsServer({
 }
 
 export default async function Page({ searchParams }: Props) {
+  const page = await getNewsLanding();
+  const title = page?.title?.trim() || FALLBACK_TITLE;
+  const content = page?.content?.trim();
+
   return (
     <>
       <PostHeader
-        name="News"
-        description="Stay up to date with our latest news and articles"
+        name={title}
+        {...(content
+          ? { content }
+          : { description: FALLBACK_DESCRIPTION })}
         breadcrumbs={[
           { name: "Home", uri: "/", current: false },
-          { name: "News", uri: "/news", current: true },
+          { name: title, uri: "/news", current: true },
         ]}
       />
       <Suspense>
