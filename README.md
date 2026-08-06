@@ -57,10 +57,19 @@ Open [http://localhost:3000](http://localhost:3000).
 | Directory                | Description                          |
 | ------------------------ | ------------------------------------ |
 | `app/`                   | Next.js App Router pages and layouts |
+| `overrides/`             | Customer-owned UI/styling (preferred customisation path) |
 | `components/ui/`         | Low-level primitives (shadcn-like)   |
 | `components/headkit-ui/` | Commerce-specific components         |
 | `components/seo/`        | JSON-LD, sitemap utilities           |
 | `lib/`                   | SDK, env, cart, checkout helpers     |
+
+### Customising the storefront
+
+1. **Dashboard branding** — colours, fonts, corners, icons (no code).
+2. **`overrides/`** — preferred place for CSS and future UI overrides; safe across template upgrades.
+3. **Full repo** — escape hatch for deep changes; expect manual merges when upgrading the starter.
+
+See [`overrides/README.md`](./overrides/README.md).
 
 ## SEO Features
 

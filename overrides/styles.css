@@ -1,0 +1,29 @@
+/*
+ * Storefront style overrides (customer-owned).
+ *
+ * Preferred place for UI/styling customisations. Platform upgrades should not
+ * overwrite this file. Dashboard branding still owns primary brand tokens
+ * (colors, fonts, corners); use this file for layout, spacing, visibility,
+ * and extra CSS beyond branding.
+ *
+ * Loaded after app/globals.css from the root layout.
+ *
+ * Examples (uncomment / adapt as needed):
+ *
+ * :root {
+ *   --radius: 0.25rem;
+ * }
+ *
+ * Hide product prices site-wide (enquiry / catalog mode):
+ * .price,
+ * [data-price] {
+ *   display: none;
+ * }
+ *
+ * Tighten product card spacing:
+ * .product-card {
+ *   gap: 0.75rem;
+ * }
+ */
+
+/* Add store-specific CSS below this line. */

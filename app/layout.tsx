@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import "./globals.css";
+// Customer-owned UI/styling layer — prefer overrides/ over editing core components.
+import "@/overrides/styles.css";
 import {
   NavigationWrapper,
   getFooterMenus,
