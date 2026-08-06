@@ -154,7 +154,7 @@ const BlockEditor = ({ blocks, section }: Props) => {
           const products: Product[] = data.products ?? [];
           if (products.length === 0) return null;
           return (
-            <div className="py-[30px] overflow-hidden" key={index}>
+            <div className="overflow-hidden py-10" key={index}>
               <SectionHeader
                 title={data.title}
                 description={data.description}
@@ -162,7 +162,7 @@ const BlockEditor = ({ blocks, section }: Props) => {
                 allButtonPath={data.button?.url ?? ""}
                 className="px-5 md:px-10"
               />
-              <div className="mt-5">
+              <div className="mt-8">
                 <ProductCarousel products={products} />
               </div>
             </div>
@@ -172,7 +172,7 @@ const BlockEditor = ({ blocks, section }: Props) => {
         if (data.cssClasses.includes("headkit-category-carousel")) {
           const categories = data.categories ?? [];
           return (
-            <div className="py-[30px] overflow-hidden" key={index}>
+            <div className="overflow-hidden py-10" key={index}>
               <SectionHeader
                 title={data.title}
                 description={data.description}
@@ -180,7 +180,7 @@ const BlockEditor = ({ blocks, section }: Props) => {
                 allButtonPath={data.button?.url ?? ""}
                 className="px-5 md:px-10"
               />
-              <div className="mt-5">
+              <div className="mt-8">
                 {categories.length > 0 ? (
                   <CategoryCarousel
                     categories={categories.map((c) => ({
@@ -208,7 +208,7 @@ const BlockEditor = ({ blocks, section }: Props) => {
             (b) => typeof b.thumbnail === "string" && b.thumbnail.trim() !== "",
           );
           return (
-            <div className="py-[30px] overflow-hidden" key={index}>
+            <div className="overflow-hidden py-10" key={index}>
               <SectionHeader
                 title={data.title}
                 description={data.description}
@@ -216,7 +216,7 @@ const BlockEditor = ({ blocks, section }: Props) => {
                 allButtonPath={data.button?.url ?? ""}
                 className="px-5 md:px-10"
               />
-              <div className="mt-5">
+              <div className="mt-8">
                 {brands.length > 0 ? (
                   <BrandCarousel
                     brands={brands.map((b) => ({
@@ -240,7 +240,7 @@ const BlockEditor = ({ blocks, section }: Props) => {
           const posts = data.posts ?? [];
           if (posts.length === 0) return null;
           return (
-            <div className="py-[30px] overflow-hidden" key={index}>
+            <div className="overflow-hidden py-10" key={index}>
               <SectionHeader
                 title={data.title}
                 description={data.description}
@@ -248,7 +248,7 @@ const BlockEditor = ({ blocks, section }: Props) => {
                 allButtonPath={data.button?.url ?? ""}
                 className="px-5 md:px-10"
               />
-              <div className="mt-5">
+              <div className="mt-8">
                 <PostCarousel posts={toPostSummaries(posts)} />
               </div>
             </div>
@@ -259,7 +259,7 @@ const BlockEditor = ({ blocks, section }: Props) => {
           const projects = data.projects ?? [];
           if (projects.length === 0) return null;
           return (
-            <div className="py-[30px] overflow-hidden" key={index}>
+            <div className="overflow-hidden py-10" key={index}>
               <SectionHeader
                 title={data.title}
                 description={data.description}
@@ -267,7 +267,7 @@ const BlockEditor = ({ blocks, section }: Props) => {
                 allButtonPath={data.button?.url ?? ""}
                 className="px-5 md:px-10"
               />
-              <div className="mt-5">
+              <div className="mt-8">
                 <ProjectCarousel projects={toProjectSummaries(projects)} />
               </div>
             </div>
@@ -321,7 +321,7 @@ interface CalloutProps {
  */
 const Callout = ({ title, content, buttons }: CalloutProps) => {
   return (
-    <div className="p-10">
+    <div className="px-10 py-10">
       <div className="rounded-brand border border-gray-200 px-6 py-10 md:px-10 md:py-14">
         <div className="grid grid-cols-1 md:grid-cols-12">
           <div className="flex flex-col gap-6 md:col-span-6 md:col-start-4">

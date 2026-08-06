@@ -239,7 +239,7 @@ export function Footer({
   const threeMenuDesktop = footerMenus.length >= 3;
 
   return (
-    <footer className="mt-8 border-t-2 border-t-[#E2E2DF] px-5 md:px-10">
+    <footer className="border-t-2 border-t-[#E2E2DF] px-5 md:px-10">
       <div
         className={cn(
           "grid gap-x-8 gap-y-8 py-10 md:py-14",

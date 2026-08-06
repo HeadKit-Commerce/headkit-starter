@@ -189,7 +189,7 @@ export async function HomeContent() {
             allButtonPath="/featured"
             className="px-5 md:px-10"
           />
-          <div className="mt-5">
+          <div className="mt-8">
             <ProductCarousel
               products={featuredProducts}
               id="featured-products"
@@ -208,7 +208,7 @@ export async function HomeContent() {
             allButtonPath="/sale"
             className="px-5 md:px-10"
           />
-          <div className="mt-5">
+          <div className="mt-8">
             <ProductCarousel
               products={onSaleProducts.products.slice(0, 12) as Product[]}
               id="on-sale-products"
@@ -227,7 +227,7 @@ export async function HomeContent() {
             allButtonPath="/collections"
             className="px-5 md:px-10"
           />
-          <div className="mt-5">
+          <div className="mt-8">
             <CategoryCarousel categories={featuredCategories} />
           </div>
         </section>
@@ -242,7 +242,7 @@ export async function HomeContent() {
             allButton=""
             className="px-5 md:px-10"
           />
-          <div className="mt-5">
+          <div className="mt-8">
             <BrandCarousel brands={featuredBrands} />
           </div>
         </section>
