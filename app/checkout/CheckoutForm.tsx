@@ -43,6 +43,7 @@ import {
   clearBillingAddressCookie,
 } from "@/lib/checkout-billing-cookie";
 import { getEmailMarketingStatusAction } from "@/lib/email-marketing-actions";
+import { buildCheckoutAppearance } from "@/lib/stripe-appearance";
 
 export type Step =
   | CheckoutFormStepEnum.CONTACT
@@ -982,6 +983,10 @@ export function CheckoutForm({
     );
   }
 
+  // Brand tokens from layout :root (--color-primary, --radius, fonts).
+  // Built once on the client so Stripe gets concrete CSS values (no var()).
+  const appearance = useMemo(() => buildCheckoutAppearance(), []);
+
   if (!stripePromise) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -1036,36 +1041,7 @@ export function CheckoutForm({
           ? { defaultValues: { email: sessionPrefillEmail } }
           : {}),
         elementsOptions: {
-          appearance: {
-            theme: "flat",
-            variables: {
-              borderRadius: "6px",
-              focusBoxShadow: "none",
-              colorPrimary: "#9572C0",
-              colorBackground: "#FFFFFF",
-              colorText: "#23102E",
-              colorDanger: "#A81059",
-              fontFamily: "urbanist, ui-sans-serif, system-ui, sans-serif",
-              colorTextPlaceholder: "#76766B",
-            },
-            rules: {
-              ".AccordionItem": {
-                padding: "4px",
-              },
-              ".Input": {
-                padding: "11px 10px",
-                outline: "1px solid #9572C0",
-              },
-              ".Input:focus": {
-                outline: "2px solid #7F54B3",
-                backgroundColor: "#F9FFEB",
-                fontWeight: "500",
-              },
-              ".Input.Input--invalid": {
-                outline: "2px solid #E01577",
-              },
-            },
-          },
+          appearance,
         },
       }}
     >

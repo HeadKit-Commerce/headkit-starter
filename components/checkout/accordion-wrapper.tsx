@@ -38,7 +38,7 @@ const AccordionWrapper = ({
   return (
     <div
       className={cn(
-        "relative mb-2 px-5 py-5 md:px-10 md:py-5 rounded-md bg-white border transition-all",
+        "relative mb-2 px-5 py-5 md:px-10 md:py-5 rounded-brand bg-white border transition-all",
         {
           "border-primary shadow-sm": isActive,
           "border-gray-200": !isActive,
@@ -50,7 +50,7 @@ const AccordionWrapper = ({
       onClick={disabled || !clickable ? undefined : handleAccordionClick}
     >
       {disabled && (
-        <div className="absolute inset-0 rounded-md bg-white/50 cursor-not-allowed" />
+        <div className="absolute inset-0 rounded-brand bg-white/50 cursor-not-allowed" />
       )}
 
       <div className="flex justify-between items-center">

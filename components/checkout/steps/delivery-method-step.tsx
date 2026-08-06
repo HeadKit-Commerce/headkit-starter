@@ -484,7 +484,7 @@ const DeliveryMethodStep: React.FC<DeliveryMethodStepProps> = ({
                     <FormLabel
                       htmlFor="click-collect"
                       className={cn(
-                        "flex items-center space-x-2 cursor-pointer h-[40px] px-[16px] border rounded-[6px]",
+                        "flex items-center space-x-2 cursor-pointer h-[40px] px-[16px] border rounded-brand",
                         field.value === DeliveryStepEnum.CLICK_AND_COLLECT &&
                           "border-primary",
                       )}
@@ -500,7 +500,7 @@ const DeliveryMethodStep: React.FC<DeliveryMethodStepProps> = ({
                     <FormLabel
                       htmlFor="ship-home"
                       className={cn(
-                        "flex items-center space-x-2 cursor-pointer h-[40px] px-[16px] border rounded-[6px]",
+                        "flex items-center space-x-2 cursor-pointer h-[40px] px-[16px] border rounded-brand",
                         field.value === DeliveryStepEnum.SHIPPING_TO_HOME &&
                           "border-primary",
                       )}
