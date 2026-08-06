@@ -6468,13 +6468,13 @@ html :where(.is-position-sticky) {
   max-width: none;
 }
 
-/* Header row: title (left) · description · action button (right). */
+/* Header row: title (left) · description · action button (right).
+   Reset editorial `gap: 40px` on columns — carousel headers use tighter spacing. */
 .wp-block-content .headkit-product-carousel .wp-block-columns {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  column-gap: 1.5rem;
-  row-gap: 0.25rem;
+  gap: 0.25rem 1.5rem;
   margin-bottom: 1.5rem;
 }
 .wp-block-content .headkit-block-title {
@@ -6828,6 +6828,8 @@ html :where(.is-position-sticky) {
 .wp-block-content .wp-block-columns {
   margin-top: 1.75em;
   margin-bottom: 1.75em;
+  /* Space between adjacent columns (and stacked rows on mobile). */
+  gap: 40px;
   /* Vendored core sets `align-items: initial !important` (stretch). That leaves
      short copy (e.g. “Call …”) looking bottom-heavy next to button rows.
      Default to middle align; honour explicit WP vertical-alignment classes. */

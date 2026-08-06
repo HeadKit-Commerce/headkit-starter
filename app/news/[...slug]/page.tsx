@@ -95,12 +95,13 @@ export default async function Page({ params }: Props) {
           </div>
 
           {related.length > 0 && (
-            <div className="overflow-hidden px-5 md:px-10 py-[30px] lg:pt-[60px] lg:pb-[30px]">
+            <div className="overflow-hidden py-[30px] lg:pt-[60px] lg:pb-[30px]">
               <SectionHeader
                 title="Latest News"
                 description="Get the latest news and updates from our blog."
                 allButton="View All"
                 allButtonPath="/news"
+                className="px-5 md:px-10"
               />
               <div className="mt-5">
                 <PostCarousel posts={related} />

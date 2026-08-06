@@ -165,12 +165,13 @@ export default async function Page({
           ) : null}
 
           {projectProducts.length > 0 ? (
-            <div className="overflow-hidden px-5 py-[30px] md:px-10 lg:pb-[30px] lg:pt-[60px]">
+            <div className="overflow-hidden py-[30px] lg:pb-[30px] lg:pt-[60px]">
               <SectionHeader
                 title="Products in this project"
                 description="Shop the products featured in this project."
                 allButton="Shop All"
                 allButtonPath="/shop"
+                className="px-5 md:px-10"
               />
               <div className="mt-5">
                 <ProductCarousel
@@ -182,12 +183,13 @@ export default async function Page({
           ) : null}
 
           {related.length > 0 ? (
-            <div className="overflow-hidden px-5 py-[30px] md:px-10 lg:pb-[30px] lg:pt-[60px]">
+            <div className="overflow-hidden py-[30px] lg:pb-[30px] lg:pt-[60px]">
               <SectionHeader
                 title="Related Projects"
                 description="More projects you may like."
                 allButton="View All"
                 allButtonPath="/projects"
+                className="px-5 md:px-10"
               />
               <div className="mt-5">
                 <ProjectCarousel projects={related} />

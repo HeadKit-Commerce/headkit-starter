@@ -269,12 +269,13 @@ async function ProductPageContent({ params }: Props) {
       </div>
 
       {featuredProjects.length > 0 ? (
-        <section className="overflow-hidden px-5 py-10 md:px-10">
+        <section className="overflow-hidden py-10">
           <SectionHeader
             title="Featured in projects"
             description="See this product in real projects."
             allButton="View All"
             allButtonPath="/projects"
+            className="px-5 md:px-10"
           />
           <div className="mt-5">
             <ProjectCarousel
