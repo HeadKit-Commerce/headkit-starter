@@ -161,32 +161,36 @@ export function NavigationBar({
             <DesktopMenuSection
               items={primaryMenuItems}
               highlightedLinks={highlightedLinks}
+              // Full inline menus from xl up; below that use the sheet so
+              // header actions never get pushed off on tablet / small laptop.
+              itemClassName="hidden xl:flex"
             />
           )}
         </NavigationMenuList>
 
         {/* Right: secondary menu + actions + mobile toggle */}
-        <NavigationMenuList className="space-x-0">
+        <NavigationMenuList className="headkit-nav-secondary space-x-0">
           {secondaryMenuItems && secondaryMenuItems.length > 0 && (
             <DesktopMenuSection
               items={secondaryMenuItems}
               highlightedLinks={highlightedLinks}
+              itemClassName="hidden xl:flex"
             />
           )}
 
           {desktopActions && (
-            <NavigationMenuItem className="hidden md:flex items-center">
+            <NavigationMenuItem className="hidden md:flex items-center shrink-0">
               {desktopActions}
             </NavigationMenuItem>
           )}
 
-          {/* Mobile sticky cart — outside the sheet so shoppers can open bag without opening the menu */}
+          {/* Mobile sticky cart — outside the sheet; desktop uses HeaderActions */}
           <NavigationMenuItem className="md:hidden">
             <CartTriggerButton initialCartCount={initialCartCount ?? 0} />
           </NavigationMenuItem>
 
-          {/* Mobile hamburger */}
-          <NavigationMenuItem className="md:hidden">
+          {/* Hamburger through tablet / below-xl (secondary only from xl) */}
+          <NavigationMenuItem className="xl:hidden">
             <Sheet
               open={mobileOpen}
               onOpenChange={(open) => {
@@ -271,7 +275,7 @@ function Preheader({
     <div className="flex h-[30px] items-center justify-end sm:justify-between bg-primary px-5 text-sm text-brand-bg md:px-10">
       {title && <div className="hidden sm:block text-brand-bg">{title}</div>}
       {(message ?? (links && links.length > 0)) && (
-        <div className="flex items-center gap-4 md:gap-8 text-brand-bg">
+        <div className="flex items-center gap-5 text-brand-bg">
           {message && <span className="text-brand-bg">{message}</span>}
           {links?.map(({ label, uri }, i) => (
             <Link key={i} href={uri} className="underline text-brand-bg">
@@ -291,15 +295,18 @@ function Preheader({
 function DesktopMenuSection({
   items,
   highlightedLinks,
+  itemClassName = "hidden xl:flex",
 }: {
   items: NavMenuItem[];
   highlightedLinks: string[];
+  /** Visibility classes for each top-level item (responsive collapse). */
+  itemClassName?: string;
 }) {
   const router = useRouter();
   return (
     <>
       {items.map((item) => (
-        <NavigationMenuItem key={item.id} className="hidden md:flex">
+        <NavigationMenuItem key={item.id} className={itemClassName}>
           {item.children.length > 0 ? (
             <>
               <NavigationMenuTrigger

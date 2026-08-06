@@ -235,7 +235,7 @@ export async function HomeContent() {
 
       {/* Brands — skipped when WP provides headkit-brand-carousel */}
       {showHardcodedBrands && (
-        <section className="headkit-brand-carousel overflow-hidden py-10">
+        <section className="headkit-brand-carousel overflow-hidden py-20">
           <SectionHeader
             title="Our Brands"
             description=""

@@ -63,7 +63,7 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                     </div>
                   </div>
                 </div>
-                <div className="relative h-[40vh] overflow-hidden md:h-[60vh] lg:h-[80vh]">
+                <div className="relative aspect-square w-full overflow-hidden md:aspect-auto md:h-[60vh] lg:h-[80vh]">
                   {hasVideo ? (
                     <>
                       {/* Mobile video (or desktop fallback). muted+playsInline
@@ -117,7 +117,7 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                       } = getImageProps({
                         ...common,
                         width: 768,
-                        height: 960,
+                        height: 768,
                         src: slide.mobileImage || slide.image,
                       });
                       return (
@@ -135,7 +135,7 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                               alt={slide.header}
                               className="h-full w-full object-cover"
                               width={768}
-                              height={960}
+                              height={768}
                             />
                           </picture>
                           <div
@@ -160,7 +160,7 @@ export const MainCarousel = ({ carouselItems }: Props) => {
         showScrollbar={false}
         showPagination={items.length > 1}
         paginationDotClassName="bg-white/50"
-        paginationClassName="top-[calc(40vh-2rem)] md:top-auto md:bottom-6"
+        paginationClassName="top-[calc(100vw-4.5rem)] md:top-auto md:bottom-6"
         useScrollSnap={true}
         itemSizing={{ base: "w-full" }}
         gap="gap-0"

@@ -9,8 +9,8 @@ interface FeaturedImageHeaderProps {
 
 /**
  * Full-bleed hero for project (and similar) detail pages.
- * Matches {@link MainCarousel}: `mx-5`, `rounded-brand`, viewport heights
- * (`40vh` / `60vh` / `80vh`), and title scale (`text-3xl` → `md:text-5xl`).
+ * Matches {@link MainCarousel}: `mx-5`, `rounded-brand`, square media on
+ * mobile / `60vh`–`80vh` on desktop, and title scale (`text-3xl` → `md:text-5xl`).
  */
 export function FeaturedImageHeader({
   title,
@@ -35,7 +35,7 @@ export function FeaturedImageHeader({
             </div>
           </div>
         </div>
-        <div className="relative h-[40vh] overflow-hidden md:h-[60vh] lg:h-[80vh]">
+        <div className="relative aspect-square w-full overflow-hidden md:aspect-auto md:h-[60vh] lg:h-[80vh]">
           <Image
             src={image || "/assets/images/bg-order-success.png"}
             alt={decodedTitle}

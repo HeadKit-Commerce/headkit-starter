@@ -208,7 +208,7 @@ const BlockEditor = ({ blocks, section }: Props) => {
             (b) => typeof b.thumbnail === "string" && b.thumbnail.trim() !== "",
           );
           return (
-            <div className="headkit-brand-carousel overflow-hidden py-10" key={index}>
+            <div className="headkit-brand-carousel overflow-hidden py-20" key={index}>
               <SectionHeader
                 title={data.title}
                 description={data.description}
@@ -259,7 +259,7 @@ const BlockEditor = ({ blocks, section }: Props) => {
           const projects = data.projects ?? [];
           if (projects.length === 0) return null;
           return (
-            <div className="headkit-project-carousel overflow-hidden py-10" key={index}>
+            <div className="headkit-project-carousel overflow-hidden py-20" key={index}>
               <SectionHeader
                 title={data.title}
                 description={data.description}
@@ -321,7 +321,7 @@ interface CalloutProps {
  */
 const Callout = ({ title, content, buttons }: CalloutProps) => {
   return (
-    <div className="px-10 py-10">
+    <div className="px-5 py-10 md:px-10">
       <div className="headkit-callout rounded-brand border border-gray-200 px-6 py-10 md:px-10 md:py-14">
         <div className="grid grid-cols-1 md:grid-cols-12">
           <div className="flex flex-col gap-6 md:col-span-6 md:col-start-4">

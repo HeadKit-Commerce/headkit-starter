@@ -9,7 +9,7 @@ export default function Loading(): React.ReactElement {
   return (
     <div className="space-y-6 py-8">
       <div className="mx-5 overflow-hidden">
-        <Skeleton className="h-[40vh] w-full rounded-brand md:h-[60vh] lg:h-[80vh]" />
+        <Skeleton className="aspect-square w-full rounded-brand md:aspect-auto md:h-[60vh] lg:h-[80vh]" />
       </div>
       <div className="space-y-3 px-5 md:px-10">
         <Skeleton className="h-4 w-40" />

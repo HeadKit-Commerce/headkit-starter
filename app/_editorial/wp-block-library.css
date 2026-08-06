@@ -5734,6 +5734,19 @@ a[data-fn].fn::after {
   /* stylelint-enable @stylistic/function-comma-space-after */
   --wp--preset--font-size--normal: 16px;
   --wp--preset--font-size--huge: 42px;
+  /* WordPress core / block-editor presets (theme.json defaults).
+     Editor UI often labels these S / M / L / XL — L maps to large = 36px.
+     Also define letter slugs so themes that name sizes "L" resolve. */
+  --wp--preset--font-size--small: 13px;
+  --wp--preset--font-size--medium: 20px;
+  --wp--preset--font-size--large: 36px;
+  --wp--preset--font-size--x-large: 42px;
+  --wp--preset--font-size--xx-large: 56px;
+  --wp--preset--font-size--s: var(--wp--preset--font-size--small);
+  --wp--preset--font-size--m: var(--wp--preset--font-size--medium);
+  --wp--preset--font-size--l: var(--wp--preset--font-size--large);
+  --wp--preset--font-size--xl: var(--wp--preset--font-size--x-large);
+  --wp--preset--font-size--xxl: var(--wp--preset--font-size--xx-large);
 }
 
 .has-regular-font-size {
@@ -5750,6 +5763,31 @@ a[data-fn].fn::after {
 
 .has-huge-font-size {
   font-size: var(--wp--preset--font-size--huge);
+}
+
+.has-small-font-size,
+.has-s-font-size {
+  font-size: var(--wp--preset--font-size--small);
+}
+
+.has-medium-font-size,
+.has-m-font-size {
+  font-size: var(--wp--preset--font-size--medium);
+}
+
+.has-large-font-size,
+.has-l-font-size {
+  font-size: var(--wp--preset--font-size--large);
+}
+
+.has-x-large-font-size,
+.has-xl-font-size {
+  font-size: var(--wp--preset--font-size--x-large);
+}
+
+.has-xx-large-font-size,
+.has-xxl-font-size {
+  font-size: var(--wp--preset--font-size--xx-large);
 }
 
 :root .has-text-align-center {
@@ -6562,17 +6600,102 @@ html :where(.is-position-sticky) {
 }
 
 /* ==========================================================================
+   WordPress font-size presets vs Tailwind Typography
+   --------------------------------------------------------------------------
+   `.prose :where(h2)` sets a default heading size. Editor-chosen presets
+   (has-large-font-size / has-l-font-size → 36px for "L") must win. Inline
+   styles that use var(--wp--preset--font-size--large) also need the :root
+   tokens above. Higher specificity than .prose :where(hN).
+   ========================================================================== */
+.wp-block-content.prose .has-small-font-size,
+.wp-block-content.prose .has-s-font-size {
+  font-size: var(--wp--preset--font-size--small);
+}
+.wp-block-content.prose .has-medium-font-size,
+.wp-block-content.prose .has-m-font-size {
+  font-size: var(--wp--preset--font-size--medium);
+}
+.wp-block-content.prose .has-large-font-size,
+.wp-block-content.prose .has-l-font-size {
+  font-size: var(--wp--preset--font-size--large);
+}
+.wp-block-content.prose .has-x-large-font-size,
+.wp-block-content.prose .has-xl-font-size {
+  font-size: var(--wp--preset--font-size--x-large);
+}
+.wp-block-content.prose .has-xx-large-font-size,
+.wp-block-content.prose .has-xxl-font-size {
+  font-size: var(--wp--preset--font-size--xx-large);
+}
+.wp-block-content.prose .has-huge-font-size {
+  font-size: var(--wp--preset--font-size--huge);
+}
+/* Bare Heading h2 (no preset / inline size) — match WordPress "L" (36px).
+   Tailwind `.prose` otherwise shrinks these below the editor Large size. */
+.wp-block-content.prose
+  h2.wp-block-heading:not([class*="-font-size"]):not([style*="font-size"]) {
+  font-size: var(--wp--preset--font-size--large);
+}
+
+/* ==========================================================================
+   WordPress line-height "Auto" vs Tailwind Typography
+   --------------------------------------------------------------------------
+   Editor "Auto" = no custom line-height → CSS `normal` (font default).
+   Prose otherwise applies fixed ratios (e.g. h2 ~1.11). Honour Auto on all
+   editorial text; inline style="line-height:…" from the editor still wins.
+   ========================================================================== */
+.wp-block-content,
+.wp-block-content.prose {
+  line-height: normal;
+}
+.wp-block-content.prose
+  :is(
+    p,
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6,
+    li,
+    blockquote,
+    figcaption,
+    td,
+    th,
+    cite,
+    summary,
+    dt,
+    dd,
+    .wp-block-heading
+  ) {
+  line-height: normal;
+}
+
+/* ==========================================================================
    Homepage / storefront section layout (full padded column)
    --------------------------------------------------------------------------
    Editorial pages keep --hk-content-size (45rem reading measure). Homepage
    leftover Gutenberg + BlockEditor media sit beside Featured/Categories,
    which use px-5 md:px-10 with no 45rem cap — opt in via .hk-section-content.
+
+   Desktop: constrain leftover prose to 9 of 12 columns (left-aligned),
+   matching the storefront grid used by Callout. Video feature stays full-bleed.
    ========================================================================== */
 .hk-section-content .wp-block-content {
   --hk-content-size: 100%;
   --hk-wide-size: 100%;
   --wp--style--global--content-size: 100%;
   --wp--style--global--wide-size: 100%;
+}
+@media (min-width: 768px) {
+  .hk-section-content:not(.headkit-video-feature-wrap) {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+  .hk-section-content:not(.headkit-video-feature-wrap) > * {
+    grid-column: 1 / span 9;
+    min-width: 0;
+  }
 }
 
 /* Product grid: responsive cards, no list bullets. */
@@ -6705,6 +6828,19 @@ html :where(.is-position-sticky) {
 .wp-block-content .wp-block-columns {
   margin-top: 1.75em;
   margin-bottom: 1.75em;
+  /* Vendored core sets `align-items: initial !important` (stretch). That leaves
+     short copy (e.g. “Call …”) looking bottom-heavy next to button rows.
+     Default to middle align; honour explicit WP vertical-alignment classes. */
+  align-items: center !important;
+}
+.wp-block-content .wp-block-columns.are-vertically-aligned-top {
+  align-items: flex-start !important;
+}
+.wp-block-content .wp-block-columns.are-vertically-aligned-center {
+  align-items: center !important;
+}
+.wp-block-content .wp-block-columns.are-vertically-aligned-bottom {
+  align-items: flex-end !important;
 }
 
 /* A column with an explicit width (flex-basis) must respect it rather than grow

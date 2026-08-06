@@ -24,6 +24,7 @@ import {
   Instrument_Sans,
 } from "next/font/google";
 import type { NextFontWithVariable } from "next/dist/compiled/@next/font";
+import { toSameOriginBrandFontUrl } from "@/lib/brand-font-url";
 
 type CuratedFont = {
   font: NextFontWithVariable;
@@ -248,9 +249,13 @@ export function resolveBrandFonts(input: {
 
     if (font.source === "upload" && font.fileUrl) {
       const family = cssFamilyLiteral(font.family || "CustomBrand");
+      // Same-origin proxy — GCS branding objects lack CORS (Chrome blocks).
+      const srcUrl = toSameOriginBrandFontUrl(font.fileUrl);
       const format = fontFormat(font.fileUrl);
+      // Weight range so headings at font-weight:600 still match a single face
+      // (Safari synthesizes more freely; Chrome is stricter without this).
       fontFaceParts.push(
-        `@font-face{font-family:${family};src:url(${JSON.stringify(font.fileUrl)})${format ? ` format(${JSON.stringify(format)})` : ""};font-display:swap;}`,
+        `@font-face{font-family:${family};src:url(${JSON.stringify(srcUrl)})${format ? ` format(${JSON.stringify(format)})` : ""};font-weight:100 900;font-style:normal;font-display:swap;}`,
       );
       cssVarLines.push(`${cssVar}: ${family}, sans-serif;`);
       return;
