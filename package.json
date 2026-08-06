@@ -16,7 +16,7 @@
     "test:smoke": "bash scripts/smoke/boundary.sh"
   },
   "dependencies": {
-    "@headkit/sdk": "workspace:*",
+    "@headkit/sdk": "1.0.1",
     "@headlessui/react": "^2.2.9",
     "@hookform/resolvers": "^5.2.2",
     "@next/third-parties": "^16.3.0",
