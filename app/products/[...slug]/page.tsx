@@ -277,7 +277,10 @@ async function ProductPageContent({ params }: Props) {
             allButtonPath="/projects"
           />
           <div className="mt-5">
-            <ProjectCarousel projects={featuredProjects} />
+            <ProjectCarousel
+              projects={featuredProjects}
+              imageAspect="video"
+            />
           </div>
         </section>
       ) : null}
