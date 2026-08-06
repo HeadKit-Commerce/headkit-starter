@@ -38,9 +38,7 @@ export function PaymentProcessing({
           />
         </svg>
 
-        <h1 className="text-2xl font-bold text-gray-900">
-          Your payment is processing
-        </h1>
+        <h1 className="text-2xl text-gray-900">Your payment is processing</h1>
         <p className="text-gray-600">
           Thanks for your order! Your payment is still being processed by your
           payment provider. We&apos;ll confirm your order by email as soon as

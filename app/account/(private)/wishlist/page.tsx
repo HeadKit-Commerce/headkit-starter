@@ -45,7 +45,7 @@ export default function Page() {
   if (loading) {
     return (
       <div className="max-w-6xl">
-        <h1 className="text-2xl font-bold mb-6">My Wishlist</h1>
+        <h1 className="text-2xl mb-6">My Wishlist</h1>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[...Array(3)].map((_, i) => (
             <div key={i} className="h-64 bg-gray-200 rounded animate-pulse" />
@@ -58,7 +58,7 @@ export default function Page() {
   if (products.length === 0) {
     return (
       <div className="max-w-6xl">
-        <h1 className="text-2xl font-bold mb-6">My Wishlist</h1>
+        <h1 className="text-2xl mb-6">My Wishlist</h1>
         <div className="bg-white rounded-lg shadow-sm p-6 text-center">
           <p className="text-gray-500 py-8">
             Your wishlist is currently empty.
@@ -76,7 +76,7 @@ export default function Page() {
 
   return (
     <div className="max-w-6xl">
-      <h1 className="text-2xl font-bold mb-6">My Wishlist</h1>
+      <h1 className="text-2xl mb-6">My Wishlist</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {products.map((product) => (
           <div key={product.id} className="relative">

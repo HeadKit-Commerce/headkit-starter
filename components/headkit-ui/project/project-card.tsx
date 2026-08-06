@@ -8,8 +8,8 @@ interface ProjectCardProps {
 }
 
 /**
- * Project tile for carousel/grid. Square image (category-tile ratio) with
- * title, first tag, and location below — not brand.
+ * Project tile for carousel/grid. Rectangle image (post-card / aspect-video)
+ * with title, first tag, and location below.
  */
 export function ProjectCard({ project }: ProjectCardProps): React.ReactElement {
   const href = project.uri ?? `/projects/${project.slug}/`;
@@ -26,7 +26,7 @@ export function ProjectCard({ project }: ProjectCardProps): React.ReactElement {
     <Link href={href}>
       <div className="w-full">
         {project.featuredImage?.src ? (
-          <div className="relative aspect-square w-full overflow-hidden rounded-brand">
+          <div className="relative aspect-video w-full overflow-hidden rounded-brand">
             <Image
               alt={project.featuredImage.alt ?? title}
               src={project.featuredImage.src}
@@ -35,9 +35,9 @@ export function ProjectCard({ project }: ProjectCardProps): React.ReactElement {
             />
           </div>
         ) : (
-          <div className="aspect-square w-full rounded-brand bg-gray-100" />
+          <div className="aspect-video w-full rounded-brand bg-gray-100" />
         )}
-        <h3 className="pt-3 text-[17px] font-semibold text-primary">{title}</h3>
+        <h3 className="pt-3 text-[17px] text-primary">{title}</h3>
         {meta.length > 0 ? (
           <p className="mt-1 text-sm text-muted-foreground">
             {meta.join(" · ")}

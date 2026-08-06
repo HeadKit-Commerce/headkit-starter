@@ -23,10 +23,7 @@ import { MinusIcon, PlusIcon, HeartIcon } from "@/components/icon";
 import { addToCartAction } from "@/lib/cart-actions";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { cn, decodeHtmlEntities } from "@/lib/utils";
-import {
-  isInWishlist,
-  toggleWishlist,
-} from "@/lib/wishlist";
+import { isInWishlist, toggleWishlist } from "@/lib/wishlist";
 import type { GiftCardFormValues } from "@/components/gift-card-form";
 import { DeliveryType } from "@/components/gift-card-delivery-type";
 import { Breadcrumb } from "@/components/headkit-ui/breadcrumb";
@@ -449,7 +446,7 @@ export function ProductDetail({
               />
             </div>
           )}
-          <h1 className="mb-3 text-2xl font-bold leading-tight text-primary md:text-3xl">
+          <h1 className="mb-3 text-2xl leading-tight text-primary md:text-3xl">
             {decodeHtmlEntities(product.name)}
           </h1>
 
@@ -705,9 +702,7 @@ export function ProductDetail({
                 {visibleTabs.map((tab) => (
                   <AccordionItem key={tab.key} value={tab.key}>
                     <AccordionTrigger className="py-4 hover:no-underline">
-                      <h3 className="text-base font-semibold text-primary">
-                        {tab.label}
-                      </h3>
+                      <h3 className="text-base text-primary">{tab.label}</h3>
                     </AccordionTrigger>
                     <AccordionContent>
                       {tab.key === "description" && product.description && (
@@ -724,10 +719,7 @@ export function ProductDetail({
                           {product.attributes
                             .filter((a) => a.visible && !a.variation)
                             .map((attr) => (
-                              <div
-                                key={attr.id}
-                                className="flex gap-4 text-sm"
-                              >
+                              <div key={attr.id} className="flex gap-4 text-sm">
                                 <span className="w-32 shrink-0 font-medium text-gray-700">
                                   {decodeHtmlEntities(attr.name)}
                                 </span>

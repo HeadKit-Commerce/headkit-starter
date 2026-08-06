@@ -404,12 +404,7 @@ export function processHomepageContent(
     const section =
       classList.find((c) => c.startsWith("section-")) ?? "section-1";
 
-    const raw = pickRawEditorBlock(
-      rawEditorBlocks,
-      classList,
-      index,
-      usedRaw,
-    );
+    const raw = pickRawEditorBlock(rawEditorBlocks, classList, index, usedRaw);
     const queryType =
       raw?.queryType ??
       (typeof raw?.attrs?.["queryType"] === "string"
@@ -631,7 +626,8 @@ function expectedQueryTypeForClasses(classList: string[]): string | null {
   if (classList.includes("headkit-hero-carousel")) return "hero-carousel";
   if (classList.includes("headkit-project-carousel")) return "projects";
   if (classList.includes("headkit-post-carousel")) return "latest-posts";
-  if (classList.includes("headkit-category-carousel")) return "featured-categories";
+  if (classList.includes("headkit-category-carousel"))
+    return "featured-categories";
   if (classList.includes("headkit-brand-carousel")) return "featured-brands";
   if (classList.includes("headkit-product-carousel")) return "product-carousel";
   return null;

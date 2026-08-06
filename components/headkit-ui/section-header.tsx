@@ -11,6 +11,10 @@ interface SectionHeaderProps {
   className?: string;
 }
 
+/**
+ * Section title + optional description stacked under the title, with the
+ * “View all” CTA aligned to the right on desktop.
+ */
 export function SectionHeader({
   title,
   description,
@@ -22,29 +26,22 @@ export function SectionHeader({
   return (
     <div
       className={cn(
-        "grid w-full grid-cols-1 gap-x-8 gap-y-2 py-5 md:grid-cols-3",
+        "flex w-full flex-col gap-4 py-5 md:flex-row md:items-end md:justify-between md:gap-8",
         className,
       )}
     >
-      <div className="flex items-center">
-        <h2 className="text-2xl font-semibold text-primary">
-          {decodeHtmlEntities(title)}
-        </h2>
-      </div>
-
-      {description ? (
-        <div className="flex items-center">
-          <h3
-            className="font-medium text-primary"
+      <div className="flex min-w-0 max-w-2xl flex-col gap-2">
+        <h2 className="text-2xl text-primary">{decodeHtmlEntities(title)}</h2>
+        {description ? (
+          <div
+            className="font-medium text-primary [&_p]:m-0"
             dangerouslySetInnerHTML={{ __html: sanitize(description) }}
           />
-        </div>
-      ) : (
-        <div />
-      )}
+        ) : null}
+      </div>
 
-      {allButton && (
-        <div className="flex items-center justify-start font-semibold md:justify-end">
+      {allButton ? (
+        <div className="shrink-0 font-semibold md:pb-0.5">
           <InstantLink
             href={allButtonPath ?? "/"}
             pendingVariant="text"
@@ -54,7 +51,7 @@ export function SectionHeader({
             {decodeHtmlEntities(allButton)}
           </InstantLink>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

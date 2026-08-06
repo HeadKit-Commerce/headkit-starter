@@ -24,7 +24,7 @@ export default async function Page() {
   if (error) {
     return (
       <div className="max-w-4xl">
-        <h1 className="text-2xl font-bold mb-6">My Orders</h1>
+        <h1 className="text-2xl mb-6">My Orders</h1>
         <div className="bg-red-50 border border-red-200 rounded-lg p-6">
           <p className="text-red-700 text-center">{error}</p>
         </div>
@@ -35,9 +35,9 @@ export default async function Page() {
   if (orders.length === 0) {
     return (
       <div className="max-w-4xl">
-        <h1 className="text-2xl font-bold mb-6">My Orders</h1>
+        <h1 className="text-2xl mb-6">My Orders</h1>
         <div className="bg-white rounded-lg shadow-sm p-6 text-center">
-          <h2 className="text-xl font-semibold mb-2">No orders yet</h2>
+          <h2 className="text-xl mb-2">No orders yet</h2>
           <p className="text-gray-500 mb-4">
             When you place an order it&apos;ll show up here.
           </p>
@@ -51,7 +51,7 @@ export default async function Page() {
 
   return (
     <div className="max-w-4xl">
-      <h1 className="text-2xl font-bold mb-6">My Orders</h1>
+      <h1 className="text-2xl mb-6">My Orders</h1>
       <div className="space-y-4">
         {orders.map((order) => {
           const href =

@@ -1,7 +1,4 @@
-import {
-  HEADKIT_GRAPHQL_URL,
-  type TransportOptions,
-} from "@headkit/sdk";
+import { HEADKIT_GRAPHQL_URL, type TransportOptions } from "@headkit/sdk";
 import { env } from "@/lib/env";
 
 /**

@@ -47,7 +47,7 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                 <div className="z-10 h-full w-full md:absolute">
                   <div className="mx-auto flex h-full items-center">
                     <div className="py-[20px] md:w-[400px] md:pl-[20px] lg:w-[600px] lg:pl-[100px]">
-                      <HeaderTag className="text-3xl font-semibold leading-[1.3]! text-primary md:text-5xl md:text-brand-bg!">
+                      <HeaderTag className="text-3xl leading-[1.3]! text-primary md:text-5xl md:text-brand-bg!">
                         {decodeHtmlEntities(slide?.header ?? "")}
                       </HeaderTag>
                       <p className="mt-8 text-base font-semibold text-black md:text-3xl md:text-brand-bg!">

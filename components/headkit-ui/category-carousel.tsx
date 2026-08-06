@@ -33,10 +33,13 @@ const CategoryCarousel = ({ categories }: Props) => {
             pendingVariant="card"
             className="group block"
           >
-            <FeaturedImage src={thumbnail} alt={name} priority={index === 0} />
-            <h3 className="pt-3 text-[17px] font-semibold text-primary">
-              {name}
-            </h3>
+            <FeaturedImage
+              src={thumbnail}
+              alt={name}
+              priority={index === 0}
+              className="aspect-video"
+            />
+            <h3 className="pt-3 text-[17px] text-primary">{name}</h3>
           </InstantLink>
         );
       }}

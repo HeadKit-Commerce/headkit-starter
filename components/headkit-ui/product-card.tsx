@@ -157,7 +157,7 @@ export const ProductCard = ({
                   Visual size stays class-driven. */}
               <h3
                 className={cn(
-                  "text-[17px] font-semibold text-primary line-clamp-2 break-words",
+                  "text-[17px] text-primary line-clamp-2 break-words",
                   dark && "text-white",
                 )}
               >

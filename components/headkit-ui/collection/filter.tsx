@@ -197,22 +197,16 @@ export function Filter() {
             <div className="flex flex-col gap-0 pb-10">
               {categories.length > 0 && (
                 <section className="border-b border-gray-200 px-5 py-5">
-                  <h3 className="mb-3 text-sm font-semibold text-primary">
-                    Category
-                  </h3>
+                  <h3 className="mb-3 text-sm text-primary">Category</h3>
                   <CategoryFilter categories={categories} />
                 </section>
               )}
               <section className="border-b border-gray-200 px-5 py-5">
-                <h3 className="mb-3 text-sm font-semibold text-primary">
-                  Brand
-                </h3>
+                <h3 className="mb-3 text-sm text-primary">Brand</h3>
                 <BrandFilter />
               </section>
               <section className="border-b border-gray-200 px-5 py-5">
-                <h3 className="mb-3 text-sm font-semibold text-primary">
-                  Price
-                </h3>
+                <h3 className="mb-3 text-sm text-primary">Price</h3>
                 <PriceFilter />
               </section>
               {attributes.map((attr) => (
@@ -220,7 +214,7 @@ export function Filter() {
                   key={attr.slug}
                   className="border-b border-gray-200 px-5 py-5"
                 >
-                  <h3 className="mb-3 text-sm font-semibold text-primary">
+                  <h3 className="mb-3 text-sm text-primary">
                     {decodeHtmlEntities(attr.name)}
                   </h3>
                   <AttributeFilter attribute={attr} />

@@ -38,6 +38,27 @@ export function isRealSeoTitle(title?: OptSeoStr): boolean {
 }
 
 /**
+ * True when a CMS/Yoast title already includes the store brand so the root
+ * `%s | {storeName}` template must not append again (use `absolute` instead).
+ */
+export function titleIncludesStoreBrand(
+  title: string,
+  storeName: string,
+): boolean {
+  const t = title.trim().toLowerCase();
+  const s = storeName.trim().toLowerCase();
+  if (!t || !s) return false;
+  return (
+    t.includes(`| ${s}`) ||
+    t.includes(` - ${s}`) ||
+    t.includes(` – ${s}`) ||
+    t.includes(` — ${s}`) ||
+    t.endsWith(` ${s}`) ||
+    t === s
+  );
+}
+
+/**
  * Resolve the store display name used in titles / fallbacks.
  * Never returns HeadKit marketing copy as a tenant default.
  */
@@ -272,15 +293,16 @@ export function makeSeoMetadata(
   const storeName = resolveStoreName(fallback?.storeName);
   const allowIndexing = fallback?.allowIndexing !== false;
 
-  // Real SEO title wins as absolute (Yoast is often already "{name} - {site}").
-  // Otherwise use the bare entity name so the root `%s | {storeName}` template
-  // appends the store suffix once.
+  // Real SEO title that already includes the store brand wins as absolute
+  // (Yoast is often "{name} - {site}"). Bare page titles (e.g. "Projects")
+  // stay as a segment so the root `%s | {storeName}` template appends once.
   const seoTitle = isRealSeoTitle(seo?.title) ? seo!.title.trim() : null;
   const entityName = seoFallbackTitle(fallback?.title, storeName);
   const displayTitle = seoTitle ?? entityName;
-  const titleMeta: Metadata["title"] = seoTitle
-    ? { absolute: seoTitle }
-    : entityName;
+  const titleMeta: Metadata["title"] =
+    seoTitle && titleIncludesStoreBrand(seoTitle, storeName)
+      ? { absolute: seoTitle }
+      : (seoTitle ?? entityName);
   const description = stripTags(
     seo?.metaDesc ?? seo?.opengraphDescription ?? fallback?.description,
   );

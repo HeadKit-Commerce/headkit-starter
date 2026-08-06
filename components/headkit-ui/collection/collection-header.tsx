@@ -36,7 +36,7 @@ export function CollectionHeader({
         <div className="mb-5 grid grid-cols-1 gap-6 md:grid-cols-5 md:gap-8">
           <div className="px-4 pt-5 md:col-span-2 md:px-10 md:pt-8">
             {decodedBreadcrumbs && <Breadcrumb items={decodedBreadcrumbs} />}
-            <h1 className="mb-[10px] mt-5 text-3xl font-bold md:text-4xl">
+            <h1 className="mb-[10px] mt-5 text-3xl md:text-4xl">
               {decodedName}
             </h1>
             {description ? (
@@ -61,9 +61,7 @@ export function CollectionHeader({
       ) : (
         <div className="mb-5 px-4 pt-5 md:px-10">
           {decodedBreadcrumbs && <Breadcrumb items={decodedBreadcrumbs} />}
-          <h1 className="mb-[10px] mt-5 text-3xl font-bold md:text-4xl">
-            {decodedName}
-          </h1>
+          <h1 className="mb-[10px] mt-5 text-3xl md:text-4xl">{decodedName}</h1>
           {description ? (
             <div
               className="max-w-2xl text-base text-gray-800"

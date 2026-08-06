@@ -34,10 +34,7 @@
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import { TAG } from "@/lib/cache-tags";
-import {
-  executeRequest,
-  GetBrandingDocument,
-} from "@headkit/sdk";
+import { executeRequest, GetBrandingDocument } from "@headkit/sdk";
 import { env } from "@/lib/env";
 import { headkitTransportOpts } from "@/lib/headkit-transport";
 

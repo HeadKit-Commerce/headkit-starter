@@ -36,9 +36,7 @@ export function BrandCard({ brand }: BrandCardProps) {
           )}
         </div>
         <div className="mt-4 flex flex-col">
-          <h3 className="text-[17px] font-semibold text-primary">
-            {brand.name}
-          </h3>
+          <h3 className="text-[17px] text-primary">{brand.name}</h3>
         </div>
       </div>
     </Link>

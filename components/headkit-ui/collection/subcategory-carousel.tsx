@@ -59,7 +59,7 @@ export function SubcategoryCarousel({ subcategories }: Props) {
                 // Figma subcategory cards are landscape (~433×290 ≈ 3:2).
                 className="aspect-[433/290] rounded-brand"
               />
-              <h3 className="pt-3 text-[17px] font-semibold text-primary transition-opacity group-hover:opacity-80">
+              <h3 className="pt-3 text-[17px] text-primary transition-opacity group-hover:opacity-80">
                 {name}
               </h3>
               {description ? (

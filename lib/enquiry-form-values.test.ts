@@ -49,7 +49,9 @@ describe("buildEnquiryInitialValues", () => {
       variationAttributes: [colourAttr, sizeAttr],
       selectedAttributes: { pa_colour: "red", pa_size: "m" },
     });
-    const byName = Object.fromEntries(values.map((v) => [v.fieldName, v.value]));
+    const byName = Object.fromEntries(
+      values.map((v) => [v.fieldName, v.value]),
+    );
     expect(byName.product_colour).toBe("Red");
     expect(byName.colour).toBe("Red");
     expect(byName.product_size).toBe("M");
@@ -63,7 +65,9 @@ describe("buildEnquiryInitialValues", () => {
       variationAttributes: [finishAttr],
       selectedAttributes: { pa_finish: "matte" },
     });
-    const byName = Object.fromEntries(values.map((v) => [v.fieldName, v.value]));
+    const byName = Object.fromEntries(
+      values.map((v) => [v.fieldName, v.value]),
+    );
     expect(byName.finish).toBe("Matte");
     expect(byName.product_options).toBe("Finish: Matte");
     expect(byName.selected_variations).toBe("Finish: Matte");
@@ -77,7 +81,9 @@ describe("buildEnquiryInitialValues", () => {
       variationAttributes: [colourAttr, sizeAttr],
       selectedAttributes: { pa_colour: "blue" },
     });
-    const byName = Object.fromEntries(values.map((v) => [v.fieldName, v.value]));
+    const byName = Object.fromEntries(
+      values.map((v) => [v.fieldName, v.value]),
+    );
     expect(byName.product_colour).toBe("Blue");
     expect(byName.product_size).toBeUndefined();
     expect(byName.product_options).toBe("Colour: Blue");

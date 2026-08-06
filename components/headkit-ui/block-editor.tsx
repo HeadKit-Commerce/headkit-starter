@@ -315,31 +315,42 @@ interface CalloutProps {
   }>;
 }
 
-/** Versatile callout / promo — title + body, then CTA button(s) on a row below. */
+/**
+ * Versatile callout / promo — boxed with page inset, content in the middle
+ * 6 columns on desktop. Primary CTA is solid; secondary is outline.
+ */
 const Callout = ({ title, content, buttons }: CalloutProps) => {
   return (
-    <div className="relative flex h-fit w-full flex-col gap-6 px-5 py-14 md:px-10">
-      <div>
-        <h2 className="mb-5 text-3xl font-semibold text-primary">{title}</h2>
-        <div
-          dangerouslySetInnerHTML={{ __html: content }}
-          className="prose max-w-full text-primary"
-        />
-      </div>
-      {buttons.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-3">
-          {buttons.map((btn, i) => (
-            <a
-              key={`${btn.url ?? ""}-${btn.text ?? ""}-${i}`}
-              href={btn.url ?? "#"}
-              target={btn.linkTarget ?? undefined}
-              className="inline-flex"
-            >
-              <Button variant="outline">{btn.text}</Button>
-            </a>
-          ))}
+    <div className="p-10">
+      <div className="rounded-brand border border-gray-200 px-6 py-10 md:px-10 md:py-14">
+        <div className="grid grid-cols-1 md:grid-cols-12">
+          <div className="flex flex-col gap-6 md:col-span-6 md:col-start-4">
+            <div>
+              <h2 className="mb-5 text-3xl text-primary">{title}</h2>
+              <div
+                dangerouslySetInnerHTML={{ __html: content }}
+                className="prose max-w-full text-primary"
+              />
+            </div>
+            {buttons.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-3">
+                {buttons.map((btn, i) => (
+                  <a
+                    key={`${btn.url ?? ""}-${btn.text ?? ""}-${i}`}
+                    href={btn.url ?? "#"}
+                    target={btn.linkTarget ?? undefined}
+                    className="inline-flex"
+                  >
+                    <Button variant={i === 0 ? "default" : "outline"}>
+                      {btn.text}
+                    </Button>
+                  </a>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
-      ) : null}
+      </div>
     </div>
   );
 };

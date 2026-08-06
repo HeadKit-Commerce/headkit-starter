@@ -77,7 +77,7 @@ function ResetPasswordForm() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-md mx-auto">
-        <h1 className="text-2xl font-bold mb-6">Reset Password</h1>
+        <h1 className="text-2xl mb-6">Reset Password</h1>
         {error && (
           <div className="mb-4 p-4 text-red-700 bg-red-50 border border-red-200 rounded-lg">
             {error}

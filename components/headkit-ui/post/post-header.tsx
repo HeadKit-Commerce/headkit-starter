@@ -22,7 +22,7 @@ export async function PostHeader({
       <div className="mb-5 grid grid-cols-1 gap-5 px-4 md:grid-cols-2 md:px-10">
         <div className="pt-5">
           {breadcrumbs && <Breadcrumb items={breadcrumbs} />}
-          <h1 className="mb-[10px] mt-5 text-3xl font-bold">{name}</h1>
+          <h1 className="mb-[10px] mt-5 text-3xl">{name}</h1>
           {content ? (
             <div className="text-base text-primary [&_.prose]:text-base [&_p]:text-base [&_p]:leading-normal">
               <EditorialContent html={content} />

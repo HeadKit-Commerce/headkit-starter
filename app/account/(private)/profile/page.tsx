@@ -68,7 +68,7 @@ export default function Page() {
   if (loading) {
     return (
       <div className="max-w-2xl">
-        <h1 className="text-2xl font-bold mb-6">My Profile</h1>
+        <h1 className="text-2xl mb-6">My Profile</h1>
         <div className="animate-pulse space-y-4">
           <div className="h-12 bg-gray-200 rounded" />
           <div className="h-12 bg-gray-200 rounded" />
@@ -80,7 +80,7 @@ export default function Page() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-2xl font-bold mb-6">My Profile</h1>
+      <h1 className="text-2xl mb-6">My Profile</h1>
       {success && (
         <div className="mb-4 p-4 text-green-700 bg-green-50 border border-green-200 rounded-lg">
           Profile updated successfully.
