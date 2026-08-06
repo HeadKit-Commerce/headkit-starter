@@ -137,16 +137,16 @@ export function CartTriggerButton({
   if (isQuoteMode) {
     return (
       <Button
-        variant="outline"
+        variant="default"
         size="sm"
         aria-label="My Quote"
-        className="relative h-9 gap-1.5 px-3"
+        className="relative h-9 gap-1.5 pl-[10px] pr-3"
         onClick={() => toggleCart(true)}
       >
         <span>My Quote</span>
         <PlusIcon className="h-4 w-4" />
         {count > 0 && (
-          <span className="absolute -right-1 -top-1 z-10 h-[14px] min-w-[14px] rounded-full bg-primary text-center text-[10px] font-medium leading-[14px] text-white px-0.5">
+          <span className="absolute -right-1 -top-1 z-10 h-[14px] min-w-[14px] rounded-full bg-brand-bg text-center text-[10px] font-medium leading-[14px] text-primary px-0.5">
             {count > 99 ? "99+" : count}
           </span>
         )}
