@@ -4,6 +4,7 @@ import {
   getStoreCurrency,
   getFloatVal,
   decodeHtmlEntities,
+  formatWooRichText,
 } from "@/lib/utils";
 
 afterEach(() => {
@@ -22,6 +23,32 @@ describe("decodeHtmlEntities", () => {
 
   it("is a no-op for plain text", () => {
     expect(decodeHtmlEntities("Plain title")).toBe("Plain title");
+  });
+});
+
+describe("formatWooRichText", () => {
+  it("returns empty string for blank input", () => {
+    expect(formatWooRichText("")).toBe("");
+    expect(formatWooRichText("   ")).toBe("");
+  });
+
+  it("leaves structured HTML (p/br/lists) unchanged", () => {
+    const html = "<p>First</p><p>Second<br />line</p>";
+    expect(formatWooRichText(html)).toBe(html);
+    expect(formatWooRichText("<ul><li>One</li></ul>")).toBe(
+      "<ul><li>One</li></ul>",
+    );
+  });
+
+  it("wraps plain-text paragraphs and converts single newlines to br", () => {
+    const input = "Para one.\nStill one.\n\nPara two.";
+    expect(formatWooRichText(input)).toBe(
+      "<p>Para one.<br />Still one.</p><p>Para two.</p>",
+    );
+  });
+
+  it("normalizes CRLF newlines like Woo plain text", () => {
+    expect(formatWooRichText("A\r\n\r\nB")).toBe("<p>A</p><p>B</p>");
   });
 });
 

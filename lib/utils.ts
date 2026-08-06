@@ -27,6 +27,41 @@ export function decodeHtmlEntities(text: string): string {
     .replace(/&gt;/g, ">");
 }
 
+const WOO_BLOCK_HTML_PATTERN =
+  /<(?:p|div|br|ul|ol|li|h[1-6]|table|blockquote|section|article|figure|hr)\b/i;
+
+/**
+ * Formats WooCommerce product description HTML for storefront rendering.
+ *
+ * Structured HTML from the WordPress editor is returned as-is. Plain text
+ * (common when merchants paste into the product description) preserves
+ * blank-line paragraph breaks and single newlines as `<br />`, matching
+ * WordPress `wpautop` behaviour so content is not collapsed into one block.
+ */
+export function formatWooRichText(html: string | null | undefined): string {
+  if (html == null) {
+    return "";
+  }
+
+  const trimmed = html.trim();
+  if (trimmed === "") {
+    return "";
+  }
+
+  if (WOO_BLOCK_HTML_PATTERN.test(trimmed)) {
+    return trimmed;
+  }
+
+  const normalized = trimmed.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+  return normalized
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter((paragraph) => paragraph.length > 0)
+    .map((paragraph) => `<p>${paragraph.replace(/\n/g, "<br />")}</p>`)
+    .join("");
+}
+
 export function addAlphaToHex(hex: string, alpha: number): string {
   const cleanHex = hex.replace("#", "");
   const r = parseInt(cleanHex.substring(0, 2), 16);

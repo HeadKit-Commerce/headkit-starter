@@ -23,7 +23,7 @@ import { MinusIcon, PlusIcon, HeartIcon } from "@/components/icon";
 import { addToCartAction } from "@/lib/cart-actions";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { useIsQuoteMode } from "@/components/checkout/checkout-mode-provider";
-import { cn, decodeHtmlEntities } from "@/lib/utils";
+import { cn, decodeHtmlEntities, formatWooRichText } from "@/lib/utils";
 import { isInWishlist, toggleWishlist } from "@/lib/wishlist";
 import type { GiftCardFormValues } from "@/components/gift-card-form";
 import { DeliveryType } from "@/components/gift-card-delivery-type";
@@ -458,8 +458,10 @@ export function ProductDetail({
 
           {product.shortDescription && (
             <div
-              className="mb-5 text-sm leading-relaxed text-primary"
-              dangerouslySetInnerHTML={{ __html: product.shortDescription }}
+              className="mb-5 text-sm leading-relaxed text-primary [&_p]:mb-3 [&_p:last-child]:mb-0"
+              dangerouslySetInnerHTML={{
+                __html: formatWooRichText(product.shortDescription),
+              }}
             />
           )}
 
@@ -714,9 +716,9 @@ export function ProductDetail({
                     <AccordionContent>
                       {tab.key === "description" && product.description && (
                         <div
-                          className="prose prose-sm max-w-none text-primary"
+                          className="prose prose-sm max-w-none text-primary prose-p:my-3 prose-p:first:mt-0 prose-p:last:mb-0"
                           dangerouslySetInnerHTML={{
-                            __html: product.description,
+                            __html: formatWooRichText(product.description),
                           }}
                         />
                       )}
