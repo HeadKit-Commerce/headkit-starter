@@ -273,10 +273,16 @@ function Preheader({
 }) {
   return (
     <div className="flex h-[30px] items-center justify-end sm:justify-between bg-primary px-5 text-sm text-brand-bg md:px-10">
-      {title && <div className="hidden sm:block text-brand-bg">{title}</div>}
+      {title ? (
+        <div className="hidden sm:block text-brand-bg">
+          {decodeHtmlEntities(title)}
+        </div>
+      ) : null}
       {(message ?? (links && links.length > 0)) && (
         <div className="flex items-center gap-5 text-brand-bg">
-          {message && <span className="text-brand-bg">{message}</span>}
+          {message ? (
+            <span className="text-brand-bg">{decodeHtmlEntities(message)}</span>
+          ) : null}
           {links?.map(({ label, uri }, i) => (
             <Link key={i} href={uri} className="underline text-brand-bg">
               {decodeHtmlEntities(label)}
@@ -391,7 +397,7 @@ function MegaMenu({ items }: { items: NavMenuItem[] }) {
                       pendingVariant="text"
                       className="text-primary/70 hover:opacity-80 text-sm block py-0.5"
                     >
-                      {child.label}
+                      {decodeHtmlEntities(child.label)}
                     </InstantLink>
                   </NavigationMenuLink>
                 </li>
@@ -465,7 +471,7 @@ function MobileMenuItem({
                     className="font-medium text-primary hover:opacity-70 block py-1"
                     {...(onSelect ? { onClick: onSelect } : {})}
                   >
-                    {child.label}
+                    {decodeHtmlEntities(child.label)}
                   </InstantLink>
                   <div className="flex flex-col gap-1 pl-3">
                     {child.children.map((sub) => (
@@ -476,7 +482,7 @@ function MobileMenuItem({
                         className="text-primary/70 hover:opacity-70 text-[15px] block py-0.5"
                         {...(onSelect ? { onClick: onSelect } : {})}
                       >
-                        {sub.label}
+                        {decodeHtmlEntities(sub.label)}
                       </InstantLink>
                     ))}
                   </div>
@@ -488,7 +494,7 @@ function MobileMenuItem({
                   className="text-primary/70 hover:opacity-70 text-lg block py-1"
                   {...(onSelect ? { onClick: onSelect } : {})}
                 >
-                  {child.label}
+                  {decodeHtmlEntities(child.label)}
                 </InstantLink>
               )}
             </div>
