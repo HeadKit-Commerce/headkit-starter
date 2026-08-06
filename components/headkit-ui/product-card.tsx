@@ -175,7 +175,7 @@ export const ProductCard = ({
                   class-driven and identical at either level. */}
               <TitleTag
                 className={cn(
-                  "text-[17px] font-semibold text-primary line-clamp-2 break-words",
+                  "text-[17px] text-primary line-clamp-2 break-words",
                   dark && "text-white",
                 )}
               >

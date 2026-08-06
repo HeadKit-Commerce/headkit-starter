@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { cacheLife, cacheTag } from "next/cache";
+import type { Product, RelatedProduct } from "@headkit/sdk";
 import { headkit as sdk } from "@/lib/sdk";
 import { EditorialContent } from "@/components/headkit-ui/editorial-content";
 import { FeaturedImageHeader } from "@/components/headkit-ui/post/featured-image-header";
+import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
 import { ProjectCarousel } from "@/components/headkit-ui/project/project-carousel";
 import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { ArticleJsonLD } from "@/components/seo/article-json-ld";
@@ -16,6 +18,42 @@ import { decodeHtmlEntities } from "@/lib/utils";
 
 interface Props {
   params: Promise<{ slug: string[] }>;
+}
+
+function mapRelatedToProduct(r: RelatedProduct): Product {
+  return {
+    id: r.id,
+    name: r.name,
+    slug: r.slug,
+    uri: `/products/${r.slug}`,
+    isNew: false,
+    description: "",
+    shortDescription: "",
+    price: r.price,
+    regularPrice: r.regularPrice,
+    salePrice: r.salePrice,
+    onSale: r.onSale,
+    available: r.stockStatus?.toLowerCase() !== "outofstock",
+    sku: "",
+    type: r.type,
+    stockStatus: r.stockStatus,
+    stockQuantity: null,
+    permalink: r.permalink,
+    image: r.image ?? null,
+    images: r.image ? [r.image] : [],
+    categories: [],
+    tags: [],
+    attributes: r.attributes ?? [],
+    variations: r.variations ?? [],
+    related: [],
+    averageRating: "0",
+    reviewCount: 0,
+    brands: [],
+    crossSells: [],
+    upsells: [],
+    projects: [],
+    isGiftCard: false,
+  };
 }
 
 async function getProject(projectSlug: string) {
@@ -66,6 +104,7 @@ export default async function Page({
 
     const related = project.relatedProjects ?? [];
     const gallery = project.gallery ?? [];
+    const projectProducts = (project.products ?? []).map(mapRelatedToProduct);
     const siteName = resolveStoreName(storeSettings.name);
     const metaBits = [
       project.brand?.name ? decodeHtmlEntities(project.brand.name) : null,
@@ -125,13 +164,32 @@ export default async function Page({
             </div>
           ) : null}
 
+          {projectProducts.length > 0 ? (
+            <div className="overflow-hidden py-[30px] lg:pb-[30px] lg:pt-[60px]">
+              <SectionHeader
+                title="Products in this project"
+                description="Shop the products featured in this project."
+                allButton="Shop All"
+                allButtonPath="/shop"
+                className="px-5 md:px-10"
+              />
+              <div className="mt-5">
+                <ProductCarousel
+                  products={projectProducts}
+                  id="project-products"
+                />
+              </div>
+            </div>
+          ) : null}
+
           {related.length > 0 ? (
-            <div className="overflow-hidden px-5 py-[30px] md:px-10 lg:pb-[30px] lg:pt-[60px]">
+            <div className="overflow-hidden py-[30px] lg:pb-[30px] lg:pt-[60px]">
               <SectionHeader
                 title="Related Projects"
                 description="More projects you may like."
                 allButton="View All"
                 allButtonPath="/projects"
+                className="px-5 md:px-10"
               />
               <div className="mt-5">
                 <ProjectCarousel projects={related} />

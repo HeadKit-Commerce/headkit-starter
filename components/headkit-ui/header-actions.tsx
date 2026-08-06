@@ -8,6 +8,10 @@ import { useAuth } from "@/components/headkit-ui/auth-context";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { SearchDrawer } from "@/components/headkit-ui/search-drawer";
 import { useChromeIcons } from "@/components/branding/branding-icons-provider";
+import {
+  HeaderActionExtras,
+  MobileHeaderActionExtras,
+} from "@/overrides/header-actions";
 
 interface HeaderActionsProps {
   /**
@@ -18,10 +22,11 @@ interface HeaderActionsProps {
 }
 
 /**
- * Right-side header icon row: Search · Wishlist · Account · Cart
+ * Right-side header icon row: Search · Wishlist · Account · [overrides] · Cart
  *
  * Icons come from the branding icon library (default Heroicons 2).
  * Colour: primary at rest, slight opacity drop on hover.
+ * Extra actions (e.g. phone) come from `overrides/header-actions`.
  */
 export function HeaderActions({ initialCartCount = 0 }: HeaderActionsProps) {
   const { isAuthenticated } = useAuth();
@@ -72,6 +77,8 @@ export function HeaderActions({ initialCartCount = 0 }: HeaderActionsProps) {
         </Link>
       </Button>
 
+      <HeaderActionExtras />
+
       <Button
         variant="ghost"
         size="icon"
@@ -87,8 +94,8 @@ export function HeaderActions({ initialCartCount = 0 }: HeaderActionsProps) {
 }
 
 /**
- * Mobile variant: Search · Wishlist · Account (Cart stays in the
- * mobile header bar trigger, not duplicated here).
+ * Mobile variant: Search · Wishlist · Account · [overrides]
+ * (Cart stays in the mobile header bar trigger, not duplicated here).
  *
  * Use `text-*` (currentColor), not `stroke-*` — Lucide / MD / FA packs
  * ignore Tailwind stroke colour utilities and would look unchanged.
@@ -124,6 +131,8 @@ export function MobileHeaderActions() {
         </Link>
         {isAuthenticated && <AccountLoggedInBadge />}
       </span>
+
+      <MobileHeaderActionExtras />
     </div>
   );
 }

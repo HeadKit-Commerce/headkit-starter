@@ -84,7 +84,7 @@ function ErrorContent() {
           />
         </svg>
 
-        <h1 className="text-2xl font-bold text-gray-900">Payment Failed</h1>
+        <h1 className="text-2xl text-gray-900">Payment Failed</h1>
         <p className="text-gray-600">{errorMessage}</p>
 
         {errorDetails && (

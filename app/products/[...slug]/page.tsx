@@ -7,6 +7,7 @@ import { getCachedProduct } from "@/lib/product-cache";
 import { ProductDetail } from "@/components/headkit-ui/product-detail";
 import { ProductStock } from "@/components/headkit-ui/product-stock";
 import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
+import { ProjectCarousel } from "@/components/headkit-ui/project/project-carousel";
 import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { ProductJsonLD } from "@/components/seo/product-json-ld";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
@@ -15,6 +16,7 @@ import { getBranding, getBrandingAssets } from "@/lib/branding";
 import { isColorAttrSlug } from "@/components/headkit-ui/collection/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductPageShell } from "./product-page-shell";
+import type { ProjectSummaryFieldsFragment } from "@headkit/sdk";
 
 const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 
@@ -69,6 +71,7 @@ function mapRelatedToProduct(r: RelatedProduct): Product {
     brands: [],
     crossSells: [],
     upsells: [],
+    projects: [],
     isGiftCard: false,
   };
 }
@@ -213,6 +216,8 @@ async function ProductPageContent({ params }: Props) {
   const brandName = resolveStoreName(storeSettings.name);
   const relatedAsProducts: Product[] = product.related.map(mapRelatedToProduct);
   const upsellsAsProducts: Product[] = product.upsells.map(mapRelatedToProduct);
+  const featuredProjects = (product.projects ??
+    []) as ProjectSummaryFieldsFragment[];
 
   const breadcrumbs = [
     { name: "Home", href: "/" },
@@ -262,6 +267,24 @@ async function ProductPageContent({ params }: Props) {
           stockSlot={stockSlot}
         />
       </div>
+
+      {featuredProjects.length > 0 ? (
+        <section className="overflow-hidden py-10">
+          <SectionHeader
+            title="Featured in projects"
+            description="See this product in real projects."
+            allButton="View All"
+            allButtonPath="/projects"
+            className="px-5 md:px-10"
+          />
+          <div className="mt-5">
+            <ProjectCarousel
+              projects={featuredProjects}
+              imageAspect="video"
+            />
+          </div>
+        </section>
+      ) : null}
 
       {upsellsAsProducts.length > 0 && (
         <section className="overflow-hidden py-10">

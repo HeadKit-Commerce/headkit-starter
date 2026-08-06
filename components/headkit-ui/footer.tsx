@@ -15,7 +15,7 @@ import {
   GooglePayIcon,
 } from "@/components/icon";
 import { FooterSubscribe } from "@/components/headkit-ui/footer-subscribe";
-import { decodeHtmlEntities } from "@/lib/utils";
+import { cn, decodeHtmlEntities } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // HeadKit SVG assets
@@ -144,12 +144,14 @@ const SOCIAL_ICON_MAP = {
 function FooterMenuColumn({
   name,
   items,
+  className,
 }: {
   name: string;
   items: FooterMenuItem[];
+  className?: string;
 }) {
   return (
-    <div>
+    <div className={className}>
       {name ? (
         <div className="mb-[6px] text-lg font-semibold">
           {decodeHtmlEntities(name)}
@@ -171,6 +173,39 @@ function FooterMenuColumn({
   );
 }
 
+function SocialConnect({ socialLinks }: { socialLinks: SocialLinks }) {
+  return (
+    <div>
+      <div className="mb-[6px] text-lg font-semibold">Connect</div>
+      <div className="flex flex-wrap gap-5">
+        {(
+          Object.entries(SOCIAL_ICON_MAP) as [
+            keyof typeof SOCIAL_ICON_MAP,
+            React.ElementType,
+          ][]
+        ).map(([platform, IconComponent]) => {
+          const url = socialLinks[platform];
+          if (!url) return null;
+          return (
+            <a
+              key={platform}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={platform}
+            >
+              <IconComponent
+                size={24}
+                className="fill-primary transition-colors hover:fill-primary"
+              />
+            </a>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Footer
 // ---------------------------------------------------------------------------
@@ -185,10 +220,15 @@ export function Footer({
   showSubscribe = false,
 }: FooterProps) {
   const footerMenus = menus
-    .slice(0, 2)
+    .filter((menu) => menu.location !== "FOOTER_POLICY")
     .filter((menu) => (menu.items?.length ?? 0) > 0);
+  const policyCandidate = menus.find(
+    (menu) => menu.location === "FOOTER_POLICY",
+  );
   const policyMenu =
-    menus[2] && (menus[2].items?.length ?? 0) > 0 ? menus[2] : undefined;
+    policyCandidate && (policyCandidate.items?.length ?? 0) > 0
+      ? policyCandidate
+      : undefined;
 
   const hasSocialLinks =
     socialLinks &&
@@ -196,95 +236,105 @@ export function Footer({
       (url) => typeof url === "string" && url.length > 0,
     );
 
+  const threeMenuDesktop = footerMenus.length >= 3;
+
   return (
-    <footer className="mt-8 border-t-2 border-t-[#E2E2DF] px-5 md:px-10">
-      <div className="grid gap-x-8 gap-y-8 py-10 md:grid-cols-3 md:py-14 lg:gap-x-24">
-        {/* Left: logo + description + social icons */}
-        <div className="flex flex-col justify-between">
-          <div className="flex">
-            <div className="shrink-0 pr-4">
-              <Link href="/" aria-label="home">
-                <div className="relative h-9 w-9 shrink-0 hover:opacity-70">
-                  {iconUrl ? (
-                    <Image
-                      src={iconUrl}
-                      alt={siteName ? decodeHtmlEntities(siteName) : "Logo"}
-                      width={36}
-                      height={36}
-                      sizes="36px"
-                      className="h-9 w-9 object-contain"
-                    />
-                  ) : (
-                    <HeadkitMonoSvg className="h-9 w-9 text-primary" />
-                  )}
-                </div>
-              </Link>
+    <footer className="headkit-footer border-t-2 border-t-[#E2E2DF] px-5 md:px-10">
+      <div
+        className={cn(
+          "grid gap-x-8 gap-y-8 py-10 md:py-14",
+          threeMenuDesktop
+            ? "md:grid-cols-12 lg:gap-x-8"
+            : "md:grid-cols-3 lg:gap-x-24",
+        )}
+      >
+        {/* Brand: icon above description */}
+        <div
+          className={cn(
+            "flex flex-col gap-4",
+            threeMenuDesktop && "md:col-span-3",
+          )}
+        >
+          <Link href="/" aria-label="home" className="w-fit">
+            <div className="relative h-9 w-9 shrink-0 hover:opacity-70">
+              {iconUrl ? (
+                <Image
+                  src={iconUrl}
+                  alt={siteName ? decodeHtmlEntities(siteName) : "Logo"}
+                  width={36}
+                  height={36}
+                  sizes="36px"
+                  className="h-9 w-9 object-contain"
+                />
+              ) : (
+                <HeadkitMonoSvg className="h-9 w-9 text-primary" />
+              )}
             </div>
-            {description && (
-              <div className="min-w-0 leading-5 text-primary">
-                {decodeHtmlEntities(description)}
-              </div>
+          </Link>
+          {description ? (
+            <div className="min-w-0 leading-5 text-primary">
+              {decodeHtmlEntities(description)}
+            </div>
+          ) : null}
+        </div>
+
+        {/* Menu columns — 3 menus → 2+2+2 of 12 on desktop */}
+        {threeMenuDesktop ? (
+          footerMenus
+            .slice(0, 3)
+            .map((menu) => (
+              <FooterMenuColumn
+                key={menu.location}
+                name={menu.name}
+                items={menu.items ?? []}
+                className="text-primary md:col-span-2"
+              />
+            ))
+        ) : (
+          <div
+            className={cn(
+              "grid grid-cols-2 gap-8 text-primary",
+              footerMenus.length >= 3 && "lg:grid-cols-3",
             )}
+          >
+            {footerMenus.map((menu) => (
+              <FooterMenuColumn
+                key={menu.location}
+                name={menu.name}
+                items={menu.items ?? []}
+              />
+            ))}
           </div>
+        )}
 
-          {hasSocialLinks && (
-            <div className="mt-4 flex gap-5">
-              {(
-                Object.entries(SOCIAL_ICON_MAP) as [
-                  keyof typeof SOCIAL_ICON_MAP,
-                  React.ElementType,
-                ][]
-              ).map(([platform, IconComponent]) => {
-                const url = socialLinks?.[platform];
-                if (!url) return null;
-                return (
-                  <a
-                    key={platform}
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={platform}
-                  >
-                    <IconComponent
-                      size={24}
-                      className="fill-primary transition-colors hover:fill-primary"
-                    />
-                  </a>
-                );
-              })}
-            </div>
+        {/* Right: Subscribe + Connect */}
+        <div
+          className={cn(
+            "flex flex-col gap-8",
+            threeMenuDesktop && "md:col-span-3",
           )}
-        </div>
-
-        {/* Center: footer menu columns */}
-        <div className="grid grid-cols-2 gap-8 text-primary">
-          {footerMenus.map((menu) => (
-            <FooterMenuColumn
-              key={menu.location}
-              name={menu.name}
-              items={menu.items ?? []}
-            />
-          ))}
-        </div>
-
-        {/* Right: subscribe box (when email marketing connected) + payment icons */}
-        <div className="flex flex-col justify-between">
+        >
           {showSubscribe ? <FooterSubscribe /> : null}
-          {paymentMethods.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-3 md:justify-end">
-              {paymentMethods.map((method) => {
-                const IconComponent = PAYMENT_ICON_MAP[method];
-                return (
-                  <IconComponent
-                    key={method}
-                    className="h-8! w-auto hover:opacity-70"
-                  />
-                );
-              })}
-            </div>
-          )}
+          {hasSocialLinks && socialLinks ? (
+            <SocialConnect socialLinks={socialLinks} />
+          ) : null}
         </div>
       </div>
+
+      {/* Payment icons — own row above copyright, left-aligned */}
+      {paymentMethods.length > 0 ? (
+        <div className="headkit-footer-payment-methods flex flex-wrap justify-start gap-3 border-t border-[#E2E2DF] pt-8">
+          {paymentMethods.map((method) => {
+            const IconComponent = PAYMENT_ICON_MAP[method];
+            return (
+              <IconComponent
+                key={method}
+                className="h-8! w-auto hover:opacity-70"
+              />
+            );
+          })}
+        </div>
+      ) : null}
 
       {/* Bottom bar */}
       <div className="py-8 text-sm text-[#76766B]">
@@ -316,11 +366,11 @@ export function Footer({
               aria-label="headkit"
               className="group ml-1 flex"
             >
-              <span className="group-hover:text-primary underline">
+              <span className="underline group-hover:text-primary">
                 HeadKit
               </span>
               <div className="ml-2">
-                <BrandmarkSvg className="h-5 w-5 grayscale group-hover:grayscale-0 transition-all duration-300" />
+                <BrandmarkSvg className="h-5 w-5 grayscale transition-all duration-300 group-hover:grayscale-0" />
               </div>
             </Link>
           </div>

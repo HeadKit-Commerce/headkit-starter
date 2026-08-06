@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { BrandSummary } from "@headkit/sdk";
-import { cn } from "@/lib/utils";
+import { cn, decodeHtmlEntities } from "@/lib/utils";
 import { listFilterBrands } from "@/lib/collection-actions";
 import { useCollection } from "./collection-context";
 
@@ -65,7 +65,7 @@ export function BrandFilter() {
               }}
             />
             <span className={cn("text-sm", isSelected && "font-bold")}>
-              {brand.name}
+              {decodeHtmlEntities(brand.name)}
             </span>
           </label>
         );

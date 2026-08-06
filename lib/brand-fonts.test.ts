@@ -115,6 +115,10 @@ describe("resolveBrandFonts", () => {
     });
     expect(resolved.fontFaceCss).toContain("@font-face");
     expect(resolved.fontFaceCss).toContain("Brand Sans");
+    // Same-origin proxy (GCS lacks CORS — Chrome would otherwise skip the face).
+    expect(resolved.fontFaceCss).toContain("/api/branding-font?f=x.woff2");
+    expect(resolved.fontFaceCss).toContain("font-weight:100 900");
+    expect(resolved.fontFaceCss).not.toContain("storage.googleapis.com");
     expect(resolved.cssVars).toContain("--font-body:");
   });
 

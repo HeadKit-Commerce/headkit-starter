@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
   PaymentMethodMessagingElement,
 } from "@stripe/react-stripe-js";
+import { buildCheckoutAppearance } from "@/lib/stripe-appearance";
 
 const VALID_CURRENCIES = [
   "USD",
@@ -97,6 +98,8 @@ export function PaymentMethodMessaging({
     );
   }, [publishableKey, stripeAccountId, isValidCurrency, isValidCountry]);
 
+  const appearance = useMemo(() => buildCheckoutAppearance(), []);
+
   if (disabled || !isValidCurrency || !isValidCountry || !stripePromise) {
     return null;
   }
@@ -105,18 +108,7 @@ export function PaymentMethodMessaging({
     <Elements
       stripe={stripePromise}
       options={{
-        // Inherit storefront fonts — no remote Google Fonts CSS for Stripe.
-        appearance: {
-          theme: "flat",
-          variables: {
-            colorPrimary: "#23102E",
-            colorText: "#23102E",
-            colorTextSecondary: "#23102E",
-            fontSizeBase: "16px",
-            spacingUnit: "10px",
-            fontFamily: "var(--font-body), system-ui, sans-serif",
-          },
-        },
+        appearance,
         currency: normalizedCurrency.toLowerCase(),
       }}
     >

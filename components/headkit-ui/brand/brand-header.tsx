@@ -38,7 +38,7 @@ export function BrandHeader({
               />
             </div>
           )}
-          <h1 className="mb-[10px] mt-5 text-3xl font-bold">{decodedName}</h1>
+          <h1 className="mb-[10px] mt-5 text-3xl">{decodedName}</h1>
           {description && (
             <p dangerouslySetInnerHTML={{ __html: sanitize(description) }} />
           )}

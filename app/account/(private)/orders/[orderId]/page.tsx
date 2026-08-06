@@ -103,7 +103,7 @@ export default async function Page({ params, searchParams }: Props) {
           ← Back to orders
         </Link>
       </div>
-      <h1 className="text-2xl font-bold mb-6">Order #{displayId}</h1>
+      <h1 className="text-2xl mb-6">Order #{displayId}</h1>
 
       <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
         <div className="grid grid-cols-2 gap-4 mb-4">

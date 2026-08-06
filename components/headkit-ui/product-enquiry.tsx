@@ -12,9 +12,10 @@ interface ProductEnquiryProps {
   productName: string;
   /**
    * Hidden field values injected into the submission. Each `fieldName` must be
-   * the snakeCased label of a (hidden) Gravity Forms field so it attaches to the
-   * correct entry field — e.g. `product_name`, `product_url`, `product_size`,
-   * `product_colour`.
+   * the snakeCased label of a Gravity Forms field (type Hidden, or Visibility
+   * Hidden) so it attaches to the correct entry — e.g. `product_name`,
+   * `product_url`, `product_options` (catch-all), `product_size` / `size`,
+   * `product_colour` / `colour`, or the attribute name (`finish`, etc.).
    */
   initialValues: { fieldName: string; value: string }[];
   /** Disable the trigger (e.g. before the product has fully loaded). */
@@ -73,9 +74,7 @@ export function ProductEnquiry({
 
       {open && (
         <div className="mt-4 rounded-lg border border-gray-200 p-5">
-          <h3 className="text-lg font-semibold text-primary">
-            Product enquiry
-          </h3>
+          <h3 className="text-lg text-primary">Product enquiry</h3>
           <p className="mb-4 mt-1 text-sm text-gray-600">
             Ask us anything about {productName} — we&apos;ll get back to you
             shortly.

@@ -29,7 +29,7 @@ export function SubcategoryCarousel({ subcategories }: Props) {
         showScrollbar
         controlsPosition="top"
         gap="gap-[14px]"
-        padding="px-4 md:px-10"
+        padding="px-5 md:px-10"
         // Mobile ~1.15 cards, sm 2, lg 4 columns (Figma: rect cards, desktop 4-up).
         itemSizing={{
           base: "w-[calc(85%-7px)]",
@@ -59,7 +59,7 @@ export function SubcategoryCarousel({ subcategories }: Props) {
                 // Figma subcategory cards are landscape (~433×290 ≈ 3:2).
                 className="aspect-[433/290] rounded-brand"
               />
-              <h3 className="pt-3 text-[17px] font-semibold text-primary transition-opacity group-hover:opacity-80">
+              <h3 className="pt-3 text-[17px] text-primary transition-opacity group-hover:opacity-80">
                 {name}
               </h3>
               {description ? (

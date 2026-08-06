@@ -19,9 +19,7 @@ export default function GlobalError({
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-5 md:px-10">
       <div className="mx-auto max-w-md text-center">
-        <h1 className="mb-2 text-4xl font-extrabold text-primary">
-          Something went wrong
-        </h1>
+        <h1 className="mb-2 text-4xl text-primary">Something went wrong</h1>
         <p className="mb-8 text-gray-600">
           We encountered an unexpected error. Please try again or return to the
           home page.

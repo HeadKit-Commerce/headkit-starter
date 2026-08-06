@@ -35,7 +35,7 @@ export function PostCard({ post, textStyle = "dark" }: PostCardProps) {
         )}
         <div className="flex justify-between pt-3">
           <h3
-            className={cn("text-[17px] font-semibold text-primary", {
+            className={cn("text-[17px] text-primary", {
               "text-pink-500": textStyle === "light",
             })}
           >

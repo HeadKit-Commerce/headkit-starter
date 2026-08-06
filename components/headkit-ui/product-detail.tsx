@@ -19,15 +19,23 @@ import { pickFirstPrice } from "@/lib/price-display";
 import { VariantSwatch } from "@/components/headkit-ui/variant-swatch";
 import { AvailabilityStatus } from "@/components/headkit-ui/availability-status";
 import { Button } from "@/components/ui/button";
-import { MinusIcon, PlusIcon } from "@/components/icon";
+import { MinusIcon, PlusIcon, HeartIcon } from "@/components/icon";
 import { addToCartAction } from "@/lib/cart-actions";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { cn, decodeHtmlEntities } from "@/lib/utils";
+import { isInWishlist, toggleWishlist } from "@/lib/wishlist";
 import type { GiftCardFormValues } from "@/components/gift-card-form";
 import { DeliveryType } from "@/components/gift-card-delivery-type";
 import { Breadcrumb } from "@/components/headkit-ui/breadcrumb";
 import { ProductEnquiry } from "@/components/headkit-ui/product-enquiry";
 import { isColorAttrSlug } from "@/components/headkit-ui/collection/utils";
+import { buildEnquiryInitialValues } from "@/lib/enquiry-form-values";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 // Lazy: gift-card-form drags react-hook-form + zod (~63 KB transfer) into the
 // PDP bundle, but only gift-card products render it (RC-1 perf fix).
@@ -67,8 +75,6 @@ const VARIABLE = "VARIABLE";
  */
 const ENQUIRY_FORM_ID = "3";
 
-type TabKey = "description" | "additional" | "reviews";
-
 export function ProductDetail({
   product,
   initialSearchParams,
@@ -85,10 +91,14 @@ export function ProductDetail({
     "idle" | "success" | "error"
   >("idle");
   const [quantity, setQuantity] = useState(1);
-  const [activeTab, setActiveTab] = useState<TabKey>("description");
+  const [wishlisted, setWishlisted] = useState(false);
   const [showStickyAtc, setShowStickyAtc] = useState(false);
   const atcSectionRef = useRef<HTMLDivElement>(null);
   const { cartData, setCartData, toggleCart } = useCartContext();
+
+  useEffect(() => {
+    setWishlisted(isInWishlist(product.id));
+  }, [product.id]);
 
   const isVariable = product.type?.toUpperCase() === VARIABLE;
   const isGiftCard = product.isGiftCard === true;
@@ -229,35 +239,22 @@ export function ProductDetail({
   }, [isVariable, product.variations, selectedAttributes]);
 
   // Hidden product context injected into the enquiry form so the WordPress entry
-  // captures which product/variant the shopper asked about. The fieldNames must
-  // match the snakeCased labels of the enquiry form's hidden fields (ENG-794).
-  const enquiryInitialValues = useMemo<
-    { fieldName: string; value: string }[]
-  >(() => {
-    const values: { fieldName: string; value: string }[] = [
-      { fieldName: "product_name", value: product.name },
-    ];
-    if (typeof window !== "undefined") {
-      values.push({
-        fieldName: "product_url",
-        value: `${window.location.origin}${pathname}`,
-      });
-    }
-    for (const attr of variationAttributes) {
-      const selectedSlug = selectedAttributes[attr.slug];
-      if (!selectedSlug) continue;
-      const optionName =
-        attr.fullOptions.find((o) => o.slug === selectedSlug)?.name ??
-        selectedSlug;
-      const fieldName = isColorAttrSlug(attr.slug)
-        ? "product_colour"
-        : attr.slug.includes("size")
-          ? "product_size"
-          : attr.slug;
-      values.push({ fieldName, value: optionName });
-    }
-    return values;
-  }, [product.name, pathname, variationAttributes, selectedAttributes]);
+  // captures which product/variant the shopper asked about. Field names must
+  // match snakeCased GF labels — see buildEnquiryInitialValues (ENG-794).
+  const enquiryInitialValues = useMemo(
+    () =>
+      buildEnquiryInitialValues({
+        productName: product.name,
+        productUrl:
+          typeof window !== "undefined"
+            ? `${window.location.origin}${pathname}`
+            : undefined,
+        variationAttributes,
+        selectedAttributes,
+        isColourAttrSlug: isColorAttrSlug,
+      }),
+    [product.name, pathname, variationAttributes, selectedAttributes],
+  );
 
   const galleryImages = useMemo(() => {
     const base = product.images.map((img) => ({
@@ -401,7 +398,11 @@ export function ProductDetail({
     });
   }
 
-  const tabs: Array<{ key: TabKey; label: string; hasContent: boolean }> = [
+  const tabs: Array<{
+    key: string;
+    label: string;
+    hasContent: boolean;
+  }> = [
     {
       key: "description",
       label: "Description",
@@ -413,8 +414,15 @@ export function ProductDetail({
       hasContent:
         product.attributes.filter((a) => a.visible && !a.variation).length > 0,
     },
-    { key: "reviews", label: "Reviews", hasContent: false },
+    { key: "reviews", label: "Reviews", hasContent: true },
   ];
+
+  const visibleTabs = tabs.filter((t) => t.hasContent || t.key === "reviews");
+
+  const handleWishlistToggle = () => {
+    const { added } = toggleWishlist({ id: product.id, slug: product.slug });
+    setWishlisted(added);
+  };
 
   return (
     <>
@@ -438,7 +446,7 @@ export function ProductDetail({
               />
             </div>
           )}
-          <h1 className="mb-3 text-2xl font-bold leading-tight text-primary md:text-3xl">
+          <h1 className="mb-3 text-2xl leading-tight text-primary md:text-3xl">
             {decodeHtmlEntities(product.name)}
           </h1>
 
@@ -581,7 +589,7 @@ export function ProductDetail({
             />
           </div>
 
-          {/* Quantity selector + Add to Cart */}
+          {/* Quantity selector + Add to Cart + Wishlist */}
           <div ref={atcSectionRef} className="mb-6 flex items-center gap-3">
             <div className="flex items-center rounded-md border border-gray-300">
               <button
@@ -634,6 +642,23 @@ export function ProductDetail({
             >
               {addToCartLabel}
             </Button>
+
+            <button
+              type="button"
+              onClick={handleWishlistToggle}
+              aria-label={
+                wishlisted ? "Remove from wishlist" : "Add to wishlist"
+              }
+              aria-pressed={wishlisted}
+              className={cn(
+                "flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-[var(--radius-button)] border border-primary transition-colors",
+                wishlisted
+                  ? "bg-primary text-on-primary"
+                  : "bg-transparent text-primary hover:opacity-80",
+              )}
+            >
+              <HeartIcon className="h-5 w-5" />
+            </button>
           </div>
 
           {!isGiftCard && (
@@ -648,64 +673,77 @@ export function ProductDetail({
 
           {/* SKU */}
           {product.sku && (
-            <p className="mb-6 text-xs text-gray-800">SKU: {product.sku}</p>
+            <p className="mb-4 text-xs text-gray-800">SKU: {product.sku}</p>
           )}
 
-          {/* Tabs: Description / Additional Info / Reviews */}
-          <div className="border-t pt-6">
-            <div className="flex border-b">
-              {tabs
-                .filter((t) => t.hasContent || t.key === "reviews")
-                .map((tab) => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => setActiveTab(tab.key)}
-                    className={cn(
-                      "relative cursor-pointer px-4 py-3 text-sm font-medium transition-colors",
-                      activeTab === tab.key
-                        ? "text-primary"
-                        : "text-gray-800 hover:text-gray-900",
-                    )}
-                  >
-                    {tab.label}
-                    {activeTab === tab.key && (
-                      <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-                    )}
-                  </button>
+          {/* Tags */}
+          {product.tags.length > 0 && (
+            <div className="mb-6 flex flex-wrap gap-2">
+              {product.tags.map((tag) => (
+                <span
+                  key={tag.id}
+                  className="text-xs font-medium text-primary/80"
+                >
+                  {decodeHtmlEntities(tag.name)}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Accordion: Description / Additional Info / Reviews */}
+          {visibleTabs.length > 0 && visibleTabs[0] && (
+            <div className="border-t pt-2">
+              <Accordion
+                type="single"
+                collapsible
+                defaultValue={visibleTabs[0].key}
+                className="w-full"
+              >
+                {visibleTabs.map((tab) => (
+                  <AccordionItem key={tab.key} value={tab.key}>
+                    <AccordionTrigger className="py-4 hover:no-underline">
+                      <h3 className="text-base text-primary">{tab.label}</h3>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      {tab.key === "description" && product.description && (
+                        <div
+                          className="prose prose-sm max-w-none text-primary"
+                          dangerouslySetInnerHTML={{
+                            __html: product.description,
+                          }}
+                        />
+                      )}
+
+                      {tab.key === "additional" && (
+                        <div className="space-y-3">
+                          {product.attributes
+                            .filter((a) => a.visible && !a.variation)
+                            .map((attr) => (
+                              <div key={attr.id} className="flex gap-4 text-sm">
+                                <span className="w-32 shrink-0 font-medium text-gray-700">
+                                  {decodeHtmlEntities(attr.name)}
+                                </span>
+                                <span className="text-gray-600">
+                                  {attr.options
+                                    .map((o) => decodeHtmlEntities(o))
+                                    .join(", ")}
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+
+                      {tab.key === "reviews" && (
+                        <p className="text-sm text-gray-500">
+                          Reviews coming soon.
+                        </p>
+                      )}
+                    </AccordionContent>
+                  </AccordionItem>
                 ))}
+              </Accordion>
             </div>
-
-            <div className="py-6">
-              {activeTab === "description" && product.description && (
-                <div
-                  className="prose prose-sm max-w-none text-primary"
-                  dangerouslySetInnerHTML={{ __html: product.description }}
-                />
-              )}
-
-              {activeTab === "additional" && (
-                <div className="space-y-3">
-                  {product.attributes
-                    .filter((a) => a.visible && !a.variation)
-                    .map((attr) => (
-                      <div key={attr.id} className="flex gap-4 text-sm">
-                        <span className="w-32 shrink-0 font-medium text-gray-700">
-                          {attr.name}
-                        </span>
-                        <span className="text-gray-600">
-                          {attr.options.join(", ")}
-                        </span>
-                      </div>
-                    ))}
-                </div>
-              )}
-
-              {activeTab === "reviews" && (
-                <p className="text-sm text-gray-500">Reviews coming soon.</p>
-              )}
-            </div>
-          </div>
+          )}
         </div>
       </div>
 

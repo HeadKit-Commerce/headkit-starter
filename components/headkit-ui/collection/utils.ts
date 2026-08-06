@@ -1,4 +1,5 @@
 import type { ProductListFilter, ProductCategoryDetail } from "@headkit/sdk";
+import { decodeHtmlEntities } from "@/lib/utils";
 
 export const SortKey = {
   FEATURED: "FEATURED",
@@ -133,7 +134,9 @@ export function facetDescription(
 
 /** Convert slug-like option value to display name (e.g. "some-option" -> "Some Option"). */
 export function formatOptionName(slug: string): string {
-  return slug
+  // WooCommerce often returns names with HTML entities (`&amp;`); decode first
+  // so filters don't render literal `&amp;` in the UI.
+  return decodeHtmlEntities(slug)
     .replace(/[-_]+/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase())
     .trim();

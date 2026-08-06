@@ -189,7 +189,7 @@ export async function HomeContent() {
             allButtonPath="/featured"
             className="px-5 md:px-10"
           />
-          <div className="mt-5">
+          <div className="mt-8">
             <ProductCarousel
               products={featuredProducts}
               id="featured-products"
@@ -208,7 +208,7 @@ export async function HomeContent() {
             allButtonPath="/sale"
             className="px-5 md:px-10"
           />
-          <div className="mt-5">
+          <div className="mt-8">
             <ProductCarousel
               products={onSaleProducts.products.slice(0, 12) as Product[]}
               id="on-sale-products"
@@ -219,7 +219,7 @@ export async function HomeContent() {
 
       {/* Shop by Category — skipped when WP provides headkit-category-carousel */}
       {showHardcodedCategories && (
-        <section className="overflow-hidden py-10">
+        <section className="headkit-category-carousel overflow-hidden py-10">
           <SectionHeader
             title="Shop by Category"
             description=""
@@ -227,7 +227,7 @@ export async function HomeContent() {
             allButtonPath="/collections"
             className="px-5 md:px-10"
           />
-          <div className="mt-5">
+          <div className="mt-8">
             <CategoryCarousel categories={featuredCategories} />
           </div>
         </section>
@@ -235,14 +235,14 @@ export async function HomeContent() {
 
       {/* Brands — skipped when WP provides headkit-brand-carousel */}
       {showHardcodedBrands && (
-        <section className="overflow-hidden py-10">
+        <section className="headkit-brand-carousel overflow-hidden py-20">
           <SectionHeader
             title="Our Brands"
             description=""
             allButton=""
             className="px-5 md:px-10"
           />
-          <div className="mt-5">
+          <div className="mt-8">
             <BrandCarousel brands={featuredBrands} />
           </div>
         </section>
@@ -256,7 +256,7 @@ export default function Home() {
   // Suspense boundary bakes it into the prerendered shell in document order,
   // so the homepage is visible without JavaScript.
   return (
-    <div className="overflow-hidden">
+    <div className="headkit-home overflow-hidden">
       <HomeContent />
     </div>
   );

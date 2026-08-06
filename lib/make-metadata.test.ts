@@ -182,17 +182,30 @@ describe("makeSeoMetadata fallback chain (FE-09)", () => {
     expect(meta.openGraph?.title).toBe("Widgets");
   });
 
-  it("when seo.title is present, uses absolute so template does not double", () => {
+  it("when seo.title includes store brand, uses absolute so template does not double", () => {
     const meta = makeSeoMetadata(
       {
-        title: "Premium Widgets",
+        title: "Premium Widgets | Acme",
         metaDesc: "Our finest widgets",
       } as Parameters<typeof makeSeoMetadata>[0],
       { title: "Widgets", description: "All our widgets", storeName: "Acme" },
     );
 
-    expect(meta.title).toEqual({ absolute: "Premium Widgets" });
+    expect(meta.title).toEqual({ absolute: "Premium Widgets | Acme" });
     expect(meta.description).toBe("Our finest widgets");
+  });
+
+  it("when seo.title is bare page name, keeps segment so template appends | Store", () => {
+    const meta = makeSeoMetadata(
+      {
+        title: "Projects",
+        metaDesc: "Our projects",
+      } as Parameters<typeof makeSeoMetadata>[0],
+      { title: "Projects", description: "Our projects", storeName: "Acme" },
+    );
+
+    expect(meta.title).toBe("Projects");
+    expect(meta.description).toBe("Our projects");
   });
 
   it("treats seo.title Home as not real and uses bare entity title", () => {

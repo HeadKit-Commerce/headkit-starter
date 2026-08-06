@@ -7,12 +7,14 @@ describe("resolveChromeIcons", () => {
     const hi2 = resolveChromeIcons("hi2");
     expect(icons.Search).toBe(hi2.Search);
     expect(icons.Cart).toBe(hi2.Cart);
+    expect(icons.Phone).toBe(hi2.Phone);
   });
 
   it("switches to lucide", () => {
     const icons = resolveChromeIcons("lucide");
     const hi2 = resolveChromeIcons("hi2");
     expect(icons.Search).not.toBe(hi2.Search);
+    expect(icons.Phone).not.toBe(hi2.Phone);
   });
 
   it("falls back for unknown libraries", () => {

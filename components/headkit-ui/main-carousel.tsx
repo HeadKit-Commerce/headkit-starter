@@ -47,7 +47,7 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                 <div className="z-10 h-full w-full md:absolute">
                   <div className="mx-auto flex h-full items-center">
                     <div className="py-[20px] md:w-[400px] md:pl-[20px] lg:w-[600px] lg:pl-[100px]">
-                      <HeaderTag className="text-3xl font-semibold leading-[1.3]! text-primary md:text-5xl md:text-brand-bg!">
+                      <HeaderTag className="text-3xl leading-[1.3]! text-primary md:text-5xl md:text-brand-bg!">
                         {decodeHtmlEntities(slide?.header ?? "")}
                       </HeaderTag>
                       <p className="mt-8 text-base font-semibold text-black md:text-3xl md:text-brand-bg!">
@@ -63,7 +63,7 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                     </div>
                   </div>
                 </div>
-                <div className="relative h-[40vh] overflow-hidden md:h-[60vh] lg:h-[80vh]">
+                <div className="relative aspect-square w-full overflow-hidden md:aspect-auto md:h-[60vh] lg:h-[80vh]">
                   {hasVideo ? (
                     <>
                       {/* Mobile video (or desktop fallback). muted+playsInline
@@ -117,7 +117,7 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                       } = getImageProps({
                         ...common,
                         width: 768,
-                        height: 960,
+                        height: 768,
                         src: slide.mobileImage || slide.image,
                       });
                       return (
@@ -135,7 +135,7 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                               alt={slide.header}
                               className="h-full w-full object-cover"
                               width={768}
-                              height={960}
+                              height={768}
                             />
                           </picture>
                           <div
@@ -160,7 +160,7 @@ export const MainCarousel = ({ carouselItems }: Props) => {
         showScrollbar={false}
         showPagination={items.length > 1}
         paginationDotClassName="bg-white/50"
-        paginationClassName="top-[calc(40vh-2rem)] md:top-auto md:bottom-6"
+        paginationClassName="top-[calc(100vw-4.5rem)] md:top-auto md:bottom-6"
         useScrollSnap={true}
         itemSizing={{ base: "w-full" }}
         gap="gap-0"

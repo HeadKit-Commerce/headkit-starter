@@ -155,7 +155,7 @@ export default function Page() {
   if (loading) {
     return (
       <div className="max-w-2xl">
-        <h1 className="text-2xl font-bold mb-6">Address Book</h1>
+        <h1 className="text-2xl mb-6">Address Book</h1>
         <div className="animate-pulse space-y-4">
           <div className="h-12 bg-gray-200 rounded" />
           <div className="h-12 bg-gray-200 rounded" />
@@ -167,7 +167,7 @@ export default function Page() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-2xl font-bold mb-6">Address Book</h1>
+      <h1 className="text-2xl mb-6">Address Book</h1>
 
       {error && (
         <div className="mb-4 p-4 text-red-700 bg-red-50 border border-red-200 rounded-lg">
@@ -192,11 +192,11 @@ export default function Page() {
             className="space-y-8"
           >
             <section>
-              <h2 className="text-lg font-semibold mb-4">Billing Address</h2>
+              <h2 className="text-lg mb-4">Billing Address</h2>
               <AddressFields form={form} section="billing" />
             </section>
             <section>
-              <h2 className="text-lg font-semibold mb-4">Shipping Address</h2>
+              <h2 className="text-lg mb-4">Shipping Address</h2>
               <AddressFields form={form} section="shipping" />
             </section>
             <Button

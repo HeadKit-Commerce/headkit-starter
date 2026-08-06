@@ -182,7 +182,7 @@ export default async function CheckoutPage({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-brand-bg">
       {/* Payment failed banner (ENG-789: retry after Afterpay/BNPL decline) */}
       {paymentFailed && <PaymentFailedBanner />}
       {/* Cart changed banner (ENG-784: session expired mid-redirect because

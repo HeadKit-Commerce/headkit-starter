@@ -71,6 +71,7 @@ const REMAP_TABLE: ReadonlyArray<{
       "headkit:menu:PRE_HEADER",
       "headkit:menu:FOOTER",
       "headkit:menu:FOOTER_2",
+      "headkit:menu:FOOTER_3",
       "headkit:menu:FOOTER_POLICY",
       "headkit:footer",
     ],

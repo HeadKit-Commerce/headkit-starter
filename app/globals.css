@@ -104,6 +104,18 @@
     background-color: var(--color-background, var(--background));
     color: var(--color-text, var(--foreground));
     font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+    /* WordPress "Auto" line height — font default, not a fixed ratio */
+    line-height: normal;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-weight: 600;
+    line-height: normal;
   }
 
   h1,
@@ -129,9 +141,34 @@
    * Tailwind Typography paints headings via --tw-prose-headings (gray by
    * default), which beats the base h1–h6 rules above. Point it at branding
    * primary so editorial/About/FAQ prose matches storefront headings.
+   * Also force WordPress "Auto" line-height (normal) over prose's fixed
+   * leading on body copy and headings; editor inline line-height still wins.
    */
   .prose {
     --tw-prose-headings: var(--color-primary);
+    line-height: normal;
+  }
+
+  .prose
+    :is(
+      p,
+      h1,
+      h2,
+      h3,
+      h4,
+      h5,
+      h6,
+      li,
+      blockquote,
+      figcaption,
+      td,
+      th,
+      cite,
+      summary,
+      dt,
+      dd
+    ) {
+    line-height: normal;
   }
 
   a {

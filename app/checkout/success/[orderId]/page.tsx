@@ -353,7 +353,7 @@ export default async function Page({ params, searchParams }: Props) {
         <>
           <ClearCart />
           <div className="mt-5 px-5 md:px-10">
-            <h1 className="font-bold text-3xl mb-[10px] text-primary">
+            <h1 className="text-3xl mb-[10px] text-primary">
               Your order is confirmed.
             </h1>
             <p className="text-lg">
@@ -408,7 +408,7 @@ export default async function Page({ params, searchParams }: Props) {
       <div className="grid grid-cols-12 gap-x-1 gap-y-5 md:gap-8 mt-5 px-5 md:px-10">
         {/* Heading */}
         <div className="col-span-12 w-full">
-          <h1 className="font-bold text-3xl mb-[10px] text-primary">
+          <h1 className="text-3xl mb-[10px] text-primary">
             Thanks, {billing.firstName || shipping.firstName}!
           </h1>
         </div>
