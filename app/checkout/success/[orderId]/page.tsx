@@ -17,6 +17,8 @@ import {
   BILLING_ADDRESS_COOKIE,
   parseBillingAddressCookie,
 } from "@/lib/checkout-billing-cookie";
+import { getBranding } from "@/lib/branding";
+import { normalizeCheckoutMode } from "@/lib/checkout-mode";
 
 interface Props {
   params: Promise<{ orderId: string }>;
@@ -345,6 +347,14 @@ export default async function Page({ params, searchParams }: Props) {
     }
   }
 
+  const { storeSettings } = await getBranding();
+  const isQuoteMode =
+    normalizeCheckoutMode(storeSettings.checkoutType) === "quote" ||
+    paymentMethod === "headkit-quote" ||
+    (order?.paymentMethodTitle ?? "")
+      .toLowerCase()
+      .includes("quote");
+
   if (!order) {
     if (orderFetchFailed) {
       // Order is still transitioning (checkout-draft) or credentials are restricted —
@@ -354,11 +364,22 @@ export default async function Page({ params, searchParams }: Props) {
           <ClearCart />
           <div className="mt-5 px-5 md:px-10">
             <h1 className="text-3xl mb-[10px] text-primary">
-              Your order is confirmed.
+              {isQuoteMode
+                ? "Your quote request was submitted."
+                : "Your order is confirmed."}
             </h1>
             <p className="text-lg">
-              Order <span className="font-bold">#{orderId}</span> has been
-              received. You will receive a confirmation email shortly.
+              {isQuoteMode ? (
+                <>
+                  Quote <span className="font-bold">#{orderId}</span> has been
+                  received. We will follow up with pricing shortly.
+                </>
+              ) : (
+                <>
+                  Order <span className="font-bold">#{orderId}</span> has been
+                  received. You will receive a confirmation email shortly.
+                </>
+              )}
             </p>
             <div className="mt-8">
               <Link
@@ -418,13 +439,19 @@ export default async function Page({ params, searchParams }: Props) {
           <div className="col-span-12 md:col-start-1 md:col-span-5">
             <div className="mb-10">
               <p className="font-extrabold text-3xl">
-                Your order is confirmed.
+                {isQuoteMode
+                  ? "Your quote request was submitted."
+                  : "Your order is confirmed."}
               </p>
               <p className="text-lg">
-                You will receive a confirmation email shortly.
+                {isQuoteMode
+                  ? "We will follow up with pricing and assistance shortly."
+                  : "You will receive a confirmation email shortly."}
               </p>
               <br />
-              <p className="font-bold text-2xl">Order #{order.orderNumber}</p>
+              <p className="font-bold text-2xl">
+                {isQuoteMode ? "Quote" : "Order"} #{order.orderNumber}
+              </p>
             </div>
 
             <div className="text-xl">
@@ -450,13 +477,19 @@ export default async function Page({ params, searchParams }: Props) {
                         {shippingLines.map((line, i) => (
                           <div key={i}>
                             <div>
-                              {line.methodTitle} /{" "}
-                              {getFloatVal(line.total) === 0
-                                ? "Free"
-                                : formatPrice(
-                                    getFloatVal(line.total),
-                                    currency,
-                                  )}
+                              {isQuoteMode ? (
+                                line.methodTitle
+                              ) : (
+                                <>
+                                  {line.methodTitle} /{" "}
+                                  {getFloatVal(line.total) === 0
+                                    ? "Free"
+                                    : formatPrice(
+                                        getFloatVal(line.total),
+                                        currency,
+                                      )}
+                                </>
+                              )}
                             </div>
                             {isPickupLine(line.methodId) &&
                               (line.pickupAddress || line.pickupDetails) && (
@@ -526,22 +559,39 @@ export default async function Page({ params, searchParams }: Props) {
                 </div>
               </div>
 
-              {/* Payment */}
+              {/* Payment / quote method */}
               <div className="grid grid-cols-4 md:grid-cols-3 mb-5 items-baseline gap-1 md:gap-4 font-medium text-lg mt-[8px]">
                 <div className="col-span-1">
-                  <div className="font-extrabold">Payment</div>
+                  <div className="font-extrabold">
+                    {isQuoteMode ? "Request" : "Payment"}
+                  </div>
                 </div>
                 <div className="col-span-3 md:col-span-2">
-                  {formatPrice(getFloatVal(order.totals.totalPrice), currency)}
-                  <br />
-                  <PaymentMethodDisplay
-                    cardBrand={paymentCardBrand}
-                    cardLast4={paymentCardLast4}
-                    paymentMethod={paymentMethod}
-                    walletType={paymentWalletType}
-                    paymentMethodTitle={order.paymentMethodTitle}
-                    fallback={order.status}
-                  />
+                  {isQuoteMode ? (
+                    <>
+                      Quote request
+                      <br />
+                      <span className="text-base font-normal text-gray-600">
+                        Pending pricing follow-up
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      {formatPrice(
+                        getFloatVal(order.totals.totalPrice),
+                        currency,
+                      )}
+                      <br />
+                      <PaymentMethodDisplay
+                        cardBrand={paymentCardBrand}
+                        cardLast4={paymentCardLast4}
+                        paymentMethod={paymentMethod}
+                        walletType={paymentWalletType}
+                        paymentMethodTitle={order.paymentMethodTitle}
+                        fallback={order.status}
+                      />
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -575,48 +625,60 @@ export default async function Page({ params, searchParams }: Props) {
                 }
                 currency={currency}
                 giftCard={item.giftCard ?? null}
+                hidePrice={isQuoteMode}
               />
             ))}
           </div>
 
-          {/* Totals */}
-          <div className="flex gap-4 justify-between font-medium">
-            <p>Subtotal</p>
-            <p>{formatPrice(getFloatVal(order.totals.totalItems), currency)}</p>
-          </div>
+          {!isQuoteMode && (
+            <>
+              {/* Totals */}
+              <div className="flex gap-4 justify-between font-medium">
+                <p>Subtotal</p>
+                <p>
+                  {formatPrice(getFloatVal(order.totals.totalItems), currency)}
+                </p>
+              </div>
 
-          {getFloatVal(order.totals.totalDiscount) > 0 && (
-            <div className="flex gap-4 justify-between font-medium mt-[8px]">
-              <p>Discount</p>
-              <p>
-                −
-                {formatPrice(getFloatVal(order.totals.totalDiscount), currency)}
-              </p>
-            </div>
+              {getFloatVal(order.totals.totalDiscount) > 0 && (
+                <div className="flex gap-4 justify-between font-medium mt-[8px]">
+                  <p>Discount</p>
+                  <p>
+                    −
+                    {formatPrice(
+                      getFloatVal(order.totals.totalDiscount),
+                      currency,
+                    )}
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-4 justify-between font-medium mt-[8px]">
+                <p>Shipping</p>
+                <p>
+                  {shippingCost === 0
+                    ? "Free"
+                    : formatPrice(shippingCost, currency)}
+                </p>
+              </div>
+
+              {getFloatVal(order.totals.totalTax) > 0 && (
+                <div className="flex gap-4 justify-between font-medium mt-[8px]">
+                  <p>Tax</p>
+                  <p>
+                    {formatPrice(getFloatVal(order.totals.totalTax), currency)}
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-4 justify-between text-xl mt-[20px]">
+                <p className="font-medium">Total</p>
+                <p className="font-medium">
+                  {formatPrice(getFloatVal(order.totals.totalPrice), currency)}
+                </p>
+              </div>
+            </>
           )}
-
-          <div className="flex gap-4 justify-between font-medium mt-[8px]">
-            <p>Shipping</p>
-            <p>
-              {shippingCost === 0
-                ? "Free"
-                : formatPrice(shippingCost, currency)}
-            </p>
-          </div>
-
-          {getFloatVal(order.totals.totalTax) > 0 && (
-            <div className="flex gap-4 justify-between font-medium mt-[8px]">
-              <p>Tax</p>
-              <p>{formatPrice(getFloatVal(order.totals.totalTax), currency)}</p>
-            </div>
-          )}
-
-          <div className="flex gap-4 justify-between text-xl mt-[20px]">
-            <p className="font-medium">Total</p>
-            <p className="font-medium">
-              {formatPrice(getFloatVal(order.totals.totalPrice), currency)}
-            </p>
-          </div>
         </div>
       </div>
     </>
