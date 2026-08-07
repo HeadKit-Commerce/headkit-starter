@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import Script from "next/script";
 import "./globals.css";
 // Customer-owned UI/styling layer — prefer overrides/ over editing core components.
@@ -8,9 +9,9 @@ import {
   getFooterMenus,
 } from "@/components/headkit-ui/navigation-wrapper";
 import { CartProvider } from "@/components/headkit-ui/cart-context";
-import { CartDrawer } from "@/components/headkit-ui/cart-drawer";
 import { AuthProvider } from "@/components/headkit-ui/auth-context";
 import { Footer } from "@/components/headkit-ui/footer";
+import { LazyCartDrawer } from "@/components/headkit-ui/lazy-cart-drawer";
 import { WebsiteJsonLD } from "@/components/seo/website-json-ld";
 import { OrganizationJsonLD } from "@/components/seo/organization-json-ld";
 import {
@@ -223,34 +224,36 @@ export default async function RootLayout({
           {...(orgLogoUrl ? { logoUrl: orgLogoUrl } : {})}
         />
 
-        <BrandingIconsProvider library={branding.iconLibrary}>
-          <CheckoutModeProvider mode={checkoutMode}>
-            <AuthProvider>
-              <CartProvider>
-                <CartDrawer />
-                <NavigationWrapper />
-                <main>{children}</main>
-                <Footer
-                  siteName={siteName}
-                  description={siteDescription}
-                  menus={footerMenus}
-                  iconUrl={branding.iconUrl}
-                  showSubscribe={showFooterSubscribe}
-                  hidePaymentIcons={checkoutMode === "quote"}
-                  socialLinks={{
-                    instagram: "https://www.instagram.com/headkitcommerce",
-                    discord: "https://discord.gg/bSNe29JtsX",
-                    github: "https://github.com/headkit-commerce",
-                    linkedin:
-                      "https://www.linkedin.com/company/headkit-commerce/",
-                    youtube: "https://www.youtube.com/@headkit-commerce",
-                  }}
-                />
-                <Toaster />
-              </CartProvider>
-            </AuthProvider>
-          </CheckoutModeProvider>
-        </BrandingIconsProvider>
+        <Suspense fallback={null}>
+          <BrandingIconsProvider library={branding.iconLibrary}>
+            <CheckoutModeProvider mode={checkoutMode}>
+              <AuthProvider>
+                <CartProvider>
+                  <LazyCartDrawer />
+                  <NavigationWrapper />
+                  <main>{children}</main>
+                  <Footer
+                    siteName={siteName}
+                    description={siteDescription}
+                    menus={footerMenus}
+                    iconUrl={branding.iconUrl}
+                    showSubscribe={showFooterSubscribe}
+                    hidePaymentIcons={checkoutMode === "quote"}
+                    socialLinks={{
+                      instagram: "https://www.instagram.com/headkitcommerce",
+                      discord: "https://discord.gg/bSNe29JtsX",
+                      github: "https://github.com/headkit-commerce",
+                      linkedin:
+                        "https://www.linkedin.com/company/headkit-commerce/",
+                      youtube: "https://www.youtube.com/@headkit-commerce",
+                    }}
+                  />
+                  <Toaster />
+                </CartProvider>
+              </AuthProvider>
+            </CheckoutModeProvider>
+          </BrandingIconsProvider>
+        </Suspense>
       </body>
     </html>
   );

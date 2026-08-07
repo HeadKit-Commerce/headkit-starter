@@ -1,5 +1,5 @@
 import Image from "next/image";
-import Link from "next/link";
+import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { decodeHtmlEntities } from "@/lib/utils";
 
 interface Props {
@@ -11,7 +11,7 @@ interface Props {
 const PostCard = ({ title, image, uri }: Props) => {
   const decodedTitle = decodeHtmlEntities(title);
   return (
-    <Link href={`/news/${uri}`} className="block group">
+    <InstantLink href={`/news/${uri}`} className="block group">
       <div className="relative aspect-video w-full overflow-hidden rounded-brand bg-gray-100">
         {image && (
           <Image
@@ -26,7 +26,7 @@ const PostCard = ({ title, image, uri }: Props) => {
       <h3 className="mt-3 text-[17px] leading-snug text-primary group-hover:underline">
         {decodedTitle}
       </h3>
-    </Link>
+    </InstantLink>
   );
 };
 

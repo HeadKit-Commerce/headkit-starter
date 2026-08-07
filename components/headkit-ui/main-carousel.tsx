@@ -2,8 +2,8 @@
 
 import { getImageProps } from "next/image";
 import { ElementType } from "react";
-import Link from "next/link";
 import { Carousel } from "@/components/headkit-ui/carousel";
+import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { Button } from "@/components/ui/button";
 import type { HeroCarouselItem } from "@headkit/sdk";
 import { decodeHtmlEntities } from "@/lib/utils";
@@ -54,11 +54,11 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                         {decodeHtmlEntities(slide?.description ?? "")}
                       </p>
                       <div className="mt-8">
-                        <Link href={slide?.url ?? "#"}>
+                        <InstantLink href={slide?.url ?? "#"}>
                           <Button className="text-brand-bg">
                             {slide?.buttonText}
                           </Button>
-                        </Link>
+                        </InstantLink>
                       </div>
                     </div>
                   </div>

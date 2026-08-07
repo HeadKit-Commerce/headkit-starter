@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import Image from "next/image";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { cacheLife, cacheTag } from "next/cache";
 import type { Product, RelatedProduct } from "@headkit/sdk";
@@ -11,6 +13,7 @@ import { ProjectCarousel } from "@/components/headkit-ui/project/project-carouse
 import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { ArticleJsonLD } from "@/components/seo/article-json-ld";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
+import { Skeleton } from "@/components/ui/skeleton";
 import { makeSeoMetadata, resolveStoreName } from "@/lib/make-metadata";
 import { getBranding, getBrandingAssets } from "@/lib/branding";
 import { TAG } from "@/lib/cache-tags";
@@ -18,6 +21,24 @@ import { decodeHtmlEntities } from "@/lib/utils";
 
 interface Props {
   params: Promise<{ slug: string[] }>;
+}
+
+function ProjectArticleSkeleton(): ReactNode {
+  return (
+    <div className="space-y-6 px-5 py-8 md:px-10">
+      <Skeleton animated={false} className="h-4 w-40" />
+      <Skeleton animated={false} className="h-10 w-2/3 max-w-xl" />
+      <Skeleton
+        animated={false}
+        className="aspect-[16/9] w-full max-w-4xl rounded-brand"
+      />
+      <div className="max-w-3xl space-y-3">
+        <Skeleton animated={false} className="h-4 w-full" />
+        <Skeleton animated={false} className="h-4 w-full" />
+        <Skeleton animated={false} className="h-4 w-11/12" />
+      </div>
+    </div>
+  );
 }
 
 function mapRelatedToProduct(r: RelatedProduct): Product {
@@ -58,7 +79,7 @@ function mapRelatedToProduct(r: RelatedProduct): Product {
 
 async function getProject(projectSlug: string) {
   "use cache";
-  cacheLife("max");
+  cacheLife("days");
   cacheTag(TAG.project(projectSlug), TAG.projects);
   return sdk.projects.get(projectSlug);
 }
@@ -88,7 +109,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-export default async function Page({
+/**
+ * Instant Navigation (Next.js 16.3) — sync App Shell + Suspense streaming.
+ * @see https://nextjs.org/docs/app/guides/instant-navigation
+ */
+export const instant = true;
+
+export default function Page(props: Props): ReactNode {
+  return (
+    <Suspense fallback={<ProjectArticleSkeleton />}>
+      <ProjectArticleContent {...props} />
+    </Suspense>
+  );
+}
+
+async function ProjectArticleContent({
   params,
 }: Props): Promise<React.ReactElement> {
   const { slug } = await params;

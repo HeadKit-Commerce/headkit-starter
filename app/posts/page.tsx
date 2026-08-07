@@ -7,6 +7,13 @@ import { redirect } from "next/navigation";
  * apps/starter uses /news. This redirect ensures inbound links and
  * search-engine indexed URLs continue to work after the migration cutover.
  */
+
+/**
+ * Instant Navigation (Next.js 16.3) — sync App Shell + Suspense streaming.
+ * @see https://nextjs.org/docs/app/guides/instant-navigation
+ */
+export const instant = true;
+
 export default function Page({
   searchParams,
 }: {

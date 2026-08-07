@@ -54,14 +54,14 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Project Structure
 
-| Directory                | Description                          |
-| ------------------------ | ------------------------------------ |
-| `app/`                   | Next.js App Router pages and layouts |
+| Directory                | Description                                              |
+| ------------------------ | -------------------------------------------------------- |
+| `app/`                   | Next.js App Router pages and layouts                     |
 | `overrides/`             | Customer-owned UI/styling (preferred customisation path) |
-| `components/ui/`         | Low-level primitives (shadcn-like)   |
-| `components/headkit-ui/` | Commerce-specific components         |
-| `components/seo/`        | JSON-LD, sitemap utilities           |
-| `lib/`                   | SDK, env, cart, checkout helpers     |
+| `components/ui/`         | Low-level primitives (shadcn-like)                       |
+| `components/headkit-ui/` | Commerce-specific components                             |
+| `components/seo/`        | JSON-LD, sitemap utilities                               |
+| `lib/`                   | SDK, env, cart, checkout helpers                         |
 
 ### Customising the storefront
 

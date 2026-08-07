@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
 import { BrandPage } from "@/components/headkit-ui/brand/brand-page";
 import { BrandHeader } from "@/components/headkit-ui/brand/brand-header";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export const metadata: Metadata = {
   title: "Brands",
@@ -13,12 +15,13 @@ export const metadata: Metadata = {
 
 async function getBrands() {
   "use cache";
-  cacheLife("max");
+  // Brands change rarely; webhooks invalidate `headkit:brands`.
+  cacheLife("weeks");
   cacheTag("headkit:brands");
   return sdk.brands.list();
 }
 
-export default async function Page() {
+async function BrandsRoute() {
   const result = await getBrands();
 
   return (
@@ -32,5 +35,35 @@ export default async function Page() {
       />
       <BrandPage brands={result.brands} />
     </>
+  );
+}
+
+/**
+ * Instant Navigation (Next.js 16.3) — sync App Shell + Suspense streaming.
+ * @see https://nextjs.org/docs/app/guides/instant-navigation
+ */
+export const instant = true;
+
+export default function Page() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-6 px-5 py-10 md:px-10">
+          <Skeleton animated={false} className="h-4 w-32" />
+          <Skeleton animated={false} className="h-10 w-40" />
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            {Array.from({ length: 8 }, (_, i) => (
+              <Skeleton
+                key={i}
+                animated={false}
+                className="aspect-[4/3] w-full rounded-brand"
+              />
+            ))}
+          </div>
+        </div>
+      }
+    >
+      <BrandsRoute />
+    </Suspense>
   );
 }

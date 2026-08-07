@@ -351,9 +351,7 @@ export default async function Page({ params, searchParams }: Props) {
   const isQuoteMode =
     normalizeCheckoutMode(storeSettings.checkoutType) === "quote" ||
     paymentMethod === "headkit-quote" ||
-    (order?.paymentMethodTitle ?? "")
-      .toLowerCase()
-      .includes("quote");
+    (order?.paymentMethodTitle ?? "").toLowerCase().includes("quote");
 
   if (!order) {
     if (orderFetchFailed) {

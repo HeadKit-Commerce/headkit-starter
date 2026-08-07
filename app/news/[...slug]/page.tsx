@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
@@ -9,6 +11,7 @@ import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { ArticleJsonLD } from "@/components/seo/article-json-ld";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { CarouselPostJsonLD } from "@/components/seo/carousel-post-json-ld";
+import { Skeleton } from "@/components/ui/skeleton";
 import { makeSeoMetadata, resolveStoreName } from "@/lib/make-metadata";
 import { getBranding, getBrandingAssets } from "@/lib/branding";
 
@@ -16,9 +19,28 @@ interface Props {
   params: Promise<{ slug: string[] }>;
 }
 
+function NewsArticleSkeleton(): ReactNode {
+  return (
+    <div className="space-y-6 px-5 py-8 md:px-10">
+      <Skeleton animated={false} className="h-4 w-40" />
+      <Skeleton animated={false} className="h-10 w-2/3 max-w-xl" />
+      <Skeleton
+        animated={false}
+        className="aspect-[16/9] w-full max-w-4xl rounded-brand"
+      />
+      <div className="max-w-3xl space-y-3">
+        <Skeleton animated={false} className="h-4 w-full" />
+        <Skeleton animated={false} className="h-4 w-full" />
+        <Skeleton animated={false} className="h-4 w-11/12" />
+        <Skeleton animated={false} className="h-4 w-4/5" />
+      </div>
+    </div>
+  );
+}
+
 async function getPost(postSlug: string) {
   "use cache";
-  cacheLife("max");
+  cacheLife("days");
   cacheTag(`headkit:post:${postSlug}`, "headkit:posts");
   return sdk.content.get(postSlug, "POST");
 }
@@ -48,7 +70,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-export default async function Page({ params }: Props) {
+/**
+ * Instant Navigation (Next.js 16.3) — sync App Shell + Suspense streaming.
+ * @see https://nextjs.org/docs/app/guides/instant-navigation
+ */
+export const instant = true;
+
+export default function Page(props: Props): ReactNode {
+  return (
+    <Suspense fallback={<NewsArticleSkeleton />}>
+      <NewsArticleContent {...props} />
+    </Suspense>
+  );
+}
+
+async function NewsArticleContent({ params }: Props): Promise<ReactNode> {
   const { slug } = await params;
   const postSlug = slug[slug.length - 1];
   if (!postSlug) return notFound();

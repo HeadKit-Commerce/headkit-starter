@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { useLinkStatus } from "next/link";
+import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { Fragment, useEffect, useState } from "react";
 import type {
   ProductSummaryFieldsFragment,
@@ -20,18 +19,6 @@ const isVariableProduct = (product: ProductSummaryFieldsFragment): boolean =>
 
 /** Max colour swatches shown on a card before collapsing into a "+N" chip (F4). */
 const MAX_CARD_SWATCHES = 4;
-
-/** Instant Navigation pending cue — must render as a child of `<Link>`. */
-function LinkPendingOverlay(): React.JSX.Element | null {
-  const { pending } = useLinkStatus();
-  if (!pending) return null;
-  return (
-    <span
-      aria-hidden
-      className="pointer-events-none absolute inset-0 z-[1] animate-pulse bg-brand-bg/40"
-    />
-  );
-}
 
 interface Props {
   product: ProductSummaryFieldsFragment;
@@ -118,24 +105,17 @@ export const ProductCard = ({
         <BadgeList isSale={product?.onSale ?? false} isNewIn={isNew} />
       </div>
       {/*
-        prefetch={true}: with Partial Prefetching, default links only pull the
-        route App Shell. Opt into per-URL prefetch so `'use cache'` PDP data
-        can resolve before click (Next.js 16.3 Instant Navigations).
+        InstantLink + prefetch={true}: Partial Prefetching warms PDP `'use cache'`
+        data before click (Next.js 16.3 Instant Navigations).
       */}
-      <Link
-        href={uri}
-        prefetch={true}
-        aria-label="Featured Image"
-        className="relative block"
-      >
-        <LinkPendingOverlay />
+      <InstantLink href={uri} aria-label="Featured Image" className="block">
         <FeaturedImage
           src={imageSelected}
           alt={product?.name ?? "Product"}
           priority={priority}
           fit="contain"
         />
-      </Link>
+      </InstantLink>
       <div className="pt-3">
         <div
           className={cn(
@@ -147,12 +127,11 @@ export const ProductCard = ({
           )}
         >
           <div className="min-w-0">
-            <Link
+            <InstantLink
               href={uri}
-              prefetch={true}
-              className="relative cursor-pointer"
+              pendingVariant="text"
+              className="cursor-pointer"
             >
-              <LinkPendingOverlay />
               {/* Homepage carousels expect product titles as h3 under section h2.
                   Visual size stays class-driven. */}
               <h3
@@ -163,7 +142,7 @@ export const ProductCard = ({
               >
                 {decodeHtmlEntities(product?.name ?? "")}
               </h3>
-            </Link>
+            </InstantLink>
             <div className="flex flex-wrap items-center gap-2 min-w-0">
               {isVariableProduct(product) &&
                 product.attributes.map((attribute: ProductAttribute) => {
@@ -178,9 +157,10 @@ export const ProductCard = ({
                   return (
                     <Fragment key={attribute.slug}>
                       {visible.map((option, i) => (
-                        <Link
+                        <InstantLink
                           href={uri}
                           key={i}
+                          pendingVariant="text"
                           onMouseEnter={() =>
                             setColourSelected(option?.slug ?? null)
                           }
@@ -197,16 +177,17 @@ export const ProductCard = ({
                             color2={option?.swatchColor2 ?? ""}
                             size="small"
                           />
-                        </Link>
+                        </InstantLink>
                       ))}
                       {extra > 0 && (
-                        <Link
+                        <InstantLink
                           href={uri}
+                          pendingVariant="text"
                           className="text-xs font-medium leading-4 text-gray-800 hover:text-primary"
                           aria-label={`${extra} more colours`}
                         >
                           +{extra}
-                        </Link>
+                        </InstantLink>
                       )}
                     </Fragment>
                   );

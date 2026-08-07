@@ -6,18 +6,18 @@ Platform template upgrades should leave `overrides/` alone. You still have the f
 
 ## What goes here
 
-| Path | Purpose |
-|------|---------|
-| `styles.css` | CSS beyond dashboard branding (layout, spacing, hide elements, tweaks) |
-| `header-actions.tsx` | Extra header icons (e.g. phone) between Account and Cart |
+| Path                 | Purpose                                                                |
+| -------------------- | ---------------------------------------------------------------------- |
+| `styles.css`         | CSS beyond dashboard branding (layout, spacing, hide elements, tweaks) |
+| `header-actions.tsx` | Extra header icons (e.g. phone) between Account and Cart               |
 
 ## What stays elsewhere
 
-| Concern | Prefer |
-|---------|--------|
-| Brand colours, fonts, corner style, icons | Dashboard → Branding (runtime CSS vars) |
-| Copy / product data / checkout fields | Store config & commerce APIs (coming later) |
-| One-off pages or unique React behaviour | New routes under `app/` or local components — avoid editing `components/headkit-ui/` when a hook + CSS will do |
+| Concern                                   | Prefer                                                                                                         |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Brand colours, fonts, corner style, icons | Dashboard → Branding (runtime CSS vars)                                                                        |
+| Copy / product data / checkout fields     | Store config & commerce APIs (coming later)                                                                    |
+| One-off pages or unique React behaviour   | New routes under `app/` or local components — avoid editing `components/headkit-ui/` when a hook + CSS will do |
 
 ## Styling
 
@@ -43,18 +43,18 @@ Return `null` from `HeaderActionExtras` / `MobileHeaderActionExtras` to hide the
 
 The starter ships **hook classes** on key layout regions so you can target them from `overrides/styles.css` without editing React components. All hooks use the `headkit-*` prefix and match WordPress block pattern names where applicable.
 
-| Hook class | Where | Use for |
-|------------|-------|---------|
-| `headkit-home` | Homepage root wrapper | Homepage-only rules (section backgrounds, spacing) |
-| `headkit-nav` | Main navigation bar | Nav link typography, uppercase, hover states |
-| `headkit-footer` | Site footer | Footer background, borders, typography |
-| `headkit-callout` | Callout / promo blocks | Background, text colour, button row |
-| `headkit-brand-carousel` | Brand carousel sections | Carousel dots, logo sizing, section padding |
-| `headkit-category-carousel` | Category carousel sections | Same as above for category rails |
-| `headkit-product-carousel` | Product carousel sections | Product rail styling |
-| `headkit-post-carousel` | News / blog carousel sections | Post card styling |
-| `headkit-project-carousel` | Projects carousel sections | Project card styling |
-| `headkit-footer-payment-methods` | Footer payment icon row | Hide or resize payment badges |
+| Hook class                       | Where                         | Use for                                            |
+| -------------------------------- | ----------------------------- | -------------------------------------------------- |
+| `headkit-home`                   | Homepage root wrapper         | Homepage-only rules (section backgrounds, spacing) |
+| `headkit-nav`                    | Main navigation bar           | Nav link typography, uppercase, hover states       |
+| `headkit-footer`                 | Site footer                   | Footer background, borders, typography             |
+| `headkit-callout`                | Callout / promo blocks        | Background, text colour, button row                |
+| `headkit-brand-carousel`         | Brand carousel sections       | Carousel dots, logo sizing, section padding        |
+| `headkit-category-carousel`      | Category carousel sections    | Same as above for category rails                   |
+| `headkit-product-carousel`       | Product carousel sections     | Product rail styling                               |
+| `headkit-post-carousel`          | News / blog carousel sections | Post card styling                                  |
+| `headkit-project-carousel`       | Projects carousel sections    | Project card styling                               |
+| `headkit-footer-payment-methods` | Footer payment icon row       | Hide or resize payment badges                      |
 
 ### Examples
 

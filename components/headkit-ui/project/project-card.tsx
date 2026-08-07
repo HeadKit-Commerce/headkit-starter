@@ -1,5 +1,5 @@
-import Link from "next/link";
 import Image from "next/image";
+import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { decodeHtmlEntities } from "@/lib/utils";
 import type { ProjectSummaryFieldsFragment } from "@headkit/sdk";
 
@@ -30,7 +30,7 @@ export function ProjectCard({
     imageAspect === "video" ? "aspect-video" : "aspect-square";
 
   return (
-    <Link href={href}>
+    <InstantLink href={href}>
       <div className="w-full">
         {project.featuredImage?.src ? (
           <div
@@ -53,6 +53,6 @@ export function ProjectCard({
           </p>
         ) : null}
       </div>
-    </Link>
+    </InstantLink>
   );
 }

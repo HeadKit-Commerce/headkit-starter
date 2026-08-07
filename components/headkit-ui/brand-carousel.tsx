@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import Image from "next/image";
 import { Carousel } from "@/components/headkit-ui/carousel";
+import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { decodeHtmlEntities } from "@/lib/utils";
 import type { FeaturedBrand } from "@headkit/sdk";
 
@@ -43,7 +43,7 @@ const BrandCarousel = ({ brands }: Props) => {
         const name = decodeHtmlEntities(item?.name ?? "");
 
         return (
-          <Link
+          <InstantLink
             href={href}
             className="relative flex h-[50px] w-[160px] items-center justify-center"
             aria-label={name}
@@ -56,7 +56,7 @@ const BrandCarousel = ({ brands }: Props) => {
               sizes="160px"
               className="object-contain object-center"
             />
-          </Link>
+          </InstantLink>
         );
       }}
       className="w-full"

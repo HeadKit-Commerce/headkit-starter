@@ -130,6 +130,7 @@ describe("resolveBrandFonts", () => {
         family: "Instrument Sans",
         googleSlug: "Instrument Sans",
         fileUrl: "",
+        googleWeights: [400, 500, 600],
       },
       subheading: empty,
       body: {
@@ -137,6 +138,7 @@ describe("resolveBrandFonts", () => {
         family: "Instrument Sans",
         googleSlug: "Instrument Sans",
         fileUrl: "",
+        googleWeights: [400, 500, 600],
       },
     });
     expect(resolved.cssVars).toContain(
@@ -148,6 +150,15 @@ describe("resolveBrandFonts", () => {
     expect(resolved.variableClassNames).toContain(
       "--font-slot-instrument-sans",
     );
+  });
+
+  it("normalizes empty googleWeights to Regular/Medium/SemiBold", async () => {
+    const { normalizeGoogleWeights, DEFAULT_GOOGLE_WEIGHTS } =
+      await import("@/lib/brand-fonts");
+    expect(normalizeGoogleWeights([])).toEqual([...DEFAULT_GOOGLE_WEIGHTS]);
+    expect(normalizeGoogleWeights([700, 400, 700, 500])).toEqual([
+      400, 500, 700,
+    ]);
   });
 
   it("falls back to Urbanist for unknown Google families (no remote CSS)", async () => {

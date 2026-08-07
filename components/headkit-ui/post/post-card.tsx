@@ -1,5 +1,5 @@
-import Link from "next/link";
 import Image from "next/image";
+import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { cn, decodeHtmlEntities } from "@/lib/utils";
 import type { PostSummaryFieldsFragment } from "@headkit/sdk";
 
@@ -19,7 +19,7 @@ export function PostCard({ post, textStyle = "dark" }: PostCardProps) {
   const title = decodeHtmlEntities(post.title ?? "");
 
   return (
-    <Link href={href}>
+    <InstantLink href={href}>
       <div className="w-full">
         {post.featuredImage?.src ? (
           <div className="relative aspect-video w-full overflow-hidden rounded-brand">
@@ -48,6 +48,6 @@ export function PostCard({ post, textStyle = "dark" }: PostCardProps) {
           </p>
         )}
       </div>
-    </Link>
+    </InstantLink>
   );
 }

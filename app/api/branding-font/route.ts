@@ -36,7 +36,9 @@ export async function GET(request: Request): Promise<Response> {
   });
 
   if (!upstreamRes.ok) {
-    return new Response("Not found", { status: upstreamRes.status === 404 ? 404 : 502 });
+    return new Response("Not found", {
+      status: upstreamRes.status === 404 ? 404 : 502,
+    });
   }
 
   const ext = fileName.split(".").pop()?.toLowerCase() ?? "";

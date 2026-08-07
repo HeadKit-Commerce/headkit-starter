@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { makeSeoMetadata, seoFallbackDescription } from "@/lib/make-metadata";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { CmsPageBody } from "@/components/headkit-ui/cms-page-body";
 import { getPageData } from "@/app/[...slug]/page";
+import { Skeleton } from "@/components/ui/skeleton";
 
 /**
  * Contact is a WordPress page (slug `contact`), not a hardcoded storefront
@@ -48,7 +50,29 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
-export default async function ContactPage(): Promise<React.ReactElement> {
+/**
+ * Instant Navigation (Next.js 16.3) — sync App Shell + Suspense streaming.
+ * @see https://nextjs.org/docs/app/guides/instant-navigation
+ */
+export const instant = true;
+
+export default function ContactPage(): React.ReactElement {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-[50vh] space-y-4 px-5 py-10 md:px-10">
+          <Skeleton animated={false} className="h-4 w-40" />
+          <Skeleton animated={false} className="h-10 w-48" />
+          <Skeleton animated={false} className="h-4 w-full max-w-xl" />
+        </div>
+      }
+    >
+      <ContactRoute />
+    </Suspense>
+  );
+}
+
+async function ContactRoute(): Promise<React.ReactElement> {
   const page = await getPageData(CONTACT_SLUG);
 
   // Prefer the WordPress Contact page. When it is missing (fresh local without

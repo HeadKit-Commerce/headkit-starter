@@ -21,7 +21,10 @@ export function isSafeBrandingFontFileName(fileName: string): boolean {
 /**
  * Public GCS object URL for a branding font file name, or null if unsafe.
  */
-export function brandingFontGcsUrl(fileName: string, version?: string): string | null {
+export function brandingFontGcsUrl(
+  fileName: string,
+  version?: string,
+): string | null {
   if (!isSafeBrandingFontFileName(fileName)) return null;
   const base = `https://${GCS_HOST}${BRANDING_PREFIX}${fileName}`;
   if (!version) return base;

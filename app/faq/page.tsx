@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
 import { FAQPageJsonLD } from "@/components/seo/faq-page-json-ld";
@@ -11,10 +12,10 @@ const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 
 async function getFaqPage() {
   "use cache";
-  cacheLife("max");
+  cacheLife("days");
   cacheTag("headkit:page:faq", "headkit:pages");
   // NOTE: sdk.faq.list() errors intentionally propagate (no `.catch(() => [])`).
-  // Swallowing them cached "no FAQs" with cacheLife("max") — a transient fetch
+  // Swallowing them cached "no FAQs" with cacheLife("days") — a transient fetch
   // failure rendered a permanently blank page. A rejected fetch now bubbles to
   // app/error.tsx ("Something went wrong" + Try again) and the failed result is
   // NOT written to the cache, so the next request retries.
@@ -51,7 +52,30 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-export default async function FAQPage() {
+/**
+ * Instant Navigation (Next.js 16.3) — sync App Shell + Suspense streaming.
+ * @see https://nextjs.org/docs/app/guides/instant-navigation
+ */
+export const instant = true;
+
+export default function FAQPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="px-5 py-10 md:px-10 md:py-14">
+          <div className="mb-10 max-w-md space-y-3 md:mb-14">
+            <div className="h-10 w-32 rounded bg-gray-100" />
+            <div className="h-4 w-full max-w-sm rounded bg-gray-100" />
+          </div>
+        </div>
+      }
+    >
+      <FaqRoute />
+    </Suspense>
+  );
+}
+
+async function FaqRoute() {
   const [page, faqs] = await getFaqPage();
   const title = page?.title?.trim() || "FAQ";
 

@@ -83,6 +83,19 @@ function StockSkeleton() {
 export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
   const params: { slug: string[] }[] = [];
 
+  // Cap build-time PDP seeding for large catalogs. Remaining products still
+  // render on demand via `'use cache'` + Instant Navigation prefetch.
+  // Override with HEADKIT_PRERENDER_PRODUCT_LIMIT (0 = unlimited).
+  const limitRaw = process.env.HEADKIT_PRERENDER_PRODUCT_LIMIT;
+  const productLimit =
+    limitRaw === undefined || limitRaw === ""
+      ? 150
+      : Number.parseInt(limitRaw, 10);
+  const unlimited = productLimit === 0;
+  const maxProducts = Number.isFinite(productLimit)
+    ? Math.max(0, productLimit)
+    : 150;
+
   try {
     let page = 1;
     let hasMore = true;
@@ -90,16 +103,15 @@ export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
     while (hasMore) {
       const result = await headkit.products.list({}, page, 100);
       for (const product of result.products) {
-        params.push({ slug: [product.slug] });
-        const colorAttr = product.attributes.find(
-          (a) => a.slug === "pa_color" || a.slug === "pa_colour",
-        );
-        if (colorAttr) {
-          for (const opt of colorAttr.fullOptions) {
-            params.push({ slug: [product.slug, opt.slug] });
-          }
+        if (!unlimited && params.length >= maxProducts) {
+          hasMore = false;
+          break;
         }
+        params.push({ slug: [product.slug] });
+        // Colorway URLs are warmable via InstantLink prefetch; skip exploding
+        // the static param set for large catalogs.
       }
+      if (!unlimited && params.length >= maxProducts) break;
       hasMore = page < result.totalPages;
       page++;
     }
@@ -185,7 +197,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * data in the default export blocks the shell (and is a known Partial
  * Prefetching footgun). Stream via Suspense; `'use cache'` product reads can
  * still pop in early when links use `prefetch={true}`.
+ *
+ * @see https://nextjs.org/docs/app/guides/instant-navigation
  */
+export const instant = true;
+
 export default function ProductPage({ params }: Props) {
   return (
     <Suspense fallback={<ProductPageShell />}>
@@ -278,10 +294,7 @@ async function ProductPageContent({ params }: Props) {
             className="px-5 md:px-10"
           />
           <div className="mt-5">
-            <ProjectCarousel
-              projects={featuredProjects}
-              imageAspect="video"
-            />
+            <ProjectCarousel projects={featuredProjects} imageAspect="video" />
           </div>
         </section>
       ) : null}

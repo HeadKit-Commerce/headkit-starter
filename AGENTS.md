@@ -22,16 +22,16 @@ Use **CSS hook classes** documented in [`overrides/README.md`](./overrides/READM
 
 ## Typical tasks
 
-| Task | Where |
-|------|-------|
-| Change nav link style | `overrides/styles.css` → `.headkit-nav` |
-| Homepage section backgrounds | `overrides/styles.css` → `.headkit-home .headkit-*-carousel` |
-| Hide prices | `overrides/styles.css` → `.price`, `[data-price]` |
-| Hide footer payment icons | `overrides/styles.css` → `.headkit-footer-payment-methods` |
-| Restyle callout / promo | `overrides/styles.css` → `.headkit-callout` |
-| Add header phone / extra icon | `overrides/header-actions.tsx` → `HeaderActionExtras` |
-| New landing page | `app/<route>/page.tsx` + optional local components |
-| Change checkout logic | `lib/` + `app/checkout/` (behaviour, not cosmetics) |
+| Task                          | Where                                                        |
+| ----------------------------- | ------------------------------------------------------------ |
+| Change nav link style         | `overrides/styles.css` → `.headkit-nav`                      |
+| Homepage section backgrounds  | `overrides/styles.css` → `.headkit-home .headkit-*-carousel` |
+| Hide prices                   | `overrides/styles.css` → `.price`, `[data-price]`            |
+| Hide footer payment icons     | `overrides/styles.css` → `.headkit-footer-payment-methods`   |
+| Restyle callout / promo       | `overrides/styles.css` → `.headkit-callout`                  |
+| Add header phone / extra icon | `overrides/header-actions.tsx` → `HeaderActionExtras`        |
+| New landing page              | `app/<route>/page.tsx` + optional local components           |
+| Change checkout logic         | `lib/` + `app/checkout/` (behaviour, not cosmetics)          |
 
 ## Missing hook?
 

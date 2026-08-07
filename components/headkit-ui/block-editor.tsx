@@ -154,7 +154,10 @@ const BlockEditor = ({ blocks, section }: Props) => {
           const products: Product[] = data.products ?? [];
           if (products.length === 0) return null;
           return (
-            <div className="headkit-product-carousel overflow-hidden py-10" key={index}>
+            <div
+              className="headkit-product-carousel overflow-hidden py-10"
+              key={index}
+            >
               <SectionHeader
                 title={data.title}
                 description={data.description}
@@ -172,7 +175,10 @@ const BlockEditor = ({ blocks, section }: Props) => {
         if (data.cssClasses.includes("headkit-category-carousel")) {
           const categories = data.categories ?? [];
           return (
-            <div className="headkit-category-carousel overflow-hidden py-10" key={index}>
+            <div
+              className="headkit-category-carousel overflow-hidden py-10"
+              key={index}
+            >
               <SectionHeader
                 title={data.title}
                 description={data.description}
@@ -208,7 +214,10 @@ const BlockEditor = ({ blocks, section }: Props) => {
             (b) => typeof b.thumbnail === "string" && b.thumbnail.trim() !== "",
           );
           return (
-            <div className="headkit-brand-carousel overflow-hidden py-20" key={index}>
+            <div
+              className="headkit-brand-carousel overflow-hidden py-20"
+              key={index}
+            >
               <SectionHeader
                 title={data.title}
                 description={data.description}
@@ -240,7 +249,10 @@ const BlockEditor = ({ blocks, section }: Props) => {
           const posts = data.posts ?? [];
           if (posts.length === 0) return null;
           return (
-            <div className="headkit-post-carousel overflow-hidden py-10" key={index}>
+            <div
+              className="headkit-post-carousel overflow-hidden py-10"
+              key={index}
+            >
               <SectionHeader
                 title={data.title}
                 description={data.description}
@@ -259,7 +271,10 @@ const BlockEditor = ({ blocks, section }: Props) => {
           const projects = data.projects ?? [];
           if (projects.length === 0) return null;
           return (
-            <div className="headkit-project-carousel overflow-hidden py-20" key={index}>
+            <div
+              className="headkit-project-carousel overflow-hidden py-20"
+              key={index}
+            >
               <SectionHeader
                 title={data.title}
                 description={data.description}

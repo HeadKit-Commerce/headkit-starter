@@ -251,6 +251,12 @@ export async function HomeContent() {
   );
 }
 
+/**
+ * Instant Navigation (Next.js 16.3) — sync App Shell + Suspense streaming.
+ * @see https://nextjs.org/docs/app/guides/instant-navigation
+ */
+export const instant = true;
+
 export default function Home() {
   // HomeContent is fully cached ('use cache') — rendering it without a
   // Suspense boundary bakes it into the prerendered shell in document order,

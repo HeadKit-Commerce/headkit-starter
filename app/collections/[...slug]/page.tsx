@@ -110,13 +110,14 @@ async function getCatalogPage(
   categorySlug: string,
 ) {
   "use cache: remote";
-  cacheLife("minutes");
+  // Hours backstop — product/category webhooks invalidate catalog tags.
+  cacheLife("hours");
   // TAG.catalogCat(slug) (= headkit:catalog:cat:<slug>) lets a product/category
   // edit invalidate exactly this category's PLP grid + its prebuilt Tier-1 color
   // pages via revalidateTag('headkit:catalog:cat:<slug>') — bounded blast radius,
   // no whole-catalog wildcard (important for slow WP). The inline
   // catalog:<filterKey> grid key stays for per-filter granularity (not a contract
-  // tag — internal to the self-healing minutes remote cache).
+  // tag — internal to the self-healing remote cache).
   cacheTag(TAG.catalogCat(categorySlug), `catalog:${filterKey}`);
   const filter = JSON.parse(filterKey) as Parameters<
     typeof sdk.collections.list

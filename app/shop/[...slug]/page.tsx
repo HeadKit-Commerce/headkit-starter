@@ -50,6 +50,13 @@ async function ShopProductRedirect({
 }
 
 /** Sync shell — passes promises into Suspense (blocking-route recommended fix). */
+
+/**
+ * Instant Navigation (Next.js 16.3) — sync App Shell + Suspense streaming.
+ * @see https://nextjs.org/docs/app/guides/instant-navigation
+ */
+export const instant = true;
+
 export default function Page(props: Props): ReactNode {
   return (
     <Suspense fallback={null}>

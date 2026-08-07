@@ -37,7 +37,7 @@ export async function generateMetadata({
 
 async function getSearchFilters() {
   "use cache";
-  cacheLife("max");
+  cacheLife("hours");
   cacheTag("headkit:products");
   return sdk.collections.getFilters();
 }
@@ -107,6 +107,13 @@ async function SearchResults({ searchParams }: Props): Promise<ReactNode> {
  * Sync shell — Instant Navigation reuses this App Shell; query-dependent
  * header + grid stream under Suspense with a product skeleton fallback.
  */
+
+/**
+ * Instant Navigation (Next.js 16.3) — sync App Shell + Suspense streaming.
+ * @see https://nextjs.org/docs/app/guides/instant-navigation
+ */
+export const instant = true;
+
 export default function Page({ searchParams }: Props): ReactNode {
   return (
     <>

@@ -7,11 +7,11 @@ interface CollectionPageSkeletonProps {
 }
 
 /**
- * Lean App Shell fallback for Instant Navigation / Partial Prefetching.
+ * Layout-matched App Shell fallback for Instant Navigation / Partial Prefetching.
  *
- * Kept intentionally sparse: few static placeholders (no `animate-pulse`) so
- * the CDN-sealed RSC HTML stays small. Layout reservation only — real content
- * streams into Suspense islands after navigation.
+ * Mirrors CollectionHeader + optional subcategory strip + filter bar + product
+ * grid proportions so first paint / IN transitions don't jump when content
+ * streams in. Kept static (no `animate-pulse`) so CDN-sealed RSC HTML stays lean.
  *
  * @see https://nextjs.org/docs/app/guides/adopting-partial-prefetching
  */
@@ -22,7 +22,7 @@ export function CollectionPageSkeleton({
     <div>
       <div className="mb-5 grid grid-cols-1 gap-5 px-4 md:grid-cols-2 md:px-10">
         <div className="pt-5">
-          <Skeleton animated={false} className="mb-5 h-4 w-40 max-w-full" />
+          <Skeleton animated={false} className="mb-5 h-4 w-48 max-w-full" />
           {variant === "brand" ? (
             <Skeleton
               animated={false}
@@ -31,19 +31,35 @@ export function CollectionPageSkeleton({
           ) : null}
           <Skeleton
             animated={false}
-            className="mb-[10px] h-8 w-44 max-w-full"
+            className="mb-[10px] h-9 w-56 max-w-full md:h-10"
           />
-          <Skeleton animated={false} className="h-4 w-full max-w-sm" />
+          <div className="space-y-2">
+            <Skeleton animated={false} className="h-4 w-full max-w-md" />
+            <Skeleton animated={false} className="h-4 w-full max-w-sm" />
+          </div>
         </div>
         {variant === "collection" ? (
           <div className="flex justify-center md:justify-end md:pt-5">
             <Skeleton
               animated={false}
-              className="h-20 w-full max-w-xs rounded-brand md:h-28 md:w-56"
+              className="aspect-[4/3] h-auto w-full max-w-xs rounded-brand md:h-28 md:w-56 md:aspect-auto"
             />
           </div>
         ) : null}
       </div>
+
+      {/* Subcategory / child carousel strip (common on parent categories) */}
+      {variant === "collection" ? (
+        <div className="mb-5 flex gap-3 overflow-hidden px-4 md:px-10">
+          {Array.from({ length: 5 }, (_, i) => (
+            <Skeleton
+              key={i}
+              animated={false}
+              className="h-24 w-36 shrink-0 rounded-brand md:h-28 md:w-44"
+            />
+          ))}
+        </div>
+      ) : null}
 
       <CollectionProductsSkeleton />
     </div>
@@ -59,8 +75,8 @@ export function CollectionProductsSkeleton() {
         <Skeleton animated={false} className="h-10 w-28 rounded-brand" />
       </div>
       <div className="px-5 md:px-10">
-        {/* 4 cards ≈ one desktop row — enough layout reserve, minimal RSC bytes */}
-        <ProductGridSkeleton count={4} shell />
+        {/* One desktop row (4) + partial second — matches ProductGrid breakpoints */}
+        <ProductGridSkeleton count={8} shell />
       </div>
     </div>
   );

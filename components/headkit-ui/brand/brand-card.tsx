@@ -1,5 +1,5 @@
 import Image from "next/image";
-import Link from "next/link";
+import { InstantLink } from "@/components/headkit-ui/instant-link";
 import type { BrandSummaryFieldsFragment } from "@headkit/sdk";
 
 interface BrandCardProps {
@@ -8,7 +8,7 @@ interface BrandCardProps {
 
 export function BrandCard({ brand }: BrandCardProps) {
   return (
-    <Link href={`/brand/${brand.slug}`}>
+    <InstantLink href={`/brand/${brand.slug}`}>
       <div className="group relative flex flex-col">
         <div className="aspect-3/2 w-full overflow-hidden flex justify-center items-center bg-white border border-gray-200 rounded-brand">
           {brand.image?.src ? (
@@ -39,6 +39,6 @@ export function BrandCard({ brand }: BrandCardProps) {
           <h3 className="text-[17px] text-primary">{brand.name}</h3>
         </div>
       </div>
-    </Link>
+    </InstantLink>
   );
 }

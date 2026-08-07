@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
 import { makeSeoMetadata, seoFallbackDescription } from "@/lib/make-metadata";
 import { TAG } from "@/lib/cache-tags";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { CmsPageBody } from "@/components/headkit-ui/cms-page-body";
+import { Skeleton } from "@/components/ui/skeleton";
 
 /** Satisfies Cache Components: `generateStaticParams` must not return []. */
 const STATIC_GEN_PLACEHOLDER_SLUG = "__hk_static_placeholder";
@@ -100,7 +102,30 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   });
 }
 
-export default async function Page({ params }: Props) {
+export default function Page({ params }: Props) {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-[50vh] space-y-4 px-5 py-10 md:px-10">
+          <Skeleton animated={false} className="h-4 w-40" />
+          <Skeleton animated={false} className="h-10 w-64 max-w-full" />
+          <Skeleton animated={false} className="h-4 w-full max-w-xl" />
+          <Skeleton animated={false} className="h-4 w-full max-w-lg" />
+        </div>
+      }
+    >
+      <CmsRoute params={params} />
+    </Suspense>
+  );
+}
+
+/**
+ * Instant Navigation (Next.js 16.3) — sync App Shell + Suspense streaming.
+ * @see https://nextjs.org/docs/app/guides/instant-navigation
+ */
+export const instant = true;
+
+async function CmsRoute({ params }: Props) {
   const { slug } = await params;
   if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) return notFound();
   const page = await getPageData(slug.join("/"));

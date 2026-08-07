@@ -21,7 +21,7 @@ export async function getCachedCatalogPage(
   scope: CatalogScope,
 ) {
   "use cache: remote";
-  cacheLife("minutes");
+  cacheLife("hours");
 
   const filterKey = normalizeFilterKey(filter ?? {});
   switch (scope.kind) {
@@ -49,7 +49,7 @@ export async function getCachedCatalogPage(
 /** Shared brand facet list for PLP filter drawers. */
 export async function getCachedFilterBrands(): Promise<BrandSummary[]> {
   "use cache: remote";
-  cacheLife("minutes");
+  cacheLife("hours");
   cacheTag(TAG.brands, "catalog:filters");
   const result = await headkit.brands.list({
     perPage: 100,

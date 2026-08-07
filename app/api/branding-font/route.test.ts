@@ -18,11 +18,12 @@ describe("GET /api/branding-font", () => {
     const bytes = new Uint8Array([0, 1, 2, 3]).buffer;
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () =>
-        new Response(bytes, {
-          status: 200,
-          headers: { "Content-Type": "font/woff2" },
-        }),
+      vi.fn(
+        async () =>
+          new Response(bytes, {
+            status: 200,
+            headers: { "Content-Type": "font/woff2" },
+          }),
       ),
     );
 

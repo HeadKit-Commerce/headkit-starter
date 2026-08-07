@@ -1,6 +1,9 @@
 /**
- * Chrome icon helpers — re-exported from the full brand UI icon map so
+ * Chrome icon helpers — re-exported from brand icon resolution so
  * header actions and existing tests keep working.
+ *
+ * Prefer `loadChromeIcons` / `loadBrandUiIcons` so only the selected pack
+ * is loaded. Sync `resolveChromeIcons` always returns hi2.
  */
 export {
   resolveChromeIcons,
@@ -11,3 +14,8 @@ export {
   type ChromeIcons,
   type BrandUiIcons,
 } from "@/components/icon/brand-icons";
+
+export {
+  loadBrandUiIcons,
+  loadChromeIcons,
+} from "@/components/icon/load-brand-icons";

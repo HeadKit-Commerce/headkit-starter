@@ -30,7 +30,7 @@ const PER_PAGE = 24;
  */
 async function getCatalogPage(filterKey: string, page: number) {
   "use cache: remote";
-  cacheLife("minutes");
+  cacheLife("hours");
   // route:new = the {isNew} FILTER landing (no collection entity). Use route:new
   // NOT collection:new — a real category slug named "new" must not cross-
   // invalidate this landing (threat T-09.5-13). catalog:${filterKey} keeps the
@@ -45,7 +45,7 @@ async function getCatalogPage(filterKey: string, page: number) {
 /** Aggregated facet options. Shared + durable. */
 async function getFilters() {
   "use cache: remote";
-  cacheLife("minutes");
+  cacheLife("hours");
   cacheTag("catalog:filters");
   return sdk.collections.getFilters();
 }
@@ -78,6 +78,12 @@ async function LandingResults({ searchParams }: Props) {
     />
   );
 }
+
+/**
+ * Instant Navigation (Next.js 16.3) — sync App Shell + Suspense streaming.
+ * @see https://nextjs.org/docs/app/guides/instant-navigation
+ */
+export const instant = true;
 
 export default function Page({ searchParams }: Props) {
   return (

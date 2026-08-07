@@ -72,7 +72,7 @@ async function getRootCategories(): Promise<ProductCategoryDetail[]> {
  */
 async function getCatalogPage(filterKey: string, page: number) {
   "use cache: remote";
-  cacheLife("minutes");
+  cacheLife("hours");
   // route:shop = WP shop-landing edit invalidation; catalog:${filterKey} keeps
   // the per-filter self-heal (internal, not a contract tag). NOT collection:shop.
   cacheTag(TAG.route("shop"), `catalog:${filterKey}`);
@@ -85,7 +85,7 @@ async function getCatalogPage(filterKey: string, page: number) {
 /** Aggregated facet options (categories/attributes/price bounds). Shared + durable. */
 async function getFilters() {
   "use cache: remote";
-  cacheLife("minutes");
+  cacheLife("hours");
   cacheTag("catalog:filters");
   return sdk.collections.getFilters();
 }

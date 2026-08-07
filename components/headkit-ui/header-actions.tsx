@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { CheckIcon } from "@/components/icon";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -59,9 +59,9 @@ export function HeaderActions({ initialCartCount = 0 }: HeaderActionsProps) {
         className="h-9 w-9 justify-end pr-0"
         asChild
       >
-        <Link href="/account/wishlist" aria-label="Wishlist">
+        <InstantLink href="/account/wishlist" aria-label="Wishlist">
           <Heart className="h-6 w-6 text-primary transition-opacity hover:opacity-70" />
-        </Link>
+        </InstantLink>
       </Button>
 
       <Button
@@ -71,13 +71,13 @@ export function HeaderActions({ initialCartCount = 0 }: HeaderActionsProps) {
         className="relative h-9 w-9 justify-end pr-0"
         asChild
       >
-        <Link
+        <InstantLink
           href="/account"
           aria-label={isAuthenticated ? "Account (signed in)" : "Account"}
         >
           <User className="h-6 w-6 text-primary transition-opacity hover:opacity-70" />
           {isAuthenticated && <AccountLoggedInBadge />}
-        </Link>
+        </InstantLink>
       </Button>
 
       <HeaderActionExtras />
@@ -138,17 +138,17 @@ export function MobileHeaderActions() {
         }
       />
 
-      <Link href="/account/wishlist">
+      <InstantLink href="/account/wishlist">
         <Heart className="h-6 w-6 text-primary transition-opacity hover:opacity-70" />
-      </Link>
+      </InstantLink>
 
       <span className="relative">
-        <Link
+        <InstantLink
           href="/account"
           aria-label={isAuthenticated ? "Account (signed in)" : "Account"}
         >
           <User className="h-6 w-6 text-primary transition-opacity hover:opacity-70" />
-        </Link>
+        </InstantLink>
         {isAuthenticated && <AccountLoggedInBadge />}
       </span>
 

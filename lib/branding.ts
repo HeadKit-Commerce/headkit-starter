@@ -47,6 +47,8 @@ export interface BrandingFont {
   family: string;
   googleSlug: string;
   fileUrl: string;
+  /** Discrete Google weights from dashboard; empty → lean default in brand-fonts. */
+  googleWeights: number[];
 }
 
 export interface Branding {
@@ -106,6 +108,7 @@ const EMPTY_FONT: BrandingFont = {
   family: "",
   googleSlug: "",
   fileUrl: "",
+  googleWeights: [],
 };
 
 const DEFAULT_BUNDLE: BrandingBundle = {
@@ -183,6 +186,46 @@ const BRANDING_EXTENDED_SELECTION = /* GraphQL */ `
       headingFontSource
       headingFontFamily
       headingFontGoogleSlug
+      headingFontGoogleWeights
+      headingFontFileUrl
+      subheadingFontSource
+      subheadingFontFamily
+      subheadingFontGoogleSlug
+      subheadingFontGoogleWeights
+      subheadingFontFileUrl
+      bodyFontSource
+      bodyFontFamily
+      bodyFontGoogleSlug
+      bodyFontGoogleWeights
+      bodyFontFileUrl
+      cornerStyle
+      iconLibrary
+    }
+    storeSettings {
+      id
+      slug
+      name
+      gtmId
+      domain
+    }
+    seoSettings {
+      title
+      description
+      ogImageUrl
+`;
+
+/** Extended branding without googleWeights (pre–font-weight dashboard-api). */
+const BRANDING_EXTENDED_NO_WEIGHTS_SELECTION = /* GraphQL */ `
+    branding {
+      primaryColor
+      secondaryColor
+      backgroundColor
+      textColor
+      logoUrl
+      iconUrl
+      headingFontSource
+      headingFontFamily
+      headingFontGoogleSlug
       headingFontFileUrl
       subheadingFontSource
       subheadingFontFamily
@@ -229,6 +272,13 @@ ${BRANDING_EXTENDED_SELECTION}
   }
 `;
 
+const BRANDING_QUERY_EXTENDED_NO_WEIGHTS = /* GraphQL */ `
+  query StorefrontBrandingExtendedNoWeights {
+${BRANDING_EXTENDED_NO_WEIGHTS_SELECTION}
+    }
+  }
+`;
+
 /**
  * Compat query for older dashboard-api revisions that lack enableSitemap /
  * allowIndexing / extended branding fields. gqlgen returns `data: null` for
@@ -258,14 +308,17 @@ interface FlatBranding extends Partial<Branding> {
   headingFontSource?: string | null;
   headingFontFamily?: string | null;
   headingFontGoogleSlug?: string | null;
+  headingFontGoogleWeights?: number[] | null;
   headingFontFileUrl?: string | null;
   subheadingFontSource?: string | null;
   subheadingFontFamily?: string | null;
   subheadingFontGoogleSlug?: string | null;
+  subheadingFontGoogleWeights?: number[] | null;
   subheadingFontFileUrl?: string | null;
   bodyFontSource?: string | null;
   bodyFontFamily?: string | null;
   bodyFontGoogleSlug?: string | null;
+  bodyFontGoogleWeights?: number[] | null;
   bodyFontFileUrl?: string | null;
 }
 
@@ -288,12 +341,16 @@ function coerceFont(
   family: string | null | undefined,
   googleSlug: string | null | undefined,
   fileUrl: string | null | undefined,
+  googleWeights?: number[] | null,
 ): BrandingFont {
   return {
     source: source ?? "",
     family: family ?? "",
     googleSlug: googleSlug ?? "",
     fileUrl: fileUrl ?? "",
+    googleWeights: Array.isArray(googleWeights)
+      ? googleWeights.filter((w): w is number => typeof w === "number")
+      : [],
   };
 }
 
@@ -315,18 +372,21 @@ function coerce(data: NonNullable<BrandingResponse["data"]>): BrandingBundle {
         b.headingFontFamily,
         b.headingFontGoogleSlug,
         b.headingFontFileUrl,
+        b.headingFontGoogleWeights,
       ),
       subheadingFont: coerceFont(
         b.subheadingFontSource,
         b.subheadingFontFamily,
         b.subheadingFontGoogleSlug,
         b.subheadingFontFileUrl,
+        b.subheadingFontGoogleWeights,
       ),
       bodyFont: coerceFont(
         b.bodyFontSource,
         b.bodyFontFamily,
         b.bodyFontGoogleSlug,
         b.bodyFontFileUrl,
+        b.bodyFontGoogleWeights,
       ),
       cornerStyle: b.cornerStyle || DEFAULT_CORNER_STYLE,
       iconLibrary: b.iconLibrary || DEFAULT_ICON_LIBRARY,
@@ -456,6 +516,13 @@ async function fetchBrandingBundle(
     BRANDING_QUERY_EXTENDED,
   );
   if (extended) return extended;
+
+  const extendedNoWeights = await fetchBrandingQuery(
+    endpoint,
+    token,
+    BRANDING_QUERY_EXTENDED_NO_WEIGHTS,
+  );
+  if (extendedNoWeights) return extendedNoWeights;
 
   return fetchBrandingQuery(endpoint, token, BRANDING_QUERY_COMPAT);
 }

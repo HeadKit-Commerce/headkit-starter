@@ -16,7 +16,7 @@ const FALLBACK_DESCRIPTION =
 
 async function getNewsLanding() {
   "use cache";
-  cacheLife("max");
+  cacheLife("hours");
   // Posts page may use any WP slug; always tag the storefront news route.
   cacheTag(TAG.page("news"), TAG.posts, TAG.pages);
   return sdk.posts.getLanding().catch(() => null);
@@ -50,7 +50,7 @@ interface Props {
 
 async function getPostFilters() {
   "use cache";
-  cacheLife("max");
+  cacheLife("days");
   cacheTag(TAG.posts);
   return sdk.posts.getFilters();
 }
@@ -85,7 +85,32 @@ async function PostsServer({
   );
 }
 
-export default async function Page({ searchParams }: Props) {
+/**
+ * Instant Navigation (Next.js 16.3) — header can stream with posts under Suspense.
+ * @see https://nextjs.org/docs/app/guides/instant-navigation
+ */
+export const instant = true;
+
+export default function Page({ searchParams }: Props) {
+  return (
+    <Suspense
+      fallback={
+        <PostHeader
+          name={FALLBACK_TITLE}
+          description={FALLBACK_DESCRIPTION}
+          breadcrumbs={[
+            { name: "Home", uri: "/", current: false },
+            { name: FALLBACK_TITLE, uri: "/news", current: true },
+          ]}
+        />
+      }
+    >
+      <NewsRoute searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function NewsRoute({ searchParams }: Props) {
   const page = await getNewsLanding();
   const title = page?.title?.trim() || FALLBACK_TITLE;
   const content = page?.content?.trim();
@@ -94,9 +119,7 @@ export default async function Page({ searchParams }: Props) {
     <>
       <PostHeader
         name={title}
-        {...(content
-          ? { content }
-          : { description: FALLBACK_DESCRIPTION })}
+        {...(content ? { content } : { description: FALLBACK_DESCRIPTION })}
         breadcrumbs={[
           { name: "Home", uri: "/", current: false },
           { name: title, uri: "/news", current: true },

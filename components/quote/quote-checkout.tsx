@@ -219,9 +219,7 @@ export function QuoteCheckout({
       <div className="grid grid-cols-1 gap-10 md:grid-cols-12 md:gap-12">
         {/* Item summary — left column */}
         <aside className="md:col-span-5 md:order-1">
-          <h2 className="mb-4 text-lg font-medium text-brand-fg">
-            Your items
-          </h2>
+          <h2 className="mb-4 text-lg font-medium text-brand-fg">Your items</h2>
           <Cart />
           {(activeCart.itemsCount ?? 0) === 0 && (
             <p className="text-sm text-brand-fg/70">Your quote is empty.</p>
@@ -303,7 +301,9 @@ export function QuoteCheckout({
             </div>
 
             <div>
-              <Label htmlFor="quote-address2">Apartment, suite, etc. (optional)</Label>
+              <Label htmlFor="quote-address2">
+                Apartment, suite, etc. (optional)
+              </Label>
               <Input
                 id="quote-address2"
                 autoComplete="address-line2"

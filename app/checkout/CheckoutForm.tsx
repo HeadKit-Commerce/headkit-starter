@@ -975,6 +975,11 @@ export function CheckoutForm({
     });
   }, [checkoutSession.publishableKey, checkoutSession.stripeAccountId]);
 
+  // Brand tokens from layout :root (--color-primary, --radius, fonts).
+  // Built once on the client so Stripe gets concrete CSS values (no var()).
+  // Must stay above early returns — hooks cannot run conditionally.
+  const appearance = useMemo(() => buildCheckoutAppearance(), []);
+
   if (error) {
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 p-4">
@@ -982,10 +987,6 @@ export function CheckoutForm({
       </div>
     );
   }
-
-  // Brand tokens from layout :root (--color-primary, --radius, fonts).
-  // Built once on the client so Stripe gets concrete CSS values (no var()).
-  const appearance = useMemo(() => buildCheckoutAppearance(), []);
 
   if (!stripePromise) {
     return (

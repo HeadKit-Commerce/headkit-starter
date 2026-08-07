@@ -29,7 +29,7 @@ const PER_PAGE = 24;
  */
 async function getCatalogPage(filterKey: string, page: number) {
   "use cache: remote";
-  cacheLife("minutes");
+  cacheLife("hours");
   cacheTag(`catalog:${filterKey}`);
   const filter = JSON.parse(filterKey) as Parameters<
     typeof sdk.collections.list
@@ -40,7 +40,7 @@ async function getCatalogPage(filterKey: string, page: number) {
 /** Aggregated facet options. Shared + durable. */
 async function getFilters() {
   "use cache: remote";
-  cacheLife("minutes");
+  cacheLife("hours");
   cacheTag("catalog:filters");
   return sdk.collections.getFilters();
 }
@@ -80,6 +80,12 @@ async function LandingResults({ searchParams }: Props) {
     />
   );
 }
+
+/**
+ * Instant Navigation (Next.js 16.3) — sync App Shell + Suspense streaming.
+ * @see https://nextjs.org/docs/app/guides/instant-navigation
+ */
+export const instant = true;
 
 export default function Page({ searchParams }: Props) {
   return (

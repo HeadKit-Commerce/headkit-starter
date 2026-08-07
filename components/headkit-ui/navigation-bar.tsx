@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { ChevronDownIcon, MenuIcon, XIcon } from "@/components/icon";
@@ -148,10 +147,14 @@ export function NavigationBar({
         <NavigationMenuList className="space-x-0">
           <NavigationMenuItem className="mr-4 hover:opacity-75">
             <NavigationMenuLink asChild>
-              <Link href="/" aria-label="Home" className="cursor-pointer">
+              <InstantLink
+                href="/"
+                aria-label="Home"
+                className="cursor-pointer"
+              >
                 {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 {logo as any}
-              </Link>
+              </InstantLink>
             </NavigationMenuLink>
           </NavigationMenuItem>
 
@@ -284,9 +287,14 @@ function Preheader({
             <span className="text-brand-bg">{decodeHtmlEntities(message)}</span>
           ) : null}
           {links?.map(({ label, uri }, i) => (
-            <Link key={i} href={uri} className="underline text-brand-bg">
+            <InstantLink
+              key={i}
+              href={uri}
+              className="underline text-brand-bg"
+              pendingVariant="text"
+            >
               {decodeHtmlEntities(label)}
-            </Link>
+            </InstantLink>
           ))}
         </div>
       )}

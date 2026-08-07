@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  isQuoteMode,
-  normalizeCheckoutMode,
-} from "./checkout-mode";
+import { isQuoteMode, normalizeCheckoutMode } from "./checkout-mode";
 
 describe("normalizeCheckoutMode", () => {
   it("maps quote variants to quote", () => {

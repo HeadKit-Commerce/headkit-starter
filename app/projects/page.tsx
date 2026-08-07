@@ -14,7 +14,7 @@ const FALLBACK_DESCRIPTION = "Explore our latest projects and case studies.";
 
 async function getProjectsLanding() {
   "use cache";
-  cacheLife("max");
+  cacheLife("days");
   // Interim: CMS intro page must use slug "projects" (see ENG-860 for Reading picker).
   cacheTag(TAG.page("projects"), TAG.projects, TAG.pages);
   return sdk.content.get("projects", "PAGE").catch(() => null);
@@ -52,7 +52,7 @@ interface Props {
 
 async function getProjectFilters() {
   "use cache";
-  cacheLife("max");
+  cacheLife("days");
   cacheTag(TAG.projects);
   return sdk.projects.getFilters();
 }
@@ -85,7 +85,35 @@ async function ProjectsServer({
   );
 }
 
-export default async function Page({
+/**
+ * Instant Navigation (Next.js 16.3) — sync App Shell + Suspense streaming.
+ * @see https://nextjs.org/docs/app/guides/instant-navigation
+ */
+export const instant = true;
+
+export default function Page({ searchParams }: Props): React.ReactElement {
+  return (
+    <Suspense
+      fallback={
+        <>
+          <PostHeader
+            name={FALLBACK_TITLE}
+            description={FALLBACK_DESCRIPTION}
+            breadcrumbs={[
+              { name: "Home", uri: "/", current: false },
+              { name: FALLBACK_TITLE, uri: "/projects", current: true },
+            ]}
+          />
+          <div className="min-h-[40vh]" />
+        </>
+      }
+    >
+      <ProjectsLanding searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function ProjectsLanding({
   searchParams,
 }: Props): Promise<React.ReactElement> {
   const page = await getProjectsLanding();
@@ -96,9 +124,7 @@ export default async function Page({
     <>
       <PostHeader
         name={title}
-        {...(content
-          ? { content }
-          : { description: FALLBACK_DESCRIPTION })}
+        {...(content ? { content } : { description: FALLBACK_DESCRIPTION })}
         breadcrumbs={[
           { name: "Home", uri: "/", current: false },
           { name: title, uri: "/projects", current: true },
