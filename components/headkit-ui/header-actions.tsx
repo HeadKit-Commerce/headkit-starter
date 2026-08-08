@@ -87,7 +87,7 @@ export function HeaderActions({ initialCartCount = 0 }: HeaderActionsProps) {
           variant="default"
           size="sm"
           aria-label="My Quote"
-          className="relative ml-1 h-9 gap-1.5 pl-[10px] pr-3"
+          className="relative ml-4 h-9 gap-1.5 pl-[10px] pr-3"
           onClick={() => toggleCart(true)}
         >
           <span>My Quote</span>

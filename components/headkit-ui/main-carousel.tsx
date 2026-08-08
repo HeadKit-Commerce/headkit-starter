@@ -157,12 +157,14 @@ export const MainCarousel = ({ carouselItems }: Props) => {
           delay: 5000,
           stopOnInteraction: true,
         }}
+        loop={true}
         showScrollbar={false}
         showPagination={items.length > 1}
         paginationDotClassName="bg-white/50"
         paginationClassName="top-[calc(100vw-4.5rem)] md:top-auto md:bottom-6"
         useScrollSnap={true}
         itemSizing={{ base: "w-full" }}
+        itemKey={(slide) => slide.id}
         gap="gap-0"
         padding="px-0"
       />

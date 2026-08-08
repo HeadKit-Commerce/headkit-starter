@@ -208,10 +208,9 @@ test.describe("PDP: rendering, colorway paths, size persistence, stock, legacy U
     await expect(relatedLink).toBeVisible();
     const href = await relatedLink.getAttribute("href");
     await relatedLink.click();
-    // Accept a colorway PATH suffix: variable-product cards auto-select their
-    // first colour after hydration, upgrading the card href from
-    // /products/{slug} to /products/{slug}/{colour} — the href read above can
-    // race that effect, so match the base path with an optional segment.
+    // Href is derived synchronously from product.slug (+ colour) — no stale
+    // uri state. Colourway PATH suffix is still valid when the card defaults
+    // to the first swatch: /products/{slug} or /products/{slug}/{colour}.
     await page.waitForURL(
       (url) => url.pathname === href || url.pathname.startsWith(`${href}/`),
       { timeout: 30_000 },

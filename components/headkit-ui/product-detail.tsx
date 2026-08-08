@@ -12,7 +12,11 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import type { Product, ProductAttribute, ProductVariation } from "@headkit/sdk";
+import type {
+  Product,
+  ProductFieldsFragment,
+  ProductVariation,
+} from "@headkit/sdk";
 import { ProductImageGallery } from "@/components/headkit-ui/product-image-gallery";
 import { ProductPrice } from "@/components/headkit-ui/product-price";
 import { pickFirstPrice } from "@/lib/price-display";
@@ -31,6 +35,7 @@ import { Breadcrumb } from "@/components/headkit-ui/breadcrumb";
 import { ProductEnquiry } from "@/components/headkit-ui/product-enquiry";
 import { isColorAttrSlug } from "@/components/headkit-ui/collection/utils";
 import { buildEnquiryInitialValues } from "@/lib/enquiry-form-values";
+import { findSwatchAttribute } from "@/lib/swatch-attribute";
 import {
   Accordion,
   AccordionContent,
@@ -46,8 +51,10 @@ const GiftCardForm = lazy(() =>
   })),
 );
 
+type StorefrontProduct = ProductFieldsFragment | Product;
+
 interface Props {
-  product: Product;
+  product: StorefrontProduct;
   initialSearchParams?: Record<string, string>;
   breadcrumbItems?: { name: string; uri: string; current: boolean }[];
   /** Color slug from URL path segment — enables path-based routing mode */
@@ -109,7 +116,7 @@ export function ProductDetail({
   const [isGiftCardFormValid, setIsGiftCardFormValid] = useState(false);
 
   const variationAttributes = useMemo(
-    () => product.attributes.filter((a: ProductAttribute) => a.variation),
+    () => product.attributes.filter((a) => a.variation),
     [product.attributes],
   );
 
@@ -121,9 +128,7 @@ export function ProductDetail({
     // Path-based mode: color comes from URL segment, size defaults from first matching variation.
     // localStorage is read in a useEffect to avoid SSR/hydration mismatch.
     if (productBasePath) {
-      const colorKey = variationAttributes.find(
-        (a) => a.slug === "pa_color" || a.slug === "pa_colour",
-      )?.slug;
+      const colorKey = findSwatchAttribute(variationAttributes)?.slug;
       const attrs: Record<string, string> = {};
       if (colorKey && initialColor) attrs[colorKey] = initialColor;
 
@@ -132,8 +137,7 @@ export function ProductDetail({
           !initialColor ||
           v.attributes.some(
             (a) =>
-              (a.key === "pa_color" || a.key === "pa_colour") &&
-              a.value === initialColor,
+              (!colorKey || a.key === colorKey) && a.value === initialColor,
           ),
       );
       if (firstMatch) {
@@ -193,9 +197,7 @@ export function ProductDetail({
   const updateAttributes = useCallback(
     (next: Record<string, string>) => {
       if (productBasePath) {
-        const colorKey = variationAttributes.find(
-          (a) => a.slug === "pa_color" || a.slug === "pa_colour",
-        )?.slug;
+        const colorKey = findSwatchAttribute(variationAttributes)?.slug;
         const sizeKey = variationAttributes.find(
           (a) => a.slug === "pa_size",
         )?.slug;
@@ -468,7 +470,7 @@ export function ProductDetail({
           {/* Variation attribute selectors */}
           {isVariable && variationAttributes.length > 0 && (
             <div className="mb-5 flex flex-col gap-4">
-              {variationAttributes.map((attr: ProductAttribute) => (
+              {variationAttributes.map((attr) => (
                 <div key={attr.id}>
                   <div className="mb-2 flex items-center gap-2">
                     <p className="font-semibold text-primary">{attr.name}</p>

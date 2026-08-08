@@ -2,10 +2,7 @@
 
 import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { Fragment, useEffect, useState } from "react";
-import type {
-  ProductSummaryFieldsFragment,
-  ProductAttribute,
-} from "@headkit/sdk";
+import type { ProductSummaryFieldsFragment } from "@headkit/sdk";
 import { cn, decodeHtmlEntities } from "@/lib/utils";
 import { productUrl } from "@/lib/convert-uri";
 import { FeaturedImage } from "@/components/headkit-ui/featured-image";
@@ -13,12 +10,17 @@ import { ProductPrice } from "@/components/headkit-ui/product-price";
 import { BadgeList } from "@/components/headkit-ui/badge-list";
 import { VariantSwatch } from "@/components/headkit-ui/variant-swatch";
 import { getVariationCardPrice } from "@/lib/price-display";
+import { findSwatchAttribute } from "@/lib/swatch-attribute";
 
 const isVariableProduct = (product: ProductSummaryFieldsFragment): boolean =>
   product?.type?.toUpperCase() === "VARIABLE";
 
 /** Max colour swatches shown on a card before collapsing into a "+N" chip (F4). */
 const MAX_CARD_SWATCHES = 4;
+
+function colourAttribute(product: ProductSummaryFieldsFragment) {
+  return findSwatchAttribute(product.attributes);
+}
 
 interface Props {
   product: ProductSummaryFieldsFragment;
@@ -38,28 +40,37 @@ export const ProductCard = ({
   isNew = false,
   priority = false,
 }: Props) => {
-  const [colourSelected, setColourSelected] = useState<string | null>(null);
-  const [imageSelected, setImageSelected] = useState<string>(
-    product?.image?.src ?? "",
-  );
-  const [uri, setUri] = useState<string>(productUrl(product?.slug ?? ""));
+  const [colourSelected, setColourSelected] = useState<string | null>(() => {
+    if (!product || !isVariableProduct(product)) return null;
+    return colourAttribute(product)?.fullOptions?.[0]?.slug ?? null;
+  });
+  const [imageSelected, setImageSelected] = useState<string>(() => {
+    if (!product) return "";
+    if (!isVariableProduct(product)) return product.image?.src ?? "";
+    const colourAttr = colourAttribute(product);
+    if (product.attributes.length === 1 && !colourAttr) {
+      return product.variations?.[0]?.image?.src ?? "";
+    }
+    return product.image?.src ?? "";
+  });
+
+  // Derive href synchronously from product + colour — never keep a stale
+  // `uri` in state (carousel key={index} reuse previously shipped wrong PDPs).
+  const href = productUrl(product?.slug ?? "", colourSelected ?? undefined);
 
   useEffect(() => {
     if (!product) return;
 
-    setUri(productUrl(product.slug));
-
     if (isVariableProduct(product)) {
-      const colourAttr = product.attributes.find(
-        (a: ProductAttribute) =>
-          a.slug === "pa_colour" || a.slug === "pa_color",
-      );
+      const colourAttr = colourAttribute(product);
       if (product.attributes.length === 1 && !colourAttr) {
+        setColourSelected(null);
         setImageSelected(product.variations?.[0]?.image?.src ?? "");
       } else {
         setColourSelected(colourAttr?.fullOptions?.[0]?.slug ?? null);
       }
     } else {
+      setColourSelected(null);
       setImageSelected(product.image?.src ?? "");
     }
   }, [product]);
@@ -72,10 +83,6 @@ export const ProductCard = ({
     );
 
     if (selectedVariation) {
-      const colorAttr = selectedVariation.attributes.find(
-        (attr) => attr.key === "pa_color" || attr.key === "pa_colour",
-      );
-      setUri(productUrl(product.slug, colorAttr?.value));
       setImageSelected(selectedVariation.image?.src ?? "");
     }
   }, [colourSelected, product]);
@@ -108,7 +115,7 @@ export const ProductCard = ({
         InstantLink + prefetch={true}: Partial Prefetching warms PDP `'use cache'`
         data before click (Next.js 16.3 Instant Navigations).
       */}
-      <InstantLink href={uri} aria-label="Featured Image" className="block">
+      <InstantLink href={href} aria-label="Featured Image" className="block">
         <FeaturedImage
           src={imageSelected}
           alt={product?.name ?? "Product"}
@@ -127,11 +134,7 @@ export const ProductCard = ({
           )}
         >
           <div className="min-w-0">
-            <InstantLink
-              href={uri}
-              pendingVariant="text"
-              className="cursor-pointer"
-            >
+            <InstantLink href={href} pendingVariant="text">
               {/* Homepage carousels expect product titles as h3 under section h2.
                   Visual size stays class-driven. */}
               <h3
@@ -145,43 +148,46 @@ export const ProductCard = ({
             </InstantLink>
             <div className="flex flex-wrap items-center gap-2 min-w-0">
               {isVariableProduct(product) &&
-                product.attributes.map((attribute: ProductAttribute) => {
-                  if (
-                    attribute.slug !== "pa_colour" &&
-                    attribute.slug !== "pa_color"
-                  )
-                    return null;
+                product.attributes.map((attribute) => {
+                  if (!findSwatchAttribute([attribute])) return null;
                   const options = attribute.fullOptions ?? [];
                   const visible = options.slice(0, MAX_CARD_SWATCHES);
                   const extra = options.length - visible.length;
                   return (
                     <Fragment key={attribute.slug}>
-                      {visible.map((option, i) => (
-                        <InstantLink
-                          href={uri}
-                          key={i}
-                          pendingVariant="text"
-                          onMouseEnter={() =>
-                            setColourSelected(option?.slug ?? null)
-                          }
-                        >
-                          <VariantSwatch
-                            isUnavailable={false}
-                            label={option?.name ?? ""}
-                            value={option?.slug ?? ""}
-                            onClick={() =>
-                              setColourSelected(option?.slug ?? null)
+                      {visible.map((option) => {
+                        const optionSlug = option?.slug ?? "";
+                        const swatchHref = productUrl(
+                          product.slug,
+                          optionSlug || undefined,
+                        );
+                        return (
+                          <InstantLink
+                            href={swatchHref}
+                            key={optionSlug || option?.name}
+                            pendingVariant="text"
+                            onMouseEnter={() =>
+                              setColourSelected(optionSlug || null)
                             }
-                            selectedOptionValue={colourSelected ?? ""}
-                            color1={option?.swatchColor ?? ""}
-                            color2={option?.swatchColor2 ?? ""}
-                            size="small"
-                          />
-                        </InstantLink>
-                      ))}
+                          >
+                            <VariantSwatch
+                              isUnavailable={false}
+                              label={option?.name ?? ""}
+                              value={optionSlug}
+                              onClick={() =>
+                                setColourSelected(optionSlug || null)
+                              }
+                              selectedOptionValue={colourSelected ?? ""}
+                              color1={option?.swatchColor ?? ""}
+                              color2={option?.swatchColor2 ?? ""}
+                              size="small"
+                            />
+                          </InstantLink>
+                        );
+                      })}
                       {extra > 0 && (
                         <InstantLink
-                          href={uri}
+                          href={href}
                           pendingVariant="text"
                           className="text-xs font-medium leading-4 text-gray-800 hover:text-primary"
                           aria-label={`${extra} more colours`}

@@ -40,6 +40,8 @@ interface CarouselProps<T> {
   loop?: boolean;
   useScrollSnap?: boolean;
   onSlideChange?: (index: number) => void;
+  /** Stable React key per item. Defaults to index (avoid for remount-sensitive cards). */
+  itemKey?: (item: T, index: number) => string | number;
 }
 
 const Carousel = <T,>({
@@ -68,6 +70,7 @@ const Carousel = <T,>({
   loop = false,
   useScrollSnap = false,
   onSlideChange,
+  itemKey,
 }: CarouselProps<T>) => {
   const filteredItems =
     items?.filter((item) => item !== null && item !== undefined) || [];
@@ -131,13 +134,12 @@ const Carousel = <T,>({
   );
 
   const scrollNext = useCallback(() => {
-    if (!containerRef.current) return;
-    const { scrollWidth, clientWidth } = containerRef.current;
-    const itemWidth = getItemWidth();
-    const gapValue = parseInt(gap.replace("gap-", "")) || 0;
+    if (filteredItems.length === 0) return;
     let nextIndex = currentIndex + 1;
-    const nextScrollLeft = nextIndex * (itemWidth + gapValue);
-    if (nextScrollLeft >= scrollWidth - clientWidth + gapValue) {
+    // Index-based boundary: the previous scrollLeft comparison treated the
+    // last slide as out-of-range, so full-width heroes never advanced past
+    // slide 0 when loop was false.
+    if (nextIndex >= filteredItems.length) {
       if (loop) {
         nextIndex = 0;
       } else {
@@ -145,7 +147,7 @@ const Carousel = <T,>({
       }
     }
     scrollTo(nextIndex);
-  }, [currentIndex, loop, gap, scrollTo, getItemWidth]);
+  }, [currentIndex, loop, scrollTo, filteredItems.length]);
 
   const stopAutoplay = () => {
     if (intervalRef.current) {
@@ -236,7 +238,7 @@ const Carousel = <T,>({
       >
         {filteredItems.map((item, index) => (
           <div
-            key={index}
+            key={itemKey ? itemKey(item, index) : index}
             id={`${id}-item-${index}`}
             className={cn(
               "flex-none",

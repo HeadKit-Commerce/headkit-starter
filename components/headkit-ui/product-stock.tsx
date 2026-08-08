@@ -1,6 +1,7 @@
 import { connection } from "next/server";
 import { headkit } from "@/lib/sdk";
 import { AvailabilityStatus } from "@/components/headkit-ui/availability-status";
+import { findSwatchAttribute } from "@/lib/swatch-attribute";
 
 interface Props {
   productSlug: string;
@@ -23,12 +24,13 @@ export async function ProductStock({ productSlug, colorSlug }: Props) {
 
     const product = await headkit.products.get(productSlug);
     if (!product) return null;
+    const swatchAttr = findSwatchAttribute(product.attributes);
     const variation = colorSlug
       ? product.variations.find((v) =>
           v.attributes.some(
             (a) =>
-              (a.key === "pa_color" || a.key === "pa_colour") &&
-              a.value === colorSlug,
+              a.value === colorSlug &&
+              (!swatchAttr || a.key === swatchAttr.slug),
           ),
         )
       : null;

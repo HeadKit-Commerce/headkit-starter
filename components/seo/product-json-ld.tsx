@@ -1,8 +1,12 @@
-import type { Product, ProductVariation } from "@headkit/sdk";
+import type { ProductFieldsFragment } from "@headkit/sdk";
 import { safeJsonLdStringify } from "./safe-json-ld";
 
+type JsonLdVariation = ProductFieldsFragment["variations"][number];
+
 interface ProductJsonLDProps {
-  product: Product & { seo?: { metaDesc?: string | null } | null };
+  product: ProductFieldsFragment & {
+    seo?: { metaDesc?: string | null } | null;
+  };
   currency?: string | null;
   url?: string;
   brandName?: string;
@@ -35,13 +39,13 @@ function matchAvailability(stockStatus: string): string {
   }
 }
 
-function collectImages(product: Product): string[] {
+function collectImages(product: ProductFieldsFragment): string[] {
   return [product.image?.src, ...product.images.map((img) => img.src)].filter(
     (src): src is string => Boolean(src),
   );
 }
 
-function buildVariantUrl(baseUrl: string, variation: ProductVariation): string {
+function buildVariantUrl(baseUrl: string, variation: JsonLdVariation): string {
   const colorAttr = variation.attributes.find(
     (attr) => attr.key === "pa_color" || attr.key === "pa_colour",
   );
@@ -49,7 +53,7 @@ function buildVariantUrl(baseUrl: string, variation: ProductVariation): string {
 }
 
 function buildVariantProduct(
-  variation: ProductVariation,
+  variation: JsonLdVariation,
   parentSku: string,
   currency: string,
   baseUrl: string,

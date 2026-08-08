@@ -1,7 +1,11 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import type { Product, RelatedProduct } from "@headkit/sdk";
+import type {
+  ProductFieldsFragment,
+  ProductSummaryFieldsFragment,
+  ProjectSummaryFieldsFragment,
+} from "@headkit/sdk";
 import { headkit } from "@/lib/sdk";
 import { getCachedProduct } from "@/lib/product-cache";
 import { ProductDetail } from "@/components/headkit-ui/product-detail";
@@ -16,7 +20,6 @@ import { getBranding, getBrandingAssets } from "@/lib/branding";
 import { isColorAttrSlug } from "@/components/headkit-ui/collection/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductPageShell } from "./product-page-shell";
-import type { ProjectSummaryFieldsFragment } from "@headkit/sdk";
 
 const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 
@@ -40,39 +43,48 @@ type Props = {
 /** Re-export for PDP tag/life guard tests (ENG-853). */
 export const getProduct = getCachedProduct;
 
-function mapRelatedToProduct(r: RelatedProduct): Product {
+function mapRelatedToProduct(
+  r: ProductFieldsFragment["related"][number],
+): ProductSummaryFieldsFragment {
   return {
     id: r.id,
     name: r.name,
     slug: r.slug,
     uri: `/products/${r.slug}`,
     isNew: false,
-    description: "",
-    shortDescription: "",
     price: r.price,
     regularPrice: r.regularPrice,
     salePrice: r.salePrice,
     onSale: r.onSale,
-    available: r.stockStatus?.toLowerCase() !== "outofstock",
-    sku: "",
     type: r.type,
     stockStatus: r.stockStatus,
-    stockQuantity: null,
-    permalink: r.permalink,
-    image: r.image ?? null,
-    images: r.image ? [r.image] : [],
-    categories: [],
-    tags: [],
-    attributes: r.attributes ?? [],
-    variations: r.variations ?? [],
-    related: [],
-    averageRating: "0",
-    reviewCount: 0,
-    brands: [],
-    crossSells: [],
-    upsells: [],
-    projects: [],
-    isGiftCard: false,
+    image: r.image
+      ? {
+          src: r.image.src,
+          alt: r.image.alt,
+          width: r.image.width,
+          height: r.image.height,
+        }
+      : null,
+    attributes: r.attributes.map((a) => ({
+      id: a.id,
+      name: a.name,
+      slug: a.slug,
+      options: a.options,
+      variation: a.variation,
+      visible: a.visible,
+      fullOptions: a.fullOptions,
+    })),
+    variations: r.variations.map((v) => ({
+      id: v.id,
+      price: v.price,
+      regularPrice: v.regularPrice,
+      salePrice: v.salePrice,
+      onSale: v.onSale,
+      stockStatus: v.stockStatus,
+      image: { src: v.image.src },
+      attributes: v.attributes,
+    })),
   };
 }
 
@@ -230,8 +242,8 @@ async function ProductPageContent({ params }: Props) {
   }
 
   const brandName = resolveStoreName(storeSettings.name);
-  const relatedAsProducts: Product[] = product.related.map(mapRelatedToProduct);
-  const upsellsAsProducts: Product[] = product.upsells.map(mapRelatedToProduct);
+  const relatedAsProducts = product.related.map(mapRelatedToProduct);
+  const upsellsAsProducts = product.upsells.map(mapRelatedToProduct);
   const featuredProjects = (product.projects ??
     []) as ProjectSummaryFieldsFragment[];
 

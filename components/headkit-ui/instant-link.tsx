@@ -18,11 +18,13 @@ function LinkPendingOverlay({
 }): React.JSX.Element | null {
   const { pending } = useLinkStatus();
   if (!pending) return null;
+  // pointer-events-none: pending overlays must not steal hit-testing or Safari
+  // will flip the cursor back to the default arrow over the link.
   if (variant === "text") {
     return (
       <span
         aria-hidden
-        className="absolute inset-0 z-[1] animate-pulse rounded-sm bg-primary/10"
+        className="pointer-events-none absolute inset-0 z-[1] animate-pulse rounded-sm bg-primary/10"
       />
     );
   }
@@ -53,7 +55,11 @@ export function InstantLink({
   ...rest
 }: InstantLinkProps): React.JSX.Element {
   return (
-    <Link {...rest} prefetch={prefetch} className={cn("relative", className)}>
+    <Link
+      {...rest}
+      prefetch={prefetch}
+      className={cn("relative cursor-pointer", className)}
+    >
       <LinkPendingOverlay variant={pendingVariant} />
       {children}
     </Link>
