@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import type { Product } from "@headkit/sdk";
 import { createClientSDK } from "@headkit/sdk";
 import { ProductCard } from "@/components/headkit-ui/product-card";
+import { useCatalogDisplay } from "@/components/headkit-ui/catalog-display-provider";
+import { expandCatalogProducts } from "@/lib/catalog-display";
 
 const STORAGE_KEY = "hk-recently-viewed";
 const MAX_ITEMS = 8;
@@ -47,6 +49,8 @@ interface RecentlyViewedProps {
 
 export function RecentlyViewed({ currentSlug }: RecentlyViewedProps) {
   const [products, setProducts] = useState<Product[]>([]);
+  const { showVariants } = useCatalogDisplay();
+  const catalogProducts = expandCatalogProducts(products, showVariants);
 
   useEffect(() => {
     const slugs = getRecentSlugs().filter((s) => s !== currentSlug);
@@ -70,14 +74,14 @@ export function RecentlyViewed({ currentSlug }: RecentlyViewedProps) {
     void load();
   }, [currentSlug]);
 
-  if (products.length === 0) return null;
+  if (catalogProducts.length === 0) return null;
 
   return (
     <section className="py-10">
       <div className="px-5 md:px-10">
         <h2 className="mb-5 text-primary">Recently Viewed</h2>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          {products.map((product) => (
+          {catalogProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>

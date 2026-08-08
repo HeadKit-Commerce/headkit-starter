@@ -3,6 +3,8 @@
 import type { Product } from "@headkit/sdk";
 import { cn } from "@/lib/utils";
 import { ProductCard } from "@/components/headkit-ui/product-card";
+import { useCatalogDisplay } from "@/components/headkit-ui/catalog-display-provider";
+import { expandCatalogProducts } from "@/lib/catalog-display";
 
 interface Props {
   /** Products resolved (by slug) from a WordPress handpicked-products block. */
@@ -33,7 +35,10 @@ export function EditorialProductGrid({
   products,
   columns = 3,
 }: Props): React.JSX.Element | null {
-  if (!products.length) return null;
+  const { showVariants } = useCatalogDisplay();
+  const catalogProducts = expandCatalogProducts(products, showVariants);
+
+  if (!catalogProducts.length) return null;
 
   return (
     <div
@@ -46,9 +51,9 @@ export function EditorialProductGrid({
         LG_COLS[columns] ?? LG_COLS[3],
       )}
     >
-      {products.map((product) => (
+      {catalogProducts.map((product) => (
         <ProductCard
-          key={product.slug}
+          key={product.id || product.slug}
           product={product}
           isNew={product.isNew ?? false}
         />

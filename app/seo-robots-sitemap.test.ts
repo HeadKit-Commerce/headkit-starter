@@ -52,6 +52,9 @@ const stubBranding: Branding = {
   },
   cornerStyle: "soft",
   iconLibrary: "hi2",
+  showVariants: true,
+  showSwatches: false,
+  imageRollover: false,
 };
 
 describe("sitemap enableSitemap gate", () => {

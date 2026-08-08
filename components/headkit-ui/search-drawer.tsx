@@ -15,6 +15,8 @@ import {
 import { ProductCard } from "@/components/headkit-ui/product-card";
 import { ProductCardSkeleton } from "@/components/headkit-ui/skeletons/product-card-skeleton";
 import { useChromeIcons } from "@/components/branding/branding-icons-provider";
+import { useCatalogDisplay } from "@/components/headkit-ui/catalog-display-provider";
+import { expandCatalogProducts } from "@/lib/catalog-display";
 import type { ProductSummaryFieldsFragment } from "@headkit/sdk";
 import { searchProducts } from "@/lib/search-actions";
 
@@ -37,10 +39,12 @@ function debounce<T extends unknown[]>(
 export function SearchDrawer({ trigger }: SearchDrawerProps) {
   const router = useRouter();
   const { Search } = useChromeIcons();
+  const { showVariants } = useCatalogDisplay();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [products, setProducts] = useState<ProductSummaryFieldsFragment[]>([]);
+  const catalogProducts = expandCatalogProducts(products, showVariants);
 
   const doSearch = useCallback(
     debounce(async (q: string) => {
@@ -105,10 +109,10 @@ export function SearchDrawer({ trigger }: SearchDrawerProps) {
                 <ProductCardSkeleton key={i} />
               ))}
             </div>
-          ) : products.length > 0 ? (
+          ) : catalogProducts.length > 0 ? (
             <>
               <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                {products.map((p) => (
+                {catalogProducts.map((p) => (
                   <div key={p.id} onClick={() => setOpen(false)}>
                     <ProductCard product={p} />
                   </div>

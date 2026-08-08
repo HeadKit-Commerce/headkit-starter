@@ -4,6 +4,8 @@ import { useCollection } from "./collection-context";
 import { ProductCard } from "@/components/headkit-ui/product-card";
 import { ProductCardSkeleton } from "@/components/headkit-ui/skeletons/product-card-skeleton";
 import { CATALOG_GRID_CLASS } from "@/components/headkit-ui/catalog-grid";
+import { useCatalogDisplay } from "@/components/headkit-ui/catalog-display-provider";
+import { expandCatalogProducts } from "@/lib/catalog-display";
 
 function LoadingSkeleton({ count = 8 }: { count?: number }) {
   return (
@@ -18,9 +20,14 @@ function LoadingSkeleton({ count = 8 }: { count?: number }) {
 export function ProductGrid() {
   const { products, isLoading, isLoadingBefore, isLoadingAfter, itemsPerPage } =
     useCollection();
+  const { showVariants } = useCatalogDisplay();
+  const catalogProducts = expandCatalogProducts(products, showVariants);
 
   const isEmpty =
-    !isLoading && !isLoadingBefore && !isLoadingAfter && products.length === 0;
+    !isLoading &&
+    !isLoadingBefore &&
+    !isLoadingAfter &&
+    catalogProducts.length === 0;
 
   if (isEmpty) {
     return (
@@ -39,7 +46,7 @@ export function ProductGrid() {
     <div className="px-5 md:px-10 z-5">
       <div className={CATALOG_GRID_CLASS}>
         {isLoadingBefore && <LoadingSkeleton count={skeletonCount} />}
-        {products.map((product, index) => (
+        {catalogProducts.map((product, index) => (
           // Only the first two cards compete for LCP preload (ENG-856). Prefetching
           // four images on a phone wastes bandwidth when only one card is above the fold.
           // Off-screen rows defer layout/paint via content-visibility.

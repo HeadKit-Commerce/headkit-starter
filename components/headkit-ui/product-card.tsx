@@ -11,6 +11,8 @@ import { BadgeList } from "@/components/headkit-ui/badge-list";
 import { VariantSwatch } from "@/components/headkit-ui/variant-swatch";
 import { getVariationCardPrice } from "@/lib/price-display";
 import { findSwatchAttribute } from "@/lib/swatch-attribute";
+import { useCatalogDisplay } from "@/components/headkit-ui/catalog-display-provider";
+import type { CatalogProduct } from "@/lib/catalog-display";
 
 const isVariableProduct = (product: ProductSummaryFieldsFragment): boolean =>
   product?.type?.toUpperCase() === "VARIABLE";
@@ -23,7 +25,7 @@ function colourAttribute(product: ProductSummaryFieldsFragment) {
 }
 
 interface Props {
-  product: ProductSummaryFieldsFragment;
+  product: CatalogProduct;
   className?: string;
   dark?: boolean;
   mobileCol?: boolean;
@@ -40,7 +42,11 @@ export const ProductCard = ({
   isNew = false,
   priority = false,
 }: Props) => {
+  const { showSwatches, imageRollover } = useCatalogDisplay();
+  const lockedColour = product.colorwaySlug ?? null;
+
   const [colourSelected, setColourSelected] = useState<string | null>(() => {
+    if (lockedColour) return lockedColour;
     if (!product || !isVariableProduct(product)) return null;
     return colourAttribute(product)?.fullOptions?.[0]?.slug ?? null;
   });
@@ -53,13 +59,29 @@ export const ProductCard = ({
     }
     return product.image?.src ?? "";
   });
+  const [isHovering, setIsHovering] = useState(false);
 
-  // Derive href synchronously from product + colour — never keep a stale
-  // `uri` in state (carousel key={index} reuse previously shipped wrong PDPs).
-  const href = productUrl(product?.slug ?? "", colourSelected ?? undefined);
+  const href = productUrl(
+    product?.slug ?? "",
+    (lockedColour ?? colourSelected) ?? undefined,
+  );
+
+  const hoverSrc =
+    imageRollover && product.hoverImage?.src
+      ? product.hoverImage.src
+      : null;
+  const displaySrc =
+    isHovering && hoverSrc && hoverSrc !== imageSelected
+      ? hoverSrc
+      : imageSelected;
 
   useEffect(() => {
     if (!product) return;
+
+    if (lockedColour) {
+      setColourSelected(lockedColour);
+      return;
+    }
 
     if (isVariableProduct(product)) {
       const colourAttr = colourAttribute(product);
@@ -73,7 +95,7 @@ export const ProductCard = ({
       setColourSelected(null);
       setImageSelected(product.image?.src ?? "");
     }
-  }, [product]);
+  }, [product, lockedColour]);
 
   useEffect(() => {
     if (!product || !isVariableProduct(product)) return;
@@ -84,6 +106,8 @@ export const ProductCard = ({
 
     if (selectedVariation) {
       setImageSelected(selectedVariation.image?.src ?? "");
+    } else if (product.image?.src) {
+      setImageSelected(product.image.src);
     }
   }, [colourSelected, product]);
 
@@ -115,9 +139,15 @@ export const ProductCard = ({
         InstantLink + prefetch={true}: Partial Prefetching warms PDP `'use cache'`
         data before click (Next.js 16.3 Instant Navigations).
       */}
-      <InstantLink href={href} aria-label="Featured Image" className="block">
+      <InstantLink
+        href={href}
+        aria-label="Featured Image"
+        className="block"
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
+      >
         <FeaturedImage
-          src={imageSelected}
+          src={displaySrc}
           alt={product?.name ?? "Product"}
           priority={priority}
           fit="contain"
@@ -147,7 +177,8 @@ export const ProductCard = ({
               </h3>
             </InstantLink>
             <div className="flex min-w-0 flex-wrap items-center gap-2 py-1.5">
-              {isVariableProduct(product) &&
+              {showSwatches &&
+                isVariableProduct(product) &&
                 product.attributes.map((attribute) => {
                   if (!findSwatchAttribute([attribute])) return null;
                   const options = attribute.fullOptions ?? [];

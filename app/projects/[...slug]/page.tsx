@@ -61,6 +61,7 @@ function mapRelatedToProduct(r: RelatedProduct): Product {
     stockQuantity: null,
     permalink: r.permalink,
     image: r.image ?? null,
+    hoverImage: r.hoverImage ?? null,
     images: r.image ? [r.image] : [],
     categories: [],
     tags: [],

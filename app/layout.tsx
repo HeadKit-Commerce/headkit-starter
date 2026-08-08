@@ -23,6 +23,7 @@ import {
 import { getBranding, getBrandingAssets } from "@/lib/branding";
 import { normalizeCheckoutMode } from "@/lib/checkout-mode";
 import { CheckoutModeProvider } from "@/components/checkout/checkout-mode-provider";
+import { CatalogDisplayProvider } from "@/components/headkit-ui/catalog-display-provider";
 import { resolveBrandFonts } from "@/lib/brand-fonts";
 import { BrandingIconsProvider } from "@/components/branding/branding-icons-provider";
 import { GoogleTagManager } from "@next/third-parties/google";
@@ -226,32 +227,40 @@ export default async function RootLayout({
 
         <Suspense fallback={null}>
           <BrandingIconsProvider library={branding.iconLibrary}>
-            <CheckoutModeProvider mode={checkoutMode}>
-              <AuthProvider>
-                <CartProvider>
-                  <LazyCartDrawer />
-                  <NavigationWrapper />
-                  <main>{children}</main>
-                  <Footer
-                    siteName={siteName}
-                    description={siteDescription}
-                    menus={footerMenus}
-                    iconUrl={branding.iconUrl}
-                    showSubscribe={showFooterSubscribe}
-                    hidePaymentIcons={checkoutMode === "quote"}
-                    socialLinks={{
-                      instagram: "https://www.instagram.com/headkitcommerce",
-                      discord: "https://discord.gg/bSNe29JtsX",
-                      github: "https://github.com/headkit-commerce",
-                      linkedin:
-                        "https://www.linkedin.com/company/headkit-commerce/",
-                      youtube: "https://www.youtube.com/@headkit-commerce",
-                    }}
-                  />
-                  <Toaster />
-                </CartProvider>
-              </AuthProvider>
-            </CheckoutModeProvider>
+            <CatalogDisplayProvider
+              prefs={{
+                showVariants: branding.showVariants,
+                showSwatches: branding.showSwatches,
+                imageRollover: branding.imageRollover,
+              }}
+            >
+              <CheckoutModeProvider mode={checkoutMode}>
+                <AuthProvider>
+                  <CartProvider>
+                    <LazyCartDrawer />
+                    <NavigationWrapper />
+                    <main>{children}</main>
+                    <Footer
+                      siteName={siteName}
+                      description={siteDescription}
+                      menus={footerMenus}
+                      iconUrl={branding.iconUrl}
+                      showSubscribe={showFooterSubscribe}
+                      hidePaymentIcons={checkoutMode === "quote"}
+                      socialLinks={{
+                        instagram: "https://www.instagram.com/headkitcommerce",
+                        discord: "https://discord.gg/bSNe29JtsX",
+                        github: "https://github.com/headkit-commerce",
+                        linkedin:
+                          "https://www.linkedin.com/company/headkit-commerce/",
+                        youtube: "https://www.youtube.com/@headkit-commerce",
+                      }}
+                    />
+                    <Toaster />
+                  </CartProvider>
+                </AuthProvider>
+              </CheckoutModeProvider>
+            </CatalogDisplayProvider>
           </BrandingIconsProvider>
         </Suspense>
       </body>

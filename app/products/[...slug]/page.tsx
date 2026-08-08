@@ -66,6 +66,14 @@ function mapRelatedToProduct(
           height: r.image.height,
         }
       : null,
+    hoverImage: r.hoverImage
+      ? {
+          src: r.hoverImage.src,
+          alt: r.hoverImage.alt,
+          width: r.hoverImage.width,
+          height: r.hoverImage.height,
+        }
+      : null,
     attributes: r.attributes.map((a) => ({
       id: a.id,
       name: a.name,

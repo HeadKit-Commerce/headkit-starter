@@ -63,6 +63,12 @@ export interface Branding {
   bodyFont: BrandingFont;
   cornerStyle: string;
   iconLibrary: string;
+  /** Separate colourway cards on collections/carousels. Default true. */
+  showVariants: boolean;
+  /** Colour dots on product cards. Default false. */
+  showSwatches: boolean;
+  /** Second gallery image on card mouseover. Default false. */
+  imageRollover: boolean;
 }
 
 export interface StoreSettings {
@@ -102,6 +108,9 @@ export const DEFAULT_BACKGROUND_COLOR = "#ffffff";
 export const DEFAULT_TEXT_COLOR = "#171717";
 export const DEFAULT_CORNER_STYLE = "soft";
 export const DEFAULT_ICON_LIBRARY = "hi2";
+export const DEFAULT_SHOW_VARIANTS = true;
+export const DEFAULT_SHOW_SWATCHES = false;
+export const DEFAULT_IMAGE_ROLLOVER = false;
 
 const EMPTY_FONT: BrandingFont = {
   source: "",
@@ -124,6 +133,9 @@ const DEFAULT_BUNDLE: BrandingBundle = {
     bodyFont: EMPTY_FONT,
     cornerStyle: DEFAULT_CORNER_STYLE,
     iconLibrary: DEFAULT_ICON_LIBRARY,
+    showVariants: DEFAULT_SHOW_VARIANTS,
+    showSwatches: DEFAULT_SHOW_SWATCHES,
+    imageRollover: DEFAULT_IMAGE_ROLLOVER,
   },
   storeSettings: {
     id: null,
@@ -251,10 +263,51 @@ const BRANDING_EXTENDED_NO_WEIGHTS_SELECTION = /* GraphQL */ `
       ogImageUrl
 `;
 
-/** Full query including sitemap/indexing gates + extended branding fields. */
+/**
+ * Full query including sitemap/indexing gates, catalog display prefs, and
+ * extended branding fields. Unknown catalog fields fall back to EXTENDED.
+ */
 const BRANDING_QUERY = /* GraphQL */ `
   query StorefrontBranding {
-${BRANDING_EXTENDED_SELECTION}
+    branding {
+      primaryColor
+      secondaryColor
+      backgroundColor
+      textColor
+      logoUrl
+      iconUrl
+      headingFontSource
+      headingFontFamily
+      headingFontGoogleSlug
+      headingFontGoogleWeights
+      headingFontFileUrl
+      subheadingFontSource
+      subheadingFontFamily
+      subheadingFontGoogleSlug
+      subheadingFontGoogleWeights
+      subheadingFontFileUrl
+      bodyFontSource
+      bodyFontFamily
+      bodyFontGoogleSlug
+      bodyFontGoogleWeights
+      bodyFontFileUrl
+      cornerStyle
+      iconLibrary
+      showVariants
+      showSwatches
+      imageRollover
+    }
+    storeSettings {
+      id
+      slug
+      name
+      gtmId
+      domain
+    }
+    seoSettings {
+      title
+      description
+      ogImageUrl
       enableSitemap
       allowIndexing
     }
@@ -304,7 +357,10 @@ const CHECKOUT_TYPE_QUERY = /* GraphQL */ `
   }
 `;
 
-interface FlatBranding extends Partial<Branding> {
+interface FlatBranding
+  extends Partial<
+    Omit<Branding, "showVariants" | "showSwatches" | "imageRollover">
+  > {
   headingFontSource?: string | null;
   headingFontFamily?: string | null;
   headingFontGoogleSlug?: string | null;
@@ -320,6 +376,9 @@ interface FlatBranding extends Partial<Branding> {
   bodyFontGoogleSlug?: string | null;
   bodyFontGoogleWeights?: number[] | null;
   bodyFontFileUrl?: string | null;
+  showVariants?: boolean | null;
+  showSwatches?: boolean | null;
+  imageRollover?: boolean | null;
 }
 
 interface BrandingResponse {
@@ -390,6 +449,10 @@ function coerce(data: NonNullable<BrandingResponse["data"]>): BrandingBundle {
       ),
       cornerStyle: b.cornerStyle || DEFAULT_CORNER_STYLE,
       iconLibrary: b.iconLibrary || DEFAULT_ICON_LIBRARY,
+      // Defaults match dashboard-api when fields are unset / unknown.
+      showVariants: b.showVariants !== false,
+      showSwatches: b.showSwatches === true,
+      imageRollover: b.imageRollover === true,
     },
     storeSettings: {
       id: s.id ?? null,

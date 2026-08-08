@@ -4,6 +4,8 @@ import { Suspense } from "react";
 import { Carousel } from "@/components/headkit-ui/carousel";
 import { ProductCard } from "@/components/headkit-ui/product-card";
 import type { ProductSummaryFieldsFragment } from "@headkit/sdk";
+import { useCatalogDisplay } from "@/components/headkit-ui/catalog-display-provider";
+import { expandCatalogProducts } from "@/lib/catalog-display";
 
 interface Props {
   products: ProductSummaryFieldsFragment[];
@@ -16,11 +18,14 @@ const ProductCarousel = ({
   carouselItemClassName: _carouselItemClassName,
   id = "product-carousel",
 }: Props) => {
+  const { showVariants } = useCatalogDisplay();
+  const items = expandCatalogProducts(products, showVariants);
+
   return (
     <Suspense fallback={null}>
       <Carousel
-        items={products?.filter((x) => !!x?.slug) ?? []}
-        renderItem={(product: ProductSummaryFieldsFragment) => (
+        items={items}
+        renderItem={(product) => (
           <ProductCard product={product} isNew={product.isNew} />
         )}
         itemKey={(product) => product.id || product.slug}
