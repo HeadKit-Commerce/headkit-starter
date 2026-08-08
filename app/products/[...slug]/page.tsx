@@ -70,6 +70,7 @@ function mapRelatedToProduct(
       id: a.id,
       name: a.name,
       slug: a.slug,
+      type: a.type,
       options: a.options,
       variation: a.variation,
       visible: a.visible,
