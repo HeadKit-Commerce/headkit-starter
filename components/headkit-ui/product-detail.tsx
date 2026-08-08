@@ -408,15 +408,9 @@ export function ProductDetail({
     });
   }
 
-  // Optional until staging gateway exposes these fields and ProductFields
-  // requests them again (commerce deploy lags PR preview builds).
-  const pdpExtras = product as ProductFieldsFragment & {
-    reviewsEnabled?: boolean;
-    specifications?: string | null;
-  };
-  const reviewsEnabled = Boolean(pdpExtras.reviewsEnabled);
-  const specifications = pdpExtras.specifications?.trim()
-    ? pdpExtras.specifications
+  const reviewsEnabled = Boolean(product.reviewsEnabled);
+  const specifications = product.specifications?.trim()
+    ? product.specifications
     : null;
 
   const tabs: Array<{
