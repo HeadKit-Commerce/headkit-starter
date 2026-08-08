@@ -10,7 +10,8 @@ interface FeaturedImageHeaderProps {
 /**
  * Full-bleed hero for project (and similar) detail pages.
  * Matches {@link MainCarousel}: `mx-5`, `rounded-brand`, square media on
- * mobile / `60vh`–`80vh` on desktop, and 48px hero title with Auto line-height.
+ * mobile / 16:9 (`aspect-video`) capped at 70svh on desktop, and 48px hero
+ * title with Auto line-height.
  */
 export function FeaturedImageHeader({
   title,
@@ -35,7 +36,7 @@ export function FeaturedImageHeader({
             </div>
           </div>
         </div>
-        <div className="relative aspect-square w-full overflow-hidden md:aspect-auto md:h-[60vh] lg:h-[80vh]">
+        <div className="relative aspect-square w-full overflow-hidden md:aspect-video md:max-h-[70svh]">
           <Image
             src={image || "/assets/images/bg-order-success.png"}
             alt={decodedTitle}

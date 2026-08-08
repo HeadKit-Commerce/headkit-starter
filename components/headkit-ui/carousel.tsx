@@ -42,6 +42,11 @@ interface CarouselProps<T> {
   };
   loop?: boolean;
   useScrollSnap?: boolean;
+  /**
+   * `slide` (default): horizontal scroll. `fade`: cross-fade stacked slides
+   * (used by hero carousels — no horizontal motion).
+   */
+  transition?: "slide" | "fade";
   onSlideChange?: (index: number) => void;
   /** Stable React key per item. Defaults to index (avoid for remount-sensitive cards). */
   itemKey?: (item: T, index: number) => string | number;
@@ -74,11 +79,13 @@ const Carousel = <T,>({
   autoplay,
   loop = false,
   useScrollSnap = false,
+  transition = "slide",
   onSlideChange,
   itemKey,
 }: CarouselProps<T>) => {
   const filteredItems =
     items?.filter((item) => item !== null && item !== undefined) || [];
+  const isFade = transition === "fade";
   const containerRef = useRef<HTMLDivElement>(null);
   const [canScroll, setCanScroll] = useState(false);
   const [canScrollPrev, setCanScrollPrev] = useState(false);
@@ -92,6 +99,7 @@ const Carousel = <T,>({
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const updateScrollState = useCallback(() => {
+    if (isFade) return;
     if (!containerRef.current) return;
     const container = containerRef.current;
     const scrollLeft = container.scrollLeft;
@@ -118,7 +126,13 @@ const Carousel = <T,>({
         onSlideChange(newIndex);
       }
     }
-  }, [useScrollSnap, filteredItems.length, currentIndex, onSlideChange]);
+  }, [
+    isFade,
+    useScrollSnap,
+    filteredItems.length,
+    currentIndex,
+    onSlideChange,
+  ]);
 
   const getItemWidth = useCallback(() => {
     if (!containerRef.current) return 0;
@@ -126,8 +140,21 @@ const Carousel = <T,>({
     return itemElement ? (itemElement as HTMLElement).clientWidth : 0;
   }, [id]);
 
+  const goToIndex = useCallback(
+    (index: number) => {
+      const clamped = Math.min(Math.max(index, 0), filteredItems.length - 1);
+      setCurrentIndex(clamped);
+      onSlideChange?.(clamped);
+    },
+    [filteredItems.length, onSlideChange],
+  );
+
   const scrollTo = useCallback(
     (index: number, behavior: ScrollBehavior = "smooth") => {
+      if (isFade) {
+        goToIndex(index);
+        return;
+      }
       if (!containerRef.current) return;
       const itemWidth = getItemWidth();
       const gapValue = parseInt(gap.replace("gap-", "")) || 0;
@@ -135,7 +162,7 @@ const Carousel = <T,>({
       containerRef.current.scrollTo({ left: scrollLeft, behavior });
       setCurrentIndex(index);
     },
-    [gap, getItemWidth],
+    [gap, getItemWidth, goToIndex, isFade],
   );
 
   const scrollNext = useCallback(() => {
@@ -152,6 +179,19 @@ const Carousel = <T,>({
       }
     }
     scrollTo(nextIndex);
+  }, [currentIndex, loop, scrollTo, filteredItems.length]);
+
+  const scrollPrev = useCallback(() => {
+    if (filteredItems.length === 0) return;
+    let prevIndex = currentIndex - 1;
+    if (prevIndex < 0) {
+      if (loop) {
+        prevIndex = filteredItems.length - 1;
+      } else {
+        return;
+      }
+    }
+    scrollTo(prevIndex);
   }, [currentIndex, loop, scrollTo, filteredItems.length]);
 
   const stopAutoplay = () => {
@@ -171,6 +211,10 @@ const Carousel = <T,>({
   }, [autoplay, isHovered, isDragging, scrollNext]);
 
   const scrollToPrev = () => {
+    if (isFade) {
+      scrollPrev();
+      return;
+    }
     if (!containerRef.current) return;
     const scrollAmountPx = containerRef.current.clientWidth * scrollAmount;
     containerRef.current.scrollBy({
@@ -180,18 +224,36 @@ const Carousel = <T,>({
   };
 
   const scrollToNext = () => {
+    if (isFade) {
+      scrollNext();
+      return;
+    }
     if (!containerRef.current) return;
     const scrollAmountPx = containerRef.current.clientWidth * scrollAmount;
     containerRef.current.scrollBy({ left: scrollAmountPx, behavior: "smooth" });
   };
 
   useEffect(() => {
+    if (isFade) {
+      const multi = filteredItems.length > 1;
+      setCanScroll(multi);
+      setCanScrollPrev(loop || currentIndex > 0);
+      setCanScrollNext(loop || currentIndex < filteredItems.length - 1);
+      setFitsViewport(true);
+      return;
+    }
     const container = containerRef.current;
     if (!container) return;
     updateScrollState();
     container.addEventListener("scroll", updateScrollState);
     return () => container.removeEventListener("scroll", updateScrollState);
-  }, [updateScrollState]);
+  }, [
+    isFade,
+    updateScrollState,
+    filteredItems.length,
+    currentIndex,
+    loop,
+  ]);
 
   useEffect(() => {
     if (autoplay?.enabled) startAutoplay();
@@ -235,34 +297,65 @@ const Carousel = <T,>({
       onMouseDown={() => setIsDragging(true)}
       onMouseUp={() => setIsDragging(false)}
     >
-      <div
-        ref={containerRef}
-        className={cn(
-          // Vertical padding keeps selected swatch outlines inside overflow parents
-          "flex overflow-x-auto scroll-smooth py-2",
-          gap,
-          padding,
-          trackClassName,
-          centerWhenFits && fitsViewport && "justify-center",
-          useScrollSnap && "snap-x snap-mandatory",
-          "[&::-webkit-scrollbar]:hidden",
-        )}
-      >
-        {filteredItems.map((item, index) => (
-          <div
-            key={itemKey ? itemKey(item, index) : index}
-            id={`${id}-item-${index}`}
-            className={cn(
-              "flex-none",
-              useScrollSnap && "snap-start",
-              itemSizeClasses,
-              carouselItemClassName,
-            )}
-          >
-            {renderItem(item, index)}
+      {isFade ? (
+        <div
+          ref={containerRef}
+          className={cn("relative w-full", padding, trackClassName)}
+        >
+          {/* Stack slides in one grid cell so height follows the tallest slide
+              and inactive slides soft-fade via opacity (no horizontal motion). */}
+          <div className="grid w-full [&>*]:col-start-1 [&>*]:row-start-1">
+            {filteredItems.map((item, index) => {
+              const active = index === currentIndex;
+              return (
+                <div
+                  key={itemKey ? itemKey(item, index) : index}
+                  id={`${id}-item-${index}`}
+                  aria-hidden={!active}
+                  className={cn(
+                    "w-full transition-opacity duration-1000 ease-in-out",
+                    active
+                      ? "z-10 opacity-100"
+                      : "pointer-events-none z-0 opacity-0",
+                    carouselItemClassName,
+                  )}
+                >
+                  {renderItem(item, index)}
+                </div>
+              );
+            })}
           </div>
-        ))}
-      </div>
+        </div>
+      ) : (
+        <div
+          ref={containerRef}
+          className={cn(
+            // Vertical padding keeps selected swatch outlines inside overflow parents
+            "flex overflow-x-auto scroll-smooth py-2",
+            gap,
+            padding,
+            trackClassName,
+            centerWhenFits && fitsViewport && "justify-center",
+            useScrollSnap && "snap-x snap-mandatory",
+            "[&::-webkit-scrollbar]:hidden",
+          )}
+        >
+          {filteredItems.map((item, index) => (
+            <div
+              key={itemKey ? itemKey(item, index) : index}
+              id={`${id}-item-${index}`}
+              className={cn(
+                "flex-none",
+                useScrollSnap && "snap-start",
+                itemSizeClasses,
+                carouselItemClassName,
+              )}
+            >
+              {renderItem(item, index)}
+            </div>
+          ))}
+        </div>
+      )}
 
       {canScroll && showControls && (
         <div

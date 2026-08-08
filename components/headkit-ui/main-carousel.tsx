@@ -63,7 +63,9 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                     </div>
                   </div>
                 </div>
-                <div className="relative aspect-square w-full overflow-hidden md:aspect-auto md:h-[60vh] lg:h-[80vh]">
+                {/* Desktop: prefer 16:9; cap height so ultrawide never overflows
+                    the fold (object-cover crops within the box). Mobile stays square. */}
+                <div className="relative aspect-square w-full overflow-hidden md:aspect-video md:max-h-[70svh]">
                   {hasVideo ? (
                     <>
                       {/* Mobile video (or desktop fallback). muted+playsInline
@@ -153,12 +155,12 @@ export const MainCarousel = ({ carouselItems }: Props) => {
         }}
         className="w-full"
         loop={true}
+        transition="fade"
         autoplay={{ enabled: true, delay: 5000, stopOnInteraction: true }}
         showScrollbar={false}
         showPagination={items.length > 1}
         paginationDotClassName="bg-white/50"
         paginationClassName="top-[calc(100vw-4.5rem)] md:top-auto md:bottom-6"
-        useScrollSnap={true}
         itemSizing={{ base: "w-full" }}
         itemKey={(slide) => slide.id}
         gap="gap-0"
