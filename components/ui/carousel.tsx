@@ -45,11 +45,11 @@ const Carousel = <T,>({
   gap = "gap-[30px]",
   padding = "px-5 md:px-10",
   itemSizing = {
-    // ~1.1 / 2 / 3 columns — 4 columns on extra-wide (xl+); gap 30px
+    // ~1.1 / 2 / 3 columns through xl (~1280–1535); 4 columns at 2xl+
     base: "w-[calc(91.666667%-15px)]",
     sm: "sm:w-[calc(50%-15px)]",
     lg: "lg:w-[calc(33.333333%-20px)]",
-    xl: "xl:w-[calc(25%-22.5px)]",
+    "2xl": "2xl:w-[calc(25%-22.5px)]",
   },
   showControls = true,
   showScrollbar = true,

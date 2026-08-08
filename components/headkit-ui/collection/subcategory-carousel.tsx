@@ -30,12 +30,12 @@ export function SubcategoryCarousel({ subcategories }: Props) {
         controlsPosition="top"
         gap="gap-[30px]"
         padding="px-5 md:px-10"
-        // Mobile ~1.15 cards, sm 2, lg 3, xl 4 columns; 30px gaps.
+        // Mobile ~1.15 cards, sm 2, lg/xl 3, 2xl 4 columns; 30px gaps.
         itemSizing={{
           base: "w-[calc(85%-15px)]",
           sm: "sm:w-[calc(50%-15px)]",
           lg: "lg:w-[calc(33.333333%-20px)]",
-          xl: "xl:w-[calc(25%-22.5px)]",
+          "2xl": "2xl:w-[calc(25%-22.5px)]",
         }}
         renderItem={(child, index) => {
           // Always use the storefront catch-all route — WP `uri` can be an

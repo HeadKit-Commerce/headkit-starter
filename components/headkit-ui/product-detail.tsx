@@ -452,7 +452,7 @@ export function ProductDetail({
 
           {product.shortDescription && (
             <div
-              className="mb-5 text-sm leading-relaxed text-primary [&_p]:mb-3 [&_p:last-child]:mb-0"
+              className="mb-5 text-base leading-normal text-primary [&_p]:mb-3 [&_p:last-child]:mb-0"
               dangerouslySetInnerHTML={{
                 __html: formatWooRichText(product.shortDescription),
               }}
@@ -706,13 +706,14 @@ export function ProductDetail({
               >
                 {visibleTabs.map((tab) => (
                   <AccordionItem key={tab.key} value={tab.key}>
-                    <AccordionTrigger className="py-4 hover:no-underline">
-                      <h3 className="text-base text-primary">{tab.label}</h3>
+                    {/* Radix Header is already an h3 — keep H3 size/family; bump weight to match */}
+                    <AccordionTrigger className="py-4 text-left font-semibold hover:no-underline">
+                      {tab.label}
                     </AccordionTrigger>
-                    <AccordionContent>
+                    <AccordionContent className="text-base">
                       {tab.key === "description" && product.description && (
                         <div
-                          className="prose prose-sm max-w-none text-primary prose-p:my-3 prose-p:first:mt-0 prose-p:last:mb-0"
+                          className="prose max-w-none text-base text-primary prose-p:my-3 prose-p:first:mt-0 prose-p:last:mb-0"
                           dangerouslySetInnerHTML={{
                             __html: formatWooRichText(product.description),
                           }}
@@ -724,7 +725,7 @@ export function ProductDetail({
                           {product.attributes
                             .filter((a) => a.visible && !a.variation)
                             .map((attr) => (
-                              <div key={attr.id} className="flex gap-4 text-sm">
+                              <div key={attr.id} className="flex gap-4 text-base">
                                 <span className="w-32 shrink-0 font-medium text-gray-700">
                                   {decodeHtmlEntities(attr.name)}
                                 </span>
@@ -739,7 +740,7 @@ export function ProductDetail({
                       )}
 
                       {tab.key === "reviews" && (
-                        <p className="text-sm text-gray-500">
+                        <p className="text-base text-gray-500">
                           Reviews coming soon.
                         </p>
                       )}
