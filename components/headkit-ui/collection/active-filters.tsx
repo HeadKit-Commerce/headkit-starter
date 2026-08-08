@@ -1,5 +1,6 @@
 "use client";
 
+import { useIsQuoteMode } from "@/components/checkout/checkout-mode-provider";
 import { XIcon } from "@/components/icon";
 import { decodeHtmlEntities } from "@/lib/utils";
 import { useCollection } from "./collection-context";
@@ -7,6 +8,7 @@ import { SortKeyLabels, formatOptionName, type SortKeyType } from "./utils";
 
 export function ActiveFilters() {
   const { filterValues, setFilterValues, productFilter } = useCollection();
+  const isQuoteMode = useIsQuoteMode();
 
   const chips: Array<{ label: string; onRemove: () => void }> = [];
 
@@ -56,7 +58,8 @@ export function ActiveFilters() {
     }
   }
 
-  if (filterValues.instock) {
+  // Hide commerce facet chips for HeadKit Quote checkout.
+  if (!isQuoteMode && filterValues.instock) {
     chips.push({
       label: "In Stock Only",
       onRemove: () =>

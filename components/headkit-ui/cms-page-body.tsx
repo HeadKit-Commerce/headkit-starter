@@ -71,7 +71,7 @@ function HtmlSegment({
   if (!hasGravityFormMarker(html)) {
     return (
       <div className={showTitle ? undefined : "mt-5"}>
-        {showTitle ? <h1 className="text-3xl text-primary">{title}</h1> : null}
+        {showTitle ? <h1 className="text-primary">{title}</h1> : null}
         <div className={showTitle ? "mt-5" : undefined}>
           <EditorialContent html={html} />
         </div>
@@ -84,7 +84,7 @@ function HtmlSegment({
     <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
       <div>
         {showTitle ? (
-          <h1 className="mb-6 text-3xl text-primary">{title}</h1>
+          <h1 className="mb-6 text-primary">{title}</h1>
         ) : null}
         {copyHtml ? <EditorialContent html={copyHtml} /> : null}
       </div>
@@ -127,7 +127,7 @@ export async function CmsPageBody({
     if (!hasGravityFormMarker(html)) {
       return (
         <div className={CONTENT_PAD}>
-          <h1 className="text-3xl text-primary">{title}</h1>
+          <h1 className="text-primary">{title}</h1>
           <div className="mt-5">
             <EditorialContent html={html} />
           </div>
@@ -142,7 +142,7 @@ export async function CmsPageBody({
       <div className={CONTENT_PAD}>
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
           <div>
-            <h1 className="mb-6 text-3xl text-primary">{title}</h1>
+            <h1 className="mb-6 text-primary">{title}</h1>
             {copyHtml ? <EditorialContent html={copyHtml} /> : null}
           </div>
           <div className="space-y-8">
@@ -190,7 +190,7 @@ export async function CmsPageBody({
       })}
       {!suppressPageTitle && !titleShown ? (
         <section className={CONTENT_PAD}>
-          <h1 className="text-3xl text-primary">{title}</h1>
+          <h1 className="text-primary">{title}</h1>
         </section>
       ) : null}
     </>

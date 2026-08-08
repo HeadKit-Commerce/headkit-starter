@@ -146,7 +146,7 @@ export const ProductCard = ({
                 {decodeHtmlEntities(product?.name ?? "")}
               </h3>
             </InstantLink>
-            <div className="flex flex-wrap items-center gap-2 min-w-0">
+            <div className="flex min-w-0 flex-wrap items-center gap-2 py-1.5">
               {isVariableProduct(product) &&
                 product.attributes.map((attribute) => {
                   if (!findSwatchAttribute([attribute])) return null;

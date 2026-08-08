@@ -47,7 +47,7 @@ test.describe("PDP: rendering, colorway paths, size persistence, stock, legacy U
     await allowGatewayCors(page);
   });
 
-  test("P1-14/25: simple PDP renders title, price, availability, description tab, breadcrumbs and Product JSON-LD", async ({
+  test("P1-14/25: simple PDP renders title, price, availability, description tab, and Product/Breadcrumb JSON-LD", async ({
     page,
   }) => {
     await page.goto(`${BASE_URL}/products/test-product-12`);
@@ -68,18 +68,22 @@ test.describe("PDP: rendering, colorway paths, size persistence, stock, legacy U
     // asserted on classic-tee in the legacy-URL test).
     await expect(page.getByRole("button", { name: "Reviews" })).toBeVisible();
 
-    // Breadcrumb trail with the Home anchor.
-    const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
-    await expect(breadcrumb, "breadcrumb nav missing").toBeVisible();
-    await expect(breadcrumb.getByRole("link", { name: "Home" })).toBeVisible();
+    // Breadcrumbs are bot/JSON-LD only — not rendered in the storefront UI.
+    await expect(
+      page.getByRole("navigation", { name: "Breadcrumb" }),
+    ).toHaveCount(0);
 
-    // Product JSON-LD present.
+    // Product + BreadcrumbList JSON-LD present for agents/bots.
     const jsonld = await page
       .locator('script[type="application/ld+json"]')
       .allTextContents();
     expect(
       jsonld.some((s) => s.includes('"Product"')),
       "no Product JSON-LD script on the PDP",
+    ).toBe(true);
+    expect(
+      jsonld.some((s) => s.includes('"BreadcrumbList"')),
+      "no BreadcrumbList JSON-LD script on the PDP",
     ).toBe(true);
   });
 

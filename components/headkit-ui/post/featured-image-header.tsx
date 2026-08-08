@@ -10,7 +10,7 @@ interface FeaturedImageHeaderProps {
 /**
  * Full-bleed hero for project (and similar) detail pages.
  * Matches {@link MainCarousel}: `mx-5`, `rounded-brand`, square media on
- * mobile / `60vh`–`80vh` on desktop, and title scale (`text-3xl` → `md:text-5xl`).
+ * mobile / `60vh`–`80vh` on desktop, and 48px hero title with Auto line-height.
  */
 export function FeaturedImageHeader({
   title,
@@ -24,7 +24,7 @@ export function FeaturedImageHeader({
         <div className="z-10 h-full w-full md:absolute">
           <div className="mx-auto flex h-full items-center">
             <div className="py-[20px] md:w-[400px] md:pl-[20px] lg:w-[600px] lg:pl-[100px]">
-              <h1 className="text-3xl leading-[1.3]! text-primary md:text-5xl md:text-brand-bg!">
+              <h1 className="text-[48px] leading-normal text-primary md:text-brand-bg!">
                 {decodedTitle}
               </h1>
               {subtitle ? (

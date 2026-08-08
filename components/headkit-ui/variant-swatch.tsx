@@ -50,7 +50,7 @@ const VariantSwatch = ({
         title={label}
         onClick={onClick}
         className={cn(
-          "relative cursor-pointer rounded-full border outline transition-all hover:outline-primary",
+          "relative cursor-pointer rounded-brand-button border outline transition-all hover:outline-primary",
           size === "default"
             ? "h-6 w-6 outline-2 outline-offset-1"
             : "h-4 w-4 outline-1 outline-offset-1",

@@ -326,7 +326,7 @@ function DesktopMenuSection({
               <NavigationMenuTrigger
                 asChild
                 className={cn(
-                  "font-body text-primary hover:text-primary",
+                  "font-body font-semibold text-primary hover:text-primary",
                   isHighlightedItem(item, highlightedLinks) &&
                     "text-pink-500 hover:!text-pink-600",
                 )}
@@ -362,7 +362,7 @@ function DesktopMenuSection({
                 pendingVariant="text"
                 className={cn(
                   navigationMenuTriggerStyle(),
-                  "font-body text-primary hover:text-primary",
+                  "font-body font-semibold text-primary hover:text-primary",
                   isHighlightedItem(item, highlightedLinks) &&
                     "text-pink-500 hover:!text-pink-600",
                 )}

@@ -32,9 +32,18 @@ export function ProductCardSkeleton({
             <Skeleton animated={animated} className="h-[17px] w-[62%]" />
             {showSwatches ? (
               <div className="flex items-center gap-2 pt-0.5">
-                <Skeleton animated={animated} className="size-4 rounded-full" />
-                <Skeleton animated={animated} className="size-4 rounded-full" />
-                <Skeleton animated={animated} className="size-4 rounded-full" />
+                <Skeleton
+                  animated={animated}
+                  className="size-4 rounded-brand-button"
+                />
+                <Skeleton
+                  animated={animated}
+                  className="size-4 rounded-brand-button"
+                />
+                <Skeleton
+                  animated={animated}
+                  className="size-4 rounded-brand-button"
+                />
               </div>
             ) : null}
           </div>
@@ -65,7 +74,7 @@ export function ProductGridSkeleton({
   return (
     <div
       className={cn(
-        "grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4",
+        "grid grid-cols-1 gap-[30px] min-[480px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4",
         className,
       )}
     >

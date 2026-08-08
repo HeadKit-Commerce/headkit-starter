@@ -36,7 +36,7 @@ export function ProductGrid() {
 
   return (
     <div className="px-5 md:px-10 z-5">
-      <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-[30px] min-[480px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
         {isLoadingBefore && <LoadingSkeleton count={skeletonCount} />}
         {products.map((product, index) => (
           // Only the first two cards compete for LCP preload (ENG-856). Prefetching

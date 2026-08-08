@@ -200,7 +200,7 @@ async function ProjectArticleContent({
           ) : null}
 
           {projectProducts.length > 0 ? (
-            <div className="overflow-hidden py-[30px] lg:pb-[30px] lg:pt-[60px]">
+            <div className="overflow-x-clip py-[30px] lg:pb-[30px] lg:pt-[60px]">
               <SectionHeader
                 title="Products in this project"
                 description="Shop the products featured in this project."

@@ -24,6 +24,9 @@ interface CarouselProps<T> {
     base: string;
     sm?: string;
     lg?: string;
+    /** Extra-wide screens (e.g. 4 columns when lg is 3). */
+    xl?: string;
+    "2xl"?: string;
   };
   showControls?: boolean;
   showScrollbar?: boolean;
@@ -50,14 +53,16 @@ const Carousel = <T,>({
   carouselItemClassName,
   id = "carousel",
   className,
-  gap = "gap-[14px]",
+  gap = "gap-[30px]",
   padding = "px-5 md:px-10",
   trackClassName,
   centerWhenFits = false,
   itemSizing = {
-    base: "w-[calc(91.666667%-7px)]",
-    sm: "sm:w-[calc(50%-7px)]",
-    lg: "lg:w-[calc(33.333333%-9.33px)]",
+    // ~1.1 / 2 / 3 columns — 4 columns on extra-wide (xl+); gap 30px
+    base: "w-[calc(91.666667%-15px)]",
+    sm: "sm:w-[calc(50%-15px)]",
+    lg: "lg:w-[calc(33.333333%-20px)]",
+    xl: "xl:w-[calc(25%-22.5px)]",
   },
   showControls = true,
   showScrollbar = true,
@@ -212,7 +217,13 @@ const Carousel = <T,>({
     });
   };
 
-  const itemSizeClasses = [itemSizing.base, itemSizing.sm, itemSizing.lg]
+  const itemSizeClasses = [
+    itemSizing.base,
+    itemSizing.sm,
+    itemSizing.lg,
+    itemSizing.xl,
+    itemSizing["2xl"],
+  ]
     .filter(Boolean)
     .join(" ");
 
@@ -227,7 +238,8 @@ const Carousel = <T,>({
       <div
         ref={containerRef}
         className={cn(
-          "flex overflow-x-auto scroll-smooth",
+          // Vertical padding keeps selected swatch outlines inside overflow parents
+          "flex overflow-x-auto scroll-smooth py-2",
           gap,
           padding,
           trackClassName,
@@ -296,7 +308,7 @@ const Carousel = <T,>({
       )}
 
       {canScroll && showScrollbar && (
-        <div className={cn("mt-4 md:mt-6", padding)}>
+        <div className={cn("mt-4 md:mt-6 mb-20", padding)}>
           <input
             type="range"
             min={0}

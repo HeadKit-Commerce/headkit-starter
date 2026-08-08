@@ -31,7 +31,7 @@ export function SectionHeader({
       )}
     >
       <div className="flex min-w-0 max-w-2xl flex-col gap-2">
-        <h2 className="text-2xl text-primary">{decodeHtmlEntities(title)}</h2>
+        <h2 className="text-primary">{decodeHtmlEntities(title)}</h2>
         {description ? (
           <div
             className="font-medium text-primary [&_p]:m-0"

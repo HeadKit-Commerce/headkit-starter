@@ -17,6 +17,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { cn, decodeHtmlEntities } from "@/lib/utils";
 import { Transition } from "@headlessui/react";
+import { useIsQuoteMode } from "@/components/checkout/checkout-mode-provider";
 import { useCollection } from "./collection-context";
 import { FilterMenuItem } from "./filter-menu-item";
 import { CategoryFilter } from "./category-filter";
@@ -28,15 +29,16 @@ import { SortMenu, MobileSortMenu } from "./sort-menu";
 import type { ProductFilterAttribute } from "@headkit/sdk";
 
 /** Shared count of active facets — drives the mobile drawer badge. */
-function useActiveFacetCount() {
+function useActiveFacetCount(includeCommerceFacets: boolean) {
   const { filterValues } = useCollection();
   return (
     filterValues.categories.length +
     filterValues.brands.length +
     Object.values(filterValues.attributes).reduce((n, a) => n + a.length, 0) +
-    (filterValues.instock ? 1 : 0) +
+    (includeCommerceFacets && filterValues.instock ? 1 : 0) +
+    (includeCommerceFacets &&
     ((filterValues.price_min ?? "") !== "" ||
-    (filterValues.price_max ?? "") !== ""
+      (filterValues.price_max ?? "") !== "")
       ? 1
       : 0)
   );
@@ -45,9 +47,12 @@ function useActiveFacetCount() {
 export function Filter() {
   const { filterValues, productFilter, isLoading, setFilterValues } =
     useCollection();
+  const isQuoteMode = useIsQuoteMode();
   const [menuOpen, setMenuOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const activeCount = useActiveFacetCount();
+  // Price + In Stock are commerce facets — hide for HeadKit Quote checkout.
+  const showCommerceFacets = !isQuoteMode;
+  const activeCount = useActiveFacetCount(showCommerceFacets);
 
   const categories = (productFilter.categories ?? [])
     .filter((c): c is NonNullable<typeof c> => !!c?.slug && !!c?.name)
@@ -104,7 +109,7 @@ export function Filter() {
           })}
         >
           <div className="flex w-full items-center justify-between overflow-x-auto py-5 pr-4 scrollbar-hide">
-            <NavigationMenuList className="flex items-center gap-0 -ml-4">
+            <NavigationMenuList className="flex items-center gap-0">
               {categories.length > 0 && (
                 <FilterMenuItem
                   label="Category"
@@ -118,17 +123,19 @@ export function Filter() {
                 <BrandFilter />
               </FilterMenuItem>
 
-              <FilterMenuItem
-                label="Price"
-                count={
-                  (filterValues.price_min ?? "") !== "" ||
-                  (filterValues.price_max ?? "") !== ""
-                    ? 1
-                    : 0
-                }
-              >
-                <PriceFilter />
-              </FilterMenuItem>
+              {showCommerceFacets && (
+                <FilterMenuItem
+                  label="Price"
+                  count={
+                    (filterValues.price_min ?? "") !== "" ||
+                    (filterValues.price_max ?? "") !== ""
+                      ? 1
+                      : 0
+                  }
+                >
+                  <PriceFilter />
+                </FilterMenuItem>
+              )}
 
               {attributes.map((attr) => (
                 <FilterMenuItem
@@ -149,7 +156,9 @@ export function Filter() {
               {/* <li> wrapper: NavigationMenuList is a <ul>, and a bare <div>
                   child fails the a11y list rule (the same toggle renders
                   without it in the mobile drawer, outside any list). */}
-              <NavigationMenuItem>{inStockToggle}</NavigationMenuItem>
+              {showCommerceFacets && (
+                <NavigationMenuItem>{inStockToggle}</NavigationMenuItem>
+              )}
 
               <ClearFiltersButton />
             </NavigationMenuList>
@@ -174,7 +183,7 @@ export function Filter() {
               type="button"
               className={cn(
                 navigationMenuTriggerStyle(),
-                "relative -ml-4 cursor-pointer font-semibold",
+                "relative cursor-pointer font-semibold",
               )}
             >
               Filters
@@ -205,10 +214,12 @@ export function Filter() {
                 <h3 className="mb-3 text-sm text-primary">Brand</h3>
                 <BrandFilter />
               </section>
-              <section className="border-b border-gray-200 px-5 py-5">
-                <h3 className="mb-3 text-sm text-primary">Price</h3>
-                <PriceFilter />
-              </section>
+              {showCommerceFacets && (
+                <section className="border-b border-gray-200 px-5 py-5">
+                  <h3 className="mb-3 text-sm text-primary">Price</h3>
+                  <PriceFilter />
+                </section>
+              )}
               {attributes.map((attr) => (
                 <section
                   key={attr.slug}
@@ -220,9 +231,11 @@ export function Filter() {
                   <AttributeFilter attribute={attr} />
                 </section>
               ))}
-              <section className="border-b border-gray-200 px-5 py-4">
-                {inStockToggle}
-              </section>
+              {showCommerceFacets && (
+                <section className="border-b border-gray-200 px-5 py-4">
+                  {inStockToggle}
+                </section>
+              )}
               <div className="px-5 pt-4">
                 <ClearFiltersButton />
               </div>

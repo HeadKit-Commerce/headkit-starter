@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ProductGridSkeleton } from "@/components/headkit-ui/skeletons/product-card-skeleton";
 
 interface CollectionPageSkeletonProps {
-  /** "collection" = breadcrumb + h1 + description; "brand" = breadcrumb + h1 */
+  /** "collection" = h1 + description (+ optional featured image); "brand" = h1 */
   variant?: "collection" | "brand";
 }
 
@@ -20,9 +20,8 @@ export function CollectionPageSkeleton({
 }: CollectionPageSkeletonProps) {
   return (
     <div>
-      <div className="mb-5 grid grid-cols-1 gap-5 px-4 md:grid-cols-2 md:px-10">
-        <div className="pt-5">
-          <Skeleton animated={false} className="mb-5 h-4 w-48 max-w-full" />
+      <div className="mb-5 grid grid-cols-1 gap-6 px-5 md:grid-cols-12 md:gap-8 md:px-10 md:pt-8">
+        <div className="pt-5 md:col-span-4 md:pt-0">
           {variant === "brand" ? (
             <Skeleton
               animated={false}
@@ -31,7 +30,7 @@ export function CollectionPageSkeleton({
           ) : null}
           <Skeleton
             animated={false}
-            className="mb-[10px] h-9 w-56 max-w-full md:h-10"
+            className="mb-[10px] h-9 w-56 max-w-full"
           />
           <div className="space-y-2">
             <Skeleton animated={false} className="h-4 w-full max-w-md" />
@@ -39,18 +38,16 @@ export function CollectionPageSkeleton({
           </div>
         </div>
         {variant === "collection" ? (
-          <div className="flex justify-center md:justify-end md:pt-5">
-            <Skeleton
-              animated={false}
-              className="aspect-[4/3] h-auto w-full max-w-xs rounded-brand md:h-28 md:w-56 md:aspect-auto"
-            />
-          </div>
+          <Skeleton
+            animated={false}
+            className="aspect-[915/458] w-full md:col-span-8 md:aspect-auto md:min-h-[320px]"
+          />
         ) : null}
       </div>
 
       {/* Subcategory / child carousel strip (common on parent categories) */}
       {variant === "collection" ? (
-        <div className="mb-5 flex gap-3 overflow-hidden px-4 md:px-10">
+        <div className="mb-5 flex gap-[30px] overflow-hidden px-5 md:px-10">
           {Array.from({ length: 5 }, (_, i) => (
             <Skeleton
               key={i}

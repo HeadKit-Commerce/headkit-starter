@@ -165,7 +165,7 @@ function FooterMenuColumn({
             key={item.id}
             href={item.uri}
             target={item.target ?? "_self"}
-            className="w-fit hover:underline"
+            className="w-fit leading-relaxed hover:underline"
           >
             {decodeHtmlEntities(item.label)}
           </Link>

@@ -155,7 +155,7 @@ const BlockEditor = ({ blocks, section }: Props) => {
           if (products.length === 0) return null;
           return (
             <div
-              className="headkit-product-carousel overflow-hidden py-10"
+              className="headkit-product-carousel overflow-x-clip py-10"
               key={index}
             >
               <SectionHeader
@@ -341,7 +341,7 @@ const Callout = ({ title, content, buttons }: CalloutProps) => {
         <div className="grid grid-cols-1 md:grid-cols-12">
           <div className="flex flex-col gap-6 md:col-span-6 md:col-start-4">
             <div>
-              <h2 className="mb-5 text-3xl text-primary">{title}</h2>
+              <h2 className="mb-5 text-primary">{title}</h2>
               <div
                 dangerouslySetInnerHTML={{ __html: content }}
                 className="prose max-w-full text-primary"

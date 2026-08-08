@@ -313,7 +313,7 @@ async function ProductPageContent({ params }: Props) {
       ) : null}
 
       {upsellsAsProducts.length > 0 && (
-        <section className="overflow-hidden py-10">
+        <section className="overflow-x-clip py-10">
           <SectionHeader
             title="You might also like…"
             description=""
@@ -329,7 +329,7 @@ async function ProductPageContent({ params }: Props) {
       )}
 
       {relatedAsProducts.length > 0 && (
-        <section className="overflow-hidden py-10">
+        <section className="overflow-x-clip py-10">
           <SectionHeader
             title="Something similar"
             description=""

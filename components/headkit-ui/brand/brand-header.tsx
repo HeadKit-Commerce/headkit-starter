@@ -1,12 +1,15 @@
 import Image from "next/image";
 import sanitize from "sanitize-html";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { decodeHtmlEntities } from "@/lib/utils";
 
 interface BrandHeaderProps {
   name: string;
   description?: string | null | undefined;
   thumbnailUrl?: string | null | undefined;
+  /**
+   * Kept for callers / agent reference — not rendered on the storefront.
+   * BreadcrumbList JSON-LD is emitted separately for bots.
+   */
   breadcrumbs?: { name: string; uri: string; current: boolean }[] | undefined;
 }
 
@@ -14,18 +17,12 @@ export function BrandHeader({
   name,
   description,
   thumbnailUrl,
-  breadcrumbs,
 }: BrandHeaderProps) {
   const decodedName = decodeHtmlEntities(name);
-  const decodedBreadcrumbs = breadcrumbs?.map((b) => ({
-    ...b,
-    name: decodeHtmlEntities(b.name),
-  }));
   return (
     <div className="overflow-x-clip">
-      <div className="mb-5 grid grid-cols-1 gap-5 px-4 md:grid-cols-2 md:px-10">
+      <div className="mb-5 grid grid-cols-1 gap-5 px-5 md:grid-cols-2 md:px-10">
         <div className="pt-5">
-          {decodedBreadcrumbs && <Breadcrumb items={decodedBreadcrumbs} />}
           {thumbnailUrl && (
             <div className="mt-5 mb-3 h-20 w-40 relative">
               <Image
@@ -38,7 +35,7 @@ export function BrandHeader({
               />
             </div>
           )}
-          <h1 className="mb-[10px] mt-5 text-3xl">{decodedName}</h1>
+          <h1 className="mb-[10px] mt-5">{decodedName}</h1>
           {description && (
             <p dangerouslySetInnerHTML={{ __html: sanitize(description) }} />
           )}

@@ -31,7 +31,6 @@ import { cn, decodeHtmlEntities, formatWooRichText } from "@/lib/utils";
 import { isInWishlist, toggleWishlist } from "@/lib/wishlist";
 import type { GiftCardFormValues } from "@/components/gift-card-form";
 import { DeliveryType } from "@/components/gift-card-delivery-type";
-import { Breadcrumb } from "@/components/headkit-ui/breadcrumb";
 import { ProductEnquiry } from "@/components/headkit-ui/product-enquiry";
 import { isColorAttrSlug } from "@/components/headkit-ui/collection/utils";
 import { buildEnquiryInitialValues } from "@/lib/enquiry-form-values";
@@ -56,6 +55,10 @@ type StorefrontProduct = ProductFieldsFragment | Product;
 interface Props {
   product: StorefrontProduct;
   initialSearchParams?: Record<string, string>;
+  /**
+   * Kept for callers / agent reference — not rendered on the storefront.
+   * BreadcrumbList JSON-LD is emitted separately for bots.
+   */
   breadcrumbItems?: { name: string; uri: string; current: boolean }[];
   /** Color slug from URL path segment — enables path-based routing mode */
   initialColor?: string;
@@ -86,7 +89,6 @@ const ENQUIRY_FORM_ID = "3";
 export function ProductDetail({
   product,
   initialSearchParams,
-  breadcrumbItems,
   initialColor,
   productBasePath,
   stockSlot,
@@ -444,17 +446,7 @@ export function ProductDetail({
 
         {/* Right: product info */}
         <div className="flex flex-col">
-          {breadcrumbItems && (
-            <div className="mb-4">
-              <Breadcrumb
-                items={breadcrumbItems.map((b) => ({
-                  ...b,
-                  name: decodeHtmlEntities(b.name),
-                }))}
-              />
-            </div>
-          )}
-          <h1 className="mb-3 text-2xl leading-tight text-primary md:text-3xl">
+          <h1 className="mb-3 text-primary">
             {decodeHtmlEntities(product.name)}
           </h1>
 
@@ -578,17 +570,19 @@ export function ProductDetail({
             </Suspense>
           )}
 
-          {/* Availability status */}
-          <div className="mb-4">
-            {stockSlot ?? (
-              <AvailabilityStatus
-                stockStatus={stockStatus}
-                stockQuantity={
-                  (selectedVariation ?? product).stockQuantity ?? null
-                }
-              />
-            )}
-          </div>
+          {/* Availability status — hidden for HeadKit Quote checkout */}
+          {!isQuoteMode && (
+            <div className="mb-4">
+              {stockSlot ?? (
+                <AvailabilityStatus
+                  stockStatus={stockStatus}
+                  stockQuantity={
+                    (selectedVariation ?? product).stockQuantity ?? null
+                  }
+                />
+              )}
+            </div>
+          )}
 
           {/* Price */}
           <div className="mb-6">
