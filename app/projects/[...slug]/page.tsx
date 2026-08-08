@@ -70,6 +70,8 @@ function mapRelatedToProduct(r: RelatedProduct): Product {
     related: [],
     averageRating: "0",
     reviewCount: 0,
+    reviewsEnabled: false,
+    specifications: null,
     brands: [],
     crossSells: [],
     upsells: [],

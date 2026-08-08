@@ -247,13 +247,7 @@ const Carousel = <T,>({
     updateScrollState();
     container.addEventListener("scroll", updateScrollState);
     return () => container.removeEventListener("scroll", updateScrollState);
-  }, [
-    isFade,
-    updateScrollState,
-    filteredItems.length,
-    currentIndex,
-    loop,
-  ]);
+  }, [isFade, updateScrollState, filteredItems.length, currentIndex, loop]);
 
   useEffect(() => {
     if (autoplay?.enabled) startAutoplay();

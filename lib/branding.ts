@@ -357,10 +357,9 @@ const CHECKOUT_TYPE_QUERY = /* GraphQL */ `
   }
 `;
 
-interface FlatBranding
-  extends Partial<
-    Omit<Branding, "showVariants" | "showSwatches" | "imageRollover">
-  > {
+interface FlatBranding extends Partial<
+  Omit<Branding, "showVariants" | "showSwatches" | "imageRollover">
+> {
   headingFontSource?: string | null;
   headingFontFamily?: string | null;
   headingFontGoogleSlug?: string | null;

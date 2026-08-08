@@ -83,9 +83,7 @@ function HtmlSegment({
   return (
     <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
       <div>
-        {showTitle ? (
-          <h1 className="mb-6 text-primary">{title}</h1>
-        ) : null}
+        {showTitle ? <h1 className="mb-6 text-primary">{title}</h1> : null}
         {copyHtml ? <EditorialContent html={copyHtml} /> : null}
       </div>
       <GravityFormColumn html={html} formFallback={formFallback} />

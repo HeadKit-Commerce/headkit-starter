@@ -63,10 +63,9 @@ test.describe("PDP: rendering, colorway paths, size persistence, stock, legacy U
     await expect(
       page.getByRole("button", { name: /add to cart/i }),
     ).toBeEnabled();
-    // Tabs row renders (test-product-12 has no description, so the
-    // always-present Reviews tab proves the row; the Description tab is
-    // asserted on classic-tee in the legacy-URL test).
-    await expect(page.getByRole("button", { name: "Reviews" })).toBeVisible();
+    // Reviews accordion only renders when WooCommerce Enable reviews is on
+    // for the store/product — do not require it here. Description is
+    // asserted on classic-tee in the legacy-URL test.
 
     // Breadcrumbs are bot/JSON-LD only — not rendered in the storefront UI.
     await expect(

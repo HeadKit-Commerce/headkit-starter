@@ -66,10 +66,7 @@ async function getProjectFilters() {
 async function getProjectsPage(brand: string, tag: string, page: number) {
   "use cache: remote";
   cacheLife("hours");
-  cacheTag(
-    TAG.projects,
-    `projects:${brand || "all"}:${tag || "all"}:${page}`,
-  );
+  cacheTag(TAG.projects, `projects:${brand || "all"}:${tag || "all"}:${page}`);
   return sdk.projects.list({
     page,
     perPage: PER_PAGE,

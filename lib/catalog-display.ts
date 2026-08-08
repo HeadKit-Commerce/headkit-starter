@@ -35,8 +35,8 @@ export function expandCatalogProducts(
   products: ReadonlyArray<ProductSummaryFieldsFragment | null | undefined>,
   showVariants: boolean,
 ): CatalogProduct[] {
-  const list = products.filter(
-    (p): p is ProductSummaryFieldsFragment => Boolean(p?.slug),
+  const list = products.filter((p): p is ProductSummaryFieldsFragment =>
+    Boolean(p?.slug),
   );
 
   if (!showVariants) {

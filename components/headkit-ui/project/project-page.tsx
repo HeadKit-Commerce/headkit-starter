@@ -26,10 +26,7 @@ export function ProjectPage({
   const brands = projectFilters?.brands ?? [];
   const tags = projectFilters?.tags ?? [];
 
-  const pushFilters = (next: {
-    brand?: string;
-    tag?: string;
-  }): void => {
+  const pushFilters = (next: { brand?: string; tag?: string }): void => {
     const params = new URLSearchParams();
     const brand = "brand" in next ? (next.brand ?? "") : activeBrand;
     const tag = "tag" in next ? (next.tag ?? "") : activeTag;

@@ -63,13 +63,11 @@ export const ProductCard = ({
 
   const href = productUrl(
     product?.slug ?? "",
-    (lockedColour ?? colourSelected) ?? undefined,
+    lockedColour ?? colourSelected ?? undefined,
   );
 
   const hoverSrc =
-    imageRollover && product.hoverImage?.src
-      ? product.hoverImage.src
-      : null;
+    imageRollover && product.hoverImage?.src ? product.hoverImage.src : null;
   const displaySrc =
     isHovering && hoverSrc && hoverSrc !== imageSelected
       ? hoverSrc

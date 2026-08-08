@@ -408,6 +408,17 @@ export function ProductDetail({
     });
   }
 
+  // Optional until staging gateway exposes these fields and ProductFields
+  // requests them again (commerce deploy lags PR preview builds).
+  const pdpExtras = product as ProductFieldsFragment & {
+    reviewsEnabled?: boolean;
+    specifications?: string | null;
+  };
+  const reviewsEnabled = Boolean(pdpExtras.reviewsEnabled);
+  const specifications = pdpExtras.specifications?.trim()
+    ? pdpExtras.specifications
+    : null;
+
   const tabs: Array<{
     key: string;
     label: string;
@@ -419,15 +430,24 @@ export function ProductDetail({
       hasContent: !!product.description,
     },
     {
+      key: "specifications",
+      label: "Specifications",
+      hasContent: !!specifications?.trim(),
+    },
+    {
       key: "additional",
       label: "Additional Info",
       hasContent:
         product.attributes.filter((a) => a.visible && !a.variation).length > 0,
     },
-    { key: "reviews", label: "Reviews", hasContent: true },
+    {
+      key: "reviews",
+      label: "Reviews",
+      hasContent: reviewsEnabled,
+    },
   ];
 
-  const visibleTabs = tabs.filter((t) => t.hasContent || t.key === "reviews");
+  const visibleTabs = tabs.filter((t) => t.hasContent);
 
   const handleWishlistToggle = () => {
     const { added } = toggleWishlist({ id: product.id, slug: product.slug });
@@ -695,7 +715,7 @@ export function ProductDetail({
             </div>
           )}
 
-          {/* Accordion: Description / Additional Info / Reviews */}
+          {/* Accordion: Description / Specifications / Additional Info / Reviews */}
           {visibleTabs.length > 0 && visibleTabs[0] && (
             <div className="border-t pt-2">
               <Accordion
@@ -720,12 +740,24 @@ export function ProductDetail({
                         />
                       )}
 
+                      {tab.key === "specifications" && specifications && (
+                        <div
+                          className="prose max-w-none text-base text-primary prose-p:my-3 prose-p:first:mt-0 prose-p:last:mb-0"
+                          dangerouslySetInnerHTML={{
+                            __html: formatWooRichText(specifications),
+                          }}
+                        />
+                      )}
+
                       {tab.key === "additional" && (
                         <div className="space-y-3">
                           {product.attributes
                             .filter((a) => a.visible && !a.variation)
                             .map((attr) => (
-                              <div key={attr.id} className="flex gap-4 text-base">
+                              <div
+                                key={attr.id}
+                                className="flex gap-4 text-base"
+                              >
                                 <span className="w-32 shrink-0 font-medium text-gray-700">
                                   {decodeHtmlEntities(attr.name)}
                                 </span>
