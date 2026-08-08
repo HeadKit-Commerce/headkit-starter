@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { BadgeList } from "@/components/headkit-ui/badge-list";
@@ -38,6 +38,12 @@ export function ProductImageGallery({
   const galleryImages: GalleryImage[] = images.length
     ? images
     : [{ src: FALLBACK_IMAGE_SRC, alt: "No product image available" }];
+
+  // Reset mobile carousel when the image set changes (e.g. colourway swap).
+  const galleryKey = galleryImages.map((img) => img.src).join("|");
+  useEffect(() => {
+    setMobileIndex(0);
+  }, [galleryKey]);
 
   const goTo = useCallback(
     (index: number) => {

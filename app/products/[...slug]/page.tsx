@@ -92,6 +92,7 @@ function mapRelatedToProduct(
       onSale: v.onSale,
       stockStatus: v.stockStatus,
       image: { src: v.image.src },
+      images: (v.images ?? []).map((img) => ({ src: img.src })),
       attributes: v.attributes,
     })),
   };

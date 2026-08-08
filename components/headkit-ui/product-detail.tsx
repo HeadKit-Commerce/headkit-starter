@@ -263,16 +263,22 @@ export function ProductDetail({
   );
 
   const galleryImages = useMemo(() => {
+    // Variation-owned gallery replaces the parent product gallery entirely
+    // (hide parent featured + gallery while that colourway is selected).
+    const variationGallery = (selectedVariation?.images ?? [])
+      .filter((img) => Boolean(img?.src))
+      .map((img) => ({
+        src: img.src,
+        alt: img.alt || product.name,
+      }));
+    if (variationGallery.length > 0) {
+      return variationGallery;
+    }
+
     const base = product.images.map((img) => ({
       src: img.src,
       alt: img.alt,
     }));
-    if (selectedVariation?.image?.src) {
-      return [
-        { src: selectedVariation.image.src, alt: selectedVariation.image.alt },
-        ...base.filter((b) => b.src !== selectedVariation.image.src),
-      ];
-    }
     return base.length > 0
       ? base
       : [{ src: "/placeholder.png", alt: product.name }];

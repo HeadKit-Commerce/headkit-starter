@@ -66,8 +66,19 @@ export const ProductCard = ({
     lockedColour ?? colourSelected ?? undefined,
   );
 
-  const hoverSrc =
-    imageRollover && product.hoverImage?.src ? product.hoverImage.src : null;
+  const selectedVariationForHover =
+    isVariableProduct(product) && colourSelected
+      ? product.variations.find((variation) =>
+          variation.attributes.some((attr) => colourSelected === attr.value),
+        )
+      : undefined;
+  // Prefer the second variation-owned gallery image for rollover; parent
+  // hoverImage is the fallback when the colourway has no gallery.
+  const hoverSrc = imageRollover
+    ? (selectedVariationForHover?.images?.[1]?.src ??
+      product.hoverImage?.src ??
+      null)
+    : null;
   const displaySrc =
     isHovering && hoverSrc && hoverSrc !== imageSelected
       ? hoverSrc

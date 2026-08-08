@@ -103,6 +103,7 @@ describe("expandCatalogProducts", () => {
             onSale: false,
             stockStatus: "IN_STOCK",
             image: { src: "/red.jpg" },
+            images: [{ src: "/red.jpg" }, { src: "/red-hover.jpg" }],
             attributes: [{ key: "pa_colour", value: "red" }],
           },
           {
@@ -113,6 +114,7 @@ describe("expandCatalogProducts", () => {
             onSale: false,
             stockStatus: "IN_STOCK",
             image: { src: "/blue.jpg" },
+            images: [{ src: "/blue.jpg" }],
             attributes: [{ key: "pa_colour", value: "blue" }],
           },
         ],
@@ -124,7 +126,10 @@ describe("expandCatalogProducts", () => {
     expect(result.map((p) => p.colorwaySlug)).toEqual(["red", "blue"]);
     expect(result[0]?.image?.src).toBe("/red.jpg");
     expect(result[1]?.image?.src).toBe("/blue.jpg");
-    expect(result[0]?.hoverImage?.src).toBe("/hover.jpg");
+    // Red has a second variation gallery image → colourway-specific rollover.
+    expect(result[0]?.hoverImage?.src).toBe("/red-hover.jpg");
+    // Blue has no second image → fall back to parent hoverImage.
+    expect(result[1]?.hoverImage?.src).toBe("/hover.jpg");
   });
 
   it("does not expand size-only attributes", () => {

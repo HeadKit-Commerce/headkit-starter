@@ -61,6 +61,9 @@ export function expandCatalogProducts(
       );
 
       const imageSrc = matchingVar?.image?.src || product.image?.src || "";
+      // Second variation gallery image for card rollover; fall back to parent.
+      const hoverSrc =
+        matchingVar?.images?.[1]?.src || product.hoverImage?.src || null;
       out.push({
         ...product,
         id: `${product.id}:${colourSlug}`,
@@ -78,6 +81,14 @@ export function expandCatalogProducts(
                 height: 0,
               }
             : null,
+        hoverImage: hoverSrc
+          ? {
+              src: hoverSrc,
+              alt: product.name ?? "",
+              width: product.hoverImage?.width ?? 0,
+              height: product.hoverImage?.height ?? 0,
+            }
+          : null,
       });
     }
   }
