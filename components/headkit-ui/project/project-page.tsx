@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import type {
   ProjectSummaryFieldsFragment,
   ProjectFilters,
@@ -17,22 +17,27 @@ interface ProjectPageProps {
 export function ProjectPage({
   initialProjects,
   projectFilters,
-  activeBrand,
-  activeTag,
+  activeBrand = "",
+  activeTag = "",
 }: ProjectPageProps): React.ReactElement {
-  const [brandFilter, setBrandFilter] = useState(activeBrand ?? "");
-  const [tagFilter, setTagFilter] = useState(activeTag ?? "");
+  const router = useRouter();
+  const pathname = usePathname();
 
   const brands = projectFilters?.brands ?? [];
   const tags = projectFilters?.tags ?? [];
 
-  const filtered = initialProjects.filter((project) => {
-    if (brandFilter && project.brand?.slug !== brandFilter) return false;
-    if (tagFilter && !project.tags?.some((t) => t.slug === tagFilter)) {
-      return false;
-    }
-    return true;
-  });
+  const pushFilters = (next: {
+    brand?: string;
+    tag?: string;
+  }): void => {
+    const params = new URLSearchParams();
+    const brand = "brand" in next ? (next.brand ?? "") : activeBrand;
+    const tag = "tag" in next ? (next.tag ?? "") : activeTag;
+    if (brand) params.set("brand", brand);
+    if (tag) params.set("tag", tag);
+    const qs = params.toString();
+    router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  };
 
   return (
     <div className="flex flex-col gap-8">
@@ -40,9 +45,9 @@ export function ProjectPage({
         <div className="flex items-center gap-3 overflow-x-auto px-5 py-4 scrollbar-hide md:px-10">
           <button
             type="button"
-            onClick={() => setBrandFilter("")}
+            onClick={() => pushFilters({ brand: "" })}
             className={`cursor-pointer whitespace-nowrap rounded-brand-button px-4 py-2 text-sm font-medium transition-colors ${
-              brandFilter === ""
+              activeBrand === ""
                 ? "bg-primary text-white"
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
@@ -53,9 +58,9 @@ export function ProjectPage({
             <button
               type="button"
               key={brand.id}
-              onClick={() => setBrandFilter(brand.slug)}
+              onClick={() => pushFilters({ brand: brand.slug })}
               className={`cursor-pointer whitespace-nowrap rounded-brand-button px-4 py-2 text-sm font-medium transition-colors ${
-                brandFilter === brand.slug
+                activeBrand === brand.slug
                   ? "bg-primary text-white"
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
@@ -70,9 +75,9 @@ export function ProjectPage({
         <div className="flex items-center gap-3 overflow-x-auto px-5 pb-2 scrollbar-hide md:px-10">
           <button
             type="button"
-            onClick={() => setTagFilter("")}
+            onClick={() => pushFilters({ tag: "" })}
             className={`cursor-pointer whitespace-nowrap rounded-brand-button px-4 py-2 text-sm font-medium transition-colors ${
-              tagFilter === ""
+              activeTag === ""
                 ? "bg-primary text-white"
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
@@ -83,9 +88,9 @@ export function ProjectPage({
             <button
               type="button"
               key={tag.id}
-              onClick={() => setTagFilter(tag.slug)}
+              onClick={() => pushFilters({ tag: tag.slug })}
               className={`cursor-pointer whitespace-nowrap rounded-brand-button px-4 py-2 text-sm font-medium transition-colors ${
-                tagFilter === tag.slug
+                activeTag === tag.slug
                   ? "bg-primary text-white"
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
@@ -96,7 +101,8 @@ export function ProjectPage({
         </div>
       ) : null}
 
-      <ProjectGrid projects={filtered} />
+      {/* Server already applied brand/tag query params — do not re-slice. */}
+      <ProjectGrid projects={initialProjects} />
     </div>
   );
 }

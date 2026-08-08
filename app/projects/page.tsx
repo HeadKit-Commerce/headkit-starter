@@ -4,6 +4,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
 import { PostHeader } from "@/components/headkit-ui/post/post-header";
 import { ProjectPage } from "@/components/headkit-ui/project/project-page";
+import { EditorialGridSkeleton } from "@/components/headkit-ui/skeletons/editorial-grid-skeleton";
 import { makeSeoMetadata } from "@/lib/make-metadata";
 import { getBranding } from "@/lib/branding";
 import { TAG } from "@/lib/cache-tags";
@@ -11,6 +12,7 @@ import { TAG } from "@/lib/cache-tags";
 const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 const FALLBACK_TITLE = "Projects";
 const FALLBACK_DESCRIPTION = "Explore our latest projects and case studies.";
+const PER_PAGE = 24;
 
 async function getProjectsLanding() {
   "use cache";
@@ -57,6 +59,25 @@ async function getProjectFilters() {
   return sdk.projects.getFilters();
 }
 
+/**
+ * Durable project list read — keyed on brand/tag/page. Public content, safe
+ * for remote cache (mirrors collection `getCatalogPage`).
+ */
+async function getProjectsPage(brand: string, tag: string, page: number) {
+  "use cache: remote";
+  cacheLife("hours");
+  cacheTag(
+    TAG.projects,
+    `projects:${brand || "all"}:${tag || "all"}:${page}`,
+  );
+  return sdk.projects.list({
+    page,
+    perPage: PER_PAGE,
+    ...(brand ? { brand } : {}),
+    ...(tag ? { tag } : {}),
+  });
+}
+
 async function ProjectsServer({
   searchParams,
 }: {
@@ -65,14 +86,17 @@ async function ProjectsServer({
   const sp = await searchParams;
   const activeBrand = sp.brand ?? "";
   const activeTag = sp.tag ?? "";
+  const page = sp.page ? parseInt(sp.page, 10) || 1 : 1;
 
   const [projectsResult, projectFilters] = await Promise.all([
-    sdk.projects.list({
-      perPage: 12,
-      ...(activeBrand ? { brand: activeBrand } : {}),
-      ...(activeTag ? { tag: activeTag } : {}),
-    }),
-    getProjectFilters(),
+    getProjectsPage(activeBrand, activeTag, page).catch(() => ({
+      projects: [],
+      page: 1,
+      perPage: PER_PAGE,
+      total: 0,
+      totalPages: 0,
+    })),
+    getProjectFilters().catch(() => ({ brands: [], tags: [] })),
   ]);
 
   return (
@@ -104,7 +128,7 @@ export default function Page({ searchParams }: Props): React.ReactElement {
               { name: FALLBACK_TITLE, uri: "/projects", current: true },
             ]}
           />
-          <div className="min-h-[40vh]" />
+          <EditorialGridSkeleton aspect="square" />
         </>
       }
     >
@@ -130,7 +154,7 @@ async function ProjectsLanding({
           { name: title, uri: "/projects", current: true },
         ]}
       />
-      <Suspense>
+      <Suspense fallback={<EditorialGridSkeleton aspect="square" />}>
         <ProjectsServer searchParams={searchParams} />
       </Suspense>
     </>

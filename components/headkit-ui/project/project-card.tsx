@@ -1,12 +1,16 @@
 import Image from "next/image";
 import { InstantLink } from "@/components/headkit-ui/instant-link";
-import { decodeHtmlEntities } from "@/lib/utils";
+import { CATALOG_GRID_IMAGE_SIZES } from "@/components/headkit-ui/catalog-grid";
+import { cn, decodeHtmlEntities } from "@/lib/utils";
 import type { ProjectSummaryFieldsFragment } from "@headkit/sdk";
 
 interface ProjectCardProps {
   project: ProjectSummaryFieldsFragment;
   /** Image crop. Default `square` (home / listings). Use `video` on PDP only. */
   imageAspect?: "square" | "video";
+  /** Mark early-grid images as LCP candidates. */
+  priority?: boolean;
+  className?: string;
 }
 
 /**
@@ -16,6 +20,8 @@ interface ProjectCardProps {
 export function ProjectCard({
   project,
   imageAspect = "square",
+  priority = false,
+  className,
 }: ProjectCardProps): React.ReactElement {
   const href = project.uri ?? `/projects/${project.slug}/`;
   const title = decodeHtmlEntities(project.title ?? "");
@@ -30,7 +36,7 @@ export function ProjectCard({
     imageAspect === "video" ? "aspect-video" : "aspect-square";
 
   return (
-    <InstantLink href={href}>
+    <InstantLink href={href} className={cn("block", className)}>
       <div className="w-full">
         {project.featuredImage?.src ? (
           <div
@@ -40,7 +46,10 @@ export function ProjectCard({
               alt={project.featuredImage.alt ?? title}
               src={project.featuredImage.src}
               fill
+              priority={priority}
+              fetchPriority={priority ? "high" : "auto"}
               className="object-cover"
+              sizes={CATALOG_GRID_IMAGE_SIZES}
             />
           </div>
         ) : (

@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { CATALOG_GRID_IMAGE_SIZES } from "@/components/headkit-ui/catalog-grid";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -53,8 +54,7 @@ const FeaturedImage = ({
           "object-center",
           fit === "contain" ? "object-contain" : "object-cover",
         )}
-        // Match product-grid breakpoints: 1 → 2 ≥480 → 3 ≥md → 4 ≥xl
-        sizes="(max-width: 479px) 91vw, (max-width: 767px) 50vw, (max-width: 1279px) 33vw, 25vw"
+        sizes={CATALOG_GRID_IMAGE_SIZES}
       />
     </div>
   );

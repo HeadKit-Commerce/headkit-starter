@@ -74,7 +74,7 @@ export function ProductGridSkeleton({
   return (
     <div
       className={cn(
-        "grid grid-cols-1 gap-[30px] min-[480px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4",
+        "grid grid-cols-1 gap-x-[30px] gap-y-8 min-[480px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4",
         className,
       )}
     >

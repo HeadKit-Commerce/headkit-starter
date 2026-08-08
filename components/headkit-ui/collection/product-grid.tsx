@@ -3,6 +3,7 @@
 import { useCollection } from "./collection-context";
 import { ProductCard } from "@/components/headkit-ui/product-card";
 import { ProductCardSkeleton } from "@/components/headkit-ui/skeletons/product-card-skeleton";
+import { CATALOG_GRID_CLASS } from "@/components/headkit-ui/catalog-grid";
 
 function LoadingSkeleton({ count = 8 }: { count?: number }) {
   return (
@@ -36,7 +37,7 @@ export function ProductGrid() {
 
   return (
     <div className="px-5 md:px-10 z-5">
-      <div className="grid grid-cols-1 gap-[30px] min-[480px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+      <div className={CATALOG_GRID_CLASS}>
         {isLoadingBefore && <LoadingSkeleton count={skeletonCount} />}
         {products.map((product, index) => (
           // Only the first two cards compete for LCP preload (ENG-856). Prefetching

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { Suspense } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
@@ -61,6 +61,19 @@ export async function getPageData(
   cacheLife("days");
   cacheTag(TAG.page(contentSlug));
   return sdk.content.get(contentSlug, "PAGE").catch(() => null);
+}
+
+/**
+ * WordPress Reading → Posts page slug (e.g. "insights"). Nav often links here;
+ * the storefront post collection lives at `/news`. Redirect so posts show.
+ */
+async function getPostsLandingSlug(): Promise<string | null> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(TAG.posts, TAG.pages);
+  const landing = await sdk.posts.getLanding().catch(() => null);
+  const slug = landing?.slug?.trim();
+  return slug || null;
 }
 
 /**
@@ -128,7 +141,20 @@ export const instant = true;
 async function CmsRoute({ params }: Props) {
   const { slug } = await params;
   if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) return notFound();
-  const page = await getPageData(slug.join("/"));
+  const contentSlug = slug.join("/");
+
+  // Posts page may use any WP slug (Insights, Blog, …). That page alone has no
+  // post grid — send visitors to the /news collection (ENG-558).
+  const postsLandingSlug = await getPostsLandingSlug();
+  if (
+    postsLandingSlug &&
+    contentSlug === postsLandingSlug &&
+    postsLandingSlug !== "news"
+  ) {
+    permanentRedirect("/news");
+  }
+
+  const page = await getPageData(contentSlug);
 
   if (!page) return notFound();
 

@@ -4,6 +4,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
 import { PostHeader } from "@/components/headkit-ui/post/post-header";
 import { PostPage } from "@/components/headkit-ui/post/post-page";
+import { EditorialGridSkeleton } from "@/components/headkit-ui/skeletons/editorial-grid-skeleton";
 import { CarouselPostJsonLD } from "@/components/seo/carousel-post-json-ld";
 import { makeSeoMetadata } from "@/lib/make-metadata";
 import { getBranding } from "@/lib/branding";
@@ -13,6 +14,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 const FALLBACK_TITLE = "News";
 const FALLBACK_DESCRIPTION =
   "Stay up to date with our latest news and articles.";
+const PER_PAGE = 24;
 
 async function getNewsLanding() {
   "use cache";
@@ -55,6 +57,21 @@ async function getPostFilters() {
   return sdk.posts.getFilters();
 }
 
+/**
+ * Durable post list read — keyed on category + page. Public content, safe for
+ * remote cache (mirrors collection `getCatalogPage`).
+ */
+async function getPostsPage(category: string, page: number) {
+  "use cache: remote";
+  cacheLife("hours");
+  cacheTag(TAG.posts, category ? `posts:cat:${category}` : "posts:all");
+  return sdk.posts.list({
+    page,
+    perPage: PER_PAGE,
+    ...(category ? { category } : {}),
+  });
+}
+
 async function PostsServer({
   searchParams,
 }: {
@@ -62,13 +79,17 @@ async function PostsServer({
 }) {
   const sp = await searchParams;
   const activeCategory = sp.category ?? "";
+  const page = sp.page ? parseInt(sp.page, 10) || 1 : 1;
 
   const [postsResult, postFilters] = await Promise.all([
-    sdk.posts.list({
-      perPage: 12,
-      ...(activeCategory ? { category: activeCategory } : {}),
-    }),
-    getPostFilters(),
+    getPostsPage(activeCategory, page).catch(() => ({
+      posts: [],
+      page: 1,
+      perPage: PER_PAGE,
+      total: 0,
+      totalPages: 0,
+    })),
+    getPostFilters().catch(() => ({ categories: [] })),
   ]);
 
   return (
@@ -95,14 +116,17 @@ export default function Page({ searchParams }: Props) {
   return (
     <Suspense
       fallback={
-        <PostHeader
-          name={FALLBACK_TITLE}
-          description={FALLBACK_DESCRIPTION}
-          breadcrumbs={[
-            { name: "Home", uri: "/", current: false },
-            { name: FALLBACK_TITLE, uri: "/news", current: true },
-          ]}
-        />
+        <>
+          <PostHeader
+            name={FALLBACK_TITLE}
+            description={FALLBACK_DESCRIPTION}
+            breadcrumbs={[
+              { name: "Home", uri: "/", current: false },
+              { name: FALLBACK_TITLE, uri: "/news", current: true },
+            ]}
+          />
+          <EditorialGridSkeleton aspect="video" />
+        </>
       }
     >
       <NewsRoute searchParams={searchParams} />
@@ -125,7 +149,7 @@ async function NewsRoute({ searchParams }: Props) {
           { name: title, uri: "/news", current: true },
         ]}
       />
-      <Suspense>
+      <Suspense fallback={<EditorialGridSkeleton aspect="video" />}>
         <PostsServer searchParams={searchParams} />
       </Suspense>
     </>

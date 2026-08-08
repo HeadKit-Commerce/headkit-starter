@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import type { PostSummaryFieldsFragment, PostFilters } from "@headkit/sdk";
 import { PostGrid } from "./post-grid";
 
@@ -13,9 +13,10 @@ interface PostPageProps {
 export function PostPage({
   initialPosts,
   postFilters,
-  activeCategory,
+  activeCategory = "",
 }: PostPageProps) {
-  const [activeFilter, setActiveFilter] = useState(activeCategory ?? "");
+  const router = useRouter();
+  const pathname = usePathname();
 
   // Hide WordPress's default "Uncategorized" bucket from the filter row —
   // it is noise, not a real editorial category (F10). Posts that only have
@@ -24,28 +25,37 @@ export function PostPage({
     (c) => c.slug !== "uncategorized",
   );
 
+  const setCategory = (slug: string): void => {
+    const params = new URLSearchParams();
+    if (slug) params.set("category", slug);
+    const qs = params.toString();
+    router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  };
+
   return (
     <div className="flex flex-col gap-8">
       {categories.length > 0 && (
-        <div className="flex items-center gap-3 overflow-x-auto px-5 md:px-10 py-4 scrollbar-hide">
+        <div className="flex items-center gap-3 overflow-x-auto px-5 py-4 scrollbar-hide md:px-10">
           <button
-            onClick={() => setActiveFilter("")}
+            type="button"
+            onClick={() => setCategory("")}
             className={`cursor-pointer whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-              activeFilter === ""
+              activeCategory === ""
                 ? "bg-primary text-white"
-                : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
           >
             All
           </button>
           {categories.map((cat) => (
             <button
+              type="button"
               key={cat.id}
-              onClick={() => setActiveFilter(cat.slug)}
+              onClick={() => setCategory(cat.slug)}
               className={`cursor-pointer whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                activeFilter === cat.slug
+                activeCategory === cat.slug
                   ? "bg-primary text-white"
-                  : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
               {cat.name}
@@ -53,15 +63,8 @@ export function PostPage({
           ))}
         </div>
       )}
-      <PostGrid
-        posts={
-          activeFilter
-            ? initialPosts.filter((p) =>
-                p.categories?.some((c) => c.slug === activeFilter),
-              )
-            : initialPosts
-        }
-      />
+      {/* Server already applied `?category=` — do not re-slice the first page. */}
+      <PostGrid posts={initialPosts} />
     </div>
   );
 }
