@@ -30,6 +30,14 @@
   --color-primary: #7f54b3;
   --color-secondary: #000000;
   --color-primary-text: #ffffff;
+  /* Editorial ink — the colour of headings, prose headings and bare anchors.
+     These used to be painted with --color-primary unconditionally, which is a
+     brand accent chosen for FILLED surfaces, not for text on the page
+     background; a light primary made every heading and link on the site
+     unreadable. Defaults to the body text colour, so a store that has not
+     rebranded is unchanged. Point this at --color-primary in
+     overrides/styles.css to restore the old look per store. */
+  --color-editorial-ink: var(--color-text, var(--foreground));
   /* Page/surface background — theme colour so md:text-brand-bg /
      bg-brand-bg/85 generate with responsive + opacity variants.
      References runtime --background (layout.tsx), not --color-background,
@@ -118,10 +126,17 @@
     line-height: normal;
   }
 
+  /*
+   * Font family stays branded; COLOUR does not. --color-editorial-ink beats a
+   * per-store branding edit because the value it replaced (--color-primary) is
+   * the same token the merchant sets for filled controls — there is no branding
+   * entry that can be both a legible heading colour and a strong accent, so the
+   * split has to live here.
+   */
   h1,
   h2 {
     font-family: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
-    color: var(--color-primary);
+    color: var(--color-editorial-ink);
   }
 
   h3,
@@ -129,23 +144,26 @@
   h5,
   h6 {
     font-family: var(--font-subheading), ui-sans-serif, system-ui, sans-serif;
-    color: var(--color-primary);
+    color: var(--color-editorial-ink);
   }
 
-  /* Explicit utility so components can opt in without fighting prose resets */
+  /* Explicit utility so components can opt in without fighting prose resets.
+     Retained deliberately: components that WANT the primary keep it, and this
+     class beats the h1–h6 rules above because it is later in the same layer
+     with equal specificity. */
   .heading-primary {
     color: var(--color-primary);
   }
 
   /*
    * Tailwind Typography paints headings via --tw-prose-headings (gray by
-   * default), which beats the base h1–h6 rules above. Point it at branding
-   * primary so editorial/About/FAQ prose matches storefront headings.
+   * default), which beats the base h1–h6 rules above. Point it at editorial
+   * ink so editorial/About/FAQ prose matches storefront headings.
    * Also force WordPress "Auto" line-height (normal) over prose's fixed
    * leading on body copy and headings; editor inline line-height still wins.
    */
   .prose {
-    --tw-prose-headings: var(--color-primary);
+    --tw-prose-headings: var(--color-editorial-ink);
     line-height: normal;
   }
 
@@ -171,8 +189,11 @@
     line-height: normal;
   }
 
+  /* Bare anchors inherit editorial ink, not the accent. Any anchor that should
+     read as an accent link opts in with `text-primary`, which is a utility and
+     therefore beats this base rule. */
   a {
-    color: var(--color-primary);
+    color: var(--color-editorial-ink);
   }
 }
 

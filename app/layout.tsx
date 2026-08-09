@@ -21,6 +21,7 @@ import {
 } from "@/lib/make-metadata";
 import { getBranding, getBrandingAssets } from "@/lib/branding";
 import { resolveBrandFonts } from "@/lib/brand-fonts";
+import { resolveOnPrimaryTextColor } from "@/lib/contrast";
 import { BrandingIconsProvider } from "@/components/branding/branding-icons-provider";
 import { GoogleTagManager } from "@next/third-parties/google";
 import { getEmailMarketingStatus } from "@/lib/email-marketing";
@@ -141,15 +142,22 @@ export default async function RootLayout({
   const cornerVars =
     CORNER_STYLE_VARS[branding.cornerStyle] ?? CORNER_STYLE_VARS.soft;
 
-  // CTA / on-primary text uses the brand background so primary-filled buttons
-  // and hero titles stay legible against the tenant primary colour.
+  // CTA / on-primary text: the brand background is KEPT whenever it already
+  // clears 4.5:1 against the primary, and only otherwise falls back to black or
+  // white. This replaces an unconditional alias to the background, which was
+  // correct only while the primary was dark — a light primary over a light
+  // background (mint on white ≈ 1.7:1) made every filled control unreadable,
+  // and no branding value a merchant can enter could fix it.
+  const onPrimaryText = background
+    ? resolveOnPrimaryTextColor(primary, background)
+    : null;
   const brandVars = [
     primary
       ? `--color-primary: ${primary}; --color-purple-500: ${primary}; --color-purple-800: ${primary};`
       : "",
     secondary ? `--color-secondary: ${secondary};` : "",
     background
-      ? `--color-background: ${background}; --background: ${background}; --color-primary-text: ${background};`
+      ? `--color-background: ${background}; --background: ${background}; --color-primary-text: ${onPrimaryText ?? background};`
       : "",
     text
       ? `--color-text: ${text}; --foreground: ${text}; --color-purple-900: ${text};`
