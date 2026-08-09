@@ -15,7 +15,13 @@ import {
   GooglePayIcon,
 } from "@/components/icon";
 import { FooterSubscribe } from "@/components/headkit-ui/footer-subscribe";
+import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { cn, decodeHtmlEntities } from "@/lib/utils";
+
+/** Same-origin app routes get Instant Navigation prefetch; external keep Link. */
+function isAppPath(href: string): boolean {
+  return href.startsWith("/") && !href.startsWith("//");
+}
 
 // ---------------------------------------------------------------------------
 // HeadKit SVG assets
@@ -160,16 +166,33 @@ function FooterMenuColumn({
         </div>
       ) : null}
       <div className="flex flex-col justify-center">
-        {items.map((item) => (
-          <Link
-            key={item.id}
-            href={item.uri}
-            target={item.target ?? "_self"}
-            className="w-fit leading-relaxed hover:underline"
-          >
-            {decodeHtmlEntities(item.label)}
-          </Link>
-        ))}
+        {items.map((item) => {
+          const label = decodeHtmlEntities(item.label);
+          const className = "w-fit leading-relaxed hover:underline";
+          if (isAppPath(item.uri)) {
+            return (
+              <InstantLink
+                key={item.id}
+                href={item.uri}
+                pendingVariant="text"
+                target={item.target ?? "_self"}
+                className={className}
+              >
+                {label}
+              </InstantLink>
+            );
+          }
+          return (
+            <Link
+              key={item.id}
+              href={item.uri}
+              target={item.target ?? "_self"}
+              className={className}
+            >
+              {label}
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

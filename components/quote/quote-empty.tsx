@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { InstantLink } from "@/components/headkit-ui/instant-link";
 
 /**
  * Empty quote state — browse CTA plus contact fallback when not ready to quote.
@@ -31,14 +32,14 @@ export function QuoteEmpty(): React.ReactElement {
             </Link>{" "}
             instead.
           </p>
-          <Link href="/shop">
+          <InstantLink href="/shop" pendingVariant="text">
             <Button
               className="shadow-none focus-visible:ring-0"
               rightIcon="arrowRight"
             >
               Browse collections
             </Button>
-          </Link>
+          </InstantLink>
         </div>
       </div>
     </div>

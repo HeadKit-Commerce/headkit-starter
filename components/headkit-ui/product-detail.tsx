@@ -34,6 +34,10 @@ import { DeliveryType } from "@/components/gift-card-delivery-type";
 import { ProductEnquiry } from "@/components/headkit-ui/product-enquiry";
 import { isColorAttrSlug } from "@/components/headkit-ui/collection/utils";
 import { buildEnquiryInitialValues } from "@/lib/enquiry-form-values";
+import {
+  attributesForColourway,
+  colourSlugFromProductPath,
+} from "@/lib/product-colourway-nav";
 import { findSwatchAttribute } from "@/lib/swatch-attribute";
 import {
   Accordion,
@@ -184,6 +188,47 @@ export function ProductDetail({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // intentionally run once on mount only
 
+  // Warm sibling colourway URLs so Instant Navigation / hard refresh stay fast.
+  // Swatch clicks themselves use History API (below) — no RSC round-trip.
+  useEffect(() => {
+    if (!productBasePath || !isVariable) return;
+    const colorKey = findSwatchAttribute(variationAttributes)?.slug;
+    if (!colorKey) return;
+    const colorAttr = variationAttributes.find((a) => a.slug === colorKey);
+    for (const option of colorAttr?.fullOptions ?? []) {
+      if (option.slug) {
+        router.prefetch(`${productBasePath}/${option.slug}`);
+      }
+    }
+  }, [productBasePath, isVariable, variationAttributes, router]);
+
+  // Back/forward: History API updates usePathname without remounting — sync
+  // selected colourway (and cascade size if needed) from the path.
+  useEffect(() => {
+    if (!productBasePath || !isVariable) return;
+    const colorKey = findSwatchAttribute(variationAttributes)?.slug;
+    if (!colorKey) return;
+
+    const colourFromPath = colourSlugFromProductPath(pathname, productBasePath);
+    if (!colourFromPath) return;
+
+    setSelectedAttributes((prev) => {
+      if (prev[colorKey] === colourFromPath) return prev;
+      return attributesForColourway(
+        product.variations,
+        colorKey,
+        colourFromPath,
+        prev,
+      );
+    });
+  }, [
+    pathname,
+    productBasePath,
+    isVariable,
+    variationAttributes,
+    product.variations,
+  ]);
+
   const syncUrlWithAttributes = useCallback(
     (attrs: Record<string, string>) => {
       const params = new URLSearchParams();
@@ -209,12 +254,14 @@ export function ProductDetail({
           localStorage.setItem(`headkit:size:${product.slug}`, next[sizeKey]);
         }
 
-        // Navigate when color changes; otherwise just update state
+        // Colourway path URLs are SEO/shareable, but the product payload already
+        // includes every colourway. Update UI + URL via History API so we skip
+        // App Router soft-nav (Suspense/`loading` shell flash on first switch).
+        // @see https://nextjs.org/docs/app/building-your-application/routing/linking-and-navigating#using-the-native-history-api
         if (colorKey && next[colorKey] !== selectedAttributes[colorKey]) {
-          router.push(`${productBasePath}/${next[colorKey]}`, {
-            scroll: false,
-          });
-          // Don't update state — new page will initialize correctly
+          setSelectedAttributes(next);
+          const colourUrl = `${productBasePath}/${next[colorKey]}`;
+          window.history.pushState(null, "", colourUrl);
           return;
         }
 
@@ -230,7 +277,6 @@ export function ProductDetail({
       product.slug,
       variationAttributes,
       selectedAttributes,
-      router,
       syncUrlWithAttributes,
     ],
   );
@@ -454,6 +500,16 @@ export function ProductDetail({
     setWishlisted(added);
   };
 
+  const colorKey = findSwatchAttribute(variationAttributes)?.slug;
+  const selectedColor = colorKey ? selectedAttributes[colorKey] : undefined;
+  // Server stockSlot is keyed to the SSR colourway. After a shallow colour
+  // switch, show client variation stock so the badge stays in sync.
+  const useServerStock =
+    Boolean(stockSlot) &&
+    (!productBasePath ||
+      selectedColor === initialColor ||
+      (!selectedColor && !initialColor));
+
   return (
     <>
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
@@ -593,7 +649,9 @@ export function ProductDetail({
           {/* Availability status — hidden for HeadKit Quote checkout */}
           {!isQuoteMode && (
             <div className="mb-4">
-              {stockSlot ?? (
+              {useServerStock ? (
+                stockSlot
+              ) : (
                 <AvailabilityStatus
                   stockStatus={stockStatus}
                   stockQuantity={

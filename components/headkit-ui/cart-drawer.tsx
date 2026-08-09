@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { CartItemRow } from "@/components/headkit-ui/cart-item";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
+import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { useChromeIcons } from "@/components/branding/branding-icons-provider";
 import { useIsQuoteMode } from "@/components/checkout/checkout-mode-provider";
 import { getCartAction } from "@/lib/cart-actions";
@@ -88,7 +89,7 @@ export function CartDrawer() {
                   "Have a look around our selection of products to get ready for your next adventure."
                 )}
               </p>
-              <Link href="/shop">
+              <InstantLink href="/shop" pendingVariant="text">
                 <Button
                   fullWidth
                   suppressHydrationWarning
@@ -97,7 +98,7 @@ export function CartDrawer() {
                 >
                   {isQuoteMode ? "Browse collections" : "Start shopping"}
                 </Button>
-              </Link>
+              </InstantLink>
             </>
           )}
         </div>

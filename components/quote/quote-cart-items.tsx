@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { XIcon } from "@/components/icon";
 import { cn } from "@/lib/utils";
@@ -11,6 +10,7 @@ import {
   updateCartItemAction,
 } from "@/lib/cart-actions";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
+import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { QuantityStepper } from "@/components/headkit-ui/quantity-stepper";
 import {
   GiftCardDetails,
@@ -94,7 +94,7 @@ function QuoteCartItem({
     <div className="space-y-1.5">
       <div className="flex gap-4 md:gap-5">
         {productHref ? (
-          <Link
+          <InstantLink
             href={productHref}
             onClick={() => toggleCart(false)}
             className="relative h-[120px] w-[120px] shrink-0 overflow-hidden rounded-[3px] bg-white md:h-[140px] md:w-[140px]"
@@ -107,7 +107,7 @@ function QuoteCartItem({
               quality={50}
               sizes="140px"
             />
-          </Link>
+          </InstantLink>
         ) : (
           <div className="relative h-[120px] w-[120px] shrink-0 overflow-hidden rounded-[3px] bg-white md:h-[140px] md:w-[140px]">
             <Image
@@ -124,13 +124,14 @@ function QuoteCartItem({
         <div className="flex min-w-0 flex-1 flex-col justify-between">
           <div>
             {productHref ? (
-              <Link
+              <InstantLink
                 href={productHref}
+                pendingVariant="text"
                 onClick={() => toggleCart(false)}
                 className="line-clamp-2 text-base font-semibold capitalize text-[#343A40] hover:underline md:text-lg"
               >
                 {item.name}
-              </Link>
+              </InstantLink>
             ) : (
               <p className="line-clamp-2 text-base font-semibold capitalize text-[#343A40] md:text-lg">
                 {item.name}
