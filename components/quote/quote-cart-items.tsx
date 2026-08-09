@@ -3,10 +3,15 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
-import { MinusIcon, PlusIcon, XIcon } from "@/components/icon";
+import { XIcon } from "@/components/icon";
 import { cn } from "@/lib/utils";
-import { removeCartItemAction, updateCartItemAction } from "@/lib/cart-actions";
+import {
+  getCartAction,
+  removeCartItemAction,
+  updateCartItemAction,
+} from "@/lib/cart-actions";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
+import { QuantityStepper } from "@/components/headkit-ui/quantity-stepper";
 import {
   GiftCardDetails,
   type GiftCardDisplay,
@@ -43,43 +48,32 @@ function QuoteCartItem({
 
   const isOutOfStock = item.stockStatus?.toLowerCase() === "outofstock";
   const isOnBackorder = item.stockStatus?.toLowerCase() === "onbackorder";
-  const isAtStockLimit =
-    !isOnBackorder &&
-    item.stockQuantity != null &&
-    quantity >= item.stockQuantity;
+  const maxStock =
+    !isOnBackorder && item.stockQuantity != null ? item.stockQuantity : null;
+
+  const commitQuantity = (updated: number): void => {
+    setQuantity(updated);
+    startTransition(async () => {
+      const result = await updateCartItemAction(item.key, updated);
+      if (result.success) {
+        setCartData(result.cart);
+        return;
+      }
+      const cart = await getCartAction();
+      if (cart) setCartData(cart);
+      else setQuantity(item.quantity);
+    });
+  };
 
   const handleRemove = (): void => {
     startTransition(async () => {
       const result = await removeCartItemAction(item.key);
       if (result.success) {
         setCartData(result.cart);
+        return;
       }
-    });
-  };
-
-  const handleDecrement = (): void => {
-    if (quantity === 1) {
-      handleRemove();
-      return;
-    }
-    const updated = quantity - 1;
-    setQuantity(updated);
-    startTransition(async () => {
-      const result = await updateCartItemAction(item.key, updated);
-      if (result.success) {
-        setCartData(result.cart);
-      }
-    });
-  };
-
-  const handleIncrement = (): void => {
-    const updated = quantity + 1;
-    setQuantity(updated);
-    startTransition(async () => {
-      const result = await updateCartItemAction(item.key, updated);
-      if (result.success) {
-        setCartData(result.cart);
-      }
+      const cart = await getCartAction();
+      if (cart) setCartData(cart);
     });
   };
 
@@ -89,13 +83,13 @@ function QuoteCartItem({
   const variation = item.variation ?? [];
 
   return (
-    <div className="rounded-md border border-[#e5e5e5] bg-white p-4 md:p-5">
+    <div className="space-y-1.5">
       <div className="flex gap-4 md:gap-5">
         {productHref ? (
           <Link
             href={productHref}
             onClick={() => toggleCart(false)}
-            className="relative h-[120px] w-[120px] shrink-0 overflow-hidden rounded-[3px] bg-brand-bg md:h-[140px] md:w-[140px]"
+            className="relative h-[120px] w-[120px] shrink-0 overflow-hidden rounded-[3px] bg-white md:h-[140px] md:w-[140px]"
           >
             <Image
               src={imageSrc}
@@ -107,7 +101,7 @@ function QuoteCartItem({
             />
           </Link>
         ) : (
-          <div className="relative h-[120px] w-[120px] shrink-0 overflow-hidden rounded-[3px] bg-brand-bg md:h-[140px] md:w-[140px]">
+          <div className="relative h-[120px] w-[120px] shrink-0 overflow-hidden rounded-[3px] bg-white md:h-[140px] md:w-[140px]">
             <Image
               src={imageSrc}
               fill
@@ -148,42 +142,26 @@ function QuoteCartItem({
 
           {showQuantityControls ? (
             <div className="mt-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  className={cn(
-                    "flex h-9 w-9 cursor-pointer items-center justify-center border-none bg-transparent p-0 shadow-none outline-none ring-0 appearance-none focus:outline-none focus-visible:outline-none focus-visible:ring-0",
-                    loading && "cursor-not-allowed opacity-40",
-                  )}
-                  onClick={handleDecrement}
-                  disabled={loading}
-                  aria-label="Decrease quantity"
-                >
-                  <MinusIcon className="h-4 w-4 text-primary" />
-                </button>
-                <span className="min-w-6 text-center font-medium text-primary tabular-nums">
-                  {quantity}
-                </span>
-                <button
-                  type="button"
-                  className={cn(
-                    "flex h-9 w-9 cursor-pointer items-center justify-center border-none bg-transparent p-0 shadow-none outline-none ring-0 appearance-none hover:opacity-70 focus:outline-none focus-visible:outline-none focus-visible:ring-0",
-                    (loading || isAtStockLimit || isOutOfStock) &&
-                      "cursor-not-allowed opacity-40",
-                  )}
-                  onClick={handleIncrement}
-                  disabled={loading || isAtStockLimit || isOutOfStock}
-                  aria-label="Increase quantity"
-                >
-                  <PlusIcon className="h-4 w-4 text-primary" />
-                </button>
-              </div>
+              <QuantityStepper
+                value={quantity}
+                min={1}
+                max={isOutOfStock ? quantity : maxStock}
+                disabled={loading || isOutOfStock}
+                onChange={commitQuantity}
+                onDecrement={() => commitQuantity(Math.max(1, quantity - 1))}
+                onIncrement={() => {
+                  const next = quantity + 1;
+                  commitQuantity(
+                    maxStock != null ? Math.min(maxStock, next) : next,
+                  );
+                }}
+              />
 
               <button
                 type="button"
                 onClick={handleRemove}
                 className={cn(
-                  "-m-3 cursor-pointer border-none bg-transparent p-3 shadow-none outline-none ring-0 appearance-none hover:opacity-70 focus:outline-none focus-visible:outline-none focus-visible:ring-0",
+                  "relative z-10 -m-3 cursor-pointer border-none bg-transparent p-3 shadow-none outline-none ring-0 appearance-none hover:opacity-70 focus:outline-none focus-visible:outline-none focus-visible:ring-0",
                   loading && "cursor-not-allowed opacity-40",
                 )}
                 disabled={loading}
@@ -205,19 +183,19 @@ function QuoteCartItem({
 
 export type QuoteCartItemsProps = {
   items: QuoteLineItem[];
-  /** When true, show +/- qty controls (checkout). Confirmation leaves this off. */
+  /** When true, show PDP-style qty controls (checkout). Confirmation leaves this off. */
   showQuantityControls?: boolean;
 };
 
 /**
- * Larger product tiles for Quote checkout / confirmation.
+ * Quote line items — image plate only (no card chrome), matching cart/PLP tiles.
  */
 export function QuoteCartItems({
   items,
   showQuantityControls = false,
 }: QuoteCartItemsProps): React.ReactElement {
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {items.map((item) => (
         <QuoteCartItem
           key={item.key}

@@ -8,18 +8,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
-import {
-  processCheckoutAction,
-  selectShippingRateAction,
-  updateCustomerAction,
-} from "@/app/checkout/actions";
+import { processCheckoutAction } from "@/app/checkout/actions";
+import { EMPTY_CART } from "@/components/checkout/clear-cart";
 import { QuoteCartItems } from "@/components/quote/quote-cart-items";
 import {
   AU_STATES,
   QUOTE_DETAILS_COOKIE,
   QUOTE_INDUSTRIES,
   QUOTE_PAYMENT_METHOD,
-  buildQuotePlaceholderAddress,
+  buildQuoteCheckoutAddress,
   encodeQuoteDetailsCookie,
   type QuoteFormDetails,
 } from "@/lib/quote-form";
@@ -47,10 +44,9 @@ export type QuoteCheckoutProps = {
  * HeadKit Quote checkout — item summary left, details form right.
  * No Stripe; submits via processCheckout with the headkit-quote gateway.
  *
- * WooCommerce still requires billing identity (name + email) and, for
- * shippable carts, a resolvable address + selected shipping rate. Street
- * address / suburb / postcode are filled with placeholders server-side so the
- * form can stay focused on quote fields.
+ * Only name + email are required. The theme relaxes Woo Store API address /
+ * shipping validation for quote payment method so we do not invent street
+ * addresses or select shipping rates.
  */
 export function QuoteCheckout({
   initialCart,
@@ -97,65 +93,10 @@ export function QuoteCheckout({
         setErrorMessage("Please enter your first and last name.");
         return;
       }
-      if (!trimmed.phone) {
-        setErrorMessage("Please enter a phone number.");
-        return;
-      }
-      if (!trimmed.company) {
-        setErrorMessage("Please enter your company.");
-        return;
-      }
-      if (!trimmed.industry) {
-        setErrorMessage("Please select an industry.");
-        return;
-      }
-      if (!trimmed.state) {
-        setErrorMessage("Please select a state.");
-        return;
-      }
 
-      const address = buildQuotePlaceholderAddress(trimmed);
+      const address = buildQuoteCheckoutAddress(trimmed);
 
       try {
-        let cart = await updateCustomerAction({
-          billingAddress: address,
-          shippingAddress: {
-            firstName: address.firstName,
-            lastName: address.lastName,
-            address1: address.address1,
-            address2: address.address2,
-            city: address.city,
-            state: address.state,
-            postcode: address.postcode,
-            country: address.country,
-            phone: address.phone,
-          },
-        });
-        setCartData(cart);
-
-        if (cart.needsShipping) {
-          const pkg = (cart.shippingRates ?? []).find(
-            (p) => (p?.shippingRates?.length ?? 0) > 0,
-          );
-          const selected =
-            pkg?.shippingRates?.find((r) => r?.selected) ??
-            pkg?.shippingRates?.[0];
-          if (pkg?.packageId != null && selected?.rateId) {
-            if (!selected.selected) {
-              cart = await selectShippingRateAction(
-                String(pkg.packageId),
-                selected.rateId,
-              );
-              setCartData(cart);
-            }
-          } else {
-            setErrorMessage(
-              "We could not determine shipping for this quote. Please try again or contact us.",
-            );
-            return;
-          }
-        }
-
         const order = await processCheckoutAction({
           paymentMethod: QUOTE_PAYMENT_METHOD,
           billingAddress: address,
@@ -173,6 +114,7 @@ export function QuoteCheckout({
           paymentData: [
             { key: "headkit_quote_company", value: trimmed.company },
             { key: "headkit_quote_industry", value: trimmed.industry },
+            { key: "headkit_quote_state", value: trimmed.state.toUpperCase() },
           ],
           ...(trimmed.comments ? { customerNote: trimmed.comments } : {}),
         });
@@ -186,6 +128,9 @@ export function QuoteCheckout({
         }
 
         document.cookie = `${QUOTE_DETAILS_COOKIE}=${encodeQuoteDetailsCookie(trimmed)}; path=/; max-age=3600; samesite=lax`;
+
+        // Clear UI cart immediately so the drawer/badge update before navigation.
+        setCartData(EMPTY_CART);
 
         router.push(
           `/quote/success/${encodeURIComponent(orderId)}?key=${encodeURIComponent(orderKey)}`,
@@ -214,19 +159,16 @@ export function QuoteCheckout({
         </p>
       </header>
 
-      <div className="grid grid-cols-1 gap-10 md:grid-cols-12 md:gap-12">
-        <aside className="md:col-span-5 md:order-1">
+      <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:gap-12">
+        <aside className="md:order-1">
           <h2 className="mb-4 text-lg font-medium text-brand-fg">Your items</h2>
-          <QuoteCartItems
-            items={activeCart.items}
-            showQuantityControls
-          />
+          <QuoteCartItems items={activeCart.items} showQuantityControls />
           {(activeCart.itemsCount ?? 0) === 0 && (
             <p className="text-sm text-brand-fg/70">Your quote is empty.</p>
           )}
         </aside>
 
-        <section className="md:col-span-7 md:order-2">
+        <section className="md:order-2">
           <h2 className="mb-4 text-lg font-medium text-brand-fg">
             Your details
           </h2>
@@ -283,7 +225,6 @@ export function QuoteCheckout({
                 value={form.phone}
                 onChange={(e) => setField("phone", e.target.value)}
                 disabled={isPending}
-                required
               />
             </div>
 
@@ -296,7 +237,6 @@ export function QuoteCheckout({
                 value={form.company}
                 onChange={(e) => setField("company", e.target.value)}
                 disabled={isPending}
-                required
               />
             </div>
 
@@ -308,7 +248,6 @@ export function QuoteCheckout({
                 value={form.industry}
                 onChange={(e) => setField("industry", e.target.value)}
                 disabled={isPending}
-                required
               >
                 <option value="">Select industry</option>
                 {QUOTE_INDUSTRIES.map((industry) => (
@@ -328,7 +267,6 @@ export function QuoteCheckout({
                 value={form.state}
                 onChange={(e) => setField("state", e.target.value)}
                 disabled={isPending}
-                required
               >
                 <option value="">Select state</option>
                 {AU_STATES.map((state) => (

@@ -20,7 +20,8 @@ import { getFloatVal, formatPrice, getStoreCurrency } from "@/lib/utils";
 import { PlusIcon } from "@/components/icon";
 
 export function CartDrawer() {
-  const { cartData, setCartData, cartOpen, toggleCart } = useCartContext();
+  const { cartData, optimisticCart, setCartData, cartOpen, toggleCart } =
+    useCartContext();
   const isQuoteMode = useIsQuoteMode();
 
   useEffect(() => {
@@ -30,13 +31,14 @@ export function CartDrawer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const items = cartData?.items ?? [];
-  const currency = cartData?.currency ?? {
+  const displayCart = optimisticCart ?? cartData;
+  const items = displayCart?.items ?? [];
+  const currency = displayCart?.currency ?? {
     code: getStoreCurrency(),
     symbol: "$",
     minorUnit: 2,
   };
-  const totalPrice = getFloatVal(cartData?.totals?.totalItems ?? "0");
+  const totalPrice = getFloatVal(displayCart?.totals?.totalItems ?? "0");
   const checkoutHref = isQuoteMode ? "/quote" : "/checkout";
 
   return (
@@ -80,7 +82,7 @@ export function CartDrawer() {
                   className="shadow-none focus-visible:ring-0"
                   onClick={() => toggleCart(false)}
                 >
-                  Start shopping
+                  {isQuoteMode ? "Browse collections" : "Start shopping"}
                 </Button>
               </Link>
             </>

@@ -2,11 +2,15 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 import { MinusIcon, PlusIcon, XIcon } from "@/components/icon";
 import { cn } from "@/lib/utils";
 import { getFloatVal, formatPrice } from "@/lib/utils";
-import { removeCartItemAction, updateCartItemAction } from "@/lib/cart-actions";
+import {
+  getCartAction,
+  removeCartItemAction,
+  updateCartItemAction,
+} from "@/lib/cart-actions";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { useIsQuoteMode } from "@/components/checkout/checkout-mode-provider";
 import { GiftCardDetails } from "@/components/checkout/gift-card-details";
@@ -28,9 +32,18 @@ export function CartItemRow({
   onCartUpdate,
 }: CartItemProps) {
   const [quantity, setQuantity] = useState(item.quantity);
-  const [loading, startTransition] = useTransition();
-  const { toggleCart } = useCartContext();
+  const {
+    toggleCart,
+    isPending: loading,
+    optimisticRemoveItem,
+    optimisticUpdateQuantity,
+    startCartTransition,
+  } = useCartContext();
   const isQuoteMode = useIsQuoteMode();
+
+  useEffect(() => {
+    setQuantity(item.quantity);
+  }, [item.quantity]);
 
   const isOnSale =
     item.prices.price !== "" &&
@@ -45,11 +58,15 @@ export function CartItemRow({
     quantity >= item.stockQuantity;
 
   const handleRemove = () => {
-    startTransition(async () => {
+    startCartTransition(async () => {
+      optimisticRemoveItem(item.key);
       const result = await removeCartItemAction(item.key);
       if (result.success) {
         onCartUpdate(result.cart);
+        return;
       }
+      const cart = await getCartAction();
+      if (cart) onCartUpdate(cart);
     });
   };
 
@@ -60,22 +77,32 @@ export function CartItemRow({
     }
     const updated = quantity - 1;
     setQuantity(updated);
-    startTransition(async () => {
+    startCartTransition(async () => {
+      optimisticUpdateQuantity(item.key, updated);
       const result = await updateCartItemAction(item.key, updated);
       if (result.success) {
         onCartUpdate(result.cart);
+        return;
       }
+      const cart = await getCartAction();
+      if (cart) onCartUpdate(cart);
+      else setQuantity(item.quantity);
     });
   };
 
   const handleIncrement = async () => {
     const updated = quantity + 1;
     setQuantity(updated);
-    startTransition(async () => {
+    startCartTransition(async () => {
+      optimisticUpdateQuantity(item.key, updated);
       const result = await updateCartItemAction(item.key, updated);
       if (result.success) {
         onCartUpdate(result.cart);
+        return;
       }
+      const cart = await getCartAction();
+      if (cart) onCartUpdate(cart);
+      else setQuantity(item.quantity);
     });
   };
 

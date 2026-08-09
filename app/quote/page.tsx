@@ -9,6 +9,7 @@ import { cookies } from "next/headers";
 import { getBranding } from "@/lib/branding";
 import { normalizeCheckoutMode } from "@/lib/checkout-mode";
 import { QuoteCheckout } from "@/components/quote/quote-checkout";
+import { QuoteEmpty } from "@/components/quote/quote-empty";
 
 /**
  * HeadKit Quote checkout — form-based enquiry flow (no Stripe).
@@ -23,11 +24,8 @@ export default async function QuoteCheckoutPage(): Promise<React.ReactElement> {
 
   let cart = await getFullCartAction();
 
-  if (!cart) {
-    redirect("/quote/error?reason=session_expired");
-  }
-  if (cart.itemsCount === 0) {
-    redirect("/quote/error?reason=empty_cart");
+  if (!cart || cart.itemsCount === 0) {
+    return <QuoteEmpty />;
   }
 
   const validation = validateCartStock(cart.items);
@@ -40,7 +38,7 @@ export default async function QuoteCheckoutPage(): Promise<React.ReactElement> {
     cart = await getFullCartAction();
 
     if (!cart || cart.itemsCount === 0) {
-      redirect("/quote/error?reason=stock_correction_empty");
+      return <QuoteEmpty />;
     }
   }
 

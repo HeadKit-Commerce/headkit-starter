@@ -48,12 +48,15 @@ function cartReducer(
             : item,
         ),
       };
-    case "remove_item":
+    case "remove_item": {
+      const removed = state.items.find((item) => item.key === action.key);
+      const qty = removed?.quantity ?? 1;
       return {
         ...state,
         items: state.items.filter((item) => item.key !== action.key),
-        itemsCount: state.itemsCount - 1,
+        itemsCount: Math.max(0, state.itemsCount - qty),
       };
+    }
     case "set_cart":
       return action.cart;
     default:

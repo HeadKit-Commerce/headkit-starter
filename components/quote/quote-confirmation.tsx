@@ -54,13 +54,13 @@ export function QuoteConfirmation({
         </p>
       </header>
 
-      <div className="grid grid-cols-1 gap-10 md:grid-cols-12 md:gap-12">
-        <aside className="md:col-span-5 md:order-1">
+      <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:gap-12">
+        <aside className="md:order-1">
           <h2 className="mb-4 text-lg font-medium text-brand-fg">Your items</h2>
           <QuoteCartItems items={items} showQuantityControls={false} />
         </aside>
 
-        <section className="md:col-span-7 md:order-2">
+        <section className="md:order-2">
           <h2 className="mb-4 text-lg font-medium text-brand-fg">
             Quote details
           </h2>

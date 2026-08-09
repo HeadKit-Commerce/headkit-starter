@@ -6,7 +6,7 @@ import { getFullCartAction } from "@/lib/cart-actions";
 import type { CartFieldsFragment } from "@headkit/sdk";
 
 /** Minimal empty cart shape used when the server cart is unavailable after checkout. */
-const EMPTY_CART: CartFieldsFragment = {
+export const EMPTY_CART: CartFieldsFragment = {
   __typename: "Cart",
   token: "",
   itemsCount: 0,
@@ -39,6 +39,8 @@ export function ClearCart() {
   const { setCartData } = useCartContext();
 
   useEffect(() => {
+    // Clear badge/drawer immediately, then sync from server (Woo empties post-checkout).
+    setCartData(EMPTY_CART);
     getFullCartAction()
       .then((cart) => setCartData(cart ?? EMPTY_CART))
       .catch(() => setCartData(EMPTY_CART));

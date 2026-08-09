@@ -2,16 +2,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 function QuoteItemSkeleton() {
   return (
-    <div className="rounded-md border border-[#e5e5e5] bg-white p-4 md:p-5">
-      <div className="flex gap-4 md:gap-5">
-        <Skeleton className="h-[120px] w-[120px] shrink-0 rounded-[3px] md:h-[140px] md:w-[140px]" />
-        <div className="flex flex-1 flex-col justify-between space-y-3">
-          <div className="space-y-2">
-            <Skeleton className="h-5 w-3/4" />
-            <Skeleton className="h-4 w-1/2" />
-          </div>
-          <Skeleton className="h-9 w-28" />
+    <div className="flex gap-4 md:gap-5">
+      <Skeleton className="h-[120px] w-[120px] shrink-0 rounded-[3px] md:h-[140px] md:w-[140px]" />
+      <div className="flex flex-1 flex-col justify-between space-y-3">
+        <div className="space-y-2">
+          <Skeleton className="h-5 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
         </div>
+        <Skeleton className="h-10 w-28" />
       </div>
     </div>
   );
@@ -27,14 +25,14 @@ export default function QuoteLoading(): React.ReactElement {
           <Skeleton className="h-5 w-2/3 max-w-md" />
         </div>
 
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-12 md:gap-12">
-          <aside className="space-y-4 md:col-span-5 md:order-1">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:gap-12">
+          <aside className="space-y-5 md:order-1">
             <Skeleton className="h-6 w-28" />
             <QuoteItemSkeleton />
             <QuoteItemSkeleton />
           </aside>
 
-          <section className="md:col-span-7 md:order-2">
+          <section className="md:order-2">
             <Skeleton className="mb-4 h-6 w-32" />
             <div className="space-y-4">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

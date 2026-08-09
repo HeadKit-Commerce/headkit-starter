@@ -36,13 +36,7 @@ export type QuoteFormDetails = {
   comments: string;
 };
 
-/**
- * Placeholder address fields required by WooCommerce Store API / shipping
- * calculation when the quote UI does not collect a full street address.
- */
-export function buildQuotePlaceholderAddress(
-  details: QuoteFormDetails,
-): {
+export type QuoteCheckoutAddress = {
   firstName: string;
   lastName: string;
   address1: string;
@@ -53,20 +47,35 @@ export function buildQuotePlaceholderAddress(
   country: string;
   email: string;
   phone: string;
-} {
+};
+
+/**
+ * Minimal billing/shipping payload for quote checkout.
+ *
+ * Theme relaxes Store API address validation for `headkit-quote`, so street /
+ * city / postcode are left empty. Identity (name + email) is required; phone
+ * and optional state are passed through when present. Industry is surfaced via
+ * address2 for confirmation display (also stored as order meta).
+ */
+export function buildQuoteCheckoutAddress(
+  details: QuoteFormDetails,
+): QuoteCheckoutAddress {
   return {
     firstName: details.firstName,
     lastName: details.lastName,
-    address1: "Quote request",
+    address1: "",
     address2: details.industry,
-    city: "Quote",
-    state: details.state.toUpperCase(),
-    postcode: "2000",
+    city: "",
+    state: details.state ? details.state.toUpperCase() : "",
+    postcode: "",
     country: "AU",
     email: details.email,
     phone: details.phone,
   };
 }
+
+/** @deprecated Use {@link buildQuoteCheckoutAddress}. */
+export const buildQuotePlaceholderAddress = buildQuoteCheckoutAddress;
 
 export function encodeQuoteDetailsCookie(details: QuoteFormDetails): string {
   return encodeURIComponent(JSON.stringify(details));
