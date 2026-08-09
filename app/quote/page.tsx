@@ -12,7 +12,7 @@ import { QuoteCheckout } from "@/components/quote/quote-checkout";
 
 /**
  * HeadKit Quote checkout — form-based enquiry flow (no Stripe).
- * Creates a WooCommerce order via the headkit-quote gateway (Pending payment).
+ * Creates a WooCommerce order via the headkit-quote gateway (Quote status).
  */
 export default async function QuoteCheckoutPage(): Promise<React.ReactElement> {
   const { storeSettings } = await getBranding();
@@ -57,7 +57,7 @@ export default async function QuoteCheckoutPage(): Promise<React.ReactElement> {
   return (
     <div className="min-h-screen bg-brand-bg text-brand-fg">
       {stockCorrectionMessage ? (
-        <div className="mx-auto max-w-6xl px-4 pt-6">
+        <div className="px-5 pt-6 md:px-10">
           <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
             <svg
               className="mt-0.5 h-4 w-4 shrink-0 text-amber-500"

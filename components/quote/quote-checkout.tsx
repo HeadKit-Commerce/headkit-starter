@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { CartFieldsFragment } from "@headkit/sdk";
-import { Cart } from "@/components/checkout/cart";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,37 +13,30 @@ import {
   selectShippingRateAction,
   updateCustomerAction,
 } from "@/app/checkout/actions";
+import { QuoteCartItems } from "@/components/quote/quote-cart-items";
+import {
+  AU_STATES,
+  QUOTE_DETAILS_COOKIE,
+  QUOTE_INDUSTRIES,
+  QUOTE_PAYMENT_METHOD,
+  buildQuotePlaceholderAddress,
+  encodeQuoteDetailsCookie,
+  type QuoteFormDetails,
+} from "@/lib/quote-form";
 
-/** Offline Woo gateway registered by the HeadKit theme (Pending payment). */
-const QUOTE_PAYMENT_METHOD = "headkit-quote";
-
-type QuoteFormState = {
-  email: string;
-  firstName: string;
-  lastName: string;
-  phone: string;
-  address1: string;
-  address2: string;
-  city: string;
-  state: string;
-  postcode: string;
-  country: string;
-  customerNote: string;
-};
-
-const INITIAL_FORM: QuoteFormState = {
+const INITIAL_FORM: QuoteFormDetails = {
   email: "",
   firstName: "",
   lastName: "",
   phone: "",
-  address1: "",
-  address2: "",
-  city: "",
+  company: "",
+  industry: "",
   state: "",
-  postcode: "",
-  country: "AU",
-  customerNote: "",
+  comments: "",
 };
+
+const selectClassName =
+  "mt-1.5 flex h-10 w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm";
 
 export type QuoteCheckoutProps = {
   initialCart: CartFieldsFragment;
@@ -54,6 +46,11 @@ export type QuoteCheckoutProps = {
 /**
  * HeadKit Quote checkout — item summary left, details form right.
  * No Stripe; submits via processCheckout with the headkit-quote gateway.
+ *
+ * WooCommerce still requires billing identity (name + email) and, for
+ * shippable carts, a resolvable address + selected shipping rate. Street
+ * address / suburb / postcode are filled with placeholders server-side so the
+ * form can stay focused on quote fields.
  */
 export function QuoteCheckout({
   initialCart,
@@ -61,7 +58,7 @@ export function QuoteCheckout({
 }: QuoteCheckoutProps): React.ReactElement {
   const router = useRouter();
   const { cartData, setCartData, toggleCart } = useCartContext();
-  const [form, setForm] = useState<QuoteFormState>(() => ({
+  const [form, setForm] = useState<QuoteFormDetails>(() => ({
     ...INITIAL_FORM,
     email: customerEmail ?? "",
   }));
@@ -77,9 +74,12 @@ export function QuoteCheckout({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- seed once on mount
   }, []);
 
-  const setField = useCallback((field: keyof QuoteFormState, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  }, []);
+  const setField = useCallback(
+    (field: keyof QuoteFormDetails, value: string) => {
+      setForm((prev) => ({ ...prev, [field]: value }));
+    },
+    [],
+  );
 
   const submitQuote = useCallback(() => {
     startTransition(async () => {
@@ -87,41 +87,36 @@ export function QuoteCheckout({
 
       const trimmed = Object.fromEntries(
         Object.entries(form).map(([k, v]) => [k, v.trim()]),
-      ) as QuoteFormState;
+      ) as QuoteFormDetails;
 
       if (!trimmed.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed.email)) {
         setErrorMessage("Please enter a valid email address.");
         return;
       }
-      if (
-        !trimmed.firstName ||
-        !trimmed.lastName ||
-        !trimmed.address1 ||
-        !trimmed.city ||
-        !trimmed.state ||
-        !trimmed.postcode
-      ) {
-        setErrorMessage(
-          "Please complete your name and address so we can prepare your quote.",
-        );
+      if (!trimmed.firstName || !trimmed.lastName) {
+        setErrorMessage("Please enter your first and last name.");
+        return;
+      }
+      if (!trimmed.phone) {
+        setErrorMessage("Please enter a phone number.");
+        return;
+      }
+      if (!trimmed.company) {
+        setErrorMessage("Please enter your company.");
+        return;
+      }
+      if (!trimmed.industry) {
+        setErrorMessage("Please select an industry.");
+        return;
+      }
+      if (!trimmed.state) {
+        setErrorMessage("Please select a state.");
         return;
       }
 
-      const address = {
-        firstName: trimmed.firstName,
-        lastName: trimmed.lastName,
-        address1: trimmed.address1,
-        address2: trimmed.address2,
-        city: trimmed.city,
-        state: trimmed.state.toUpperCase(),
-        postcode: trimmed.postcode,
-        country: trimmed.country || "AU",
-        email: trimmed.email,
-        phone: trimmed.phone,
-      };
+      const address = buildQuotePlaceholderAddress(trimmed);
 
       try {
-        // Push billing + shipping onto the cart session before finalize.
         let cart = await updateCustomerAction({
           billingAddress: address,
           shippingAddress: {
@@ -138,7 +133,6 @@ export function QuoteCheckout({
         });
         setCartData(cart);
 
-        // If the cart needs shipping, select the first available rate.
         if (cart.needsShipping) {
           const pkg = (cart.shippingRates ?? []).find(
             (p) => (p?.shippingRates?.length ?? 0) > 0,
@@ -156,7 +150,7 @@ export function QuoteCheckout({
             }
           } else {
             setErrorMessage(
-              "We could not determine shipping for this address. Please check your details and try again.",
+              "We could not determine shipping for this quote. Please try again or contact us.",
             );
             return;
           }
@@ -176,9 +170,11 @@ export function QuoteCheckout({
             country: address.country,
             phone: address.phone,
           },
-          ...(trimmed.customerNote
-            ? { customerNote: trimmed.customerNote }
-            : {}),
+          paymentData: [
+            { key: "headkit_quote_company", value: trimmed.company },
+            { key: "headkit_quote_industry", value: trimmed.industry },
+          ],
+          ...(trimmed.comments ? { customerNote: trimmed.comments } : {}),
         });
 
         const orderId = order.orderId;
@@ -189,8 +185,10 @@ export function QuoteCheckout({
           );
         }
 
+        document.cookie = `${QUOTE_DETAILS_COOKIE}=${encodeQuoteDetailsCookie(trimmed)}; path=/; max-age=3600; samesite=lax`;
+
         router.push(
-          `/checkout/success/${encodeURIComponent(orderId)}?key=${encodeURIComponent(orderKey)}`,
+          `/quote/success/${encodeURIComponent(orderId)}?key=${encodeURIComponent(orderKey)}`,
         );
       } catch (err) {
         setErrorMessage(
@@ -205,7 +203,7 @@ export function QuoteCheckout({
   const activeCart = cartData ?? initialCart;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 md:px-8 md:py-16">
+    <div className="px-5 py-10 md:px-10 md:py-16">
       <header className="mb-10 max-w-2xl">
         <h1 className="text-3xl font-medium tracking-tight text-brand-fg md:text-4xl">
           Quote
@@ -217,36 +215,23 @@ export function QuoteCheckout({
       </header>
 
       <div className="grid grid-cols-1 gap-10 md:grid-cols-12 md:gap-12">
-        {/* Item summary — left column */}
         <aside className="md:col-span-5 md:order-1">
           <h2 className="mb-4 text-lg font-medium text-brand-fg">Your items</h2>
-          <Cart />
+          <QuoteCartItems
+            items={activeCart.items}
+            showQuantityControls
+          />
           {(activeCart.itemsCount ?? 0) === 0 && (
             <p className="text-sm text-brand-fg/70">Your quote is empty.</p>
           )}
         </aside>
 
-        {/* Details form — right column */}
         <section className="md:col-span-7 md:order-2">
           <h2 className="mb-4 text-lg font-medium text-brand-fg">
             Your details
           </h2>
 
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="quote-email">Email</Label>
-              <Input
-                id="quote-email"
-                type="email"
-                autoComplete="email"
-                className="mt-1.5"
-                value={form.email}
-                onChange={(e) => setField("email", e.target.value)}
-                disabled={isPending}
-                required
-              />
-            </div>
-
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="quote-first-name">First name</Label>
@@ -275,7 +260,21 @@ export function QuoteCheckout({
             </div>
 
             <div>
-              <Label htmlFor="quote-phone">Phone (optional)</Label>
+              <Label htmlFor="quote-email">Email</Label>
+              <Input
+                id="quote-email"
+                type="email"
+                autoComplete="email"
+                className="mt-1.5"
+                value={form.email}
+                onChange={(e) => setField("email", e.target.value)}
+                disabled={isPending}
+                required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="quote-phone">Phone</Label>
               <Input
                 id="quote-phone"
                 type="tel"
@@ -284,100 +283,71 @@ export function QuoteCheckout({
                 value={form.phone}
                 onChange={(e) => setField("phone", e.target.value)}
                 disabled={isPending}
+                required
               />
             </div>
 
             <div>
-              <Label htmlFor="quote-address1">Street address</Label>
+              <Label htmlFor="quote-company">Company</Label>
               <Input
-                id="quote-address1"
-                autoComplete="address-line1"
+                id="quote-company"
+                autoComplete="organization"
                 className="mt-1.5"
-                value={form.address1}
-                onChange={(e) => setField("address1", e.target.value)}
+                value={form.company}
+                onChange={(e) => setField("company", e.target.value)}
                 disabled={isPending}
                 required
               />
             </div>
 
             <div>
-              <Label htmlFor="quote-address2">
-                Apartment, suite, etc. (optional)
-              </Label>
-              <Input
-                id="quote-address2"
-                autoComplete="address-line2"
-                className="mt-1.5"
-                value={form.address2}
-                onChange={(e) => setField("address2", e.target.value)}
-                disabled={isPending}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div>
-                <Label htmlFor="quote-city">Suburb</Label>
-                <Input
-                  id="quote-city"
-                  autoComplete="address-level2"
-                  className="mt-1.5"
-                  value={form.city}
-                  onChange={(e) => setField("city", e.target.value)}
-                  disabled={isPending}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="quote-state">State</Label>
-                <Input
-                  id="quote-state"
-                  autoComplete="address-level1"
-                  placeholder="NSW"
-                  className="mt-1.5"
-                  value={form.state}
-                  onChange={(e) => setField("state", e.target.value)}
-                  disabled={isPending}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="quote-postcode">Postcode</Label>
-                <Input
-                  id="quote-postcode"
-                  autoComplete="postal-code"
-                  className="mt-1.5"
-                  value={form.postcode}
-                  onChange={(e) => setField("postcode", e.target.value)}
-                  disabled={isPending}
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="quote-country">Country</Label>
+              <Label htmlFor="quote-industry">Industry</Label>
               <select
-                id="quote-country"
-                autoComplete="country"
-                className="mt-1.5 flex h-10 w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm"
-                value={form.country}
-                onChange={(e) => setField("country", e.target.value)}
+                id="quote-industry"
+                className={selectClassName}
+                value={form.industry}
+                onChange={(e) => setField("industry", e.target.value)}
                 disabled={isPending}
+                required
               >
-                <option value="AU">Australia</option>
-                <option value="NZ">New Zealand</option>
+                <option value="">Select industry</option>
+                {QUOTE_INDUSTRIES.map((industry) => (
+                  <option key={industry} value={industry}>
+                    {industry}
+                  </option>
+                ))}
               </select>
             </div>
 
             <div>
-              <Label htmlFor="quote-note">Project notes (optional)</Label>
+              <Label htmlFor="quote-state">State</Label>
+              <select
+                id="quote-state"
+                autoComplete="address-level1"
+                className={selectClassName}
+                value={form.state}
+                onChange={(e) => setField("state", e.target.value)}
+                disabled={isPending}
+                required
+              >
+                <option value="">Select state</option>
+                {AU_STATES.map((state) => (
+                  <option key={state.value} value={state.value}>
+                    {state.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <Label htmlFor="quote-comments">Comments</Label>
               <Textarea
-                id="quote-note"
+                id="quote-comments"
                 className="mt-1.5"
-                rows={4}
-                placeholder="Tell us about your project or any questions…"
-                value={form.customerNote}
-                onChange={(e) => setField("customerNote", e.target.value)}
+                rows={5}
+                placeholder="How can we help? Please provide as much information about your project and products required..."
+                value={form.comments}
+                onChange={(e) => setField("comments", e.target.value)}
                 disabled={isPending}
               />
             </div>
@@ -391,7 +361,7 @@ export function QuoteCheckout({
             <Button
               fullWidth
               onClick={submitQuote}
-              disabled={isPending}
+              disabled={isPending || (activeCart.itemsCount ?? 0) === 0}
               loading={isPending}
               loadingText="Submitting quote…"
               rightIcon="arrowRight"
