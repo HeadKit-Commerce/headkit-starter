@@ -19,6 +19,68 @@
  * that purity; the two must be changed together.
  */
 
+/**
+ * The archive prefix WordPress mints WooCommerce product permalinks under, and
+ * the only prefix `app/shop/[...slug]` serves. Anything outside it has no route
+ * in this app, which is why `shopSegmentsFromPath` reports it as no segments.
+ */
+export const SHOP_PATH_PREFIX = "shop";
+
+/**
+ * Normalise a raw `Product.uri` / `Product.permalink` into a site-relative path.
+ *
+ * The schema and the Go domain type document `uri` as relative, but
+ * `product_mapper.go` assigns the ABSOLUTE WooCommerce permalink to it.
+ * Correcting that upstream is explicitly deferred (15.1-CONTEXT `<deferred>`),
+ * so the consumer normalises — the same compensation `lib/convert-uri.ts`
+ * already applies for navigation links.
+ *
+ * The origin is DISCARDED rather than compared against the storefront origin.
+ * In a headless store the WordPress origin is a different host by design (e.g.
+ * `commerce.example.com` vs `www.example.com`), so an origin-equality test
+ * would reject every product in every store. Callers re-root the returned path
+ * under the configured site url, which makes an off-site URL impossible by
+ * construction — a stronger guarantee than the comparison would have given.
+ *
+ * Returns null when no safe path can be derived: blank input, a
+ * protocol-relative reference (path-like but resolves off-site when joined to a
+ * base url), a non-http(s) scheme, or an unparseable value.
+ */
+export function uriToRelativePath(uri: string | null | undefined): string | null {
+  const raw = uri?.trim();
+  if (!raw) return null;
+
+  // `//host/path` is not a path: `new URL("//host/p", site)` resolves off-site.
+  if (raw.startsWith("//")) return null;
+
+  if (raw.startsWith("/")) return raw;
+
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return null;
+    }
+    return parsed.pathname;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Split a site-relative path into the segment array `/shop/[...slug]` receives.
+ *
+ * Returns an empty array when the path is not beneath the shop prefix — a store
+ * whose WooCommerce permalink base is `/product/` has no route here that serves
+ * it, so callers must fall back to the flat `/products/{slug}` rather than
+ * advertise or prerender a path this app answers not-found for. `/shop` itself
+ * is served by `app/shop/page.tsx`, not by the catch-all, so it too yields [].
+ */
+export function shopSegmentsFromPath(path: string): string[] {
+  const segments = path.split("/").filter((segment) => segment !== "");
+  if (segments[0] !== SHOP_PATH_PREFIX) return [];
+  return segments.slice(1);
+}
+
 /** A node of the product-category tree, as `collections.getCategories()` returns it. */
 export interface ShopCategoryNode {
   slug: string;
