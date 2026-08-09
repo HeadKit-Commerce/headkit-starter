@@ -110,6 +110,11 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                         height: 1080,
                         quality: 75 as const,
                         priority: index === 0,
+                        // Explicit high fetch for slide 0 — getImageProps + <img>
+                        // path does not always surface fetchPriority from priority alone.
+                        fetchPriority: (index === 0
+                          ? "high"
+                          : "auto") as "high" | "auto",
                       };
                       const {
                         props: { srcSet: desktopSrcSet, sizes: desktopSizes },
@@ -138,6 +143,8 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                               className="h-full w-full object-cover"
                               width={768}
                               height={768}
+                              fetchPriority={index === 0 ? "high" : "auto"}
+                              decoding={index === 0 ? "sync" : "async"}
                             />
                           </picture>
                           <div

@@ -21,6 +21,8 @@ interface CollectionPageProps {
   categoryBasePath?: string;
   initialFilterValues?: Record<string, string[]>;
   initialBrands?: string[];
+  /** Leaf category featured image already owns LCP — do not priority grid cards. */
+  preferHeaderLcp?: boolean;
 }
 
 export function CollectionPage({
@@ -37,6 +39,7 @@ export function CollectionPage({
   categoryBasePath,
   initialFilterValues,
   initialBrands,
+  preferHeaderLcp = false,
 }: CollectionPageProps) {
   return (
     <CollectionProvider
@@ -57,7 +60,7 @@ export function CollectionPage({
       <div className="flex flex-col gap-4">
         <Filter />
         <LoadPrevious />
-        <ProductGrid />
+        <ProductGrid preferHeaderLcp={preferHeaderLcp} />
         <div className="flex flex-col items-center gap-5 pb-10">
           <LoadMore />
           <ProductCount />

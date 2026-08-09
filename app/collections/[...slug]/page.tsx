@@ -132,12 +132,14 @@ async function CollectionProductsServer({
   searchParams,
   filterSlug,
   categoryBasePath,
+  preferHeaderLcp = false,
 }: {
   categorySlug: string;
   productFilter: ProductFilters;
   searchParams: Promise<Record<string, string>>;
   filterSlug: string | undefined;
   categoryBasePath: string;
+  preferHeaderLcp?: boolean;
 }) {
   // searchParams MUST be awaited inside this Suspense child — never in the
   // page shell. Awaiting them in `Page` opts the whole segment dynamic under
@@ -234,6 +236,7 @@ async function CollectionProductsServer({
       itemsPerPage={PER_PAGE}
       categorySlug={categorySlug}
       categoryBasePath={categoryBasePath}
+      preferHeaderLcp={preferHeaderLcp}
       {...(initialFilterValues ? { initialFilterValues } : {})}
       {...(initialBrands ? { initialBrands } : {})}
     />
@@ -491,6 +494,11 @@ async function CollectionRoute({ params, searchParams }: Props) {
   if (!category) return notFound();
 
   const breadcrumbs = buildBreadcrumbFromCategory(category);
+  const hasChildren = Boolean(category.children?.length);
+  // Header owns LCP when: (1) leaf featured thumbnail, or (2) parent subcategory
+  // carousel (first card is priority). Keep product grid cards lazy in both cases.
+  const preferHeaderLcp =
+    hasChildren || (!hasChildren && Boolean(category.thumbnail));
 
   return (
     <>
@@ -516,6 +524,7 @@ async function CollectionRoute({ params, searchParams }: Props) {
           searchParams={searchParams}
           filterSlug={filterSlug}
           categoryBasePath={categoryBasePath}
+          preferHeaderLcp={preferHeaderLcp}
         />
       </Suspense>
     </>

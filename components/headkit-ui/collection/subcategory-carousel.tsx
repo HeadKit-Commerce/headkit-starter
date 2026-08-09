@@ -56,6 +56,7 @@ export function SubcategoryCarousel({ subcategories }: Props) {
               <FeaturedImage
                 src={thumbnail}
                 alt={name}
+                // First subcategory card is the LCP candidate on parent PLPs.
                 priority={index === 0}
                 // Figma subcategory cards are landscape (~433×290 ≈ 3:2).
                 className="aspect-[433/290] rounded-brand"

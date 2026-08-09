@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import Script from "next/script";
 import "./globals.css";
 // Customer-owned UI/styling layer — prefer overrides/ over editing core components.
 import "@/overrides/styles.css";
@@ -26,7 +25,7 @@ import { CheckoutModeProvider } from "@/components/checkout/checkout-mode-provid
 import { CatalogDisplayProvider } from "@/components/headkit-ui/catalog-display-provider";
 import { resolveBrandFonts } from "@/lib/brand-fonts";
 import { BrandingIconsProvider } from "@/components/branding/branding-icons-provider";
-import { GoogleTagManager } from "@next/third-parties/google";
+import { DeferredThirdPartyScripts } from "@/components/headkit-ui/deferred-third-party-scripts";
 import { getEmailMarketingStatus } from "@/lib/email-marketing";
 import { Toaster } from "@/components/ui/toaster";
 
@@ -132,7 +131,7 @@ export default async function RootLayout({
   );
   const orgLogoUrl = iconUrl ?? branding.iconUrl ?? undefined;
 
-  const fonts = resolveBrandFonts({
+  const fonts = await resolveBrandFonts({
     heading: branding.headingFont,
     subheading: branding.subheadingFont,
     body: branding.bodyFont,
@@ -194,25 +193,13 @@ export default async function RootLayout({
         Variable classes on <html> + --font-body CSS vars are enough.
       */}
       <body className="antialiased font-sans">
-        {/* GTM — per-tenant StoreSettings.gtmId, falling back to env (FE-08) */}
-        {gtmId && <GoogleTagManager gtmId={gtmId} />}
-
-        {/* Email marketing onsite scripts — Klaviyo (__kla_id) or HubSpot tracking */}
-        {/* ENG-856: defer marketing pixels until after load so they don't contend
-            with hydration / INP. GTM stays afterInteractive for tag timing. */}
-        {klaviyoPublicKey ? (
-          <Script
-            src={`https://static.klaviyo.com/onsite/js/klaviyo.js?company_id=${encodeURIComponent(klaviyoPublicKey)}`}
-            strategy="lazyOnload"
-          />
-        ) : null}
-        {hubspotPortalId ? (
-          <Script
-            id="hs-script-loader"
-            src={`//js.hs-scripts.com/${encodeURIComponent(hubspotPortalId)}.js`}
-            strategy="lazyOnload"
-          />
-        ) : null}
+        {/* Marketing tags (GTM / Klaviyo / HubSpot) — idle + gesture deferred so
+            they stay off the LCP / TBT critical path (mobile CWV). */}
+        <DeferredThirdPartyScripts
+          gtmId={gtmId}
+          klaviyoPublicKey={klaviyoPublicKey}
+          hubspotPortalId={hubspotPortalId}
+        />
 
         <WebsiteJsonLD
           siteName={siteName}

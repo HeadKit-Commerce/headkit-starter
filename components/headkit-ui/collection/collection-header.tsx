@@ -50,6 +50,7 @@ export function CollectionHeader({
               className="object-cover object-center"
               sizes="(max-width: 768px) 100vw, 66vw"
               priority
+              fetchPriority="high"
               quality={75}
             />
           </div>

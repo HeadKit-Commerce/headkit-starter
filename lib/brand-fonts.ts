@@ -5,35 +5,18 @@
  * (self-hosted by Next.js). Unknown Google families fall back to Urbanist —
  * no remote `fonts.googleapis.com` stylesheets. Uploads use @font-face.
  *
- * Variable fonts always declare discrete `weight` arrays so next/font ships
- * static faces instead of the full variable axis set (was ~19 files / 600KB+).
- * Dashboard `googleWeights` pick the leanest prebuilt variant that covers them.
+ * Each family/variant lives in `lib/brand-fonts/faces/*` and is loaded via
+ * dynamic `import()` so unused faces never enter the CSS graph. The previous
+ * monolithic module evaluated every next/font loader at once and injected
+ * ~80 woff2 `@font-face` rules into every page CSS (LCP / FCP killer).
  *
  * IMPORTANT: next/font loaders must be called with literal options and assigned
- * to a module-scope `const`. Do not wrap loaders in helpers — the bundler
- * rejects that with "Font loaders must be called and assigned to a const in
- * the module scope".
+ * to a module-scope `const` inside each face file — never wrapped in helpers.
  */
 
-import {
-  Urbanist,
-  Inter,
-  Roboto,
-  Open_Sans,
-  Lato,
-  Montserrat,
-  Poppins,
-  Playfair_Display,
-  Merriweather,
-  Raleway,
-  Nunito,
-  Source_Sans_3,
-  DM_Sans,
-  Space_Grotesk,
-  Instrument_Sans,
-} from "next/font/google";
 import type { NextFontWithVariable } from "next/dist/compiled/@next/font";
 import { toSameOriginBrandFontUrl } from "@/lib/brand-font-url";
+import { FACE_LOADERS, type FaceKey } from "@/lib/brand-fonts/face-loaders";
 
 type FontWeight = "400" | "500" | "600" | "700";
 
@@ -72,281 +55,135 @@ const STANDARD_WEIGHTS = [
   "700",
 ] as const satisfies FontWeight[];
 
-function entry(
-  font: NextFontWithVariable,
-  cssVar: CssVarName,
-  weights: readonly FontWeight[],
-): CuratedFont {
-  return { font, cssVar, weights };
-}
+type CuratedFamilySpec =
+  | { kind: "fixed"; face: FaceKey; cssVar: CssVarName; weights: readonly FontWeight[] }
+  | {
+      kind: "variants";
+      cssVar: CssVarName;
+      faces: Record<WeightVariant, FaceKey>;
+    };
 
-function pair(
-  compact: NextFontWithVariable,
-  standard: NextFontWithVariable,
-  cssVar: CssVarName,
-): Record<WeightVariant, CuratedFont> {
-  return {
-    compact: entry(compact, cssVar, COMPACT_WEIGHTS),
-    standard: entry(standard, cssVar, STANDARD_WEIGHTS),
-  };
-}
-
-// --- next/font calls (must stay module-scope literals) --------------------
-
-const urbanistCompact = Urbanist({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-urbanist",
-  weight: ["400", "500", "600"],
-});
-const urbanistStandard = Urbanist({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-urbanist",
-  weight: ["400", "500", "600", "700"],
-});
-
-const interCompact = Inter({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-inter",
-  weight: ["400", "500", "600"],
-});
-const interStandard = Inter({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-inter",
-  weight: ["400", "500", "600", "700"],
-});
-
-const robotoCompact = Roboto({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-roboto",
-  weight: ["400", "500", "600"],
-});
-const robotoStandard = Roboto({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-roboto",
-  weight: ["400", "500", "600", "700"],
-});
-
-const openSansCompact = Open_Sans({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-open-sans",
-  weight: ["400", "500", "600"],
-});
-const openSansStandard = Open_Sans({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-open-sans",
-  weight: ["400", "500", "600", "700"],
-});
-
-const montserratCompact = Montserrat({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-montserrat",
-  weight: ["400", "500", "600"],
-});
-const montserratStandard = Montserrat({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-montserrat",
-  weight: ["400", "500", "600", "700"],
-});
-
-const playfairCompact = Playfair_Display({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-playfair",
-  weight: ["400", "500", "600"],
-});
-const playfairStandard = Playfair_Display({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-playfair",
-  weight: ["400", "500", "600", "700"],
-});
-
-const ralewayCompact = Raleway({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-raleway",
-  weight: ["400", "500", "600"],
-});
-const ralewayStandard = Raleway({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-raleway",
-  weight: ["400", "500", "600", "700"],
-});
-
-const nunitoCompact = Nunito({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-nunito",
-  weight: ["400", "500", "600"],
-});
-const nunitoStandard = Nunito({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-nunito",
-  weight: ["400", "500", "600", "700"],
-});
-
-const sourceSansCompact = Source_Sans_3({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-source-sans",
-  weight: ["400", "500", "600"],
-});
-const sourceSansStandard = Source_Sans_3({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-source-sans",
-  weight: ["400", "500", "600", "700"],
-});
-
-const dmSansCompact = DM_Sans({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-dm-sans",
-  weight: ["400", "500", "600"],
-});
-const dmSansStandard = DM_Sans({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-dm-sans",
-  weight: ["400", "500", "600", "700"],
-});
-
-const spaceGroteskCompact = Space_Grotesk({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-space-grotesk",
-  weight: ["400", "500", "600"],
-});
-const spaceGroteskStandard = Space_Grotesk({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-space-grotesk",
-  weight: ["400", "500", "600", "700"],
-});
-
-const instrumentSansCompact = Instrument_Sans({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-instrument-sans",
-  weight: ["400", "500", "600"],
-});
-const instrumentSansStandard = Instrument_Sans({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-instrument-sans",
-  weight: ["400", "500", "600", "700"],
-});
-
-// Non-variable / limited-weight families (fixed slots).
-const latoFont = Lato({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-lato",
-  weight: ["400", "700"],
-});
-const poppinsFont = Poppins({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-poppins",
-  weight: ["400", "500", "600", "700"],
-});
-const merriweatherFont = Merriweather({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-slot-merriweather",
-  weight: ["400", "700"],
-});
-
-const urbanist = pair(
-  urbanistCompact,
-  urbanistStandard,
-  "--font-slot-urbanist",
-);
-const inter = pair(interCompact, interStandard, "--font-slot-inter");
-const roboto = pair(robotoCompact, robotoStandard, "--font-slot-roboto");
-const openSans = pair(
-  openSansCompact,
-  openSansStandard,
-  "--font-slot-open-sans",
-);
-const montserrat = pair(
-  montserratCompact,
-  montserratStandard,
-  "--font-slot-montserrat",
-);
-const playfair = pair(
-  playfairCompact,
-  playfairStandard,
-  "--font-slot-playfair",
-);
-const raleway = pair(ralewayCompact, ralewayStandard, "--font-slot-raleway");
-const nunito = pair(nunitoCompact, nunitoStandard, "--font-slot-nunito");
-const sourceSans = pair(
-  sourceSansCompact,
-  sourceSansStandard,
-  "--font-slot-source-sans",
-);
-const dmSans = pair(dmSansCompact, dmSansStandard, "--font-slot-dm-sans");
-const spaceGrotesk = pair(
-  spaceGroteskCompact,
-  spaceGroteskStandard,
-  "--font-slot-space-grotesk",
-);
-const instrumentSans = pair(
-  instrumentSansCompact,
-  instrumentSansStandard,
-  "--font-slot-instrument-sans",
-);
-
-const lato = entry(latoFont, "--font-slot-lato", ["400", "700"]);
-const poppins = entry(poppinsFont, "--font-slot-poppins", STANDARD_WEIGHTS);
-const merriweather = entry(merriweatherFont, "--font-slot-merriweather", [
-  "400",
-  "700",
-]);
-
-/** Default storefront body font (Urbanist compact). */
-export const defaultBodyFont = urbanist.compact.font;
-
-type CuratedFamily = {
-  fixed?: CuratedFont;
-  variants?: Record<WeightVariant, CuratedFont>;
-};
-
-const CURATED: Record<string, CuratedFamily> = {
-  Urbanist: { variants: urbanist },
-  Inter: { variants: inter },
-  Roboto: { variants: roboto },
-  "Open Sans": { variants: openSans },
-  "Open+Sans": { variants: openSans },
-  Lato: { fixed: lato },
-  Montserrat: { variants: montserrat },
-  Poppins: { fixed: poppins },
-  "Playfair Display": { variants: playfair },
-  "Playfair+Display": { variants: playfair },
-  Merriweather: { fixed: merriweather },
-  Raleway: { variants: raleway },
-  Nunito: { variants: nunito },
-  "Source Sans 3": { variants: sourceSans },
-  "Source+Sans+3": { variants: sourceSans },
-  "DM Sans": { variants: dmSans },
-  "DM+Sans": { variants: dmSans },
-  "Space Grotesk": { variants: spaceGrotesk },
-  "Space+Grotesk": { variants: spaceGrotesk },
-  "Instrument Sans": { variants: instrumentSans },
-  "Instrument+Sans": { variants: instrumentSans },
+const CURATED: Record<string, CuratedFamilySpec> = {
+  Urbanist: {
+    kind: "variants",
+    cssVar: "--font-slot-urbanist",
+    faces: { compact: "urbanist:compact", standard: "urbanist:standard" },
+  },
+  Inter: {
+    kind: "variants",
+    cssVar: "--font-slot-inter",
+    faces: { compact: "inter:compact", standard: "inter:standard" },
+  },
+  Roboto: {
+    kind: "variants",
+    cssVar: "--font-slot-roboto",
+    faces: { compact: "roboto:compact", standard: "roboto:standard" },
+  },
+  "Open Sans": {
+    kind: "variants",
+    cssVar: "--font-slot-open-sans",
+    faces: { compact: "open-sans:compact", standard: "open-sans:standard" },
+  },
+  "Open+Sans": {
+    kind: "variants",
+    cssVar: "--font-slot-open-sans",
+    faces: { compact: "open-sans:compact", standard: "open-sans:standard" },
+  },
+  Lato: {
+    kind: "fixed",
+    face: "lato",
+    cssVar: "--font-slot-lato",
+    weights: ["400", "700"],
+  },
+  Montserrat: {
+    kind: "variants",
+    cssVar: "--font-slot-montserrat",
+    faces: { compact: "montserrat:compact", standard: "montserrat:standard" },
+  },
+  Poppins: {
+    kind: "fixed",
+    face: "poppins",
+    cssVar: "--font-slot-poppins",
+    weights: STANDARD_WEIGHTS,
+  },
+  "Playfair Display": {
+    kind: "variants",
+    cssVar: "--font-slot-playfair",
+    faces: { compact: "playfair:compact", standard: "playfair:standard" },
+  },
+  "Playfair+Display": {
+    kind: "variants",
+    cssVar: "--font-slot-playfair",
+    faces: { compact: "playfair:compact", standard: "playfair:standard" },
+  },
+  Merriweather: {
+    kind: "fixed",
+    face: "merriweather",
+    cssVar: "--font-slot-merriweather",
+    weights: ["400", "700"],
+  },
+  Raleway: {
+    kind: "variants",
+    cssVar: "--font-slot-raleway",
+    faces: { compact: "raleway:compact", standard: "raleway:standard" },
+  },
+  Nunito: {
+    kind: "variants",
+    cssVar: "--font-slot-nunito",
+    faces: { compact: "nunito:compact", standard: "nunito:standard" },
+  },
+  "Source Sans 3": {
+    kind: "variants",
+    cssVar: "--font-slot-source-sans",
+    faces: { compact: "source-sans:compact", standard: "source-sans:standard" },
+  },
+  "Source+Sans+3": {
+    kind: "variants",
+    cssVar: "--font-slot-source-sans",
+    faces: { compact: "source-sans:compact", standard: "source-sans:standard" },
+  },
+  "DM Sans": {
+    kind: "variants",
+    cssVar: "--font-slot-dm-sans",
+    faces: { compact: "dm-sans:compact", standard: "dm-sans:standard" },
+  },
+  "DM+Sans": {
+    kind: "variants",
+    cssVar: "--font-slot-dm-sans",
+    faces: { compact: "dm-sans:compact", standard: "dm-sans:standard" },
+  },
+  "Space Grotesk": {
+    kind: "variants",
+    cssVar: "--font-slot-space-grotesk",
+    faces: {
+      compact: "space-grotesk:compact",
+      standard: "space-grotesk:standard",
+    },
+  },
+  "Space+Grotesk": {
+    kind: "variants",
+    cssVar: "--font-slot-space-grotesk",
+    faces: {
+      compact: "space-grotesk:compact",
+      standard: "space-grotesk:standard",
+    },
+  },
+  "Instrument Sans": {
+    kind: "variants",
+    cssVar: "--font-slot-instrument-sans",
+    faces: {
+      compact: "instrument-sans:compact",
+      standard: "instrument-sans:standard",
+    },
+  },
+  "Instrument+Sans": {
+    kind: "variants",
+    cssVar: "--font-slot-instrument-sans",
+    faces: {
+      compact: "instrument-sans:compact",
+      standard: "instrument-sans:standard",
+    },
+  },
 };
 
 export type BrandingFontInput = {
@@ -391,20 +228,37 @@ function pickVariant(requested: number[]): WeightVariant {
   return requested.includes(700) ? "standard" : "compact";
 }
 
-function pickCurated(font: BrandingFontInput): CuratedFont | null {
+function lookupFamily(font: BrandingFontInput): CuratedFamilySpec | null {
   if (font.source === "upload") return null;
-  let family: CuratedFamily | undefined;
   for (const key of [font.googleSlug, font.family]) {
     const trimmed = key.trim();
     if (!trimmed) continue;
-    family = CURATED[trimmed];
-    if (family) break;
+    const family = CURATED[trimmed];
+    if (family) return family;
   }
+  return null;
+}
+
+function faceKeyFor(font: BrandingFontInput): FaceKey | null {
+  const family = lookupFamily(font);
   if (!family) return null;
-  if (family.fixed) return family.fixed;
-  if (!family.variants) return null;
+  if (family.kind === "fixed") return family.face;
   const weights = normalizeGoogleWeights(font.googleWeights);
-  return family.variants[pickVariant(weights)];
+  return family.faces[pickVariant(weights)];
+}
+
+async function loadFace(key: FaceKey): Promise<CuratedFont> {
+  const mod = await FACE_LOADERS[key]();
+  const font = mod.default;
+  // cssVar is on the font.variable string like `--font-slot-inter`
+  const cssVar = font.variable as CssVarName;
+  const weights =
+    key.endsWith(":standard") || key === "poppins"
+      ? STANDARD_WEIGHTS
+      : key === "lato" || key === "merriweather"
+        ? (["400", "700"] as const)
+        : COMPACT_WEIGHTS;
+  return { font, cssVar, weights };
 }
 
 function cssFamilyLiteral(family: string): string {
@@ -426,22 +280,23 @@ function fontFormat(url: string): string | null {
  * classes, CSS variables, and upload @font-face rules.
  *
  * Non-curated Google selections fall back to Urbanist (no remote CSS).
+ * Only the face modules required for this tenant are dynamically imported.
  */
-export function resolveBrandFonts(input: {
+export async function resolveBrandFonts(input: {
   heading: BrandingFontInput;
   subheading: BrandingFontInput;
   body: BrandingFontInput;
-}): ResolvedBrandFonts {
+}): Promise<ResolvedBrandFonts> {
   const slots = {
     heading: input.heading,
     subheading: input.subheading,
     body: input.body,
   } as const;
 
-  const curatedBySlot: Record<keyof typeof slots, CuratedFont | null> = {
-    heading: pickCurated(slots.heading),
-    subheading: pickCurated(slots.subheading),
-    body: pickCurated(slots.body),
+  const faceKeyBySlot: Record<keyof typeof slots, FaceKey | null> = {
+    heading: faceKeyFor(slots.heading),
+    subheading: faceKeyFor(slots.subheading),
+    body: faceKeyFor(slots.body),
   };
 
   // Only ship Urbanist's next/font CSS when a slot actually needs it (curated
@@ -451,14 +306,41 @@ export function resolveBrandFonts(input: {
     Object.keys(slots) as Array<keyof typeof slots>
   ).some((slot) => {
     const font = slots[slot];
-    if (curatedBySlot[slot]) return false;
+    if (faceKeyBySlot[slot]) return false;
     if (font.source === "upload" && font.fileUrl) return false;
     return true;
   });
 
+  const keysToLoad = new Set<FaceKey>();
+  if (needsUrbanistFallback) {
+    keysToLoad.add("urbanist:compact");
+  }
+  for (const key of Object.values(faceKeyBySlot)) {
+    if (key) keysToLoad.add(key);
+  }
+
+  const loaded = new Map<FaceKey, CuratedFont>();
+  await Promise.all(
+    [...keysToLoad].map(async (key) => {
+      loaded.set(key, await loadFace(key));
+    }),
+  );
+
+  const curatedBySlot: Record<keyof typeof slots, CuratedFont | null> = {
+    heading: faceKeyBySlot.heading
+      ? (loaded.get(faceKeyBySlot.heading) ?? null)
+      : null,
+    subheading: faceKeyBySlot.subheading
+      ? (loaded.get(faceKeyBySlot.subheading) ?? null)
+      : null,
+    body: faceKeyBySlot.body ? (loaded.get(faceKeyBySlot.body) ?? null) : null,
+  };
+
+  // Deduplicate by CSS variable so shared heading/body families ship once.
   const unique = new Map<string, CuratedFont>();
   if (needsUrbanistFallback) {
-    unique.set(urbanist.compact.font.variable, urbanist.compact);
+    const urbanist = loaded.get("urbanist:compact");
+    if (urbanist) unique.set(urbanist.font.variable, urbanist);
   }
   for (const entryFont of Object.values(curatedBySlot)) {
     if (entryFont) unique.set(entryFont.font.variable, entryFont);
@@ -468,7 +350,11 @@ export function resolveBrandFonts(input: {
     .map((curated) => curated.font.variable)
     .join(" ");
 
-  const bodyFont = curatedBySlot.body?.font ?? urbanist.compact.font;
+  const bodyFont =
+    curatedBySlot.body?.font ??
+    loaded.get("urbanist:compact")?.font ??
+    // Absolute last resort — should be unreachable when fallback loads.
+    ({ className: "", variable: "--font-slot-urbanist" } as NextFontWithVariable);
 
   const cssVarLines: string[] = [];
   const fontFaceParts: string[] = [];

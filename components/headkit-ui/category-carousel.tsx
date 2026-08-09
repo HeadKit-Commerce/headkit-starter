@@ -19,7 +19,7 @@ const CategoryCarousel = ({ categories }: Props) => {
   return (
     <Carousel
       items={categories}
-      renderItem={(item, index) => {
+      renderItem={(item) => {
         // Prefer slug → storefront route. Raw WP `uri` may be absolute and
         // would navigate off the Next.js app (see e2e wishlist observation).
         const href = item?.slug
@@ -36,7 +36,8 @@ const CategoryCarousel = ({ categories }: Props) => {
             <FeaturedImage
               src={thumbnail}
               alt={name}
-              priority={index === 0}
+              // Below-fold on home — never compete with the hero LCP image.
+              priority={false}
               className="aspect-video"
             />
             <h3 className="pt-3 text-[17px] text-primary">{name}</h3>

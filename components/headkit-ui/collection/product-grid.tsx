@@ -32,7 +32,15 @@ function LoadingSkeleton({
   );
 }
 
-export function ProductGrid() {
+export function ProductGrid({
+  /**
+   * When the collection header already owns LCP (leaf featured thumbnail),
+   * skip grid `priority` so product cards do not steal bandwidth.
+   */
+  preferHeaderLcp = false,
+}: {
+  preferHeaderLcp?: boolean;
+} = {}) {
   const { products, isLoading, isLoadingBefore, isLoadingAfter, hasMore } =
     useCollection();
   const { showVariants, showSwatches } = useCatalogDisplay();
@@ -70,14 +78,15 @@ export function ProductGrid() {
           />
         )}
         {visibleProducts.map((product, index) => (
-          // Only the first two cards compete for LCP preload (ENG-856). Prefetching
-          // four images on a phone wastes bandwidth when only one card is above the fold.
+          // Only the first above-the-fold card may compete for LCP. Prefetching
+          // two+ images on a phone wastes bandwidth when filters push the grid
+          // down; when the leaf header image owns LCP, skip priority entirely.
           // Off-screen rows defer layout/paint via content-visibility.
           <ProductCard
             key={product.id}
             product={product}
             isNew={product.isNew}
-            priority={index < 2}
+            priority={!preferHeaderLcp && index === 0}
             {...(index >= 4
               ? {
                   className:

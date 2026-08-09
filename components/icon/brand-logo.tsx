@@ -34,7 +34,9 @@ export function BrandLogo({
       alt={siteName}
       width={LOGO_MAX_WIDTH}
       height={LOGO_HEIGHT}
+      // Eager enough for nav paint, but low so it never beats the hero LCP.
       priority
+      fetchPriority="low"
       sizes={`${LOGO_MAX_WIDTH}px`}
       className="h-9 w-auto max-w-[220px] object-contain"
     />

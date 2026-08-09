@@ -87,7 +87,14 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   experimental: {
-    optimizePackageImports: ["react-icons"],
+    optimizePackageImports: [
+      "react-icons",
+      "lucide-react",
+      "@headkit/sdk",
+      "framer-motion",
+      "date-fns",
+      "radix-ui",
+    ],
     cpus: buildCpus,
     staticGenerationMaxConcurrency: staticGenConcurrency,
   },

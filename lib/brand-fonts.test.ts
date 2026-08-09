@@ -40,7 +40,7 @@ describe("resolveBrandFonts", () => {
 
   it("defaults all slots to Urbanist", async () => {
     const { resolveBrandFonts } = await import("@/lib/brand-fonts");
-    const resolved = resolveBrandFonts({
+    const resolved = await resolveBrandFonts({
       heading: empty,
       subheading: empty,
       body: empty,
@@ -57,7 +57,7 @@ describe("resolveBrandFonts", () => {
 
   it("uses curated next/font for Inter heading", async () => {
     const { resolveBrandFonts } = await import("@/lib/brand-fonts");
-    const resolved = resolveBrandFonts({
+    const resolved = await resolveBrandFonts({
       heading: {
         source: "google",
         family: "Inter",
@@ -75,7 +75,7 @@ describe("resolveBrandFonts", () => {
 
   it("omits unused Urbanist when every slot is curated elsewhere (ENG-856)", async () => {
     const { resolveBrandFonts } = await import("@/lib/brand-fonts");
-    const resolved = resolveBrandFonts({
+    const resolved = await resolveBrandFonts({
       heading: {
         source: "google",
         family: "Playfair Display",
@@ -102,7 +102,7 @@ describe("resolveBrandFonts", () => {
 
   it("emits @font-face for uploads", async () => {
     const { resolveBrandFonts } = await import("@/lib/brand-fonts");
-    const resolved = resolveBrandFonts({
+    const resolved = await resolveBrandFonts({
       heading: empty,
       subheading: empty,
       body: {
@@ -124,7 +124,7 @@ describe("resolveBrandFonts", () => {
 
   it("uses curated next/font for Instrument Sans (no remote Google CSS)", async () => {
     const { resolveBrandFonts } = await import("@/lib/brand-fonts");
-    const resolved = resolveBrandFonts({
+    const resolved = await resolveBrandFonts({
       heading: {
         source: "google",
         family: "Instrument Sans",
@@ -163,7 +163,7 @@ describe("resolveBrandFonts", () => {
 
   it("falls back to Urbanist for unknown Google families (no remote CSS)", async () => {
     const { resolveBrandFonts } = await import("@/lib/brand-fonts");
-    const resolved = resolveBrandFonts({
+    const resolved = await resolveBrandFonts({
       heading: {
         source: "google",
         family: "Some Obscure Display",
