@@ -70,10 +70,23 @@ export function CartDrawer() {
                   ? "No products in your quote yet."
                   : "No products in your cart!"}
               </p>
-              <p className="mb-10 font-medium">
-                {isQuoteMode
-                  ? "Browse our selection and add products to request pricing."
-                  : "Have a look around our selection of products to get ready for your next adventure."}
+              <p className="mb-8 font-medium">
+                {isQuoteMode ? (
+                  <>
+                    Browse our selection and add products to request pricing. If
+                    you&apos;re not ready to build your quote please{" "}
+                    <Link
+                      href="/contact"
+                      className="underline underline-offset-2 hover:opacity-80"
+                      onClick={() => toggleCart(false)}
+                    >
+                      contact us
+                    </Link>{" "}
+                    instead.
+                  </>
+                ) : (
+                  "Have a look around our selection of products to get ready for your next adventure."
+                )}
               </p>
               <Link href="/shop">
                 <Button
@@ -131,10 +144,11 @@ export function CartTriggerButton({
 }: {
   initialCartCount?: number;
 }) {
-  const { cartData, toggleCart } = useCartContext();
+  const { cartData, optimisticCart, toggleCart } = useCartContext();
   const { Cart } = useChromeIcons();
   const isQuoteMode = useIsQuoteMode();
-  const count = cartData?.itemsCount ?? initialCartCount;
+  const count =
+    (optimisticCart ?? cartData)?.itemsCount ?? initialCartCount;
 
   if (isQuoteMode) {
     return (

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
-import { getFullCartAction } from "@/lib/cart-actions";
+import { clearCartTokenAction } from "@/lib/cart-actions";
 import type { CartFieldsFragment } from "@headkit/sdk";
 
 /** Minimal empty cart shape used when the server cart is unavailable after checkout. */
@@ -31,19 +31,24 @@ export const EMPTY_CART: CartFieldsFragment = {
 };
 
 /**
- * Clears the cart in the UI after successful checkout.
- * Fetches the fresh cart from the server (WooCommerce empties it post-checkout)
- * and updates context so the navbar badge shows 0. Falls back to empty cart if fetch fails.
+ * Clears the cart in the UI after successful checkout / quote submit.
+ *
+ * Rotates the cart-token cookie so a subsequent fetch cannot restore the
+ * pre-checkout session (Store API $0 / quote paths do not always empty the
+ * Woo session the GraphQL cart token still points at).
  */
-export function ClearCart() {
+export function ClearCart(): null {
   const { setCartData } = useCartContext();
 
   useEffect(() => {
-    // Clear badge/drawer immediately, then sync from server (Woo empties post-checkout).
     setCartData(EMPTY_CART);
-    getFullCartAction()
-      .then((cart) => setCartData(cart ?? EMPTY_CART))
-      .catch(() => setCartData(EMPTY_CART));
+    void clearCartTokenAction()
+      .then(() => {
+        setCartData(EMPTY_CART);
+      })
+      .catch(() => {
+        setCartData(EMPTY_CART);
+      });
   }, [setCartData]);
 
   return null;

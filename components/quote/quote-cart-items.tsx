@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 import { XIcon } from "@/components/icon";
 import { cn } from "@/lib/utils";
 import {
@@ -39,8 +39,14 @@ function QuoteCartItem({
   showQuantityControls,
 }: QuoteCartItemProps): React.ReactElement {
   const [quantity, setQuantity] = useState(item.quantity);
-  const [loading, startTransition] = useTransition();
-  const { setCartData, toggleCart } = useCartContext();
+  const {
+    setCartData,
+    toggleCart,
+    isPending: loading,
+    optimisticRemoveItem,
+    optimisticUpdateQuantity,
+    startCartTransition,
+  } = useCartContext();
 
   useEffect(() => {
     setQuantity(item.quantity);
@@ -53,7 +59,8 @@ function QuoteCartItem({
 
   const commitQuantity = (updated: number): void => {
     setQuantity(updated);
-    startTransition(async () => {
+    startCartTransition(async () => {
+      optimisticUpdateQuantity(item.key, updated);
       const result = await updateCartItemAction(item.key, updated);
       if (result.success) {
         setCartData(result.cart);
@@ -66,7 +73,8 @@ function QuoteCartItem({
   };
 
   const handleRemove = (): void => {
-    startTransition(async () => {
+    startCartTransition(async () => {
+      optimisticRemoveItem(item.key);
       const result = await removeCartItemAction(item.key);
       if (result.success) {
         setCartData(result.cart);

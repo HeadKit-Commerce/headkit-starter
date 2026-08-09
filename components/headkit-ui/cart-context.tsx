@@ -51,10 +51,11 @@ function cartReducer(
     case "remove_item": {
       const removed = state.items.find((item) => item.key === action.key);
       const qty = removed?.quantity ?? 1;
+      const items = state.items.filter((item) => item.key !== action.key);
       return {
         ...state,
-        items: state.items.filter((item) => item.key !== action.key),
-        itemsCount: Math.max(0, state.itemsCount - qty),
+        items,
+        itemsCount: items.length === 0 ? 0 : Math.max(0, state.itemsCount - qty),
       };
     }
     case "set_cart":

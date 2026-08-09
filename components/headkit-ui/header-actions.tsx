@@ -32,8 +32,9 @@ interface HeaderActionsProps {
  */
 export function HeaderActions({ initialCartCount = 0 }: HeaderActionsProps) {
   const { isAuthenticated } = useAuth();
-  const { cartData, toggleCart } = useCartContext();
-  const cartCount = cartData?.itemsCount ?? initialCartCount;
+  const { cartData, optimisticCart, toggleCart } = useCartContext();
+  const cartCount =
+    (optimisticCart ?? cartData)?.itemsCount ?? initialCartCount;
   const { Search, Heart, User, Cart } = useChromeIcons();
   const isQuoteMode = useIsQuoteMode();
 

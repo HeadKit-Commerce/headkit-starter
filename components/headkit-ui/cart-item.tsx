@@ -62,6 +62,8 @@ export function CartItemRow({
       optimisticRemoveItem(item.key);
       const result = await removeCartItemAction(item.key);
       if (result.success) {
+        // Commit server cart (including empty) so badge/drawer refresh when the
+        // last line item is removed.
         onCartUpdate(result.cart);
         return;
       }

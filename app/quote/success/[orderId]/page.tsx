@@ -98,7 +98,7 @@ export default async function QuoteSuccessPage({
   };
 
   return (
-    <div className="min-h-screen bg-brand-bg text-brand-fg">
+    <div className="bg-brand-bg text-brand-fg">
       <ClearCart />
       <QuoteConfirmation
         orderNumber={order.orderNumber}

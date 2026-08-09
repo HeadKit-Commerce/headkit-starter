@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { processCheckoutAction } from "@/app/checkout/actions";
 import { EMPTY_CART } from "@/components/checkout/clear-cart";
+import { clearCartTokenAction } from "@/lib/cart-actions";
 import { QuoteCartItems } from "@/components/quote/quote-cart-items";
 import {
   AU_STATES,
@@ -53,7 +54,8 @@ export function QuoteCheckout({
   customerEmail,
 }: QuoteCheckoutProps): React.ReactElement {
   const router = useRouter();
-  const { cartData, setCartData, toggleCart } = useCartContext();
+  const { cartData, optimisticCart, setCartData, toggleCart } =
+    useCartContext();
   const [form, setForm] = useState<QuoteFormDetails>(() => ({
     ...INITIAL_FORM,
     email: customerEmail ?? "",
@@ -129,8 +131,9 @@ export function QuoteCheckout({
 
         document.cookie = `${QUOTE_DETAILS_COOKIE}=${encodeQuoteDetailsCookie(trimmed)}; path=/; max-age=3600; samesite=lax`;
 
-        // Clear UI cart immediately so the drawer/badge update before navigation.
+        // Clear UI cart + rotate token so a refetch cannot restore the old session.
         setCartData(EMPTY_CART);
+        void clearCartTokenAction().catch(() => {});
 
         router.push(
           `/quote/success/${encodeURIComponent(orderId)}?key=${encodeURIComponent(orderKey)}`,
@@ -145,7 +148,7 @@ export function QuoteCheckout({
     });
   }, [form, router, setCartData]);
 
-  const activeCart = cartData ?? initialCart;
+  const activeCart = optimisticCart ?? cartData ?? initialCart;
 
   return (
     <div className="px-5 py-10 md:px-10 md:py-16">
@@ -281,7 +284,7 @@ export function QuoteCheckout({
               <Label htmlFor="quote-comments">Comments</Label>
               <Textarea
                 id="quote-comments"
-                className="mt-1.5"
+                className="mt-1.5 bg-white dark:bg-white dark:border-neutral-200 dark:text-neutral-950 dark:placeholder:text-neutral-500"
                 rows={5}
                 placeholder="How can we help? Please provide as much information about your project and products required..."
                 value={form.comments}
