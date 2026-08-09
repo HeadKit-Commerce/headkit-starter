@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveShopPath, type ShopCategoryNode } from "./shop-slug";
+import {
+  resolveShopPath,
+  shopSegmentsFromPath,
+  uriToRelativePath,
+  type ShopCategoryNode,
+} from "./shop-slug";
 
 /**
  * Guards RESEARCH C-6 / D-15-04.
@@ -127,5 +132,84 @@ describe("resolveShopPath", () => {
       productSlug: "navy-zip",
       categorySegments: ["clothing", "hoodies", "zip-up"],
     });
+  });
+});
+
+describe("uriToRelativePath", () => {
+  it("returns a site-relative path unchanged", () => {
+    expect(
+      uriToRelativePath("/shop/clothing/blue-hoodie/"),
+      "an already-relative permalink must pass through untouched",
+    ).toBe("/shop/clothing/blue-hoodie/");
+  });
+
+  it("keeps only the path of an absolute permalink, whatever its origin", () => {
+    // THE load-bearing case. Product.uri is documented relative but the Go
+    // mapper assigns the absolute WooCommerce permalink, and in headless the
+    // WordPress origin is a DIFFERENT host from the storefront by design.
+    expect(
+      uriToRelativePath("https://commerce.example.com/shop/clothing/blue-hoodie/"),
+      "the WordPress backend origin must be discarded, not compared to the storefront origin — comparing would reject every product in every headless store",
+    ).toBe("/shop/clothing/blue-hoodie/");
+  });
+
+  it("discards a foreign origin rather than propagating it", () => {
+    expect(
+      uriToRelativePath("https://attacker.example/shop/x"),
+      "an absolute permalink must never survive with its origin — the caller re-roots the path under the site url, so an off-site entry is impossible by construction",
+    ).toBe("/shop/x");
+  });
+
+  it("rejects a protocol-relative permalink", () => {
+    expect(
+      uriToRelativePath("//attacker.example/shop/x"),
+      "a protocol-relative permalink looks path-like but resolves off-site when joined to a base url — it must be rejected outright",
+    ).toBeNull();
+  });
+
+  it("rejects a non-http scheme", () => {
+    expect(
+      uriToRelativePath("javascript:alert(1)"),
+      "only http(s) permalinks may yield a path",
+    ).toBeNull();
+  });
+
+  it("rejects empty or blank input", () => {
+    expect(uriToRelativePath(""), "empty permalink yields no path").toBeNull();
+    expect(
+      uriToRelativePath("   "),
+      "blank permalink yields no path",
+    ).toBeNull();
+  });
+});
+
+describe("shopSegmentsFromPath", () => {
+  it("strips the shop prefix and the surrounding separators", () => {
+    expect(
+      shopSegmentsFromPath("/shop/clothing/hoodies/blue-hoodie/"),
+      "the segment array handed to /shop/[...slug] excludes the shop prefix itself and any empty separator segments",
+    ).toEqual(["clothing", "hoodies", "blue-hoodie"]);
+  });
+
+  it("returns an empty array for a path outside the shop prefix", () => {
+    // Fleet safety: a store whose WooCommerce permalink base is /product/
+    // has NO route that serves that path. Returning [] is what makes the
+    // caller fall back to the flat, always-served /products/{slug}.
+    expect(
+      shopSegmentsFromPath("/product/blue-hoodie/"),
+      "a non-shop permalink must yield no segments, so callers never advertise or prerender a path this app does not serve",
+    ).toEqual([]);
+
+    expect(
+      shopSegmentsFromPath("/"),
+      "the bare root yields no shop segments",
+    ).toEqual([]);
+  });
+
+  it("returns an empty array for the bare shop archive", () => {
+    expect(
+      shopSegmentsFromPath("/shop/"),
+      "/shop itself is served by app/shop/page.tsx, not by the catch-all",
+    ).toEqual([]);
   });
 });
