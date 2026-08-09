@@ -3,14 +3,18 @@
 import type { Product } from "@headkit/sdk";
 import { cn } from "@/lib/utils";
 import { ProductCard } from "@/components/headkit-ui/product-card";
-import { useCatalogDisplay } from "@/components/headkit-ui/catalog-display-provider";
-import { expandCatalogProducts } from "@/lib/catalog-display";
+import {
+  collapseCatalogProducts,
+  type ColourwayPins,
+} from "@/lib/catalog-display";
 
 interface Props {
   /** Products resolved (by slug) from a WordPress handpicked-products block. */
   products: Product[];
   /** Column count from WP's `has-N-columns` class (desktop). Defaults to 3. */
   columns?: number;
+  /** Optional admin pins: product ID → colourway slug. */
+  colourwayPins?: ColourwayPins | null | undefined;
 }
 
 // Literal class strings so Tailwind's scanner keeps them (no dynamic names).
@@ -29,14 +33,14 @@ const LG_COLS: Record<number, string> = {
  *
  * Injected by EditorialContent, which resolves the block's product slugs to
  * full Product objects via the SDK and swaps this in for the `.wc-block-grid`
- * node (see editorial-content.tsx).
+ * node (see editorial-content.tsx). Always one colourway per product.
  */
 export function EditorialProductGrid({
   products,
   columns = 3,
+  colourwayPins,
 }: Props): React.JSX.Element | null {
-  const { showVariants } = useCatalogDisplay();
-  const catalogProducts = expandCatalogProducts(products, showVariants);
+  const catalogProducts = collapseCatalogProducts(products, colourwayPins);
 
   if (!catalogProducts.length) return null;
 

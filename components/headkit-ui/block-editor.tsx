@@ -46,6 +46,21 @@ function hydrateHeroCarousels(raw: unknown): HeroCarouselItem[] {
   ) as HeroCarouselItem[];
 }
 
+/** productColourways map from handpicked-products (product ID → colourway). */
+function hydrateColourwayPins(
+  raw: unknown,
+): Record<string, string> | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value !== "string" || !value.trim()) continue;
+    const id = String(key).trim();
+    if (!id) continue;
+    out[id] = value.trim();
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 function toPostSummaries(
   posts: NonNullable<ProcessedEditorBlock["posts"]>,
 ): PostSummaryFieldsFragment[] {
@@ -153,6 +168,9 @@ const BlockEditor = ({ blocks, section }: Props) => {
         if (data.cssClasses.includes("headkit-product-carousel")) {
           const products: Product[] = data.products ?? [];
           if (products.length === 0) return null;
+          const colourwayPins = hydrateColourwayPins(
+            data.attrs?.["productColourways"],
+          );
           return (
             <div
               className="headkit-product-carousel overflow-x-clip py-10"
@@ -166,7 +184,10 @@ const BlockEditor = ({ blocks, section }: Props) => {
                 className="px-5 md:px-10"
               />
               <div className="mt-8">
-                <ProductCarousel products={products} />
+                <ProductCarousel
+                  products={products}
+                  colourwayPins={colourwayPins}
+                />
               </div>
             </div>
           );

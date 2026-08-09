@@ -60,4 +60,11 @@ describe("sanitizeContent (R6 XSS allowlist)", () => {
     expect(cleaned).toContain('data-form-id="1"');
     expect(cleaned).toContain("headkit-gravity-form");
   });
+
+  it("keeps handpicked colourway pins (data-colourway) on product list items", () => {
+    const item =
+      '<li class="wc-block-grid__product" data-colourway="navy"><a class="wc-block-grid__product-link" href="https://example.com/product/tee/">Tee</a></li>';
+    const cleaned = sanitizeContent(item);
+    expect(cleaned).toContain('data-colourway="navy"');
+  });
 });

@@ -1,11 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { expandCatalogProducts } from "@/lib/catalog-display";
+import {
+  collapseCatalogProducts,
+  expandCatalogProducts,
+  resolveCarouselColourway,
+} from "@/lib/catalog-display";
 import type { ProductSummaryFieldsFragment } from "@headkit/sdk";
 
+type TestProduct = ProductSummaryFieldsFragment & {
+  defaultAttributes?: Array<{ key: string; value: string }>;
+  variations: Array<
+    ProductSummaryFieldsFragment["variations"][number] & {
+      dateModified?: string | null;
+    }
+  >;
+};
+
 function makeProduct(
-  overrides: Partial<ProductSummaryFieldsFragment> &
+  overrides: Partial<TestProduct> &
     Pick<ProductSummaryFieldsFragment, "id" | "slug" | "name">,
-): ProductSummaryFieldsFragment {
+): TestProduct {
   return {
     uri: `/products/${overrides.slug}`,
     type: "VARIABLE",
@@ -19,40 +32,66 @@ function makeProduct(
     hoverImage: { src: "/hover.jpg", alt: "", width: 0, height: 0 },
     attributes: [],
     variations: [],
+    defaultAttributes: [],
     ...overrides,
   };
 }
 
+const colourAttr = {
+  id: "pa_colour",
+  name: "Colour",
+  slug: "pa_colour",
+  type: "color",
+  options: ["red", "blue"],
+  visible: true,
+  variation: true,
+  fullOptions: [
+    {
+      name: "Red",
+      slug: "red",
+      swatchColor: "#f00",
+      swatchColor2: "",
+    },
+    {
+      name: "Blue",
+      slug: "blue",
+      swatchColor: "#00f",
+      swatchColor2: "",
+    },
+  ],
+};
+
 describe("expandCatalogProducts", () => {
-  it("returns one card per product when showVariants is false", () => {
+  it("collapses to one default/first colourway when showVariants is false", () => {
     const products = [
       makeProduct({
         id: "1",
         slug: "tee",
         name: "Tee",
-        attributes: [
+        attributes: [colourAttr],
+        defaultAttributes: [{ key: "pa_colour", value: "blue" }],
+        variations: [
           {
-            id: "pa_colour",
-            name: "Colour",
-            slug: "pa_colour",
-            type: "color",
-            options: ["red", "blue"],
-            visible: true,
-            variation: true,
-            fullOptions: [
-              {
-                name: "Red",
-                slug: "red",
-                swatchColor: "#f00",
-                swatchColor2: "",
-              },
-              {
-                name: "Blue",
-                slug: "blue",
-                swatchColor: "#00f",
-                swatchColor2: "",
-              },
-            ],
+            id: "v1",
+            price: "10",
+            regularPrice: "10",
+            salePrice: "",
+            onSale: false,
+            stockStatus: "IN_STOCK",
+            image: { src: "/red.jpg" },
+            images: [{ src: "/red.jpg" }],
+            attributes: [{ key: "pa_colour", value: "red" }],
+          },
+          {
+            id: "v2",
+            price: "10",
+            regularPrice: "10",
+            salePrice: "",
+            onSale: false,
+            stockStatus: "IN_STOCK",
+            image: { src: "/blue.jpg" },
+            images: [{ src: "/blue.jpg" }],
+            attributes: [{ key: "pa_colour", value: "blue" }],
           },
         ],
       }),
@@ -60,7 +99,8 @@ describe("expandCatalogProducts", () => {
 
     const result = expandCatalogProducts(products, false);
     expect(result).toHaveLength(1);
-    expect(result[0]?.colorwaySlug).toBeNull();
+    expect(result[0]?.colorwaySlug).toBe("blue");
+    expect(result[0]?.image?.src).toBe("/blue.jpg");
   });
 
   it("expands colourways when showVariants is true", () => {
@@ -69,31 +109,7 @@ describe("expandCatalogProducts", () => {
         id: "1",
         slug: "tee",
         name: "Tee",
-        attributes: [
-          {
-            id: "pa_colour",
-            name: "Colour",
-            slug: "pa_colour",
-            type: "color",
-            options: ["red", "blue"],
-            visible: true,
-            variation: true,
-            fullOptions: [
-              {
-                name: "Red",
-                slug: "red",
-                swatchColor: "#f00",
-                swatchColor2: "",
-              },
-              {
-                name: "Blue",
-                slug: "blue",
-                swatchColor: "#00f",
-                swatchColor2: "",
-              },
-            ],
-          },
-        ],
+        attributes: [colourAttr],
         variations: [
           {
             id: "v1",
@@ -159,5 +175,89 @@ describe("expandCatalogProducts", () => {
     const result = expandCatalogProducts(products, true);
     expect(result).toHaveLength(1);
     expect(result[0]?.colorwaySlug).toBeNull();
+  });
+});
+
+describe("collapseCatalogProducts", () => {
+  it("prefers admin pin over WooCommerce default", () => {
+    const products = [
+      makeProduct({
+        id: "42",
+        slug: "tee",
+        name: "Tee",
+        attributes: [colourAttr],
+        defaultAttributes: [{ key: "pa_colour", value: "red" }],
+        variations: [
+          {
+            id: "v1",
+            price: "10",
+            regularPrice: "10",
+            salePrice: "",
+            onSale: false,
+            stockStatus: "IN_STOCK",
+            image: { src: "/red.jpg" },
+            images: [{ src: "/red.jpg" }],
+            attributes: [{ key: "pa_colour", value: "red" }],
+          },
+          {
+            id: "v2",
+            price: "10",
+            regularPrice: "10",
+            salePrice: "",
+            onSale: false,
+            stockStatus: "IN_STOCK",
+            image: { src: "/blue.jpg" },
+            images: [{ src: "/blue.jpg" }],
+            attributes: [{ key: "pa_colour", value: "blue" }],
+          },
+        ],
+      }),
+    ];
+
+    const result = collapseCatalogProducts(products, { "42": "blue" });
+    expect(result).toHaveLength(1);
+    expect(result[0]?.colorwaySlug).toBe("blue");
+    expect(result[0]?.image?.src).toBe("/blue.jpg");
+  });
+
+  it("uses latest updated variation colour when no default", () => {
+    const products = [
+      makeProduct({
+        id: "1",
+        slug: "tee",
+        name: "Tee",
+        attributes: [colourAttr],
+        variations: [
+          {
+            id: "v1",
+            price: "10",
+            regularPrice: "10",
+            salePrice: "",
+            onSale: false,
+            stockStatus: "IN_STOCK",
+            dateModified: "2024-01-01T00:00:00Z",
+            image: { src: "/red.jpg" },
+            images: [{ src: "/red.jpg" }],
+            attributes: [{ key: "pa_colour", value: "red" }],
+          },
+          {
+            id: "v2",
+            price: "10",
+            regularPrice: "10",
+            salePrice: "",
+            onSale: false,
+            stockStatus: "IN_STOCK",
+            dateModified: "2025-06-01T00:00:00Z",
+            image: { src: "/blue.jpg" },
+            images: [{ src: "/blue.jpg" }],
+            attributes: [{ key: "pa_colour", value: "blue" }],
+          },
+        ],
+      }),
+    ];
+
+    expect(resolveCarouselColourway(products[0]!)).toBe("blue");
+    const result = collapseCatalogProducts(products);
+    expect(result[0]?.colorwaySlug).toBe("blue");
   });
 });

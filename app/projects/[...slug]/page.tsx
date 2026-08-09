@@ -66,6 +66,7 @@ function mapRelatedToProduct(r: RelatedProduct): Product {
     categories: [],
     tags: [],
     attributes: r.attributes ?? [],
+    defaultAttributes: r.defaultAttributes ?? [],
     variations: r.variations ?? [],
     related: [],
     averageRating: "0",

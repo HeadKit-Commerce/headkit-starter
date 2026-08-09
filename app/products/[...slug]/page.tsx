@@ -84,6 +84,10 @@ function mapRelatedToProduct(
       visible: a.visible,
       fullOptions: a.fullOptions,
     })),
+    defaultAttributes: (r.defaultAttributes ?? []).map((a) => ({
+      key: a.key,
+      value: a.value,
+    })),
     variations: r.variations.map((v) => ({
       id: v.id,
       price: v.price,
@@ -91,6 +95,7 @@ function mapRelatedToProduct(
       salePrice: v.salePrice,
       onSale: v.onSale,
       stockStatus: v.stockStatus,
+      dateModified: v.dateModified ?? null,
       image: { src: v.image.src },
       images: (v.images ?? []).map((img) => ({ src: img.src })),
       attributes: v.attributes,

@@ -12,10 +12,12 @@ interface Props {
 }
 
 /** One WordPress handpicked-products block: its product slugs, in order, plus
- *  the column count WP recorded (`has-N-columns`). */
+ *  the column count WP recorded (`has-N-columns`) and optional colourway pins. */
 interface Carousel {
   slugs: string[];
   columns: number;
+  /** Product slug → colourway term slug from `data-colourway`. */
+  colourwaysBySlug: Record<string, string>;
 }
 
 // The wrapper div for a `woocommerce/handpicked-products` block carries the
@@ -24,8 +26,10 @@ interface Carousel {
 // markup up to that list's close so we can pull the product permalinks.
 const CAROUSEL_RE =
   /<div[^>]*\bclass="([^"]*headkit-product-lists[^"]*)"[^>]*>([\s\S]*?)<\/ul>/gi;
+const PRODUCT_ITEM_RE =
+  /<li\b[^>]*\bwc-block-grid__product\b[^>]*>[\s\S]*?<\/li>/gi;
 const PRODUCT_LINK_RE =
-  /<a[^>]+href="([^"]+)"[^>]*class="[^"]*wc-block-grid__product-link/gi;
+  /<a[^>]+href="([^"]+)"[^>]*class="[^"]*wc-block-grid__product-link|<a[^>]+class="[^"]*wc-block-grid__product-link[^"]*"[^>]*href="([^"]+)"/i;
 
 /** WooCommerce product permalink → product slug (last non-empty path segment). */
 function slugFromHref(href: string): string {
@@ -78,10 +82,30 @@ function scanCarousels(html: string): Carousel[] {
     const classAttr = block[1] ?? "";
     const inner = block[2] ?? "";
     const columns = Number(/has-(\d+)-columns/.exec(classAttr)?.[1]) || 3;
-    const slugs = [...inner.matchAll(PRODUCT_LINK_RE)]
-      .map((m) => slugFromHref(m[1] ?? ""))
-      .filter(Boolean);
-    carousels.push({ slugs, columns });
+    const slugs: string[] = [];
+    const colourwaysBySlug: Record<string, string> = {};
+    for (const item of inner.matchAll(PRODUCT_ITEM_RE)) {
+      const li = item[0] ?? "";
+      const linkMatch = PRODUCT_LINK_RE.exec(li);
+      const href = linkMatch?.[1] || linkMatch?.[2] || "";
+      const slug = slugFromHref(href);
+      if (!slug) continue;
+      slugs.push(slug);
+      const colourway = /data-colourway="([^"]+)"/i.exec(li)?.[1]?.trim();
+      if (colourway) {
+        colourwaysBySlug[slug] = colourway;
+      }
+    }
+    // Fallback when list items are not present (older markup).
+    if (slugs.length === 0) {
+      for (const m of inner.matchAll(
+        /href="([^"]+)"[^>]*class="[^"]*wc-block-grid__product-link/gi,
+      )) {
+        const slug = slugFromHref(m[1] ?? "");
+        if (slug) slugs.push(slug);
+      }
+    }
+    carousels.push({ slugs, columns, colourwaysBySlug });
   }
   return carousels;
 }
@@ -145,10 +169,17 @@ export async function EditorialContent({
         const products = carousel.slugs
           .map((slug) => bySlug.get(slug))
           .filter((p): p is Product => Boolean(p));
+        // Pins are keyed by product ID for collapseCatalogProducts; map from slug.
+        const colourwayPins: Record<string, string> = {};
+        for (const product of products) {
+          const pinned = carousel.colourwaysBySlug[product.slug];
+          if (pinned) colourwayPins[product.id] = pinned;
+        }
         return (
           <EditorialProductGrid
             products={products}
             columns={carousel.columns}
+            colourwayPins={colourwayPins}
           />
         );
       }

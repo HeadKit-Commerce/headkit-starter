@@ -50,6 +50,8 @@ export function sanitizeContent(dirty: string): string {
       // HeadKit GF markers: theme replaces [gravityform] with a div carrying
       // data-form-id so EditorialContent can hydrate the React GravityForm.
       div: ["class", "id", "style", "data-form-id", "data-headkit-gf"],
+      // Handpicked colourway pin from HeadKit theme (carousel single-colourway).
+      li: ["class", "id", "style", "data-colourway"],
       img: [
         "src",
         "srcset",
@@ -61,7 +63,7 @@ export function sanitizeContent(dirty: string): string {
         "loading",
         "decoding",
       ],
-      a: ["href", "name", "target", "rel"],
+      a: ["href", "name", "target", "rel", "data-colourway"],
       iframe: [
         "src",
         "width",
