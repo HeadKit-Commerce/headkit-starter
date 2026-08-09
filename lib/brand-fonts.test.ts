@@ -1,30 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-function mockFont(variable: string) {
-  return vi.fn(() => ({
-    className: `class-${variable}`,
-    variable,
-    style: { fontFamily: variable },
-  }));
-}
-
-vi.mock("next/font/google", () => ({
-  Urbanist: mockFont("--font-slot-urbanist"),
-  Inter: mockFont("--font-slot-inter"),
-  Roboto: mockFont("--font-slot-roboto"),
-  Open_Sans: mockFont("--font-slot-open-sans"),
-  Lato: mockFont("--font-slot-lato"),
-  Montserrat: mockFont("--font-slot-montserrat"),
-  Poppins: mockFont("--font-slot-poppins"),
-  Playfair_Display: mockFont("--font-slot-playfair"),
-  Merriweather: mockFont("--font-slot-merriweather"),
-  Raleway: mockFont("--font-slot-raleway"),
-  Nunito: mockFont("--font-slot-nunito"),
-  Source_Sans_3: mockFont("--font-slot-source-sans"),
-  DM_Sans: mockFont("--font-slot-dm-sans"),
-  Space_Grotesk: mockFont("--font-slot-space-grotesk"),
-  Instrument_Sans: mockFont("--font-slot-instrument-sans"),
-}));
+import { describe, expect, it } from "vitest";
+import {
+  DEFAULT_GOOGLE_WEIGHTS,
+  normalizeGoogleWeights,
+  resolveBrandFonts,
+} from "@/lib/brand-fonts";
 
 const empty = {
   source: "",
@@ -34,13 +13,8 @@ const empty = {
 };
 
 describe("resolveBrandFonts", () => {
-  beforeEach(() => {
-    vi.resetModules();
-  });
-
-  it("defaults all slots to Urbanist", async () => {
-    const { resolveBrandFonts } = await import("@/lib/brand-fonts");
-    const resolved = await resolveBrandFonts({
+  it("defaults all slots to Urbanist with only Urbanist @font-face", () => {
+    const resolved = resolveBrandFonts({
       heading: empty,
       subheading: empty,
       body: empty,
@@ -51,13 +25,15 @@ describe("resolveBrandFonts", () => {
     expect(resolved.cssVars).toContain(
       "--font-body: var(--font-slot-urbanist)",
     );
-    expect(resolved.variableClassNames).toContain("--font-slot-urbanist");
-    expect(resolved.fontFaceCss).toBe("");
+    expect(resolved.fontFaceCss).toContain("Urbanist");
+    expect(resolved.fontFaceCss).toContain("fontsource/fonts/urbanist@");
+    expect(resolved.fontFaceCss).not.toContain("instrument-sans");
+    expect(resolved.usesFontsourceCdn).toBe(true);
+    expect(resolved.variableClassNames).toBe("");
   });
 
-  it("uses curated next/font for Inter heading", async () => {
-    const { resolveBrandFonts } = await import("@/lib/brand-fonts");
-    const resolved = await resolveBrandFonts({
+  it("uses curated Inter heading and omits unused families", () => {
+    const resolved = resolveBrandFonts({
       heading: {
         source: "google",
         family: "Inter",
@@ -70,12 +46,14 @@ describe("resolveBrandFonts", () => {
     expect(resolved.cssVars).toContain(
       "--font-heading: var(--font-slot-inter)",
     );
-    expect(resolved.variableClassNames.length).toBeGreaterThan(0);
+    expect(resolved.fontFaceCss).toContain("fontsource/fonts/inter@");
+    expect(resolved.fontFaceCss).toContain("fontsource/fonts/urbanist@");
+    expect(resolved.fontFaceCss).not.toContain("playfair-display");
+    expect(resolved.fontFaceCss).not.toContain("instrument-sans");
   });
 
-  it("omits unused Urbanist when every slot is curated elsewhere (ENG-856)", async () => {
-    const { resolveBrandFonts } = await import("@/lib/brand-fonts");
-    const resolved = await resolveBrandFonts({
+  it("omits unused Urbanist when every slot is curated elsewhere (ENG-856)", () => {
+    const resolved = resolveBrandFonts({
       heading: {
         source: "google",
         family: "Playfair Display",
@@ -95,14 +73,16 @@ describe("resolveBrandFonts", () => {
         fileUrl: "",
       },
     });
-    expect(resolved.variableClassNames).not.toContain("--font-slot-urbanist");
-    expect(resolved.variableClassNames).toContain("--font-slot-inter");
-    expect(resolved.variableClassNames).toContain("--font-slot-playfair");
+    expect(resolved.cssVars).not.toContain("--font-slot-urbanist:");
+    expect(resolved.cssVars).toContain("--font-slot-inter:");
+    expect(resolved.cssVars).toContain("--font-slot-playfair:");
+    expect(resolved.fontFaceCss).toContain("inter@");
+    expect(resolved.fontFaceCss).toContain("playfair-display@");
+    expect(resolved.fontFaceCss).not.toContain("urbanist@");
   });
 
-  it("emits @font-face for uploads", async () => {
-    const { resolveBrandFonts } = await import("@/lib/brand-fonts");
-    const resolved = await resolveBrandFonts({
+  it("emits @font-face for uploads", () => {
+    const resolved = resolveBrandFonts({
       heading: empty,
       subheading: empty,
       body: {
@@ -122,24 +102,18 @@ describe("resolveBrandFonts", () => {
     expect(resolved.cssVars).toContain("--font-body:");
   });
 
-  it("uses curated next/font for Instrument Sans (no remote Google CSS)", async () => {
-    const { resolveBrandFonts } = await import("@/lib/brand-fonts");
-    const resolved = await resolveBrandFonts({
-      heading: {
-        source: "google",
-        family: "Instrument Sans",
-        googleSlug: "Instrument Sans",
-        fileUrl: "",
-        googleWeights: [400, 500, 600],
-      },
-      subheading: empty,
-      body: {
-        source: "google",
-        family: "Instrument Sans",
-        googleSlug: "Instrument Sans",
-        fileUrl: "",
-        googleWeights: [400, 500, 600],
-      },
+  it("uses curated Instrument Sans only (no remote Google CSS, no other faces)", () => {
+    const instrument = {
+      source: "google",
+      family: "Instrument Sans",
+      googleSlug: "Instrument Sans",
+      fileUrl: "",
+      googleWeights: [400, 500, 600],
+    };
+    const resolved = resolveBrandFonts({
+      heading: instrument,
+      subheading: instrument,
+      body: instrument,
     });
     expect(resolved.cssVars).toContain(
       "--font-heading: var(--font-slot-instrument-sans)",
@@ -147,23 +121,25 @@ describe("resolveBrandFonts", () => {
     expect(resolved.cssVars).toContain(
       "--font-body: var(--font-slot-instrument-sans)",
     );
-    expect(resolved.variableClassNames).toContain(
-      "--font-slot-instrument-sans",
-    );
+    expect(resolved.fontFaceCss).toContain("instrument-sans@");
+    expect(resolved.fontFaceCss).toContain("font-weight:400");
+    expect(resolved.fontFaceCss).toContain("font-weight:500");
+    expect(resolved.fontFaceCss).toContain("font-weight:600");
+    expect(resolved.fontFaceCss).not.toContain("urbanist@");
+    expect(resolved.fontFaceCss).not.toContain("fonts.googleapis.com");
+    // One family × three weights → three @font-face rules only.
+    expect(resolved.fontFaceCss.match(/@font-face/g)?.length).toBe(3);
   });
 
-  it("normalizes empty googleWeights to Regular/Medium/SemiBold", async () => {
-    const { normalizeGoogleWeights, DEFAULT_GOOGLE_WEIGHTS } =
-      await import("@/lib/brand-fonts");
+  it("normalizes empty googleWeights to Regular/Medium/SemiBold", () => {
     expect(normalizeGoogleWeights([])).toEqual([...DEFAULT_GOOGLE_WEIGHTS]);
     expect(normalizeGoogleWeights([700, 400, 700, 500])).toEqual([
       400, 500, 700,
     ]);
   });
 
-  it("falls back to Urbanist for unknown Google families (no remote CSS)", async () => {
-    const { resolveBrandFonts } = await import("@/lib/brand-fonts");
-    const resolved = await resolveBrandFonts({
+  it("falls back to Urbanist for unknown Google families (no remote CSS)", () => {
+    const resolved = resolveBrandFonts({
       heading: {
         source: "google",
         family: "Some Obscure Display",
@@ -176,7 +152,7 @@ describe("resolveBrandFonts", () => {
     expect(resolved.cssVars).toContain(
       "--font-heading: var(--font-slot-urbanist)",
     );
-    expect(resolved.variableClassNames).toContain("--font-slot-urbanist");
+    expect(resolved.fontFaceCss).toContain("urbanist@");
     expect(JSON.stringify(resolved)).not.toContain("fonts.googleapis.com");
   });
 });

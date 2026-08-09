@@ -174,9 +174,17 @@ export default async function RootLayout({
       <head>
         <meta name="apple-mobile-web-app-title" content={siteName} />
         {/*
-          Brand fonts ship only via next/font (self-hosted) + upload @font-face.
-          No remote Google Fonts CSS — unknown dashboard families → Urbanist.
+          Brand fonts: selected curated faces as inline @font-face (Fontsource
+          latin woff2) + upload @font-face via same-origin proxy. No
+          fonts.googleapis.com and no unused next/font CSS chunks.
         */}
+        {fonts.usesFontsourceCdn ? (
+          <link
+            rel="preconnect"
+            href="https://cdn.jsdelivr.net"
+            crossOrigin="anonymous"
+          />
+        ) : null}
         {/* Per-tenant brand token overrides. Empty pieces leave globals.css defaults. */}
         {(brandVars || fonts.fontFaceCss) && (
           <style
@@ -188,9 +196,8 @@ export default async function RootLayout({
         )}
       </head>
       {/*
-        Do not apply next/font `bodyClassName` here — that class sets
-        `font-family` outside @layer and beats `body { font-family: var(--font-body) }`.
-        Variable classes on <html> + --font-body CSS vars are enough.
+        Fonts apply via :root CSS vars (--font-body) + Tailwind font-sans —
+        not next/font body classNames (those fought the layered body rule).
       */}
       <body className="antialiased font-sans">
         {/* Marketing tags (GTM / Klaviyo / HubSpot) — idle + gesture deferred so

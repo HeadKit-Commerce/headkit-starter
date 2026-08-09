@@ -1,4 +1,3 @@
-import "./../../app/_editorial/wp-block-library.css";
 import { Button } from "@/components/ui/button";
 import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
@@ -131,11 +130,24 @@ function toProjectSummaries(
   }));
 }
 
-const BlockEditor = ({ blocks, section }: Props) => {
+const BlockEditor = async ({
+  blocks,
+  section,
+}: Props): Promise<React.JSX.Element> => {
   const result =
     section === undefined
       ? blocks
       : blocks?.filter((block) => block.section === section);
+
+  // WP media / raw HTML blocks need block-library CSS; HeadKit React
+  // carousels do not — keep the ~153KB stylesheet off commerce-only homes.
+  const needsEditorialCss = (result ?? []).some(
+    (data) => isMediaBlock(data.cssClasses) || Boolean(data.html?.trim()),
+  );
+  if (needsEditorialCss) {
+    await import("@/components/headkit-ui/editorial-styles");
+  }
+
   return (
     <>
       {result?.map((data: ProcessedEditorBlock, index: number) => {

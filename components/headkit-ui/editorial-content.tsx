@@ -1,4 +1,3 @@
-import "./../../app/_editorial/wp-block-library.css";
 import parse, { Element, domToReact, type DOMNode } from "html-react-parser";
 import type { Product } from "@headkit/sdk";
 import { headkit } from "@/lib/sdk";
@@ -121,9 +120,10 @@ function scanCarousels(html: string): Carousel[] {
  * thumbnail markup. Product slugs are read from the block's permalinks and
  * resolved to full Product objects via the SDK; everything else renders as-is.
  *
- * The relative import of the vendored, version-pinned `wp-block-library.css`
- * keeps the WordPress core block styles scoped to editorial routes only (D-04) —
- * never add that stylesheet to globals.css, which would ship it on every route.
+ * WordPress block CSS is loaded via dynamic `import()` of
+ * `editorial-styles` only when there is HTML to render — so home routes that
+ * only ship HeadKit React carousels never pay for ~153KB of unused
+ * `.wp-block-*` rules. Never add that stylesheet to globals.css (D-04).
  *
  * Consumed by every editorial page (08-06 pages, 08-07 news) so the sanitize
  * boundary and block-CSS fidelity live in exactly one place.
@@ -131,6 +131,13 @@ function scanCarousels(html: string): Carousel[] {
 export async function EditorialContent({
   html,
 }: Props): Promise<React.JSX.Element> {
+  if (!html.trim()) {
+    return <></>;
+  }
+
+  // Pull WP block CSS into this route's graph only when we render WP HTML.
+  await import("@/components/headkit-ui/editorial-styles");
+
   // Page Break (core/nextpage) renders as an HTML comment, which sanitize
   // strips. In a single-page headless view there is nothing to paginate, so
   // surface it as a visual divider before sanitizing.

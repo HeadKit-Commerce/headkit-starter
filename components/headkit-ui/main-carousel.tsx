@@ -103,29 +103,39 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                     </>
                   ) : slide?.image ? (
                     (() => {
-                      const common = {
+                      const isLcp = index === 0;
+                      const desktop = {
                         alt: slide.header,
                         sizes: "100vw",
                         width: 1920,
                         height: 1080,
+                        // Desktop can afford slightly higher quality; mobile LCP
+                        // path stays leaner under Slow 4G (~65 vs 75).
                         quality: 75 as const,
-                        priority: index === 0,
-                        // Explicit high fetch for slide 0 — getImageProps + <img>
-                        // path does not always surface fetchPriority from priority alone.
-                        fetchPriority: (index === 0
+                        priority: isLcp,
+                        fetchPriority: (isLcp
                           ? "high"
                           : "auto") as "high" | "auto",
                       };
                       const {
                         props: { srcSet: desktopSrcSet, sizes: desktopSizes },
-                      } = getImageProps({ ...common, src: slide.image });
+                      } = getImageProps({ ...desktop, src: slide.image });
+                      // Prefer a real mobile asset when CMS provides one; fall
+                      // back to the desktop image at a smaller encode budget.
+                      const mobileSrc = slide.mobileImage || slide.image;
                       const {
                         props: { srcSet: mobileSrcSet, ...mobileRest },
                       } = getImageProps({
-                        ...common,
+                        alt: slide.header,
+                        sizes: "100vw",
                         width: 768,
                         height: 768,
-                        src: slide.mobileImage || slide.image,
+                        quality: 65 as const,
+                        priority: isLcp,
+                        fetchPriority: (isLcp
+                          ? "high"
+                          : "auto") as "high" | "auto",
+                        src: mobileSrc,
                       });
                       return (
                         <>
@@ -143,8 +153,8 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                               className="h-full w-full object-cover"
                               width={768}
                               height={768}
-                              fetchPriority={index === 0 ? "high" : "auto"}
-                              decoding={index === 0 ? "sync" : "async"}
+                              fetchPriority={isLcp ? "high" : "auto"}
+                              decoding={isLcp ? "sync" : "async"}
                             />
                           </picture>
                           <div
