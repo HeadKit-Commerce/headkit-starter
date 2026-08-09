@@ -71,8 +71,17 @@ test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-
       "/shop grid rendered no product cards",
     ).toBeVisible({ timeout: 30_000 });
 
-    // Full first page (perPage=24) + accurate count line.
-    await expect.poll(() => cards(page).count(), { timeout: 15_000 }).toBe(24);
+    // First page renders a full-row quantum of cards (colourway expansion may
+    // hold an incomplete trailing row until Load More / catalog end). Count
+    // line always tracks parent Woo products (pagination unit), not cards.
+    await expect
+      .poll(() => cards(page).count(), { timeout: 15_000 })
+      .toBeGreaterThan(0);
+    const firstPageCards = await cards(page).count();
+    expect(
+      firstPageCards % 12 === 0 || firstPageCards < 12,
+      `expected full-row quantum (12) or short catalog, got ${firstPageCards}`,
+    ).toBe(true);
     await expect(
       page.getByText(/Viewing \d+ of \d+ products/),
       "ProductCount line missing",

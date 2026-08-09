@@ -13,6 +13,7 @@ import {
 import { makeSeoMetadata } from "@/lib/make-metadata";
 import { getBranding } from "@/lib/branding";
 import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
+import { CATALOG_PAGE_SIZE } from "@/components/headkit-ui/catalog-grid";
 import type { ProductCategoryDetail } from "@headkit/sdk";
 
 const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
@@ -39,7 +40,7 @@ interface Props {
   searchParams: Promise<Record<string, string>>;
 }
 
-const PER_PAGE = 24;
+const PER_PAGE = CATALOG_PAGE_SIZE;
 
 /**
  * Root product categories for the Shop header carousel (same SubcategoryCarousel

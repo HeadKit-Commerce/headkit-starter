@@ -32,6 +32,7 @@ import {
   CollectionPageSkeleton,
   CollectionProductsSkeleton,
 } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
+import { CATALOG_PAGE_SIZE } from "@/components/headkit-ui/catalog-grid";
 
 /** Satisfies Cache Components: `generateStaticParams` must not return []. Never a real category slug. */
 const STATIC_GEN_PLACEHOLDER_SLUG = "__hk_static_placeholder";
@@ -41,7 +42,7 @@ interface Props {
   searchParams: Promise<Record<string, string>>;
 }
 
-const PER_PAGE = 24;
+const PER_PAGE = CATALOG_PAGE_SIZE;
 
 /**
  * Parse the catch-all slug into category path and optional filter slug.

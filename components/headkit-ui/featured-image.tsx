@@ -4,12 +4,20 @@ import { cn } from "@/lib/utils";
 
 interface Props {
   src?: string | null;
+  /**
+   * Optional second image for collection-card image rollover. Rendered as a
+   * lazy dual layer so the browser can fetch it near the viewport — never a
+   * first-hover `src` swap (which stalls LCP-adjacent cards).
+   */
+  hoverSrc?: string | null;
+  /** When true and `hoverSrc` differs, cross-fade to the hover layer. */
+  showHover?: boolean;
   alt?: string;
   className?: string;
   /**
    * Mark this image as the likely LCP element (first-row grid / carousel cards).
    * Emits a preload + eager fetchPriority=high instead of the default lazy
-   * loading.
+   * loading. Never applied to the hover layer.
    */
   priority?: boolean;
   /** `contain` keeps full product shots visible (PLP cards); `cover` crops to fill. */
@@ -26,6 +34,8 @@ const FALLBACK_IMAGE_SRC = "/assets/HeadKit-Fallback.png";
 
 const FeaturedImage = ({
   src,
+  hoverSrc,
+  showHover = false,
   alt = "",
   className,
   priority = false,
@@ -35,6 +45,17 @@ const FeaturedImage = ({
   // Empty/whitespace means "no image" — use the storefront fallback asset only.
   const trimmed = src?.trim();
   const imageSrc = trimmed ? trimmed : FALLBACK_IMAGE_SRC;
+  const trimmedHover = hoverSrc?.trim() || "";
+  const hasHoverLayer = Boolean(
+    trimmedHover && trimmedHover !== imageSrc && imageSrc !== FALLBACK_IMAGE_SRC,
+  );
+  const revealHover = hasHoverLayer && showHover;
+
+  const objectClass = cn(
+    "object-center transition-opacity duration-200 motion-reduce:transition-none",
+    fit === "contain" ? "object-contain" : "object-cover",
+  );
+
   return (
     <div
       className={cn(
@@ -50,12 +71,27 @@ const FeaturedImage = ({
         priority={priority}
         fetchPriority={priority ? "high" : "auto"}
         quality={quality}
-        className={cn(
-          "object-center",
-          fit === "contain" ? "object-contain" : "object-cover",
-        )}
+        className={cn(objectClass, revealHover ? "opacity-0" : "opacity-100")}
         sizes={CATALOG_GRID_IMAGE_SIZES}
       />
+      {hasHoverLayer ? (
+        <Image
+          src={trimmedHover}
+          alt=""
+          fill
+          // Never compete with LCP — lazy near-viewport fetch only.
+          priority={false}
+          loading="lazy"
+          fetchPriority="low"
+          quality={quality}
+          aria-hidden
+          className={cn(
+            objectClass,
+            revealHover ? "opacity-100" : "opacity-0",
+          )}
+          sizes={CATALOG_GRID_IMAGE_SIZES}
+        />
+      ) : null}
     </div>
   );
 };

@@ -10,6 +10,7 @@ import {
   parseSearchParams,
 } from "@/components/headkit-ui/collection/utils";
 import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
+import { CATALOG_PAGE_SIZE } from "@/components/headkit-ui/catalog-grid";
 
 export const metadata: Metadata = {
   title: "Featured Products",
@@ -20,7 +21,7 @@ interface Props {
   searchParams: Promise<Record<string, string>>;
 }
 
-const PER_PAGE = 24;
+const PER_PAGE = CATALOG_PAGE_SIZE;
 
 /**
  * Durable, shared catalog read keyed on a STABLE normalized filter key + page

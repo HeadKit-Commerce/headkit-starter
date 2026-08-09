@@ -79,10 +79,6 @@ export const ProductCard = ({
       product.hoverImage?.src ??
       null)
     : null;
-  const displaySrc =
-    isHovering && hoverSrc && hoverSrc !== imageSelected
-      ? hoverSrc
-      : imageSelected;
 
   useEffect(() => {
     if (!product) return;
@@ -161,7 +157,9 @@ export const ProductCard = ({
         onMouseLeave={() => setIsHovering(false)}
       >
         <FeaturedImage
-          src={displaySrc}
+          src={imageSelected}
+          hoverSrc={hoverSrc}
+          showHover={isHovering}
           alt={product?.name ?? "Product"}
           priority={priority}
           fit="contain"

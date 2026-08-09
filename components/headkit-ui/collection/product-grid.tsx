@@ -3,25 +3,45 @@
 import { useCollection } from "./collection-context";
 import { ProductCard } from "@/components/headkit-ui/product-card";
 import { ProductCardSkeleton } from "@/components/headkit-ui/skeletons/product-card-skeleton";
-import { CATALOG_GRID_CLASS } from "@/components/headkit-ui/catalog-grid";
+import {
+  CATALOG_GRID_CLASS,
+  CATALOG_ROW_QUANTUM,
+} from "@/components/headkit-ui/catalog-grid";
 import { useCatalogDisplay } from "@/components/headkit-ui/catalog-display-provider";
-import { expandCatalogProducts } from "@/lib/catalog-display";
+import {
+  expandCatalogProducts,
+  partitionFullRows,
+} from "@/lib/catalog-display";
 
-function LoadingSkeleton({ count = 8 }: { count?: number }) {
+function LoadingSkeleton({
+  count = CATALOG_ROW_QUANTUM,
+  showSwatches = false,
+}: {
+  count?: number;
+  showSwatches?: boolean;
+}) {
   return (
     <>
       {Array.from({ length: count }, (_, i) => (
-        <ProductCardSkeleton key={`skeleton-${i}`} />
+        <ProductCardSkeleton
+          key={`skeleton-${i}`}
+          showSwatches={showSwatches}
+        />
       ))}
     </>
   );
 }
 
 export function ProductGrid() {
-  const { products, isLoading, isLoadingBefore, isLoadingAfter, itemsPerPage } =
+  const { products, isLoading, isLoadingBefore, isLoadingAfter, hasMore } =
     useCollection();
-  const { showVariants } = useCatalogDisplay();
+  const { showVariants, showSwatches } = useCatalogDisplay();
   const catalogProducts = expandCatalogProducts(products, showVariants);
+  // Hold incomplete trailing rows while more parent products can still load —
+  // otherwise empty CSS-grid cells look like blank cards above Load More.
+  const { visible: visibleProducts } = partitionFullRows(catalogProducts, {
+    includeRemainder: !hasMore,
+  });
 
   const isEmpty =
     !isLoading &&
@@ -40,13 +60,16 @@ export function ProductGrid() {
     );
   }
 
-  const skeletonCount = Math.min(itemsPerPage, 8);
-
   return (
     <div className="px-5 md:px-10 z-5">
       <div className={CATALOG_GRID_CLASS}>
-        {isLoadingBefore && <LoadingSkeleton count={skeletonCount} />}
-        {catalogProducts.map((product, index) => (
+        {isLoadingBefore && (
+          <LoadingSkeleton
+            count={CATALOG_ROW_QUANTUM}
+            showSwatches={showSwatches}
+          />
+        )}
+        {visibleProducts.map((product, index) => (
           // Only the first two cards compete for LCP preload (ENG-856). Prefetching
           // four images on a phone wastes bandwidth when only one card is above the fold.
           // Off-screen rows defer layout/paint via content-visibility.
@@ -64,7 +87,10 @@ export function ProductGrid() {
           />
         ))}
         {(isLoading || isLoadingAfter) && (
-          <LoadingSkeleton count={skeletonCount} />
+          <LoadingSkeleton
+            count={CATALOG_ROW_QUANTUM}
+            showSwatches={showSwatches}
+          />
         )}
       </div>
     </div>

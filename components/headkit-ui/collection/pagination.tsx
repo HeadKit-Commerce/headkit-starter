@@ -100,6 +100,7 @@ export function LoadPrevious() {
 export function ProductCount() {
   const { products, totalProducts } = useCollection();
   if (!totalProducts) return null;
+  // Count parent Woo products (pagination unit), not expanded colourway cards.
   return (
     <p className="text-sm text-gray-800">
       Viewing {products.length} of {totalProducts} products

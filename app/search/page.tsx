@@ -9,12 +9,13 @@ import { buildProductListFilter } from "@/components/headkit-ui/collection/utils
 import type { SortKeyType } from "@/components/headkit-ui/collection/utils";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
+import { CATALOG_PAGE_SIZE } from "@/components/headkit-ui/catalog-grid";
 
 interface Props {
   searchParams: Promise<Record<string, string>>;
 }
 
-const PER_PAGE = 24;
+const PER_PAGE = CATALOG_PAGE_SIZE;
 
 export async function generateMetadata({
   searchParams,

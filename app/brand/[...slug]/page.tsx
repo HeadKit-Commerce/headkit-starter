@@ -15,6 +15,7 @@ import {
   CollectionPageSkeleton,
   CollectionProductsSkeleton,
 } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
+import { CATALOG_PAGE_SIZE } from "@/components/headkit-ui/catalog-grid";
 
 /**
  * Satisfies Cache Components: `generateStaticParams` must not return [].
@@ -27,7 +28,7 @@ interface Props {
   searchParams: Promise<Record<string, string>>;
 }
 
-const PER_PAGE = 24;
+const PER_PAGE = CATALOG_PAGE_SIZE;
 
 /**
  * Params-only brand shell (header + facet options). Uses durable `"use cache"`

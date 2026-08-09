@@ -1,4 +1,8 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  CATALOG_GRID_CLASS,
+  CATALOG_ROW_QUANTUM,
+} from "@/components/headkit-ui/catalog-grid";
 import { cn } from "@/lib/utils";
 
 interface ProductCardSkeletonProps {
@@ -66,18 +70,13 @@ interface ProductGridSkeletonProps {
 
 /** Grid shell matching ProductGrid breakpoints. */
 export function ProductGridSkeleton({
-  count = 4,
+  count = CATALOG_ROW_QUANTUM,
   className,
   showSwatches = false,
   shell = false,
 }: ProductGridSkeletonProps) {
   return (
-    <div
-      className={cn(
-        "grid grid-cols-1 gap-x-[30px] gap-y-8 min-[480px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4",
-        className,
-      )}
-    >
+    <div className={cn(CATALOG_GRID_CLASS, className)}>
       {Array.from({ length: count }, (_, i) => (
         <ProductCardSkeleton
           key={i}

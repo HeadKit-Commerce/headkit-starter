@@ -1,4 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { CATALOG_ROW_QUANTUM } from "@/components/headkit-ui/catalog-grid";
 import { ProductGridSkeleton } from "@/components/headkit-ui/skeletons/product-card-skeleton";
 
 interface CollectionPageSkeletonProps {
@@ -72,8 +73,8 @@ export function CollectionProductsSkeleton() {
         <Skeleton animated={false} className="h-10 w-28 rounded-brand" />
       </div>
       <div className="px-5 md:px-10">
-        {/* One desktop row (4) + partial second — matches ProductGrid breakpoints */}
-        <ProductGridSkeleton count={8} shell />
+        {/* Full-row quantum (LCM of 2/3/4 cols) — matches ProductGrid load skeletons */}
+        <ProductGridSkeleton count={CATALOG_ROW_QUANTUM} shell />
       </div>
     </div>
   );

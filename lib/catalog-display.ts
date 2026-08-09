@@ -3,6 +3,7 @@
  */
 
 import type { ProductSummaryFieldsFragment } from "@headkit/sdk";
+import { CATALOG_ROW_QUANTUM } from "@/components/headkit-ui/catalog-grid";
 import { findSwatchAttribute } from "@/lib/swatch-attribute";
 
 export interface CatalogDisplayPrefs {
@@ -224,4 +225,37 @@ export function expandCatalogProducts(
     }
   }
   return out;
+}
+
+/**
+ * Keep only complete catalog rows while more pages can load.
+ *
+ * When colourways expand, card count is often not divisible by 2/3/4 — the
+ * leftover cells read as blank cards above the load-more sentinel. Hold the
+ * incomplete trailing quantum until the next page fills it, or until the
+ * catalog is exhausted (`includeRemainder`).
+ */
+export function partitionFullRows<T>(
+  items: ReadonlyArray<T>,
+  options: { includeRemainder: boolean; quantum?: number },
+): { visible: T[]; held: T[] } {
+  const quantum =
+    options.quantum && options.quantum > 0
+      ? options.quantum
+      : CATALOG_ROW_QUANTUM;
+  const list = [...items];
+
+  if (options.includeRemainder || list.length <= quantum) {
+    return { visible: list, held: [] };
+  }
+
+  const fullCount = Math.floor(list.length / quantum) * quantum;
+  if (fullCount === 0) {
+    return { visible: list, held: [] };
+  }
+
+  return {
+    visible: list.slice(0, fullCount),
+    held: list.slice(fullCount),
+  };
 }

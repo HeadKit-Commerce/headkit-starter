@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   collapseCatalogProducts,
   expandCatalogProducts,
+  partitionFullRows,
   resolveCarouselColourway,
 } from "@/lib/catalog-display";
 import type { ProductSummaryFieldsFragment } from "@headkit/sdk";
@@ -175,6 +176,40 @@ describe("expandCatalogProducts", () => {
     const result = expandCatalogProducts(products, true);
     expect(result).toHaveLength(1);
     expect(result[0]?.colorwaySlug).toBeNull();
+  });
+});
+
+describe("partitionFullRows", () => {
+  const items = Array.from({ length: 14 }, (_, index) =>
+    makeProduct({
+      id: String(index + 1),
+      slug: `p-${index + 1}`,
+      name: `P${index + 1}`,
+    }),
+  );
+
+  it("holds back an incomplete trailing quantum while more pages can load", () => {
+    const { visible, held } = partitionFullRows(items, {
+      includeRemainder: false,
+    });
+    expect(visible).toHaveLength(12);
+    expect(held).toHaveLength(2);
+  });
+
+  it("shows the remainder once the catalog is exhausted", () => {
+    const { visible, held } = partitionFullRows(items, {
+      includeRemainder: true,
+    });
+    expect(visible).toHaveLength(14);
+    expect(held).toHaveLength(0);
+  });
+
+  it("does not hold back when the list is shorter than one quantum", () => {
+    const { visible, held } = partitionFullRows(items.slice(0, 5), {
+      includeRemainder: false,
+    });
+    expect(visible).toHaveLength(5);
+    expect(held).toHaveLength(0);
   });
 });
 
