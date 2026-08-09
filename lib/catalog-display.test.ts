@@ -260,4 +260,47 @@ describe("collapseCatalogProducts", () => {
     const result = collapseCatalogProducts(products);
     expect(result[0]?.colorwaySlug).toBe("blue");
   });
+
+  it("sets onSale from the shown colourway variation", () => {
+    const products = [
+      makeProduct({
+        id: "1",
+        slug: "tee",
+        name: "Tee",
+        onSale: true, // parent true because another colourway is on sale
+        attributes: [colourAttr],
+        defaultAttributes: [{ key: "pa_colour", value: "red" }],
+        variations: [
+          {
+            id: "v1",
+            price: "8",
+            regularPrice: "10",
+            salePrice: "8",
+            onSale: true,
+            stockStatus: "IN_STOCK",
+            image: { src: "/red.jpg" },
+            images: [{ src: "/red.jpg" }],
+            attributes: [{ key: "pa_colour", value: "red" }],
+          },
+          {
+            id: "v2",
+            price: "10",
+            regularPrice: "10",
+            salePrice: "",
+            onSale: false,
+            stockStatus: "IN_STOCK",
+            image: { src: "/blue.jpg" },
+            images: [{ src: "/blue.jpg" }],
+            attributes: [{ key: "pa_colour", value: "blue" }],
+          },
+        ],
+      }),
+    ];
+
+    const red = collapseCatalogProducts(products);
+    expect(red[0]?.onSale).toBe(true);
+
+    const blueOnly = collapseCatalogProducts(products, { "1": "blue" });
+    expect(blueOnly[0]?.onSale).toBe(false);
+  });
 });

@@ -82,7 +82,11 @@ export function RecentlyViewed({ currentSlug }: RecentlyViewedProps) {
         <h2 className="mb-5 text-primary">Recently Viewed</h2>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           {catalogProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
+            <ProductCard
+              key={product.id}
+              product={product}
+              isNew={product.isNew}
+            />
           ))}
         </div>
       </div>

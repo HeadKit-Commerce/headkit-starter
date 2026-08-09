@@ -114,7 +114,7 @@ export function SearchDrawer({ trigger }: SearchDrawerProps) {
               <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                 {catalogProducts.map((p) => (
                   <div key={p.id} onClick={() => setOpen(false)}>
-                    <ProductCard product={p} />
+                    <ProductCard product={p} isNew={p.isNew} />
                   </div>
                 ))}
               </div>

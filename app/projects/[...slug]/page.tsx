@@ -47,7 +47,7 @@ function mapRelatedToProduct(r: RelatedProduct): Product {
     name: r.name,
     slug: r.slug,
     uri: `/products/${r.slug}`,
-    isNew: false,
+    isNew: r.isNew,
     description: "",
     shortDescription: "",
     price: r.price,

@@ -142,11 +142,14 @@ function cardForColourway(
   const imageSrc = matchingVar?.image?.src || product.image?.src || "";
   const hoverSrc =
     matchingVar?.images?.[1]?.src || product.hoverImage?.src || null;
+  // Sale badge should match the colourway shown, not "any variation on sale".
+  const onSale = matchingVar ? Boolean(matchingVar.onSale) : product.onSale;
 
   return {
     ...product,
     id: `${product.id}:${colourSlug}`,
     colorwaySlug: colourSlug,
+    onSale,
     image: product.image
       ? {
           ...product.image,

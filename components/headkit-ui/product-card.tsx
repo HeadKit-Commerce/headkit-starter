@@ -142,7 +142,12 @@ export const ProductCard = ({
   return (
     <div className={cn("relative w-full", className)}>
       <div className="absolute left-2 top-2 z-10">
-        <BadgeList isSale={product?.onSale ?? false} isNewIn={isNew} />
+        <BadgeList
+          isSale={product?.onSale ?? false}
+          // Prefer explicit prop; fall back to product.isNew so collection grids
+          // show New without every caller passing the prop.
+          isNewIn={isNew || Boolean(product?.isNew)}
+        />
       </div>
       {/*
         InstantLink + prefetch={true}: Partial Prefetching warms PDP `'use cache'`

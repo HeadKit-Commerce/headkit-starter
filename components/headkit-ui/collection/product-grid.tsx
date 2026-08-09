@@ -53,6 +53,7 @@ export function ProductGrid() {
           <ProductCard
             key={product.id}
             product={product}
+            isNew={product.isNew}
             priority={index < 2}
             {...(index >= 4
               ? {
