@@ -482,7 +482,17 @@ export default function Page({ params, searchParams }: Props) {
   );
 }
 
-async function CollectionRoute({ params, searchParams }: Props) {
+/**
+ * Exported so the nested `/shop/[...slug]` route renders the IDENTICAL
+ * collection view for a category URL rather than duplicating it (D-15-04).
+ *
+ * The shop route passes the category's own segments, so `categoryBasePath`
+ * stays `/collections/…`: facet links and the legacy query-facet redirect below
+ * therefore target the `/collections` namespace, which serves them. Pointing
+ * them at `/shop/…` would emit a permanent redirect into a path the shop
+ * catch-all classifies as unknown — RESEARCH C-6 in a new shape.
+ */
+export async function CollectionRoute({ params, searchParams }: Props) {
   const { slug } = await params;
   if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) return notFound();
   const { categorySlug, filterSlug, categoryBasePath } =

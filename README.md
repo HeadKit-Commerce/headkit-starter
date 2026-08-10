@@ -189,3 +189,42 @@ Deploy to Vercel (HeadKit-controlled). Set all required environment variables in
 - `@headkit/sdk` — Typed GraphQL client
 - Zod — Runtime validation
 - Radix UI — Accessible primitives
+
+## The `@headkit/sdk` pin, and how it silently breaks every new store
+
+This app is mirrored to `HeadKit-Commerce/headkit-starter` by `subtree-mirror.yml`, and that template
+is what `CreateFromTemplate` clones for every customer store. **The mirror rewrites the `@headkit/sdk`
+dependency to an EXACT published version read from `packages/sdk/package.json`.**
+
+That creates a trap which cost the template two months of broken builds:
+
+- in this monorepo, `apps/starter` resolves `@headkit/sdk` through the **bun workspace link**, so it
+  compiles against `packages/sdk` **source**;
+- in the template, it resolves the **published** package from Artifact Registry.
+
+If you add something to `packages/sdk` and use it here **without bumping
+`packages/sdk/package.json`**, this repo type-checks and CI goes green — while the template installs
+a published version that does not contain it. Every store created from the template then fails its
+first build, and nothing in this repo reports it.
+
+It is worse than a stale pin, because `changeset publish` **refuses to republish an existing
+version**. The release run then reports:
+
+```
+warn @headkit/sdk is not being published because version X is already published on npm
+warn No unpublished projects to publish
+```
+
+and exits **green**, which reads as "nothing to do" rather than "you are shipping stale code under a
+version number that already means something else".
+
+**So: any change to `packages/sdk` that this app consumes MUST come with a version bump** (a
+changeset, or a direct bump to `packages/sdk/package.json`). Merging to `main` publishes it.
+
+Two ordering notes:
+
+1. `Version and Publish` and `Mirror Starter` race on the same push. The mirror's registry gate fails
+   closed on `main`, so on a bump merge it will refuse with `does not resolve in <registry>`. That is
+   correct behaviour — re-run the mirror after the publish finishes, do not weaken the gate.
+2. A red `Version and Publish` does not mean nothing published. The GitHub Release step runs after the
+   npm publish and fails independently. Check Artifact Registry before concluding anything.

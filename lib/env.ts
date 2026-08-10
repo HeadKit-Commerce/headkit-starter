@@ -12,6 +12,11 @@ const clientSchema = z.object({
   // Store display currency (ISO 4217) for catalog surfaces with no cart/order
   // context — see getStoreCurrency() in lib/utils.ts. Defaults to AUD there.
   NEXT_PUBLIC_STORE_CURRENCY: z.string().length(3).optional(),
+  // Gravity Forms form id mounted on /wholesale. Per-STORE, so it is
+  // configuration rather than a literal in the shared route — Dishee mounts its
+  // enquiry form on /contact instead, and a per-store difference must not fork
+  // the page. Unset = the route renders content only, with no form.
+  NEXT_PUBLIC_WHOLESALE_FORM_ID: z.string().optional(),
 });
 
 const serverSchema = clientSchema.extend({
@@ -47,6 +52,8 @@ function createEnv(): ClientEnv & Partial<ServerEnv> {
       process.env.NEXT_PUBLIC_HUBSPOT_PORTAL_ID || undefined,
     NEXT_PUBLIC_STORE_CURRENCY:
       process.env.NEXT_PUBLIC_STORE_CURRENCY || undefined,
+    NEXT_PUBLIC_WHOLESALE_FORM_ID:
+      process.env.NEXT_PUBLIC_WHOLESALE_FORM_ID || undefined,
   });
 }
 

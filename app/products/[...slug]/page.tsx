@@ -237,7 +237,12 @@ export default function ProductPage({ params }: Props) {
   );
 }
 
-async function ProductPageContent({ params }: Props) {
+/**
+ * Exported so the nested `/shop/[...slug]` PDP renders the IDENTICAL product
+ * composition rather than duplicating it (D-15-04). The two routes serve two
+ * valid URL shapes for one product; only their canonicals differ.
+ */
+export async function ProductPageContent({ params }: Props) {
   const { slug } = await params;
   const productSlug = slug[0]!;
   const colorSlug = slug[1]; // undefined for simple products or base variable URL

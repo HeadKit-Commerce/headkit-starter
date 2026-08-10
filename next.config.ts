@@ -84,8 +84,13 @@ const nextConfig: NextConfig = {
   // Navigations in Next.js 16.3: reusable App Shells, fewer prefetch
   // requests, Instant Insights / Navigation Inspector in dev.
   // https://nextjs.org/blog/next-16-3
+  //
+  // `partialPrefetching: true` is NOT re-added until the pinned Next is >= 16.3.
+  // On the pinned 16.2.x it is not a valid NextConfig key: Next logs
+  // "Unrecognized key(s) in object: 'partialPrefetching'" and drops it, so it
+  // was already inert at runtime — but it failed `next build`'s type check,
+  // which broke `bun run build` (a CI gate) for the whole workspace.
   cacheComponents: true,
-  partialPrefetching: true,
   experimental: {
     optimizePackageImports: [
       "react-icons",
