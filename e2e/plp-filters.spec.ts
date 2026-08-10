@@ -1,5 +1,19 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { BASE_URL, allowGatewayCors, stackIsUp } from "./fixtures/helpers-2";
+
+/**
+ * A product's card heading in a grid.
+ *
+ * `.first()` is load-bearing. With branding `showVariants` on, the grid renders
+ * ONE CARD PER COLOURWAY (lib/catalog-display.ts expandCatalogProducts), so a
+ * product with three colours legitimately contributes three identical headings
+ * and a bare getByRole fails Playwright strict mode with "resolved to 3
+ * elements". Every assertion below is about whether a product is PRESENT or
+ * ABSENT in the grid, never about how many colourways it has — the count-based
+ * assertions that do care use getByRole directly.
+ */
+const productHeading = (page: Page, name: string | RegExp) =>
+  page.getByRole("heading", { name }).first();
 
 /**
  * PLP filtering/sorting/pagination e2e (autonomous QA run — E2E-GAPS.md Gap 7).
@@ -122,25 +136,23 @@ test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-
   }) => {
     await page.goto(`${BASE_URL}/collections/apparel`);
     await expect(
-      page.getByRole("heading", { name: "Classic Tee" }),
+      productHeading(page, "Classic Tee"),
       "apparel PLP missing a seeded apparel product",
     ).toBeVisible({ timeout: 30_000 });
     // A drinkware product must NOT leak into the apparel collection.
     await expect(
-      page.getByRole("heading", { name: "Ceramic Mug" }),
+      productHeading(page, "Ceramic Mug"),
       "category scoping leaked a non-apparel product into /collections/apparel",
     ).toHaveCount(0);
 
     // Nested path resolves the CHILD category.
     await page.goto(`${BASE_URL}/collections/bikes/road-bikes`);
+    await expect(productHeading(page, /Road Racer Bike/)).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(productHeading(page, /Aero Road Bike/)).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: /Road Racer Bike/ }),
-    ).toBeVisible({ timeout: 30_000 });
-    await expect(
-      page.getByRole("heading", { name: /Aero Road Bike/ }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: "Folding Bike" }),
+      productHeading(page, "Folding Bike"),
       "nested child category leaked a parent-category product",
     ).toHaveCount(0);
   });
@@ -151,12 +163,12 @@ test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-
     // Shareable filter-in-path URL: direct load = pre-filtered grid.
     await page.goto(`${BASE_URL}/collections/apparel/f/color.black`);
     await expect(
-      page.getByRole("heading", { name: "Classic Tee" }),
+      productHeading(page, "Classic Tee"),
       "facet deep-link did not render the filtered grid",
     ).toBeVisible({ timeout: 30_000 });
     // Summer Dress has no black option — must be filtered out.
     await expect(
-      page.getByRole("heading", { name: /Summer Dress/ }),
+      productHeading(page, /Summer Dress/),
       "facet deep-link did not actually filter (non-black product present)",
     ).toHaveCount(0);
 
@@ -190,7 +202,7 @@ test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-
       })
       .toBe("/collections/apparel");
     await expect(
-      page.getByRole("heading", { name: /Summer Dress/ }),
+      productHeading(page, /Summer Dress/),
       "Clear Filters did not restore the unfiltered grid",
     ).toBeVisible({ timeout: 30_000 });
   });
@@ -201,11 +213,11 @@ test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-
     // Server-rendered deep-link.
     await page.goto(`${BASE_URL}/shop?price_min=100`);
     await expect(
-      page.getByRole("heading", { name: "Trailblazer MTB" }),
+      productHeading(page, "Trailblazer MTB"),
       "price_min deep-link lost an in-range product",
     ).toBeVisible({ timeout: 30_000 });
     await expect(
-      page.getByRole("heading", { name: "Classic Tee" }),
+      productHeading(page, "Classic Tee"),
       "price_min=100 still lists a $22 product",
     ).toHaveCount(0);
 
@@ -213,9 +225,9 @@ test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-
     // Enter). Page 1 of the default /shop order contains Test Product 12
     // ($22) — it must drop out once min=$100 commits.
     await page.goto(`${BASE_URL}/shop`);
-    await expect(
-      page.getByRole("heading", { name: "Test Product 12" }),
-    ).toBeVisible({ timeout: 30_000 });
+    await expect(productHeading(page, "Test Product 12")).toBeVisible({
+      timeout: 30_000,
+    });
     await page.getByRole("button", { name: /^Price/ }).click();
     const minInput = page.getByLabel("Minimum price");
     await expect(minInput).toBeVisible({ timeout: 15_000 });
@@ -232,7 +244,7 @@ test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-
       )
       .toBe(0);
     await expect(
-      page.getByRole("heading", { name: "Trailblazer MTB" }),
+      productHeading(page, "Trailblazer MTB"),
       "an in-range product is missing after the min-price commit",
     ).toBeVisible({ timeout: 30_000 });
     await expect
@@ -308,12 +320,10 @@ test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-
     // Verified: /collections/bikes?instock=true still lists Folding Bike
     // (stock status outofstock). Un-fixme once instock filters for real.
     await page.goto(`${BASE_URL}/collections/bikes?instock=true`);
-    await expect(
-      page.getByRole("heading", { name: /Mountain Explorer/ }),
-    ).toBeVisible({ timeout: 30_000 });
-    await expect(
-      page.getByRole("heading", { name: "Folding Bike" }),
-    ).toHaveCount(0);
+    await expect(productHeading(page, /Mountain Explorer/)).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(productHeading(page, "Folding Bike")).toHaveCount(0);
   });
 
   test("P1-12/13: filter landings — /sale all-sale, /new and /featured and /brand/{slug} populated, /brand index lists brands", async ({
@@ -355,11 +365,11 @@ test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-
 
     await page.goto(`${BASE_URL}/brand/summit`);
     await expect(
-      page.getByRole("heading", { name: "Trailblazer MTB" }),
+      productHeading(page, "Trailblazer MTB"),
       "/brand/summit missing a seeded Summit product",
     ).toBeVisible({ timeout: 30_000 });
     await expect(
-      page.getByRole("heading", { name: "Classic Tee" }),
+      productHeading(page, "Classic Tee"),
       "/brand/summit leaked a non-Summit product",
     ).toHaveCount(0);
   });

@@ -2,6 +2,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import type { ProductCategoryDetail } from "@headkit/sdk";
 import { TAG } from "@/lib/cache-tags";
 import { headkit } from "@/lib/sdk";
+import { collectCategorySlugsDeep } from "@/lib/category-slugs";
 
 /**
  * URI patterns that point at a product category / collection page.
@@ -80,6 +81,11 @@ export function collectionSlugFromMenuItem(
  * Fetches the set of category slugs that currently have at least one product.
  * Relies on the commerce categories listing, which excludes empty categories by
  * default (WordPress `hide_empty=true`).
+ *
+ * Walks the whole FOREST, not just its roots. `productCategories` used to
+ * answer flat — every category at the top level — and MIG-03 made it a real
+ * tree. A top-level read therefore stopped seeing subcategories, which made
+ * every one of them look empty and dropped them from the menus.
  */
 export async function getNonEmptyCollectionSlugs(): Promise<
   ReadonlySet<string>
@@ -90,11 +96,7 @@ export async function getNonEmptyCollectionSlugs(): Promise<
 
   try {
     const categories = await headkit.collections.getCategories();
-    return new Set(
-      categories
-        .map((node) => node.slug?.trim().toLowerCase())
-        .filter((slug): slug is string => Boolean(slug)),
-    );
+    return collectCategorySlugsDeep(categories);
   } catch {
     return new Set();
   }
