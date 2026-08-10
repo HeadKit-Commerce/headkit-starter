@@ -403,7 +403,7 @@ function MegaMenu({ items }: { items: NavMenuItem[] }) {
                     <InstantLink
                       href={removeTrailingSlash(child.uri)}
                       pendingVariant="text"
-                      className="text-primary/70 hover:opacity-80 text-sm block py-0.5"
+                      className="text-primary/70 hover:opacity-80 text-[15px] block py-0.5"
                     >
                       {decodeHtmlEntities(child.label)}
                     </InstantLink>
@@ -476,7 +476,7 @@ function MobileMenuItem({
                   <InstantLink
                     href={removeTrailingSlash(child.uri)}
                     pendingVariant="text"
-                    className="font-medium text-primary hover:opacity-70 block py-1"
+                    className="font-medium text-[15px] text-primary hover:opacity-70 block py-1"
                     {...(onSelect ? { onClick: onSelect } : {})}
                   >
                     {decodeHtmlEntities(child.label)}
@@ -499,7 +499,7 @@ function MobileMenuItem({
                 <InstantLink
                   href={removeTrailingSlash(child.uri)}
                   pendingVariant="text"
-                  className="text-primary/70 hover:opacity-70 text-lg block py-1"
+                  className="text-primary/70 hover:opacity-70 text-[15px] block py-1"
                   {...(onSelect ? { onClick: onSelect } : {})}
                 >
                   {decodeHtmlEntities(child.label)}

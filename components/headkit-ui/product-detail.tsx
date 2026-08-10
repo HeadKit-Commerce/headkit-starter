@@ -791,7 +791,7 @@ export function ProductDetail({
                     <AccordionContent className="text-base">
                       {tab.key === "description" && product.description && (
                         <div
-                          className="prose max-w-none text-base text-primary prose-p:my-3 prose-p:first:mt-0 prose-p:last:mb-0"
+                          className="prose max-w-none text-base text-primary prose-p:my-3 prose-p:first:mt-0 prose-p:last:mb-0 prose-ul:my-3 prose-ol:my-3"
                           dangerouslySetInnerHTML={{
                             __html: formatWooRichText(product.description),
                           }}
@@ -800,7 +800,7 @@ export function ProductDetail({
 
                       {tab.key === "specifications" && specifications && (
                         <div
-                          className="prose max-w-none text-base text-primary prose-p:my-3 prose-p:first:mt-0 prose-p:last:mb-0"
+                          className="prose max-w-none text-base text-primary prose-p:my-3 prose-p:first:mt-0 prose-p:last:mb-0 prose-ul:my-3 prose-ol:my-3"
                           dangerouslySetInnerHTML={{
                             __html: formatWooRichText(specifications),
                           }}

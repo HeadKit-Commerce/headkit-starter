@@ -32,9 +32,12 @@ describe("formatWooRichText", () => {
     expect(formatWooRichText("   ")).toBe("");
   });
 
-  it("leaves structured HTML (p/br/lists) unchanged", () => {
+  it("leaves paragraph-structured HTML unchanged", () => {
     const html = "<p>First</p><p>Second<br />line</p>";
     expect(formatWooRichText(html)).toBe(html);
+  });
+
+  it("leaves a lone list block intact", () => {
     expect(formatWooRichText("<ul><li>One</li></ul>")).toBe(
       "<ul><li>One</li></ul>",
     );
@@ -44,6 +47,19 @@ describe("formatWooRichText", () => {
     const input = "Para one.\nStill one.\n\nPara two.";
     expect(formatWooRichText(input)).toBe(
       "<p>Para one.<br />Still one.</p><p>Para two.</p>",
+    );
+  });
+
+  it("preserves line breaks when inline bold is present", () => {
+    expect(formatWooRichText("Intro <strong>bold</strong>\n\nNext para")).toBe(
+      "<p>Intro <strong>bold</strong></p><p>Next para</p>",
+    );
+  });
+
+  it("preserves surrounding paragraphs when a list is added", () => {
+    const input = "Intro line\n\n<ul><li>One</li><li>Two</li></ul>\n\nOutro";
+    expect(formatWooRichText(input)).toBe(
+      "<p>Intro line</p><ul><li>One</li><li>Two</li></ul><p>Outro</p>",
     );
   });
 

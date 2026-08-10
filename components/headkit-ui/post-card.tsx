@@ -23,7 +23,7 @@ const PostCard = ({ title, image, uri }: Props) => {
           />
         )}
       </div>
-      <h3 className="mt-3 text-[17px] leading-snug text-primary group-hover:underline">
+      <h3 className="mt-3 text-[17px] leading-normal text-primary group-hover:underline">
         {decodedTitle}
       </h3>
     </InstantLink>

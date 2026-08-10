@@ -119,8 +119,8 @@
   h5,
   h6 {
     font-weight: 600;
-    /* WordPress "Auto" line height */
-    line-height: normal;
+    /* WordPress "Auto" line height — override utility leadings on headings */
+    line-height: normal !important;
   }
 
   h1 {

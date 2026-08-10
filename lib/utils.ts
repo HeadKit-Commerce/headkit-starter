@@ -27,16 +27,39 @@ export function decodeHtmlEntities(text: string): string {
     .replace(/&gt;/g, ">");
 }
 
-const WOO_BLOCK_HTML_PATTERN =
-  /<(?:p|div|br|ul|ol|li|h[1-6]|table|blockquote|section|article|figure|hr)\b/i;
+/** Block-level islands that must stay intact (lists, tables, headings, …). */
+const WOO_BLOCK_ISLAND_PATTERN =
+  /<(ul|ol|table|blockquote|pre|div|section|article|figure|h[1-6])\b[\s\S]*?<\/\1\s*>|<(hr)\b[^>]*\/?>/gi;
+
+const WOO_BLOCK_PLACEHOLDER = /%%HK_BLOCK_(\d+)%%/;
+
+/**
+ * Wrap plain (or inline-HTML) text runs as paragraphs, converting single
+ * newlines to `<br />`. Block placeholders are left bare for later restore.
+ */
+function wrapWooPlainParagraphs(text: string): string {
+  return text
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter((paragraph) => paragraph.length > 0)
+    .map((paragraph) => {
+      if (WOO_BLOCK_PLACEHOLDER.test(paragraph)) {
+        return paragraph;
+      }
+      return `<p>${paragraph.replace(/\n/g, "<br />")}</p>`;
+    })
+    .join("");
+}
 
 /**
  * Formats WooCommerce product description HTML for storefront rendering.
  *
- * Structured HTML from the WordPress editor is returned as-is. Plain text
- * (common when merchants paste into the product description) preserves
- * blank-line paragraph breaks and single newlines as `<br />`, matching
- * WordPress `wpautop` behaviour so content is not collapsed into one block.
+ * Paragraph-structured HTML (`<p>…</p>`) from the WordPress editor is returned
+ * as-is. Plain text and inline markup (`<strong>`, `<em>`, `<a>`, …) preserve
+ * blank-line paragraph breaks and single newlines as `<br />`. Mixed content
+ * (e.g. intro text + a list, or bold + line breaks without `<p>` wrappers)
+ * formats plain segments while leaving block islands intact — so adding bold
+ * or a list no longer collapses surrounding line breaks.
  */
 export function formatWooRichText(html: string | null | undefined): string {
   if (html == null) {
@@ -48,18 +71,31 @@ export function formatWooRichText(html: string | null | undefined): string {
     return "";
   }
 
-  if (WOO_BLOCK_HTML_PATTERN.test(trimmed)) {
-    return trimmed;
-  }
-
   const normalized = trimmed.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
-  return normalized
-    .split(/\n\s*\n/)
-    .map((paragraph) => paragraph.trim())
-    .filter((paragraph) => paragraph.length > 0)
-    .map((paragraph) => `<p>${paragraph.replace(/\n/g, "<br />")}</p>`)
-    .join("");
+  // Already paragraph-structured — trust the editor HTML.
+  if (/<p\b/i.test(normalized)) {
+    return normalized;
+  }
+
+  const blocks: string[] = [];
+  const withoutBlocks = normalized.replace(WOO_BLOCK_ISLAND_PATTERN, (match) => {
+    const index = blocks.length;
+    blocks.push(match);
+    return `\n\n%%HK_BLOCK_${index}%%\n\n`;
+  });
+
+  const formatted = wrapWooPlainParagraphs(
+    withoutBlocks.replace(/<br\s*\/?>/gi, "\n"),
+  );
+
+  if (blocks.length === 0) {
+    return formatted;
+  }
+
+  return formatted.replace(/%%HK_BLOCK_(\d+)%%/g, (_, index: string) => {
+    return blocks[Number(index)] ?? "";
+  });
 }
 
 export function addAlphaToHex(hex: string, alpha: number): string {

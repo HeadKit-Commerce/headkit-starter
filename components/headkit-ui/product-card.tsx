@@ -17,8 +17,8 @@ import type { CatalogProduct } from "@/lib/catalog-display";
 const isVariableProduct = (product: ProductSummaryFieldsFragment): boolean =>
   product?.type?.toUpperCase() === "VARIABLE";
 
-/** Max colour swatches shown on a card before collapsing into a "+N" chip (F4). */
-const MAX_CARD_SWATCHES = 4;
+/** Max colour swatches shown on a card before collapsing into a "+N" chip. */
+const MAX_CARD_SWATCHES = 10;
 
 function colourAttribute(product: ProductSummaryFieldsFragment) {
   return findSwatchAttribute(product.attributes);
