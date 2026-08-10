@@ -3,9 +3,20 @@ import type { ProductCategoryDetail } from "@headkit/sdk";
 import { TAG } from "@/lib/cache-tags";
 import { headkit } from "@/lib/sdk";
 
-/** URI patterns that point at a product category / collection page. */
-const COLLECTION_URI_RE =
-  /(?:^|\/)(?:collections|product-category|categoria-producto)\/([^/?#]+)/i;
+/**
+ * URI patterns that point at a product category / collection page.
+ * Captures the full path after the base so nested
+ * `/collections/parent/child` resolves to the leaf slug `child`.
+ */
+const COLLECTION_PATH_RE =
+  /(?:^|\/)(?:collections|product-category|categoria-producto)\/([^?#]+)/i;
+
+/**
+ * CSS class stamped by the WP theme on Product Category menu items
+ * (`hk-collection:{term-slug}`) so we can identify collections even when the
+ * custom link URL is not a `/collections/...` path.
+ */
+const HK_COLLECTION_CLASS_RE = /^hk-collection:(.+)$/i;
 
 /** Menu-like node with optional nested children (header/footer nav). */
 export type MenuNodeLike = {
@@ -19,19 +30,50 @@ export type MenuNodeLike = {
 
 /**
  * Extracts a collection slug from a menu or category URI when present.
+ * For nested paths (`/collections/parent/child`), returns the leaf slug.
  * Returns null for non-collection destinations (pages, products, external links).
  */
 export function collectionSlugFromUri(
   uri: string | null | undefined,
 ): string | null {
   if (!uri) return null;
-  const match = COLLECTION_URI_RE.exec(uri);
+  const match = COLLECTION_PATH_RE.exec(uri);
   if (!match?.[1]) return null;
+  const segments = match[1]
+    .split("/")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+  const leaf = segments[segments.length - 1];
+  if (!leaf) return null;
   try {
-    return decodeURIComponent(match[1]).toLowerCase();
+    return decodeURIComponent(leaf).toLowerCase();
   } catch {
-    return match[1].toLowerCase();
+    return leaf.toLowerCase();
   }
+}
+
+/**
+ * Resolves the product-category slug for a menu node.
+ * Prefers the WP `hk-collection:{slug}` class (taxonomy menu items), then
+ * falls back to parsing the URI.
+ */
+export function collectionSlugFromMenuItem(
+  item: Pick<MenuNodeLike, "uri" | "cssClasses">,
+): string | null {
+  for (const raw of item.cssClasses ?? []) {
+    const cls = raw?.trim();
+    if (!cls) continue;
+    const match = HK_COLLECTION_CLASS_RE.exec(cls);
+    const fromClass = match?.[1]?.trim();
+    if (fromClass) {
+      try {
+        return decodeURIComponent(fromClass).toLowerCase();
+      } catch {
+        return fromClass.toLowerCase();
+      }
+    }
+  }
+  return collectionSlugFromUri(item.uri);
 }
 
 /**
@@ -73,7 +115,8 @@ export function filterCategoriesByNonEmptySlugs<
 
 /**
  * Recursively filters menu trees, dropping collection links that target empty
- * categories. Non-collection menu items are always kept.
+ * categories. Non-collection menu items are always kept. An empty collection
+ * parent is kept only when it still has non-empty children (mega-menu headers).
  */
 export function filterMenuItemsByNonEmptyCollections<T extends MenuNodeLike>(
   items: readonly T[],
@@ -85,8 +128,11 @@ export function filterMenuItemsByNonEmptyCollections<T extends MenuNodeLike>(
         ? filterMenuItemsByNonEmptyCollections(item.children, nonEmptySlugs)
         : [];
 
-      const slug = collectionSlugFromUri(item.uri);
-      if (slug && !nonEmptySlugs.has(slug)) {
+      const slug = collectionSlugFromMenuItem(item);
+      const isEmptyCollection =
+        slug !== null && slug.length > 0 && !nonEmptySlugs.has(slug);
+
+      if (isEmptyCollection && children.length === 0) {
         return null;
       }
 
