@@ -37,6 +37,7 @@ import { TAG } from "@/lib/cache-tags";
 import { executeRequest, GetBrandingDocument } from "@headkit/sdk";
 import { env } from "@/lib/env";
 import { headkitTransportOpts } from "@/lib/headkit-transport";
+import { resolveBrandingAssets } from "./branding-assets";
 
 // ---------------------------------------------------------------------------
 // Types — mirror the dashboard-api schema (schema.graphqls)
@@ -664,24 +665,39 @@ async function fetchCommerceBrandingIcon(): Promise<string | null> {
   }
 }
 
-/** Per-store logo + icon URLs resolved for the storefront head + nav. */
-export interface BrandingAssets {
-  /** Nav/site logo URL, or null → render the default `<Logo/>`. */
-  logoUrl: string | null;
-  /** Favicon / OG-share icon URL, or null → keep the file-convention default. */
-  iconUrl: string | null;
-}
+export type { BrandingAssets } from "./branding-assets";
 
 /**
  * Resolve the per-store logo + icon for head metadata and the nav (ENG-572).
  *
  * Merges the two branding transports so each asset comes from wherever it is
  * actually available:
- *  - `iconUrl` (favicon/OG): commerce `iconUrl` first (locally available), then
- *    the dashboard-api `iconUrl` — so the favicon is testable on the local stack.
+ *  - `iconUrl` (favicon/OG): the dashboard-api `iconUrl` FIRST, then the
+ *    commerce `iconUrl`.
  *  - `logoUrl` (nav logo): the dashboard-api `logoUrl` (the only real logo field)
  *    first, falling back to the commerce `iconUrl` so a store that only set an
  *    icon still gets a branded mark instead of the HeadKit default.
+ *
+ * WHY `iconUrl` PREFERS DASHBOARD-API (changed 2026-08-10).
+ * It used to prefer commerce, so that the favicon was exercisable on the local
+ * stack where `DASHBOARD_API_URL` is unset. That reasoning still holds and is
+ * preserved — locally the dashboard-api branch resolves to `null` and this falls
+ * through to commerce exactly as before — but the ordering had a user-visible
+ * cost in production:
+ *
+ * The dashboard's Store Icon control states "Upload your icon and we will
+ * convert for favicon, webclip and Apple touch". That upload writes
+ * `store.branding.iconUrl` (dashboard-api). The favicon, however, read the
+ * COMMERCE value, which is WordPress's `siteIcon` — and falls back to the
+ * WordPress *logo* when `siteIcon` is unset. So on a store with no WP site icon,
+ * an operator could upload a square icon, get a success toast, and still be
+ * served a wide wordmark as the tab icon, with no way to fix it from the
+ * dashboard. Observed on the Dishee migration rehearsal (plan 15.1-18,
+ * FINDING 3).
+ *
+ * Preferring the explicitly-uploaded asset makes the control do what it says.
+ * Commerce remains the fallback, so stores that only ever set a WordPress site
+ * icon are unaffected.
  *
  * Both branches degrade to `null` (never throw), leaving the built-in defaults.
  *
@@ -703,8 +719,9 @@ export async function getBrandingAssets(): Promise<BrandingAssets> {
     fetchCommerceBrandingIcon(),
   ]);
 
-  return {
-    iconUrl: commerceIcon ?? bundle.branding.iconUrl,
-    logoUrl: bundle.branding.logoUrl ?? commerceIcon,
-  };
+  return resolveBrandingAssets({
+    dashboardIcon: bundle.branding.iconUrl,
+    dashboardLogo: bundle.branding.logoUrl,
+    commerceIcon,
+  });
 }
