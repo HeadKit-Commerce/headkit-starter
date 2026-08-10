@@ -29,6 +29,10 @@ import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import type { SortKeyType } from "@/components/headkit-ui/collection/utils";
 import type { ProductFilters } from "@headkit/sdk";
 import {
+  filterCategoriesByNonEmptySlugs,
+  getNonEmptyCollectionSlugs,
+} from "@/lib/hide-empty-collections";
+import {
   CollectionPageSkeleton,
   CollectionProductsSkeleton,
 } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
@@ -494,7 +498,15 @@ async function CollectionRoute({ params, searchParams }: Props) {
   if (!category) return notFound();
 
   const breadcrumbs = buildBreadcrumbFromCategory(category);
-  const hasChildren = Boolean(category.children?.length);
+  const { branding } = await getBranding();
+  const childCategories =
+    branding.hideEmptyCollections && category.children?.length
+      ? filterCategoriesByNonEmptySlugs(
+          category.children,
+          await getNonEmptyCollectionSlugs(),
+        )
+      : (category.children ?? []);
+  const hasChildren = childCategories.length > 0;
   // Header owns LCP when: (1) leaf featured thumbnail, or (2) parent subcategory
   // carousel (first card is priority). Keep product grid cards lazy in both cases.
   const preferHeaderLcp =
@@ -513,7 +525,7 @@ async function CollectionRoute({ params, searchParams }: Props) {
         description={category.description}
         breadcrumbs={breadcrumbs}
         {...(category.thumbnail ? { thumbnail: category.thumbnail } : {})}
-        {...(category.children?.length ? { children: category.children } : {})}
+        {...(childCategories.length > 0 ? { children: childCategories } : {})}
       />
       {/* Nested Suspense: header (params + use cache) can commit while
           searchParams-driven catalog streams in. */}

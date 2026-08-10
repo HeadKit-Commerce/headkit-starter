@@ -20,6 +20,10 @@ import {
   resolveStoreName,
 } from "@/lib/make-metadata";
 import { getBranding, getBrandingAssets } from "@/lib/branding";
+import {
+  filterCategoriesByNonEmptySlugs,
+  getNonEmptyCollectionSlugs,
+} from "@/lib/hide-empty-collections";
 import { MainCarousel } from "@/components/headkit-ui/main-carousel";
 import { BlockEditor } from "@/components/headkit-ui/block-editor";
 import { EditorialContent } from "@/components/headkit-ui/editorial-content";
@@ -83,7 +87,11 @@ export async function generateMetadata(): Promise<Metadata> {
  * this union), so they were pure noise. True per-section revalidation needs the
  * data split first (per-module SDK methods + subgraph resolvers + WP endpoints).
  */
-const HOME_TAGS: readonly string[] = [TAG.route("home")];
+const HOME_TAGS: readonly string[] = [
+  TAG.route("home"),
+  TAG.branding,
+  TAG.collections,
+];
 
 export async function getHomepageData() {
   "use cache";
@@ -113,11 +121,18 @@ export async function HomeContent() {
   cacheTag(...HOME_TAGS);
 
   const { homepage, onSaleProducts } = await getHomepageData();
+  const { branding } = await getBranding();
+  const nonEmptySlugs = branding.hideEmptyCollections
+    ? await getNonEmptyCollectionSlugs()
+    : null;
 
   const carousels = (homepage?.carousels ??
     []) as unknown as HeroCarouselItem[];
-  const featuredCategories = (homepage?.featuredCategories ??
+  const featuredCategoriesRaw = (homepage?.featuredCategories ??
     []) as unknown as FeaturedCategory[];
+  const featuredCategories = nonEmptySlugs
+    ? filterCategoriesByNonEmptySlugs(featuredCategoriesRaw, nonEmptySlugs)
+    : featuredCategoriesRaw;
   const featuredBrands = (homepage?.featuredBrands ??
     []) as unknown as FeaturedBrand[];
   const featuredProducts = (homepage?.featuredProducts ??

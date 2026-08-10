@@ -65,6 +65,9 @@ vi.mock("@/lib/sdk", () => ({
         }>
       > => menuGetMenus(locations),
     },
+    collections: {
+      getCategories: vi.fn(async () => []),
+    },
   },
 }));
 
@@ -79,7 +82,10 @@ vi.mock("@/components/icon/logo", () => ({ Logo: (): null => null }));
 // (ENG-572). branding.ts is `server-only`, so stub it here — this test guards
 // menu cache-tags, not branding.
 vi.mock("@/lib/branding", () => ({
-  getBranding: vi.fn(async () => ({ storeSettings: { name: null } })),
+  getBranding: vi.fn(async () => ({
+    branding: { hideEmptyCollections: true },
+    storeSettings: { name: null },
+  })),
   getBrandingAssets: vi.fn(async () => ({ logoUrl: null })),
 }));
 
@@ -142,6 +148,8 @@ describe("getFooterMenus — TAG.footer + all footer locations", () => {
       "headkit:menu:FOOTER_2",
       "headkit:menu:FOOTER_3",
       "headkit:menu:FOOTER_POLICY",
+      "headkit:branding",
+      "headkit:collections",
     );
     expect(cacheLife).toHaveBeenCalledWith("days");
   });
@@ -203,13 +211,14 @@ describe("getFooterMenu — legacy FOOTER-only helper", () => {
 });
 
 describe("NavigationWrapper — subscribes to the menus it composes", () => {
-  it("tags primary + secondary + pre-header + branding and uses cacheLife('days')", async () => {
+  it("tags primary + secondary + pre-header + branding + collections and uses cacheLife('days')", async () => {
     await NavigationWrapper();
     expect(cacheTag).toHaveBeenCalledWith(
       "headkit:menu:PRIMARY",
       "headkit:menu:SECONDARY",
       "headkit:menu:PRE_HEADER",
       "headkit:branding",
+      "headkit:collections",
     );
     expect(cacheLife).toHaveBeenCalledWith("days");
   });

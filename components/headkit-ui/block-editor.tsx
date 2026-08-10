@@ -14,6 +14,11 @@ import type {
   ProjectSummaryFieldsFragment,
   HeroCarouselItem,
 } from "@headkit/sdk";
+import { getBranding } from "@/lib/branding";
+import {
+  filterCategoriesByNonEmptySlugs,
+  getNonEmptyCollectionSlugs,
+} from "@/lib/hide-empty-collections";
 
 interface Props {
   blocks: ProcessedEditorBlock[];
@@ -148,9 +153,57 @@ const BlockEditor = async ({
     await import("@/components/headkit-ui/editorial-styles");
   }
 
+  const { branding } = await getBranding();
+  const nonEmptySlugs = branding.hideEmptyCollections
+    ? await getNonEmptyCollectionSlugs()
+    : null;
+
   return (
     <>
       {result?.map((data: ProcessedEditorBlock, index: number) => {
+        if (
+          data.cssClasses.includes("headkit-category-carousel")
+        ) {
+          const rawCategories = data.categories ?? [];
+          const categories = nonEmptySlugs
+            ? filterCategoriesByNonEmptySlugs(rawCategories, nonEmptySlugs)
+            : rawCategories;
+          return (
+            <div
+              className="headkit-category-carousel overflow-hidden py-10"
+              key={index}
+            >
+              <SectionHeader
+                title={data.title}
+                description={data.description}
+                allButton={data.button?.text ?? ""}
+                allButtonPath={data.button?.url ?? ""}
+                className="px-5 md:px-10"
+              />
+              <div className="mt-8">
+                {categories.length > 0 ? (
+                  <CategoryCarousel
+                    categories={categories.map((c) => ({
+                      name: c.name,
+                      slug: c.slug,
+                      // Storefront catch-all — never absolute WP permalinks.
+                      uri: `/collections/${c.slug}`,
+                      thumbnail: c.thumbnail ?? "",
+                    }))}
+                  />
+                ) : (
+                  <p className="px-5 md:px-10 text-sm text-neutral-500">
+                    No categories to display yet. Mark categories Featured under
+                    Products → Categories, or pick them in the Handpicked
+                    Categories block.
+                  </p>
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        // Continue with remaining block types below — category carousel handled above.
         if (
           data.cssClasses.includes("headkit-hilight") ||
           data.cssClasses.includes("headkit-callout")
@@ -200,43 +253,6 @@ const BlockEditor = async ({
                   products={products}
                   colourwayPins={colourwayPins}
                 />
-              </div>
-            </div>
-          );
-        }
-
-        if (data.cssClasses.includes("headkit-category-carousel")) {
-          const categories = data.categories ?? [];
-          return (
-            <div
-              className="headkit-category-carousel overflow-hidden py-10"
-              key={index}
-            >
-              <SectionHeader
-                title={data.title}
-                description={data.description}
-                allButton={data.button?.text ?? ""}
-                allButtonPath={data.button?.url ?? ""}
-                className="px-5 md:px-10"
-              />
-              <div className="mt-8">
-                {categories.length > 0 ? (
-                  <CategoryCarousel
-                    categories={categories.map((c) => ({
-                      name: c.name,
-                      slug: c.slug,
-                      // Storefront catch-all — never absolute WP permalinks.
-                      uri: `/collections/${c.slug}`,
-                      thumbnail: c.thumbnail ?? "",
-                    }))}
-                  />
-                ) : (
-                  <p className="px-5 md:px-10 text-sm text-neutral-500">
-                    No categories to display yet. Mark categories Featured under
-                    Products → Categories, or pick them in the Handpicked
-                    Categories block.
-                  </p>
-                )}
               </div>
             </div>
           );

@@ -69,6 +69,8 @@ export interface Branding {
   showSwatches: boolean;
   /** Second gallery image on card mouseover. Default false. */
   imageRollover: boolean;
+  /** Hide categories with no products from carousels/menus. Default true. */
+  hideEmptyCollections: boolean;
 }
 
 export interface StoreSettings {
@@ -111,6 +113,7 @@ export const DEFAULT_ICON_LIBRARY = "hi2";
 export const DEFAULT_SHOW_VARIANTS = true;
 export const DEFAULT_SHOW_SWATCHES = false;
 export const DEFAULT_IMAGE_ROLLOVER = false;
+export const DEFAULT_HIDE_EMPTY_COLLECTIONS = true;
 
 const EMPTY_FONT: BrandingFont = {
   source: "",
@@ -136,6 +139,7 @@ const DEFAULT_BUNDLE: BrandingBundle = {
     showVariants: DEFAULT_SHOW_VARIANTS,
     showSwatches: DEFAULT_SHOW_SWATCHES,
     imageRollover: DEFAULT_IMAGE_ROLLOVER,
+    hideEmptyCollections: DEFAULT_HIDE_EMPTY_COLLECTIONS,
   },
   storeSettings: {
     id: null,
@@ -296,6 +300,7 @@ const BRANDING_QUERY = /* GraphQL */ `
       showVariants
       showSwatches
       imageRollover
+      hideEmptyCollections
     }
     storeSettings {
       id
@@ -358,7 +363,10 @@ const CHECKOUT_TYPE_QUERY = /* GraphQL */ `
 `;
 
 interface FlatBranding extends Partial<
-  Omit<Branding, "showVariants" | "showSwatches" | "imageRollover">
+  Omit<
+    Branding,
+    "showVariants" | "showSwatches" | "imageRollover" | "hideEmptyCollections"
+  >
 > {
   headingFontSource?: string | null;
   headingFontFamily?: string | null;
@@ -378,6 +386,7 @@ interface FlatBranding extends Partial<
   showVariants?: boolean | null;
   showSwatches?: boolean | null;
   imageRollover?: boolean | null;
+  hideEmptyCollections?: boolean | null;
 }
 
 interface BrandingResponse {
@@ -452,6 +461,7 @@ function coerce(data: NonNullable<BrandingResponse["data"]>): BrandingBundle {
       showVariants: b.showVariants !== false,
       showSwatches: b.showSwatches === true,
       imageRollover: b.imageRollover === true,
+      hideEmptyCollections: b.hideEmptyCollections !== false,
     },
     storeSettings: {
       id: s.id ?? null,

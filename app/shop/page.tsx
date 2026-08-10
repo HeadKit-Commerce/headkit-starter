@@ -15,6 +15,10 @@ import { getBranding } from "@/lib/branding";
 import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import { CATALOG_PAGE_SIZE } from "@/components/headkit-ui/catalog-grid";
 import type { ProductCategoryDetail } from "@headkit/sdk";
+import {
+  filterCategoriesByNonEmptySlugs,
+  getNonEmptyCollectionSlugs,
+} from "@/lib/hide-empty-collections";
 
 const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 
@@ -60,9 +64,21 @@ async function getRootCategories(): Promise<ProductCategoryDetail[]> {
     revalidate: 60 * 60,
     expire: 60 * 60 * 24 * 14,
   });
-  cacheTag(TAG.collections);
-  const categories = await sdk.collections.getCategories();
-  return categories.filter((cat) => !isUncategorizedCategory(cat));
+  cacheTag(TAG.collections, TAG.branding);
+  const [categories, { branding }] = await Promise.all([
+    sdk.collections.getCategories(),
+    getBranding(),
+  ]);
+  const roots = categories.filter((cat) => !isUncategorizedCategory(cat));
+  if (!branding.hideEmptyCollections) {
+    return roots;
+  }
+  // getCategories already hides empty by default; keep an explicit filter so
+  // hand-rolled parentSlug lists stay consistent with the branding toggle.
+  return filterCategoriesByNonEmptySlugs(
+    roots,
+    await getNonEmptyCollectionSlugs(),
+  );
 }
 
 /**

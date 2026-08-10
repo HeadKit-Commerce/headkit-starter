@@ -11,6 +11,10 @@ import { MobileHeaderActions } from "@/components/headkit-ui/header-actions";
 import { BrandLogo } from "@/components/icon/brand-logo";
 import { getBranding, getBrandingAssets } from "@/lib/branding";
 import { resolveStoreName } from "@/lib/make-metadata";
+import {
+  filterMenuItemsByNonEmptyCollections,
+  getNonEmptyCollectionSlugs,
+} from "@/lib/hide-empty-collections";
 
 /** Permissive shape for API menu nodes (GraphQL fragment stops at 3 levels, so innermost lacks children). */
 type MenuItemLike = {
@@ -204,6 +208,8 @@ export async function getFooterMenus(): Promise<
     TAG.menu("FOOTER_2"),
     TAG.menu("FOOTER_3"),
     TAG.menu("FOOTER_POLICY"),
+    TAG.branding,
+    TAG.collections,
   );
 
   const menus = await loadMenusBatch(FOOTER_LOCATIONS);
@@ -212,6 +218,11 @@ export async function getFooterMenus(): Promise<
   const footer3 = menus[2] ?? EMPTY_MENU;
   const policy = menus[3] ?? EMPTY_MENU;
 
+  const { branding } = await getBranding();
+  const nonEmptySlugs = branding.hideEmptyCollections
+    ? await getNonEmptyCollectionSlugs()
+    : null;
+
   const toSection = (
     location: (typeof FOOTER_LOCATIONS)[number],
     menu: NavigationMenuLike,
@@ -219,15 +230,21 @@ export async function getFooterMenus(): Promise<
     location: string;
     name: string;
     items: { id: string; label: string; uri: string }[];
-  } => ({
-    location,
-    name: menu.name.trim(),
-    items: normalizeMenuItems(menu.items).map((item) => ({
-      id: item.id,
-      label: item.label,
-      uri: item.uri,
-    })),
-  });
+  } => {
+    let items = normalizeMenuItems(menu.items);
+    if (nonEmptySlugs) {
+      items = filterMenuItemsByNonEmptyCollections(items, nonEmptySlugs);
+    }
+    return {
+      location,
+      name: menu.name.trim(),
+      items: items.map((item) => ({
+        id: item.id,
+        label: item.label,
+        uri: item.uri,
+      })),
+    };
+  };
 
   return [
     toSection("FOOTER", footer),
@@ -261,20 +278,36 @@ export async function NavigationWrapper() {
     TAG.menu("SECONDARY"),
     TAG.menu("PRE_HEADER"),
     TAG.branding,
+    TAG.collections,
   );
 
   // One menus(locations:) GraphQL RTT for PRIMARY + SECONDARY + PRE_HEADER
   // (commerce fetches WP in parallel). Branding stays parallel with that batch.
-  const [headerMenus, { logoUrl }, { storeSettings }] = await Promise.all([
-    loadMenusBatch(HEADER_LOCATIONS),
-    getBrandingAssets(),
-    getBranding(),
-  ]);
+  const [headerMenus, { logoUrl }, { storeSettings, branding }] =
+    await Promise.all([
+      loadMenusBatch(HEADER_LOCATIONS),
+      getBrandingAssets(),
+      getBranding(),
+    ]);
 
-  const primaryItems = normalizeMenuItems((headerMenus[0] ?? EMPTY_MENU).items);
-  const secondaryItems = normalizeMenuItems(
+  const nonEmptySlugs = branding.hideEmptyCollections
+    ? await getNonEmptyCollectionSlugs()
+    : null;
+
+  let primaryItems = normalizeMenuItems((headerMenus[0] ?? EMPTY_MENU).items);
+  let secondaryItems = normalizeMenuItems(
     (headerMenus[1] ?? EMPTY_MENU).items,
   );
+  if (nonEmptySlugs) {
+    primaryItems = filterMenuItemsByNonEmptyCollections(
+      primaryItems,
+      nonEmptySlugs,
+    );
+    secondaryItems = filterMenuItemsByNonEmptyCollections(
+      secondaryItems,
+      nonEmptySlugs,
+    );
+  }
   const preheaderMenu = headerMenus[2] ?? EMPTY_MENU;
   const preheaderItems = normalizeMenuItems(preheaderMenu.items);
   const preheaderTitle = resolvePreheaderTitle(preheaderMenu);

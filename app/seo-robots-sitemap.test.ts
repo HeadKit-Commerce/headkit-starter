@@ -55,6 +55,7 @@ const stubBranding: Branding = {
   showVariants: true,
   showSwatches: false,
   imageRollover: false,
+  hideEmptyCollections: true,
 };
 
 describe("sitemap enableSitemap gate", () => {
