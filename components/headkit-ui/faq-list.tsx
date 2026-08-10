@@ -8,20 +8,41 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import type { FaqItem } from "@headkit/sdk";
+import { groupFaqsByTopic } from "./faq-groups";
 
 interface FaqListProps {
   faqs: FaqItem[];
 }
 
 export function FaqList({ faqs }: FaqListProps): React.JSX.Element {
-  const mid = Math.ceil(faqs.length / 2);
-  const left = faqs.slice(0, mid);
-  const right = faqs.slice(mid);
+  const groups = groupFaqsByTopic(faqs);
+  const showTopicHeadings = groups.some((g) => g.topic !== null);
 
   return (
-    <div className="grid grid-cols-1 gap-x-12 gap-y-2 md:grid-cols-2">
-      <FaqColumn items={left} />
-      {right.length > 0 ? <FaqColumn items={right} /> : null}
+    <div className="flex flex-col gap-12 md:gap-16">
+      {groups.map((group) => {
+        const mid = Math.ceil(group.items.length / 2);
+        const left = group.items.slice(0, mid);
+        const right = group.items.slice(mid);
+        const key = group.topicSlug ?? "uncategorized";
+
+        return (
+          <section key={key} aria-labelledby={showTopicHeadings && group.topic ? `faq-topic-${key}` : undefined}>
+            {showTopicHeadings && group.topic ? (
+              <h2
+                id={`faq-topic-${key}`}
+                className="mb-6 text-2xl font-semibold text-primary md:mb-8 md:text-3xl"
+              >
+                {group.topic}
+              </h2>
+            ) : null}
+            <div className="grid grid-cols-1 gap-x-12 gap-y-2 md:grid-cols-2">
+              <FaqColumn items={left} />
+              {right.length > 0 ? <FaqColumn items={right} /> : null}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }
