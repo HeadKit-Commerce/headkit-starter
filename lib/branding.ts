@@ -37,7 +37,7 @@ import { TAG } from "@/lib/cache-tags";
 import { executeRequest, GetBrandingDocument } from "@headkit/sdk";
 import { env } from "@/lib/env";
 import { headkitTransportOpts } from "@/lib/headkit-transport";
-import { resolveBrandingAssets } from "./branding-assets";
+import { resolveBrandingAssets, type BrandingAssets } from "./branding-assets";
 
 // ---------------------------------------------------------------------------
 // Types — mirror the dashboard-api schema (schema.graphqls)
