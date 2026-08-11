@@ -113,9 +113,9 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                         // path stays leaner under Slow 4G (~65 vs 75).
                         quality: 75 as const,
                         priority: isLcp,
-                        fetchPriority: (isLcp
-                          ? "high"
-                          : "auto") as "high" | "auto",
+                        fetchPriority: (isLcp ? "high" : "auto") as
+                          | "high"
+                          | "auto",
                       };
                       const {
                         props: { srcSet: desktopSrcSet, sizes: desktopSizes },
@@ -132,9 +132,9 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                         height: 768,
                         quality: 65 as const,
                         priority: isLcp,
-                        fetchPriority: (isLcp
-                          ? "high"
-                          : "auto") as "high" | "auto",
+                        fetchPriority: (isLcp ? "high" : "auto") as
+                          | "high"
+                          | "auto",
                         src: mobileSrc,
                       });
                       return (

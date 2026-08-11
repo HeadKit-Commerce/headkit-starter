@@ -56,3 +56,31 @@ export function collectCategorySlugsDeep(
 
   return out;
 }
+
+/**
+ * Collects slugs of direct children across a forest (one level down from roots).
+ *
+ * Used by hide-empty to decide which mid-level categories to re-fetch via
+ * `getCategory`. `GetProductCategories` only selects one `children` level, so
+ * grandchildren/leaves are invisible to a deep walk of that response alone —
+ * which dropped handpicked homepage categories and mega-menu leaf links.
+ */
+export function collectDirectChildSlugs(
+  nodes: readonly CategoryNodeLike[] | null | undefined,
+): string[] {
+  if (!nodes) return [];
+
+  const out: string[] = [];
+  const seen = new Set<string>();
+
+  for (const node of nodes) {
+    for (const child of node.children ?? []) {
+      const slug = child.slug?.trim().toLowerCase();
+      if (!slug || seen.has(slug)) continue;
+      seen.add(slug);
+      out.push(slug);
+    }
+  }
+
+  return out;
+}

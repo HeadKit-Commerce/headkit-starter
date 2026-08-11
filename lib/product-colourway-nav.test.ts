@@ -18,9 +18,7 @@ describe("colourSlugFromProductPath", () => {
   });
 
   it("ignores unrelated paths", () => {
-    expect(colourSlugFromProductPath("/shop", "/products/tee")).toBe(
-      undefined,
-    );
+    expect(colourSlugFromProductPath("/shop", "/products/tee")).toBe(undefined);
   });
 });
 

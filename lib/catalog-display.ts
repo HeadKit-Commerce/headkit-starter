@@ -44,9 +44,7 @@ type ProductWithDefaults = ProductSummaryFieldsFragment & {
   defaultAttributes?: ReadonlyArray<{ key: string; value: string }> | null;
 };
 
-function colourAttrSlug(
-  product: ProductSummaryFieldsFragment,
-): string | null {
+function colourAttrSlug(product: ProductSummaryFieldsFragment): string | null {
   return findSwatchAttribute(product.attributes ?? [])?.slug ?? null;
 }
 
@@ -115,7 +113,10 @@ export function resolveCarouselColourway(
   const pin = pins?.[product.id]?.trim();
   if (pin) return pin;
 
-  const fromDefault = defaultColourway(product as ProductWithDefaults, colourSlug);
+  const fromDefault = defaultColourway(
+    product as ProductWithDefaults,
+    colourSlug,
+  );
   if (fromDefault) return fromDefault;
 
   const fromLatest = latestModifiedColourway(product, colourSlug);

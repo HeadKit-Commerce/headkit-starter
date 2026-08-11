@@ -19,10 +19,7 @@ function faq(
 
 describe("groupFaqsByTopic", () => {
   it("returns a single untitled group when no topics are set", () => {
-    const groups = groupFaqsByTopic([
-      faq("1", "Q1"),
-      faq("2", "Q2"),
-    ]);
+    const groups = groupFaqsByTopic([faq("1", "Q1"), faq("2", "Q2")]);
     expect(groups).toHaveLength(1);
     expect(groups[0]?.topic).toBeNull();
     expect(groups[0]?.items).toHaveLength(2);

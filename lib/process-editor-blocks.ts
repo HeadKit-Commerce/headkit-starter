@@ -11,8 +11,8 @@
  * the API, so we take them from rawEditorBlocks[i] at the same index as each
  * headkit-block-section in the HTML.
  *
- * Categories, brands, and posts are hydrated into attrs by the WP theme
- * (attrs.categories / attrs.brands / attrs.posts) and merged onto the
+ * Categories, brands, clients, and posts are hydrated into attrs by the WP theme
+ * (attrs.categories / attrs.brands / attrs.clients / attrs.posts) and merged onto the
  * processed block for BlockEditor.
  *
  * Segments preserve WordPress document order: HeadKit section groups and
@@ -45,6 +45,17 @@ export type HydratedBrand = {
   slug: string;
   thumbnail?: string | null;
   description?: string;
+};
+
+/** Client shape hydrated into attrs.clients (ClientSummary-like). */
+export type HydratedClient = {
+  id?: string;
+  name: string;
+  slug: string;
+  thumbnail?: string | null;
+  uri?: string | null;
+  projectCount?: number;
+  singleProjectSlug?: string | null;
 };
 
 /** Post shape hydrated into attrs.posts (Post summary-like). */
@@ -101,6 +112,8 @@ export type ProcessedEditorBlock = EditorBlock & {
   categories?: HydratedCategory[];
   /** Brands from WP hydration (brand carousel). */
   brands?: HydratedBrand[];
+  /** Clients from WP hydration (client carousel). */
+  clients?: HydratedClient[];
   /** Posts from WP hydration (post carousel / latest-posts). */
   posts?: HydratedPost[];
   /** Projects from WP hydration (project carousel). */
@@ -235,6 +248,32 @@ function hydrateBrands(raw: unknown): HydratedBrand[] {
       return brand;
     })
     .filter((b): b is HydratedBrand => b !== null);
+}
+
+function hydrateClients(raw: unknown): HydratedClient[] {
+  return asRecordArray(raw)
+    .map((item): HydratedClient | null => {
+      const name = typeof item["name"] === "string" ? item["name"] : "";
+      const slug = typeof item["slug"] === "string" ? item["slug"] : "";
+      if (!name || !slug) return null;
+      const client: HydratedClient = { name, slug };
+      if (typeof item["id"] === "string" || typeof item["id"] === "number") {
+        client.id = String(item["id"]);
+      }
+      if (typeof item["thumbnail"] === "string")
+        client.thumbnail = item["thumbnail"];
+      else if (item["thumbnail"] === null) client.thumbnail = null;
+      if (typeof item["uri"] === "string") client.uri = item["uri"];
+      else if (item["uri"] === null) client.uri = null;
+      if (typeof item["projectCount"] === "number")
+        client.projectCount = item["projectCount"];
+      if (typeof item["singleProjectSlug"] === "string")
+        client.singleProjectSlug = item["singleProjectSlug"];
+      else if (item["singleProjectSlug"] === null)
+        client.singleProjectSlug = null;
+      return client;
+    })
+    .filter((c): c is HydratedClient => c !== null);
 }
 
 function hydratePosts(raw: unknown): HydratedPost[] {
@@ -420,6 +459,7 @@ export function processHomepageContent(
 
     const categories = hydrateCategories(attrs["categories"]);
     const brands = hydrateBrands(attrs["brands"]);
+    const clients = hydrateClients(attrs["clients"]);
     const posts = hydratePosts(attrs["posts"]);
     const projects = hydrateProjects(attrs["projects"]);
     const buttons = extractButtons(sec.innerHtml);
@@ -437,6 +477,7 @@ export function processHomepageContent(
       html: sec.fullMatch,
       ...(categories.length > 0 ? { categories } : {}),
       ...(brands.length > 0 ? { brands } : {}),
+      ...(clients.length > 0 ? { clients } : {}),
       ...(posts.length > 0 ? { posts } : {}),
       ...(projects.length > 0 ? { projects } : {}),
       ...(buttons.length > 0 ? { buttons } : {}),
@@ -629,6 +670,8 @@ function expectedQueryTypeForClasses(classList: string[]): string | null {
   if (classList.includes("headkit-category-carousel"))
     return "featured-categories";
   if (classList.includes("headkit-brand-carousel")) return "featured-brands";
+  if (classList.includes("headkit-client-carousel"))
+    return "handpicked-clients";
   if (classList.includes("headkit-product-carousel")) return "product-carousel";
   return null;
 }

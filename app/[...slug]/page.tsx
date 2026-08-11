@@ -48,18 +48,20 @@ interface Props {
  * cached scope — a `use cache` fn must never touch `params`/`searchParams`/
  * `cookies` (threat T-09.5-15, the 50s cache-fill build hang). `content()`
  * resolves PAGE by bare slug/path (no leading slash) — the WP /content/page/
- * {slug} route + provider look up by path. Tagged `headkit:page:{slug}` at a
- * finite `days` life so a WP `page:{slug}` edit invalidates exactly this page
- * and a missed webhook self-heals in ~1 day (threat T-09.5-14). Keeps
- * `.catch(() => null)` so a genuinely missing page still `notFound()`s
- * deterministically from an uncached-safe null.
+ * {slug} route + provider look up by path. Tagged `headkit:page:{slug}` (exact
+ * page save) and `headkit:pages` (carousel/slide CPT + schedule boundary — WP
+ * hydrates hero slides into page editorBlocks, so carousel edits must purge
+ * every CMS page that may embed a hero). Finite `days` life so a missed
+ * webhook self-heals in ~1 day (threat T-09.5-14). Keeps `.catch(() => null)`
+ * so a genuinely missing page still `notFound()`s deterministically from an
+ * uncached-safe null.
  */
 export async function getPageData(
   contentSlug: string,
 ): Promise<Awaited<ReturnType<typeof sdk.content.get>> | null> {
   "use cache";
   cacheLife("days");
-  cacheTag(TAG.page(contentSlug));
+  cacheTag(TAG.page(contentSlug), TAG.pages);
   return sdk.content.get(contentSlug, "PAGE").catch(() => null);
 }
 

@@ -90,9 +90,9 @@ const REMAP_TABLE: ReadonlyArray<{
     rawIsKnown: false,
   },
   {
-    name: "carousel → route:home",
+    name: "carousel → route:home + pages",
     raw: "headkit:carousel",
-    expected: ["headkit:route:home"],
+    expected: ["headkit:route:home", "headkit:pages"],
     rawIsKnown: false,
   },
   {
@@ -169,9 +169,11 @@ describe("bridgeTags remaps the full SET-vs-FIRED table (00-GROUNDING §2)", () 
   });
 
   it("flattens 1→many expansions and de-duplicates across inputs", () => {
-    // carousel and page:/ both expand to route:home — it appears once.
+    // carousel and page:/ both expand to route:home — home appears once;
+    // carousel also fans out to pages (CMS heroes).
     expect(bridgeTags(["headkit:carousel", "headkit:page:/"])).toEqual([
       "headkit:route:home",
+      "headkit:pages",
     ]);
   });
 });
@@ -185,8 +187,11 @@ describe("explicit chrome / composite fan-out", () => {
     expect(bridgeTags(["headkit:menu"])).toEqual(expected);
   });
 
-  it("headkit:carousel bridges to route:home", () => {
-    expect(bridgeTags(["headkit:carousel"])).toEqual([TAG.route("home")]);
+  it("headkit:carousel bridges to route:home + pages", () => {
+    expect(bridgeTags(["headkit:carousel"])).toEqual([
+      TAG.route("home"),
+      TAG.pages,
+    ]);
   });
 });
 

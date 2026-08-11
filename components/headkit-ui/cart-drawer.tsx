@@ -148,8 +148,7 @@ export function CartTriggerButton({
   const { cartData, optimisticCart, toggleCart } = useCartContext();
   const { Cart } = useChromeIcons();
   const isQuoteMode = useIsQuoteMode();
-  const count =
-    (optimisticCart ?? cartData)?.itemsCount ?? initialCartCount;
+  const count = (optimisticCart ?? cartData)?.itemsCount ?? initialCartCount;
 
   if (isQuoteMode) {
     return (

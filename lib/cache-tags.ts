@@ -53,6 +53,7 @@ export const TAG = {
   brand: (slug: string): string => `headkit:brand:${slug}`,
   post: (slug: string): string => `headkit:post:${slug}`,
   project: (slug: string): string => `headkit:project:${slug}`,
+  client: (slug: string): string => `headkit:client:${slug}`,
   page: (slug: string): string => `headkit:page:${slug}`,
   // type/index — fired on create/delete of that type
   products: "headkit:products",
@@ -60,6 +61,7 @@ export const TAG = {
   brands: "headkit:brands",
   posts: "headkit:posts",
   projects: "headkit:projects",
+  clients: "headkit:clients",
   pages: "headkit:pages",
   // grid internal key (already used; keep) — remote, life minutes, self-healing
   catalogCat: (slug: string): string => `headkit:catalog:cat:${slug}`,
@@ -111,7 +113,9 @@ function bridgeOne(raw: string): string[] {
   if (raw === "headkit:page:/") return [TAG.route("home")];
   if (raw === "headkit:page:shop") return [TAG.route("shop")];
   if (raw === "headkit:carousel") {
-    return [TAG.route("home")];
+    // Legacy carousel tag: home hero + CMS pages that embed hero carousels
+    // (slides are hydrated into page editorBlocks at fetch time).
+    return [TAG.route("home"), TAG.pages];
   }
   if (raw === "headkit:new-in") return [TAG.route("new")];
   if (raw === "headkit:sale") return [TAG.route("sale")];
@@ -148,6 +152,7 @@ const KNOWN_EXACT_TAGS: ReadonlySet<string> = new Set([
   TAG.brands,
   TAG.posts,
   TAG.projects,
+  TAG.clients,
   TAG.pages,
   TAG.footer,
   TAG.branding,
@@ -167,6 +172,7 @@ const KNOWN_PREFIXES: readonly string[] = [
   "headkit:brand:",
   "headkit:post:",
   "headkit:project:",
+  "headkit:client:",
   "headkit:page:",
   "headkit:menu:",
   "headkit:route:",

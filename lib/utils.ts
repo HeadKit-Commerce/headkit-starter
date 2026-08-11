@@ -79,11 +79,14 @@ export function formatWooRichText(html: string | null | undefined): string {
   }
 
   const blocks: string[] = [];
-  const withoutBlocks = normalized.replace(WOO_BLOCK_ISLAND_PATTERN, (match) => {
-    const index = blocks.length;
-    blocks.push(match);
-    return `\n\n%%HK_BLOCK_${index}%%\n\n`;
-  });
+  const withoutBlocks = normalized.replace(
+    WOO_BLOCK_ISLAND_PATTERN,
+    (match) => {
+      const index = blocks.length;
+      blocks.push(match);
+      return `\n\n%%HK_BLOCK_${index}%%\n\n`;
+    },
+  );
 
   const formatted = wrapWooPlainParagraphs(
     withoutBlocks.replace(/<br\s*\/?>/gi, "\n"),

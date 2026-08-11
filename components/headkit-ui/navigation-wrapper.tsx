@@ -295,9 +295,7 @@ export async function NavigationWrapper() {
     : null;
 
   let primaryItems = normalizeMenuItems((headerMenus[0] ?? EMPTY_MENU).items);
-  let secondaryItems = normalizeMenuItems(
-    (headerMenus[1] ?? EMPTY_MENU).items,
-  );
+  let secondaryItems = normalizeMenuItems((headerMenus[1] ?? EMPTY_MENU).items);
   if (nonEmptySlugs) {
     primaryItems = filterMenuItemsByNonEmptyCollections(
       primaryItems,
