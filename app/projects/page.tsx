@@ -93,7 +93,7 @@ async function ProjectsServer({
       total: 0,
       totalPages: 0,
     })),
-    getProjectFilters().catch(() => ({ brands: [], tags: [] })),
+    getProjectFilters().catch(() => ({ brands: [], clients: [], tags: [] })),
   ]);
 
   return (

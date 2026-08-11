@@ -3,6 +3,7 @@ import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
 import { CategoryCarousel } from "@/components/headkit-ui/category-carousel";
 import { BrandCarousel } from "@/components/headkit-ui/brand-carousel";
+import { ClientCarousel } from "@/components/headkit-ui/client-carousel";
 import { PostCarousel } from "@/components/headkit-ui/post/post-carousel";
 import { ProjectCarousel } from "@/components/headkit-ui/project/project-carousel";
 import { MainCarousel } from "@/components/headkit-ui/main-carousel";
@@ -287,6 +288,49 @@ const BlockEditor = async ({
                   <p className="px-5 md:px-10 text-sm text-neutral-500">
                     No brands to display yet. Mark brands Featured under
                     Products → Brands and upload logos.
+                  </p>
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        if (data.cssClasses.includes("headkit-client-carousel")) {
+          const clients = (data.clients ?? []).filter(
+            (c) => typeof c.thumbnail === "string" && c.thumbnail.trim() !== "",
+          );
+          return (
+            <div
+              className="headkit-client-carousel overflow-hidden py-20"
+              key={index}
+            >
+              <SectionHeader
+                title={data.title}
+                description={data.description}
+                allButton={data.button?.text ?? ""}
+                allButtonPath={data.button?.url ?? ""}
+                className="px-5 md:px-10"
+              />
+              <div className="mt-8">
+                {clients.length > 0 ? (
+                  <ClientCarousel
+                    clients={clients.map((c) => ({
+                      name: c.name,
+                      slug: c.slug,
+                      thumbnail: c.thumbnail ?? "",
+                      ...(typeof c.projectCount === "number"
+                        ? { projectCount: c.projectCount }
+                        : {}),
+                      ...(c.singleProjectSlug !== undefined
+                        ? { singleProjectSlug: c.singleProjectSlug }
+                        : {}),
+                      ...(c.uri !== undefined ? { uri: c.uri } : {}),
+                    }))}
+                  />
+                ) : (
+                  <p className="px-5 md:px-10 text-sm text-neutral-500">
+                    No clients to display yet. Add Clients in the CMS and pick
+                    logos in this pattern.
                   </p>
                 )}
               </div>
