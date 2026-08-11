@@ -2,14 +2,13 @@ import type { MetadataRoute } from "next";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit } from "@/lib/sdk";
 import { getBranding } from "@/lib/branding";
+import { resolveSiteUrl } from "@/lib/site-url";
 import {
   encodeFilterSlug,
   isColorAttrSlug,
   DEFAULT_FILTER_VALUES,
 } from "@/components/headkit-ui/collection/utils";
 import { shopSegmentsFromPath, uriToRelativePath } from "./shop/shop-slug";
-
-const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 
 type SitemapItem = MetadataRoute.Sitemap[number];
 
@@ -26,7 +25,7 @@ type SitemapItem = MetadataRoute.Sitemap[number];
  * design (`commerce.example.com` vs `www.example.com`), so an origin-equality
  * test would reject every product in every store and publish an empty product
  * sitemap. Because only the path survives and callers re-root it under
- * SITE_URL, an off-site entry (T-15.1-07-02) is impossible by construction —
+ * the site origin, an off-site entry (T-15.1-07-02) is impossible by construction —
  * a stronger guarantee than the comparison would have given. Protocol-relative
  * and non-http(s) input is rejected outright, since those are path-like but
  * resolve off-site.
@@ -97,7 +96,7 @@ function brandFilterSlug(brand: string): string {
   });
 }
 
-async function makeProductSitemap(): Promise<SitemapItem[]> {
+async function makeProductSitemap(siteUrl: string): Promise<SitemapItem[]> {
   "use cache";
   cacheLife("hours");
   cacheTag("headkit:products");
@@ -115,7 +114,7 @@ async function makeProductSitemap(): Promise<SitemapItem[]> {
         // the sitemap advertises the shape the store has indexed and this app
         // serves, rather than a synthesised flat guess.
         items.push({
-          url: `${SITE_URL}${servedProductPath(product)}`,
+          url: `${siteUrl}${servedProductPath(product)}`,
           lastModified: new Date(),
           changeFrequency: "daily",
           priority: 1,
@@ -136,7 +135,7 @@ async function makeProductSitemap(): Promise<SitemapItem[]> {
           // two-segment remainder is `unknown`), so nesting these under the
           // shop path would advertise URLs that answer not-found.
           items.push({
-            url: `${SITE_URL}/products/${product.slug}/${colorSlug}`,
+            url: `${siteUrl}/products/${product.slug}/${colorSlug}`,
             lastModified: new Date(),
             changeFrequency: "daily",
             priority: 0.8,
@@ -153,7 +152,7 @@ async function makeProductSitemap(): Promise<SitemapItem[]> {
   }
 }
 
-async function makeCollectionSitemap(): Promise<SitemapItem[]> {
+async function makeCollectionSitemap(siteUrl: string): Promise<SitemapItem[]> {
   "use cache";
   cacheLife("hours");
   cacheTag("headkit:collections", "headkit:products", "headkit:brands");
@@ -181,7 +180,7 @@ async function makeCollectionSitemap(): Promise<SitemapItem[]> {
     for (const { node, filters } of filterResults) {
       const path = node.segments.join("/");
       items.push({
-        url: `${SITE_URL}/collections/${path}`,
+        url: `${siteUrl}/collections/${path}`,
         lastModified: new Date(),
         changeFrequency: "weekly",
         priority: 0.8,
@@ -197,7 +196,7 @@ async function makeCollectionSitemap(): Promise<SitemapItem[]> {
         if (!slug || seen.has(slug)) continue;
         seen.add(slug);
         items.push({
-          url: `${SITE_URL}/collections/${path}/f/${slug}`,
+          url: `${siteUrl}/collections/${path}/f/${slug}`,
           lastModified: new Date(),
           changeFrequency: "weekly",
           priority: 0.6,
@@ -211,7 +210,7 @@ async function makeCollectionSitemap(): Promise<SitemapItem[]> {
         if (!slug || seenBrand.has(slug)) continue;
         seenBrand.add(slug);
         items.push({
-          url: `${SITE_URL}/collections/${path}/f/${slug}`,
+          url: `${siteUrl}/collections/${path}/f/${slug}`,
           lastModified: new Date(),
           changeFrequency: "weekly",
           priority: 0.6,
@@ -225,14 +224,14 @@ async function makeCollectionSitemap(): Promise<SitemapItem[]> {
   }
 }
 
-async function makeBrandSitemap(): Promise<SitemapItem[]> {
+async function makeBrandSitemap(siteUrl: string): Promise<SitemapItem[]> {
   "use cache";
   cacheLife("hours");
   cacheTag("headkit:brands");
   try {
     const result = await headkit.brands.list({ perPage: 200 });
     return result.brands.map((b) => ({
-      url: `${SITE_URL}/brand/${b.slug}`,
+      url: `${siteUrl}/brand/${b.slug}`,
       lastModified: new Date(),
       changeFrequency: "weekly" as const,
       priority: 0.8,
@@ -242,14 +241,14 @@ async function makeBrandSitemap(): Promise<SitemapItem[]> {
   }
 }
 
-async function makePostSitemap(): Promise<SitemapItem[]> {
+async function makePostSitemap(siteUrl: string): Promise<SitemapItem[]> {
   "use cache";
   cacheLife("hours");
   cacheTag("headkit:posts");
   try {
     const result = await headkit.posts.list({ perPage: 200 });
     return result.posts.map((p) => ({
-      url: `${SITE_URL}/news/${p.slug}`,
+      url: `${siteUrl}/news/${p.slug}`,
       lastModified: p.date ? new Date(p.date) : new Date(),
       changeFrequency: "weekly" as const,
       priority: 0.8,
@@ -259,14 +258,14 @@ async function makePostSitemap(): Promise<SitemapItem[]> {
   }
 }
 
-async function makeProjectSitemap(): Promise<SitemapItem[]> {
+async function makeProjectSitemap(siteUrl: string): Promise<SitemapItem[]> {
   "use cache";
   cacheLife("hours");
   cacheTag("headkit:projects");
   try {
     const result = await headkit.projects.list({ perPage: 200 });
     return result.projects.map((p) => ({
-      url: `${SITE_URL}/projects/${p.slug}`,
+      url: `${siteUrl}/projects/${p.slug}`,
       lastModified: p.date ? new Date(p.date) : new Date(),
       changeFrequency: "weekly" as const,
       priority: 0.8,
@@ -278,8 +277,15 @@ async function makeProjectSitemap(): Promise<SitemapItem[]> {
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Sitemap off = remove completely (no entries). robots.ts omits the Sitemap line.
-  const { seoSettings } = await getBranding();
+  const { seoSettings, storeSettings } = await getBranding();
   if (!seoSettings.enableSitemap) {
+    return [];
+  }
+
+  // Prefer runtime store domain over baked NEXT_PUBLIC_FRONTEND_URL so a custom
+  // domain attached without redeploy still produces correct <loc> origins.
+  const siteUrl = resolveSiteUrl(storeSettings.domain);
+  if (!siteUrl) {
     return [];
   }
 
@@ -290,76 +296,76 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     postSitemap,
     projectSitemap,
   ] = await Promise.all([
-    makeProductSitemap(),
-    makeCollectionSitemap(),
-    makeBrandSitemap(),
-    makePostSitemap(),
-    makeProjectSitemap(),
+    makeProductSitemap(siteUrl),
+    makeCollectionSitemap(siteUrl),
+    makeBrandSitemap(siteUrl),
+    makePostSitemap(siteUrl),
+    makeProjectSitemap(siteUrl),
   ]);
 
   const staticPages: SitemapItem[] = [
     {
-      url: SITE_URL,
+      url: siteUrl,
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 1,
     },
     {
-      url: `${SITE_URL}/shop`,
+      url: `${siteUrl}/shop`,
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.8,
     },
     {
-      url: `${SITE_URL}/brand`,
+      url: `${siteUrl}/brand`,
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.7,
     },
     {
-      url: `${SITE_URL}/news`,
+      url: `${siteUrl}/news`,
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.7,
     },
     {
-      url: `${SITE_URL}/projects`,
+      url: `${siteUrl}/projects`,
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.7,
     },
     {
-      url: `${SITE_URL}/faq`,
+      url: `${siteUrl}/faq`,
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.6,
     },
     {
-      url: `${SITE_URL}/contact`,
+      url: `${siteUrl}/contact`,
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.6,
     },
     {
-      url: `${SITE_URL}/sale`,
+      url: `${siteUrl}/sale`,
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.7,
     },
     {
-      url: `${SITE_URL}/new`,
+      url: `${siteUrl}/new`,
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.7,
     },
     {
-      url: `${SITE_URL}/featured`,
+      url: `${siteUrl}/featured`,
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.7,
     },
     {
-      url: `${SITE_URL}/search`,
+      url: `${siteUrl}/search`,
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.5,

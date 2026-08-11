@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { getBranding } from "@/lib/branding";
 import { env } from "@/lib/env";
 import { isIndexableHost } from "@/lib/host-indexing";
+import { resolveSiteUrl } from "@/lib/site-url";
 
 /**
  * Disallow-everything response. Built fresh each call so no caller can mutate a
@@ -48,29 +49,34 @@ function disallowEverything(host: string | undefined): MetadataRoute.Robots {
  * cache directive by design.
  */
 export default async function robots(): Promise<MetadataRoute.Robots> {
-  const host = env.NEXT_PUBLIC_FRONTEND_URL;
   const requestHeaders = await headers();
   const currentHost =
     requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
 
-  // Fail closed: an unknown or non-production host is a temporary host.
-  if (!isIndexableHost(host, currentHost)) {
-    return disallowEverything(host);
-  }
-
+  let storeDomain: string | null | undefined;
   let seoSettings: Awaited<ReturnType<typeof getBranding>>["seoSettings"];
   try {
-    ({ seoSettings } = await getBranding());
+    ({ storeSettings: { domain: storeDomain }, seoSettings } =
+      await getBranding());
   } catch {
-    // A thrown branding read CLOSES indexing. getBranding() swallows its own
-    // errors into a permissive default today; if that ever changes, or if the
-    // module itself throws, the failure must not re-open the gate.
-    return disallowEverything(host);
+    // A thrown branding read CLOSES indexing. Prefer the env fallback only for
+    // the Host hint so operators still see which origin was configured.
+    const fallbackHost = resolveSiteUrl(null, env.NEXT_PUBLIC_FRONTEND_URL);
+    return disallowEverything(fallbackHost || undefined);
+  }
+
+  // Prefer runtime store domain over baked NEXT_PUBLIC_FRONTEND_URL so custom
+  // domains stay authoritative for Host / Sitemap even before a redeploy.
+  const host = resolveSiteUrl(storeDomain, env.NEXT_PUBLIC_FRONTEND_URL);
+
+  // Fail closed: an unknown or non-production host is a temporary host.
+  if (!isIndexableHost(host, currentHost)) {
+    return disallowEverything(host || undefined);
   }
 
   // Search engines off: Disallow everything.
   if (!seoSettings.allowIndexing) {
-    return disallowEverything(host);
+    return disallowEverything(host || undefined);
   }
 
   return {
@@ -117,7 +123,9 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
       },
     ],
     // Sitemap off = omit Sitemap line entirely (do not advertise a URL).
-    ...(seoSettings.enableSitemap ? { sitemap: `${host}/sitemap.xml` } : {}),
-    host,
+    ...(seoSettings.enableSitemap && host
+      ? { sitemap: `${host}/sitemap.xml` }
+      : {}),
+    ...(host ? { host } : {}),
   };
 }

@@ -7,7 +7,14 @@ vi.mock("@/lib/branding", () => ({
 vi.mock("@/lib/sdk", () => ({
   headkit: {
     products: { list: vi.fn(), get: vi.fn() },
-    collections: { list: vi.fn() },
+    collections: {
+      list: vi.fn(),
+      getCategories: vi.fn(async () => []),
+      getFilters: vi.fn(async () => ({ attributes: [] })),
+    },
+    brands: { list: vi.fn(async () => ({ brands: [] })) },
+    posts: { list: vi.fn(async () => ({ posts: [] })) },
+    projects: { list: vi.fn(async () => ({ projects: [] })) },
   },
 }));
 
@@ -97,6 +104,43 @@ describe("sitemap enableSitemap gate", () => {
     });
 
     await expect(sitemap()).resolves.toEqual([]);
+  });
+
+  it("roots every loc under the runtime store domain when env still has the headkit host", async () => {
+    mockedGetBranding.mockResolvedValue({
+      branding: stubBranding,
+      storeSettings: {
+        id: null,
+        slug: null,
+        name: "Acme",
+        gtmId: null,
+        domain: "paralelfurniture.com.au",
+        checkoutType: null,
+      },
+      seoSettings: {
+        title: null,
+        description: null,
+        ogImageUrl: null,
+        enableSitemap: true,
+        allowIndexing: true,
+      },
+    });
+
+    const { headkit } = await import("@/lib/sdk");
+    vi.mocked(headkit.products.list).mockResolvedValue({
+      products: [],
+      totalPages: 0,
+    } as never);
+
+    const entries = await sitemap();
+    expect(entries.length).toBeGreaterThan(0);
+    expect(
+      entries.every((e) =>
+        e.url.startsWith("https://paralelfurniture.com.au"),
+      ),
+      "stale NEXT_PUBLIC_FRONTEND_URL must not win over Store.domain",
+    ).toBe(true);
+    expect(entries.some((e) => e.url.includes("headkit.app"))).toBe(false);
   });
 });
 
@@ -262,5 +306,35 @@ describe("robots allowIndexing + enableSitemap", () => {
 
     const result = await robots();
     expect(result.sitemap).toBe("https://shop.example/sitemap.xml");
+  });
+
+  it("prefers the runtime store domain over a stale NEXT_PUBLIC_FRONTEND_URL", async () => {
+    mockedGetBranding.mockResolvedValue({
+      branding: stubBranding,
+      storeSettings: {
+        id: null,
+        slug: null,
+        name: "Acme",
+        gtmId: null,
+        domain: "paralelfurniture.com.au",
+        checkoutType: null,
+      },
+      seoSettings: {
+        title: null,
+        description: null,
+        ogImageUrl: null,
+        enableSitemap: true,
+        allowIndexing: true,
+      },
+    });
+    requestHost = "paralelfurniture.com.au";
+
+    const result = await robots();
+
+    expect(result.host).toBe("https://paralelfurniture.com.au");
+    expect(result.sitemap).toBe(
+      "https://paralelfurniture.com.au/sitemap.xml",
+    );
+    expect(result.rules).not.toEqual(DISALLOW_EVERYTHING);
   });
 });

@@ -33,7 +33,7 @@ vi.mock("@/lib/branding", () => ({
   getBranding: (): Promise<unknown> =>
     Promise.resolve({
       seoSettings: { enableSitemap: true, allowIndexing: true },
-      storeSettings: { name: "Acme" },
+      storeSettings: { name: "Acme", domain: null },
     }),
 }));
 
