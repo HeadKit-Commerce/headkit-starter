@@ -92,6 +92,10 @@ export interface SeoSettings {
   enableSitemap: boolean;
   /** When false, storefront emits noindex/nofollow and robots Disallow: /. */
   allowIndexing: boolean;
+  /** When true, revalidate webhook submits changed URLs to IndexNow. */
+  indexNowEnabled: boolean;
+  /** Public IndexNow key served at /{key}.txt; null when never enabled. */
+  indexNowKey: string | null;
 }
 
 export interface BrandingBundle {
@@ -156,6 +160,8 @@ const DEFAULT_BUNDLE: BrandingBundle = {
     ogImageUrl: null,
     enableSitemap: true,
     allowIndexing: true,
+    indexNowEnabled: false,
+    indexNowKey: null,
   },
 };
 
@@ -274,6 +280,60 @@ const BRANDING_EXTENDED_NO_WEIGHTS_SELECTION = /* GraphQL */ `
  */
 const BRANDING_QUERY = /* GraphQL */ `
   query StorefrontBranding {
+    branding {
+      primaryColor
+      secondaryColor
+      backgroundColor
+      textColor
+      logoUrl
+      iconUrl
+      headingFontSource
+      headingFontFamily
+      headingFontGoogleSlug
+      headingFontGoogleWeights
+      headingFontFileUrl
+      subheadingFontSource
+      subheadingFontFamily
+      subheadingFontGoogleSlug
+      subheadingFontGoogleWeights
+      subheadingFontFileUrl
+      bodyFontSource
+      bodyFontFamily
+      bodyFontGoogleSlug
+      bodyFontGoogleWeights
+      bodyFontFileUrl
+      cornerStyle
+      iconLibrary
+      showVariants
+      showSwatches
+      imageRollover
+      hideEmptyCollections
+    }
+    storeSettings {
+      id
+      slug
+      name
+      gtmId
+      domain
+    }
+    seoSettings {
+      title
+      description
+      ogImageUrl
+      enableSitemap
+      allowIndexing
+      indexNowEnabled
+      indexNowKey
+    }
+  }
+`;
+
+/**
+ * Full branding without IndexNow fields. Used when dashboard-api has sitemap /
+ * indexing gates but not yet indexNowEnabled / indexNowKey.
+ */
+const BRANDING_QUERY_SEO_GATES = /* GraphQL */ `
+  query StorefrontBrandingSeoGates {
     branding {
       primaryColor
       secondaryColor
@@ -479,6 +539,11 @@ function coerce(data: NonNullable<BrandingResponse["data"]>): BrandingBundle {
       // Defaults true when dashboard-api has not yet shipped the field.
       enableSitemap: seo.enableSitemap !== false,
       allowIndexing: seo.allowIndexing !== false,
+      indexNowEnabled: seo.indexNowEnabled === true,
+      indexNowKey:
+        typeof seo.indexNowKey === "string" && seo.indexNowKey.length > 0
+          ? seo.indexNowKey
+          : null,
     },
   };
 }
@@ -575,13 +640,20 @@ export async function getBranding(): Promise<BrandingBundle> {
   }
 }
 
-/** Resolve branding via full → extended → compat fallbacks (no checkoutType). */
+/** Resolve branding via full → seo-gates → extended → compat fallbacks. */
 async function fetchBrandingBundle(
   endpoint: string,
   token: string,
 ): Promise<BrandingBundle | null> {
   const full = await fetchBrandingQuery(endpoint, token, BRANDING_QUERY);
   if (full) return full;
+
+  const seoGates = await fetchBrandingQuery(
+    endpoint,
+    token,
+    BRANDING_QUERY_SEO_GATES,
+  );
+  if (seoGates) return seoGates;
 
   const extended = await fetchBrandingQuery(
     endpoint,

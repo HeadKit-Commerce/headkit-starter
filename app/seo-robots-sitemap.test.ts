@@ -100,6 +100,8 @@ describe("sitemap enableSitemap gate", () => {
         ogImageUrl: null,
         enableSitemap: false,
         allowIndexing: true,
+        indexNowEnabled: false,
+        indexNowKey: null,
       },
     });
 
@@ -123,6 +125,8 @@ describe("sitemap enableSitemap gate", () => {
         ogImageUrl: null,
         enableSitemap: true,
         allowIndexing: true,
+        indexNowEnabled: false,
+        indexNowKey: null,
       },
     });
 
@@ -160,6 +164,8 @@ const permissiveSeo = {
     ogImageUrl: null,
     enableSitemap: true,
     allowIndexing: true,
+    indexNowEnabled: false,
+    indexNowKey: null,
   },
 } satisfies Awaited<ReturnType<typeof getBranding>>;
 
@@ -251,6 +257,8 @@ describe("robots allowIndexing + enableSitemap", () => {
         ogImageUrl: null,
         enableSitemap: true,
         allowIndexing: false,
+        indexNowEnabled: false,
+        indexNowKey: null,
       },
     });
 
@@ -276,6 +284,8 @@ describe("robots allowIndexing + enableSitemap", () => {
         ogImageUrl: null,
         enableSitemap: false,
         allowIndexing: true,
+        indexNowEnabled: false,
+        indexNowKey: null,
       },
     });
 
@@ -301,6 +311,8 @@ describe("robots allowIndexing + enableSitemap", () => {
         ogImageUrl: null,
         enableSitemap: true,
         allowIndexing: true,
+        indexNowEnabled: false,
+        indexNowKey: null,
       },
     });
 
@@ -325,6 +337,8 @@ describe("robots allowIndexing + enableSitemap", () => {
         ogImageUrl: null,
         enableSitemap: true,
         allowIndexing: true,
+        indexNowEnabled: false,
+        indexNowKey: null,
       },
     });
     requestHost = "paralelfurniture.com.au";

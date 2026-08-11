@@ -22,24 +22,31 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * env parses `process.env` at import, so each case sets env then imports fresh.
  */
 
-const { revalidateTag, revalidatePath, loggerInfo, loggerError } = vi.hoisted(
-  () => ({
+const { revalidateTag, revalidatePath, loggerInfo, loggerError, getBranding } =
+  vi.hoisted(() => ({
     revalidateTag: vi.fn(),
     revalidatePath: vi.fn(),
     loggerInfo: vi.fn(),
     loggerError: vi.fn(),
-  }),
-);
+    getBranding: vi.fn(),
+  }));
 
 vi.mock("next/cache", () => ({ revalidateTag, revalidatePath }));
 vi.mock("next/server", () => ({
-  after: (cb: () => void): void => {
-    cb();
+  after: (cb: () => void | Promise<void>): void => {
+    void cb();
   },
   connection: async (): Promise<void> => {},
 }));
 vi.mock("@/lib/logger", () => ({
   logger: { info: loggerInfo, error: loggerError },
+}));
+vi.mock("@/lib/branding", () => ({
+  getBranding: getBranding,
+}));
+vi.mock("@/lib/indexnow", () => ({
+  isIndexNowProductionHost: (): boolean => false,
+  submitIndexNow: vi.fn(),
 }));
 
 const SECRET = "s3cr3t-revalidate";

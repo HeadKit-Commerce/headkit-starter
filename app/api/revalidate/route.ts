@@ -3,7 +3,13 @@ import { after, connection } from "next/server";
 import crypto from "node:crypto";
 import { env } from "@/lib/env";
 import { bridgeTags, isKnownTag } from "@/lib/cache-tags";
+import { getBranding } from "@/lib/branding";
+import {
+  isIndexNowProductionHost,
+  submitIndexNow,
+} from "@/lib/indexnow";
 import { logger } from "@/lib/logger";
+import { resolveSiteUrl } from "@/lib/site-url";
 
 /**
  * POST /api/revalidate — the storefront's observable, dual-auth, fail-closed
@@ -132,9 +138,9 @@ export async function POST(request: Request): Promise<Response> {
     for (const t of tags) revalidateTag(t, "max"); // D3 — replaces "default"
     for (const p of paths) revalidatePath(p); // WP still sends paths — do NOT drop
 
-    // Structured observability off the response hot path (D8). Never logs the
-    // secret / body-secret / raw body.
-    after(() => {
+    // Structured observability + optional IndexNow notify off the hot path.
+    // Never logs the secret / body-secret / raw body.
+    after(async () => {
       logger.info("revalidate", {
         requestId,
         event: typeof body.action === "string" ? body.action : "tags",
@@ -144,6 +150,37 @@ export async function POST(request: Request): Promise<Response> {
         dropped: rawTags.length - tags.length,
         vercelId: request.headers.get("x-vercel-id"),
       });
+
+      if (paths.length === 0 || !isIndexNowProductionHost()) return;
+
+      try {
+        const { seoSettings, storeSettings } = await getBranding();
+        if (
+          !seoSettings.indexNowEnabled ||
+          !seoSettings.allowIndexing ||
+          !seoSettings.indexNowKey
+        ) {
+          return;
+        }
+
+        const hostOrigin = resolveSiteUrl(
+          storeSettings.domain,
+          env.NEXT_PUBLIC_FRONTEND_URL,
+        );
+        if (!hostOrigin) return;
+
+        await submitIndexNow({
+          hostOrigin,
+          key: seoSettings.indexNowKey,
+          paths,
+          requestId,
+        });
+      } catch (error) {
+        logger.error("indexnow.revalidate_hook_error", {
+          requestId,
+          name: error instanceof Error ? error.name : "unknown",
+        });
+      }
     });
 
     return jsonResponse(requestId, 200, {

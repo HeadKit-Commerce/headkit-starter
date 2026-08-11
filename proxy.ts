@@ -11,6 +11,9 @@ const PRIVATE_ACCOUNT_PATHS = [
 /** Exact path for login/register - redirect to profile if already authenticated. */
 const ACCOUNT_LOGIN_PATH = "/account";
 
+/** IndexNow key files live at the host root (`/{key}.txt`, 8–128 chars). */
+const INDEXNOW_KEY_FILE = /^\/([a-zA-Z0-9-]{8,128})\.txt$/;
+
 function isPrivateAccountPath(pathname: string): boolean {
   if (pathname === ACCOUNT_LOGIN_PATH) return false;
   if (pathname.startsWith("/account/orders/")) return true;
@@ -30,8 +33,29 @@ function isPublicAccountPath(pathname: string): boolean {
   );
 }
 
+/**
+ * Rewrite IndexNow ownership proof files to the internal key handler.
+ * Must stay at the storefront root — a non-root keyLocation scopes URLs.
+ */
+function rewriteIndexNowKeyFile(
+  request: NextRequest,
+  pathname: string,
+): NextResponse | null {
+  const match = INDEXNOW_KEY_FILE.exec(pathname);
+  const key = match?.[1];
+  if (!key) return null;
+
+  const rewriteUrl = request.nextUrl.clone();
+  rewriteUrl.pathname = "/api/indexnow-key";
+  rewriteUrl.searchParams.set("key", key);
+  return NextResponse.rewrite(rewriteUrl);
+}
+
 export function proxy(request: NextRequest): NextResponse {
   const pathname = request.nextUrl.pathname;
+
+  const indexNow = rewriteIndexNowKeyFile(request, pathname);
+  if (indexNow) return indexNow;
 
   if (isPublicAccountPath(pathname)) {
     return NextResponse.next();
@@ -56,5 +80,5 @@ export function proxy(request: NextRequest): NextResponse {
 }
 
 export const config = {
-  matcher: ["/account", "/account/:path*"],
+  matcher: ["/account", "/account/:path*", "/:key.txt"],
 };
