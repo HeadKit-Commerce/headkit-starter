@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { makeSeoMetadata, seoFallbackDescription } from "@/lib/make-metadata";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { CmsPageBody } from "@/components/headkit-ui/cms-page-body";
+import { withGuaranteedFormMarker } from "@/lib/gravity-form-content";
 import { getPageData } from "@/app/[...slug]/page";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -17,6 +18,13 @@ import { Skeleton } from "@/components/ui/skeleton";
  * id 3 — see ENQUIRY_FORM_ID in product-detail.tsx.
  */
 const CONTACT_SLUG = "contact";
+
+/**
+ * Form rendered when the WordPress Contact page places none of its own.
+ * Matches the seed (`docker/wordpress/seed-gravity-forms.php` creates
+ * 1 = Contact) and the id the old storefront's /contact route hardcoded.
+ */
+const CONTACT_FORM_ID = "1";
 
 function ContactFormFallback(): React.ReactElement {
   return (
@@ -75,16 +83,25 @@ export default function ContactPage(): React.ReactElement {
 async function ContactRoute(): Promise<React.ReactElement> {
   const page = await getPageData(CONTACT_SLUG);
 
-  // Prefer the WordPress Contact page. When it is missing (fresh local without
-  // seed), fall back to a minimal marker so form id 1 still renders — editors
-  // should create/publish the Contact page in WP for real copy.
+  // Prefer the WordPress Contact page for copy, but never let a page without a
+  // form produce a contact page without a contact form.
+  //
+  // This read used to be `page?.content ?? <default with marker>`, so the
+  // default applied only when the page was ABSENT. A store migrating from the
+  // old storefront has a Contact page full of real copy and no `[gravityform]`
+  // shortcode — because there the form was placed by CODE
+  // (`<GravityForm formId="1" />` in its /contact route), and moving placement
+  // into page content gave nobody a reason to add one. Such a page rendered its
+  // copy and no form, answering 200, which is why no status sweep saw it.
+  //
+  // `withGuaranteedFormMarker` returns the page untouched when it already
+  // places a form, so an editor who chose a different form — or several — still
+  // wins.
   const title = page?.title ?? "Contact Us";
-  const html =
+  const copy =
     page?.content ??
-    [
-      "<p>Have a question? Fill in the form and our team will get back to you shortly.</p>",
-      '<div class="headkit-gravity-form" data-form-id="1" data-headkit-gf="1"></div>',
-    ].join("");
+    "<p>Have a question? Fill in the form and our team will get back to you shortly.</p>";
+  const html = withGuaranteedFormMarker(copy, CONTACT_FORM_ID);
 
   // Padding lives in CmsPageBody (same as other CMS pages) so a Contact page
   // with a hero carousel stays flush with the homepage layout.

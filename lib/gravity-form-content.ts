@@ -36,3 +36,39 @@ export function extractGravityFormIds(html: string): string[] {
 export function removeGravityFormMarkers(html: string): string {
   return html.replace(MARKER_RE, "").trim();
 }
+
+/** The marker the theme emits, built here for pages that need a default form. */
+function marker(formId: string): string {
+  return `<div class="headkit-gravity-form" data-form-id="${formId}" data-headkit-gf="1"></div>`;
+}
+
+/**
+ * Guarantee that a page whose whole purpose is a form actually carries one.
+ *
+ * Returns `html` untouched when it already places at least one form — an editor
+ * who placed a form has made a decision, including which form, and nothing here
+ * may override it. Otherwise the default form's marker is appended after
+ * whatever copy the page has.
+ *
+ * Why this is needed: form placement moved from CODE to PAGE CONTENT between
+ * V1 and V2. The old storefront's route rendered `<GravityForm formId="1" />`
+ * directly; the template instead reads a `[gravityform]` shortcode that the
+ * theme turns into a marker. A store migrating across that change has a Contact
+ * page full of real copy and no shortcode, because under V1 there was never any
+ * reason to put one there.
+ *
+ * Reading `page?.content ?? <default>` applies the default only when the page
+ * is ABSENT, so such a page renders its copy and no form — a contact page with
+ * no contact form, answering 200. That is invisible to a status sweep and was
+ * found by eye during the Dishee migration.
+ */
+export function withGuaranteedFormMarker(
+  html: string | null | undefined,
+  defaultFormId: string,
+): string {
+  const content = html ?? "";
+  if (hasGravityFormMarker(content)) return content;
+  return content.trim() === ""
+    ? marker(defaultFormId)
+    : content + marker(defaultFormId);
+}
