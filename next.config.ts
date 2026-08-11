@@ -78,8 +78,35 @@ const staticGenConcurrency = positiveIntEnv(
   1,
 );
 
+/**
+ * Deployment identifier, stamped onto every JS/CSS asset request as `?dpl=`.
+ *
+ * Two things depend on it, and neither is available without it.
+ *
+ * Version skew: a browser holding the previous build's client bundle keeps
+ * requesting the previous build's chunks. With a deployment id, Next detects
+ * the mismatch and performs a hard navigation instead of failing the request.
+ *
+ * Deployment verification: a deployment reporting `state: READY` is not the
+ * same claim as "the DOMAIN serves that deployment", and nothing observable
+ * from outside separates them unless the served HTML carries the id. Reading
+ * it off the page is the only way to assert that a sweep of a live storefront
+ * describes ONE deployment rather than a mixture of two mid-rollout — which is
+ * what a migration cutover is.
+ *
+ * `VERCEL_DEPLOYMENT_ID` is injected by Vercel at build. Off Vercel — local
+ * dev, Docker, CI — both are unset, this resolves to `undefined`, the key is
+ * omitted, and Next behaves exactly as it did before. Vercel's Skew Protection
+ * toggle sets the same thing, but per project: doing it here makes it a
+ * property of the template every store inherits, rather than a checkbox each
+ * new store can be created without.
+ */
+const deploymentId =
+  process.env.NEXT_DEPLOYMENT_ID ?? process.env.VERCEL_DEPLOYMENT_ID;
+
 const nextConfig: NextConfig = {
   transpilePackages: ["@headkit/sdk"],
+  ...(deploymentId ? { deploymentId } : {}),
   // Cache Components (already on) + Partial Prefetching unlock Instant
   // Navigations in Next.js 16.3: reusable App Shells, fewer prefetch
   // requests, Instant Insights / Navigation Inspector in dev.
@@ -121,6 +148,36 @@ const nextConfig: NextConfig = {
     dangerouslyAllowLocalIP:
       process.env.NODE_ENV !== "production" ||
       process.env.ALLOW_LOCAL_IMAGES === "1",
+  },
+  async redirects() {
+    return [
+      // /posts -> /news, the blog's one url move.
+      //
+      // headkit-demo served the blog at /posts; apps/starter serves it at
+      // /news. This lived as two route files calling `redirect()`, and doing a
+      // url move in a rendered page failed three separate ways at once:
+      //
+      //   `redirect()` emits 307, not 308, so the move was TEMPORARY and
+      //   passed no ranking to /news — while both files documented themselves
+      //   as "permanent redirect".
+      //
+      //   Cache Components requires `params`/`searchParams` to be awaited
+      //   inside Suspense, and a redirect thrown inside a Suspense boundary
+      //   runs AFTER the response has committed. `/posts/<slug>` therefore
+      //   answered 200 with an app shell and redirected only on the client —
+      //   invisible to a crawler, which is the only reader this exists for.
+      //
+      //   The index built its query string by treating `searchParams` as a
+      //   plain object; in Next 16 it is a Promise, so every request landed on
+      //   `/news?displayName=searchParams`.
+      //
+      // A url move has nothing to fetch and nothing to render, so it belongs
+      // here — before rendering, unconditionally, as a real 308. Measured on a
+      // dev server: /posts, /posts/<slug> and /posts?page=2 all 308 to their
+      // /news counterpart with the query intact.
+      { source: "/posts", destination: "/news", permanent: true },
+      { source: "/posts/:slug*", destination: "/news/:slug*", permanent: true },
+    ];
   },
   async rewrites() {
     return [
