@@ -47,7 +47,9 @@ const FeaturedImage = ({
   const imageSrc = trimmed ? trimmed : FALLBACK_IMAGE_SRC;
   const trimmedHover = hoverSrc?.trim() || "";
   const hasHoverLayer = Boolean(
-    trimmedHover && trimmedHover !== imageSrc && imageSrc !== FALLBACK_IMAGE_SRC,
+    trimmedHover &&
+    trimmedHover !== imageSrc &&
+    imageSrc !== FALLBACK_IMAGE_SRC,
   );
   const revealHover = hasHoverLayer && showHover;
 
@@ -85,10 +87,7 @@ const FeaturedImage = ({
           fetchPriority="low"
           quality={quality}
           aria-hidden
-          className={cn(
-            objectClass,
-            revealHover ? "opacity-100" : "opacity-0",
-          )}
+          className={cn(objectClass, revealHover ? "opacity-100" : "opacity-0")}
           sizes={CATALOG_GRID_IMAGE_SIZES}
         />
       ) : null}

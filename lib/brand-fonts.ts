@@ -334,7 +334,12 @@ export function resolveBrandFonts(input: {
   const slotVarLines: string[] = [];
 
   for (const { family, weights } of faces.values()) {
-    fontFaceParts.push(curatedFaceCss(family, [...weights].toSorted((a, b) => a - b)));
+    fontFaceParts.push(
+      curatedFaceCss(
+        family,
+        [...weights].toSorted((a, b) => a - b),
+      ),
+    );
     slotVarLines.push(
       `${family.cssVar}: ${cssFamilyLiteral(family.familyName)}, ui-sans-serif, system-ui, sans-serif;`,
     );

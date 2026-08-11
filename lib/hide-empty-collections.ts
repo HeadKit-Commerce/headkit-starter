@@ -98,9 +98,7 @@ export function collectionSlugFromMenuItem(
  * Returns `null` when the catalog listing fails so callers can fail open
  * (skip filtering) instead of treating every collection as empty.
  */
-export async function getNonEmptyCollectionSlugs(): Promise<
-  ReadonlySet<string> | null
-> {
+export async function getNonEmptyCollectionSlugs(): Promise<ReadonlySet<string> | null> {
   "use cache: remote";
   cacheLife("hours");
   cacheTag(TAG.collections);

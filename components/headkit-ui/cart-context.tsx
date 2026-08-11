@@ -55,7 +55,8 @@ function cartReducer(
       return {
         ...state,
         items,
-        itemsCount: items.length === 0 ? 0 : Math.max(0, state.itemsCount - qty),
+        itemsCount:
+          items.length === 0 ? 0 : Math.max(0, state.itemsCount - qty),
       };
     }
     case "set_cart":

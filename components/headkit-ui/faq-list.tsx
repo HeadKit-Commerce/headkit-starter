@@ -27,7 +27,12 @@ export function FaqList({ faqs }: FaqListProps): React.JSX.Element {
         const key = group.topicSlug ?? "uncategorized";
 
         return (
-          <section key={key} aria-labelledby={showTopicHeadings && group.topic ? `faq-topic-${key}` : undefined}>
+          <section
+            key={key}
+            aria-labelledby={
+              showTopicHeadings && group.topic ? `faq-topic-${key}` : undefined
+            }
+          >
             {showTopicHeadings && group.topic ? (
               <h2
                 id={`faq-topic-${key}`}

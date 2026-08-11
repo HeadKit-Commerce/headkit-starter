@@ -162,9 +162,7 @@ const BlockEditor = async ({
   return (
     <>
       {result?.map((data: ProcessedEditorBlock, index: number) => {
-        if (
-          data.cssClasses.includes("headkit-category-carousel")
-        ) {
+        if (data.cssClasses.includes("headkit-category-carousel")) {
           const rawCategories = data.categories ?? [];
           const categories = nonEmptySlugs
             ? filterCategoriesByNonEmptySlugs(rawCategories, nonEmptySlugs)

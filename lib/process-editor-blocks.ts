@@ -670,7 +670,8 @@ function expectedQueryTypeForClasses(classList: string[]): string | null {
   if (classList.includes("headkit-category-carousel"))
     return "featured-categories";
   if (classList.includes("headkit-brand-carousel")) return "featured-brands";
-  if (classList.includes("headkit-client-carousel")) return "handpicked-clients";
+  if (classList.includes("headkit-client-carousel"))
+    return "handpicked-clients";
   if (classList.includes("headkit-product-carousel")) return "product-carousel";
   return null;
 }

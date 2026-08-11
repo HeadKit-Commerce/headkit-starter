@@ -159,10 +159,9 @@ async function ProjectArticleContent({
       project.location ? decodeHtmlEntities(project.location) : null,
     ].filter(Boolean);
     const client = project.client;
-    const clientName = client?.name
-      ? decodeHtmlEntities(client.name)
-      : null;
-    const clientHref = client?.uri?.trim() || (client?.slug ? `/client/${client.slug}` : null);
+    const clientName = client?.name ? decodeHtmlEntities(client.name) : null;
+    const clientHref =
+      client?.uri?.trim() || (client?.slug ? `/client/${client.slug}` : null);
 
     const breadcrumbs = [
       { name: "Home", href: "/" },
