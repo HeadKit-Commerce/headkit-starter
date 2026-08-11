@@ -509,12 +509,12 @@ export async function CollectionRoute({ params, searchParams }: Props) {
 
   const breadcrumbs = buildBreadcrumbFromCategory(category);
   const { branding } = await getBranding();
+  const nonEmptySlugs = branding.hideEmptyCollections
+    ? await getNonEmptyCollectionSlugs()
+    : null;
   const childCategories =
-    branding.hideEmptyCollections && category.children?.length
-      ? filterCategoriesByNonEmptySlugs(
-          category.children,
-          await getNonEmptyCollectionSlugs(),
-        )
+    nonEmptySlugs && category.children?.length
+      ? filterCategoriesByNonEmptySlugs(category.children, nonEmptySlugs)
       : (category.children ?? []);
   const hasChildren = childCategories.length > 0;
   // Header owns LCP when: (1) leaf featured thumbnail, or (2) parent subcategory

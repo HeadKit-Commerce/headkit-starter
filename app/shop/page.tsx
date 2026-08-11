@@ -75,10 +75,10 @@ async function getRootCategories(): Promise<ProductCategoryDetail[]> {
   }
   // getCategories already hides empty by default; keep an explicit filter so
   // hand-rolled parentSlug lists stay consistent with the branding toggle.
-  return filterCategoriesByNonEmptySlugs(
-    roots,
-    await getNonEmptyCollectionSlugs(),
-  );
+  // null = catalog listing failed → fail open (do not blank the shop roots).
+  const nonEmptySlugs = await getNonEmptyCollectionSlugs();
+  if (!nonEmptySlugs) return roots;
+  return filterCategoriesByNonEmptySlugs(roots, nonEmptySlugs);
 }
 
 /**
