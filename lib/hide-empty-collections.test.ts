@@ -1,4 +1,21 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// Module imports `@/lib/sdk` for getNonEmptyCollectionSlugs; pure helpers under
+// test do not need a live client — stub so CI without NEXT_PUBLIC keys loads.
+vi.mock("@/lib/sdk", () => ({
+  headkit: {
+    collections: {
+      getCategories: (): Promise<unknown[]> => Promise.resolve([]),
+      getCategory: (): Promise<null> => Promise.resolve(null),
+    },
+  },
+}));
+
+vi.mock("next/cache", () => ({
+  cacheTag: (): void => undefined,
+  cacheLife: (): void => undefined,
+}));
+
 import {
   collectionSlugFromMenuItem,
   collectionSlugFromUri,

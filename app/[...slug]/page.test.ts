@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * (in `Page`/`generateMetadata`) and passed in as a PLAIN STRING, so the
  * "cannot read params inside use cache" constraint (threat T-09.5-15) is never
  * tripped. This suite proves:
- *   - the cached fn tags `TAG.page(slug)` at `cacheLife('days')`,
+ *   - the cached fn tags `TAG.page(slug)` + `TAG.pages` at `cacheLife('days')`,
  *   - it takes a plain string arg (no `params`/`searchParams`/`cookies` inside),
  *   - it keeps its `.catch(() => null)` so a missing page still resolves null
  *     (so `Page` can `notFound()` deterministically, uncached-safe).
@@ -53,7 +53,7 @@ vi.mock("@/components/headkit-ui/cms-page-body", () => ({
 import { getPageData } from "./page";
 
 const SLUG = "about/team";
-const EXPECTED_TAG = "headkit:page:about/team";
+const EXPECTED_TAGS = ["headkit:page:about/team", "headkit:pages"] as const;
 
 beforeEach(() => {
   cacheTag.mockClear();
@@ -63,9 +63,9 @@ beforeEach(() => {
 });
 
 describe("getPageData — params-safe cached CMS helper", () => {
-  it("tags TAG.page(slug) at cacheLife('days')", async () => {
+  it("tags TAG.page(slug) and TAG.pages at cacheLife('days')", async () => {
     await getPageData(SLUG);
-    expect(cacheTag).toHaveBeenCalledWith(EXPECTED_TAG);
+    expect(cacheTag).toHaveBeenCalledWith(...EXPECTED_TAGS);
     expect(cacheLife).toHaveBeenCalledWith("days");
     expect(cacheLife).not.toHaveBeenCalledWith("max");
   });

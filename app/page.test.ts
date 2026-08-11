@@ -4,11 +4,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * Home cache-tag/life union guard (09.5-03, CACHE-04 / D7).
  *
  * D7: home is ONE monolithic cached entry backed by a single aggregate
- * `homepage.get()` bundle, so it carries ONE tag — `route:home`. Editing any home
- * source (carousel, news, featured/new/sale product, page-on-front) fires
- * `route:home` and re-renders the single home entry. Both cached home fns
- * (`getHomepageData` + `HomeContent`) MUST carry the SAME tag so a future edit
- * cannot silently drop it from one of them. Both use the finite `days` backstop.
+ * `homepage.get()` bundle. The primary tag is `route:home`; branding + collections
+ * are also tagged because HomeContent reads hide-empty branding and may filter
+ * featured categories. Both cached home fns (`getHomepageData` + `HomeContent`)
+ * MUST carry the SAME tag union. Both use the finite `days` backstop.
  *
  * `next/cache` is mocked to capture `cacheTag` / `cacheLife`; the SDK, UI
  * components and lib helpers are stubbed so the page module imports in node env.
@@ -49,16 +48,28 @@ vi.mock("@/lib/make-metadata", () => ({
 }));
 vi.mock("@/lib/branding", () => ({
   getBranding: (): Promise<{
+    branding: { hideEmptyCollections: boolean };
     seoSettings: Record<string, unknown>;
     storeSettings: { name: string };
   }> =>
     Promise.resolve({
+      branding: { hideEmptyCollections: false },
       seoSettings: {},
       storeSettings: { name: "Store" },
     }),
   getBrandingAssets: (): Promise<{ iconUrl: null }> =>
     Promise.resolve({ iconUrl: null }),
 }));
+
+vi.mock("@/lib/hide-empty-collections", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/hide-empty-collections")>();
+  return {
+    ...actual,
+    getNonEmptyCollectionSlugs: (): Promise<ReadonlySet<string> | null> =>
+      Promise.resolve(null),
+  };
+});
 
 // NOTE: vi.mock factories are hoisted above module-scope consts, so the stub
 // component must be inlined in each factory (cannot reference an outer const).
@@ -90,7 +101,11 @@ vi.mock("@/components/ui/skeleton", () => ({ Skeleton: (): null => null }));
 
 import { getHomepageData, HomeContent } from "./page";
 
-const HOME_UNION = ["headkit:route:home"];
+const HOME_UNION = [
+  "headkit:route:home",
+  "headkit:branding",
+  "headkit:collections",
+];
 
 beforeEach(() => {
   cacheTag.mockClear();

@@ -77,9 +77,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /**
  * Home cache-tag(s) (D7 / CACHE-04). Home is ONE monolithic cached entry backed
- * by a single aggregate `homepage.get()`, so it carries ONE tag: `route:home`.
- * Every WP home-source edit (carousel, news, featured/new/sale product,
- * page-on-front) emits `route:home` → the single home entry re-renders.
+ * by a single aggregate `homepage.get()`. Primary tag: `route:home` (carousel,
+ * news, featured/new/sale product, page-on-front). Also tags branding +
+ * collections because HomeContent reads hide-empty branding and may filter
+ * featured categories from the catalog.
  *
  * The former per-module `module:{carousel,news,brand,featured}` tags were
  * removed: with an indivisible `homepage.get()` bundle they could never
