@@ -27,11 +27,28 @@ const remotePatterns: NonNullable<NextConfig["images"]>["remotePatterns"] = [
   { protocol: "http", hostname: "localhost", port: "8090" },
 ];
 
-if (process.env.IMAGE_DOMAIN) {
-  remotePatterns.push({
-    protocol: "https",
-    hostname: process.env.IMAGE_DOMAIN,
-  });
+/**
+ * `IMAGE_DOMAIN` accepts a COMMA-SEPARATED list, not just one host.
+ *
+ * A migrating store serves images from more than one origin at once, and this
+ * is the normal case rather than an edge one. WordPress stores absolute URLs in
+ * post content, so a database copied from the old site keeps pointing at the
+ * OLD host — while newly-read media resolves against the new one. Dishee's home
+ * carousel referenced `commerce.dishee.com.au` while every product image came
+ * from the clone.
+ *
+ * A host missing from this allowlist does not degrade: the optimizer answers
+ * 400 and the image renders broken, with `naturalWidth` 0 and a 200 on the page
+ * around it. Nothing reports it. (400 = refused by this allowlist, 404 =
+ * allowed through and simply absent upstream — a useful way to tell them apart
+ * when diagnosing.)
+ *
+ * Still an explicit allowlist, never a wildcard host — the optimizer is an SSRF
+ * surface, so entries stay exact hostnames.
+ */
+for (const rawHost of (process.env.IMAGE_DOMAIN ?? "").split(",")) {
+  const hostname = rawHost.trim();
+  if (hostname) remotePatterns.push({ protocol: "https", hostname });
 }
 
 const securityHeaders = [
