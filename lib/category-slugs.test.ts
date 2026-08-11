@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { collectCategorySlugsDeep } from "./category-slugs";
+import {
+  collectCategorySlugsDeep,
+  collectDirectChildSlugs,
+} from "./category-slugs";
 
 /**
  * The e2e store's real shape: three roots that each carry two subcategories.
@@ -79,5 +82,62 @@ describe("collectCategorySlugsDeep", () => {
 
     const slugs = collectCategorySlugsDeep([a] as never);
     expect([...slugs].sort()).toEqual(["a", "b"]);
+  });
+});
+
+/**
+ * GetProductCategories only selects one `children` level. Mid-level nodes
+ * (Outdoor Furniture) appear as children of roots, but their own children
+ * (Outdoor Dining Chairs, …) are absent from that response. Hide-empty must
+ * know which mid-level slugs to expand via getCategory so leaf/handpicked
+ * categories are not treated as empty.
+ */
+describe("collectDirectChildSlugs", () => {
+  it("returns only the first nested level (candidates for getCategory expand)", () => {
+    // Shape of the GraphQL response today: roots + one children level.
+    // Grandchildren are NOT present — that is the bug we expand around.
+    const graphqlShapedForest = [
+      {
+        slug: "outdoor-furniture",
+        children: [
+          { slug: "outdoor-dining-chairs" },
+          { slug: "outdoor-lounges-armchairs" },
+        ],
+      },
+      {
+        slug: "indoor-furniture",
+        children: [{ slug: "indoor-dining-chairs" }],
+      },
+      { slug: "accessories" },
+    ];
+
+    expect(collectDirectChildSlugs(graphqlShapedForest).sort()).toEqual([
+      "indoor-dining-chairs",
+      "outdoor-dining-chairs",
+      "outdoor-lounges-armchairs",
+    ]);
+  });
+
+  it("normalises case/whitespace and dedupes", () => {
+    expect(
+      collectDirectChildSlugs([
+        {
+          slug: "root",
+          children: [
+            { slug: "  Mid-Level " },
+            { slug: "mid-level" },
+            { slug: "" },
+            { slug: null },
+          ],
+        },
+      ]),
+    ).toEqual(["mid-level"]);
+  });
+
+  it("returns [] for null, undefined, [], and roots with no children", () => {
+    expect(collectDirectChildSlugs(null)).toEqual([]);
+    expect(collectDirectChildSlugs(undefined)).toEqual([]);
+    expect(collectDirectChildSlugs([])).toEqual([]);
+    expect(collectDirectChildSlugs([{ slug: "root" }])).toEqual([]);
   });
 });
