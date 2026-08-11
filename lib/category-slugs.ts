@@ -60,10 +60,11 @@ export function collectCategorySlugsDeep(
 /**
  * Collects slugs of direct children across a forest (one level down from roots).
  *
- * Used by hide-empty to decide which mid-level categories to re-fetch via
- * `getCategory`. `GetProductCategories` only selects one `children` level, so
- * grandchildren/leaves are invisible to a deep walk of that response alone —
- * which dropped handpicked homepage categories and mega-menu leaf links.
+ * Kept for callers that need mid-level category ids without walking leaves.
+ * Hide-empty must **not** re-fetch these via `getCategory` to discover leaves:
+ * that endpoint returns children with `hide_empty=false` and would pollute the
+ * non-empty slug set. Leaf visibility comes from nested `children` on
+ * `GetProductCategories` instead.
  */
 export function collectDirectChildSlugs(
   nodes: readonly CategoryNodeLike[] | null | undefined,

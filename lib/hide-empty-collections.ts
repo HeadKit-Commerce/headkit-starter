@@ -2,10 +2,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import type { ProductCategoryDetail } from "@headkit/sdk";
 import { TAG } from "@/lib/cache-tags";
 import { headkit } from "@/lib/sdk";
-import {
-  collectCategorySlugsDeep,
-  collectDirectChildSlugs,
-} from "@/lib/category-slugs";
+import { collectCategorySlugsDeep } from "@/lib/category-slugs";
 
 /**
  * URI patterns that point at a product category / collection page.
@@ -90,10 +87,11 @@ export function collectionSlugFromMenuItem(
  * tree. A top-level read therefore stopped seeing subcategories, which made
  * every one of them look empty and dropped them from the menus.
  *
- * `GetProductCategories` still only selects one `children` level, so a deep
- * walk of that response misses grandchildren (leaf categories used in
- * handpicked homepage carousels and mega-menu leaf links). Mid-level nodes
- * are expanded via `getCategory`, which returns that node's children.
+ * Leaf/grandchild visibility comes from nested `children` selection on
+ * `GetProductCategories` (see `packages/sdk` collections operations). Do **not**
+ * expand mid-level nodes via `getCategory`: that endpoint returns children with
+ * `hide_empty=false`, which would put empty leaf slugs into this set and undo
+ * hide-empty filtering in menus and carousels.
  *
  * Returns `null` when the catalog listing fails so callers can fail open
  * (skip filtering) instead of treating every collection as empty.
@@ -105,30 +103,7 @@ export async function getNonEmptyCollectionSlugs(): Promise<ReadonlySet<string> 
 
   try {
     const categories = await headkit.collections.getCategories();
-    const slugs = collectCategorySlugsDeep(categories);
-
-    // Expand mid-level categories so leaf/grandchild slugs enter the set.
-    // GetProductCategories under-selects nesting; getCategory fills one level.
-    const midLevelSlugs = collectDirectChildSlugs(categories);
-    if (midLevelSlugs.length > 0) {
-      const details = await Promise.all(
-        midLevelSlugs.map(async (slug) => {
-          try {
-            return await headkit.collections.getCategory(slug);
-          } catch {
-            return null;
-          }
-        }),
-      );
-      for (const detail of details) {
-        if (!detail) continue;
-        for (const nested of collectCategorySlugsDeep([detail])) {
-          slugs.add(nested);
-        }
-      }
-    }
-
-    return slugs;
+    return collectCategorySlugsDeep(categories);
   } catch {
     return null;
   }
