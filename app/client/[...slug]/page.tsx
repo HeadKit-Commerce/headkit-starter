@@ -96,52 +96,53 @@ async function ClientPageContent({
     return notFound();
   }
 
+  let client;
   try {
-    const client = await getClient(clientSlug);
-    if (!client) return notFound();
-
-    const name = decodeHtmlEntities(client.name);
-    const projects = client.projects ?? [];
-    const breadcrumbs = [
-      { name: "Home", href: "/" },
-      { name: "Projects", href: "/projects" },
-      { name, href: `/client/${clientSlug}` },
-    ];
-
-    return (
-      <>
-        <BreadcrumbJsonLD items={breadcrumbs} />
-        <div className="overflow-hidden py-10 lg:py-16">
-          <div className="flex flex-col items-center gap-6 px-5 md:px-10">
-            {client.thumbnail ? (
-              <div className="relative h-16 w-48">
-                <Image
-                  src={client.thumbnail}
-                  alt={name}
-                  fill
-                  className="object-contain object-center"
-                  sizes="192px"
-                  priority
-                />
-              </div>
-            ) : null}
-            <SectionHeader
-              title={name}
-              description={
-                projects.length === 1
-                  ? "1 project"
-                  : `${projects.length} projects`
-              }
-              className="text-center"
-            />
-          </div>
-          <div className="mt-10">
-            <ProjectGrid projects={projects} />
-          </div>
-        </div>
-      </>
-    );
+    client = await getClient(clientSlug);
   } catch {
     return notFound();
   }
+  if (!client) return notFound();
+
+  const name = decodeHtmlEntities(client.name);
+  const projects = client.projects ?? [];
+  const breadcrumbs = [
+    { name: "Home", href: "/" },
+    { name: "Projects", href: "/projects" },
+    { name, href: `/client/${clientSlug}` },
+  ];
+
+  return (
+    <>
+      <BreadcrumbJsonLD items={breadcrumbs} />
+      <div className="overflow-hidden py-10 lg:py-16">
+        <div className="flex flex-col items-center gap-6 px-5 md:px-10">
+          {client.thumbnail ? (
+            <div className="relative h-16 w-48">
+              <Image
+                src={client.thumbnail}
+                alt={name}
+                fill
+                className="object-contain object-center"
+                sizes="192px"
+                priority
+              />
+            </div>
+          ) : null}
+          <SectionHeader
+            title={name}
+            description={
+              projects.length === 1
+                ? "1 project"
+                : `${projects.length} projects`
+            }
+            className="text-center"
+          />
+        </div>
+        <div className="mt-10">
+          <ProjectGrid projects={projects} />
+        </div>
+      </div>
+    </>
+  );
 }
