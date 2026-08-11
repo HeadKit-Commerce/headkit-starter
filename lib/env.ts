@@ -13,9 +13,20 @@ const clientSchema = z.object({
   // context — see getStoreCurrency() in lib/utils.ts. Defaults to AUD there.
   NEXT_PUBLIC_STORE_CURRENCY: z.string().length(3).optional(),
   // Gravity Forms form id mounted on /wholesale. Per-STORE, so it is
-  // configuration rather than a literal in the shared route — Dishee mounts its
-  // enquiry form on /contact instead, and a per-store difference must not fork
-  // the page. Unset = the route renders content only, with no form.
+  // configuration rather than a literal in the shared route, and a per-store
+  // difference must not fork the page.
+  //
+  // Unset = the route renders content only, with NO FORM, and nothing reports
+  // that. `/wholesale` answers 200 either way, so a store that should have a
+  // wholesale form and lacks this value looks healthy from outside. Nothing in
+  // provisioning sets it, so it is set by hand or not at all — check it when
+  // standing up a store whose predecessor had a wholesale form.
+  //
+  // This comment previously read "Dishee mounts its enquiry form on /contact
+  // instead" as the justification for leaving it unset. That was wrong, and it
+  // is why Dishee's V2 store had no wholesale form: the live V1 site serves
+  // BOTH — a 3-field form on /contact and a separate 8-field form on
+  // /wholesale. Do not cite a store as an example here without opening it.
   NEXT_PUBLIC_WHOLESALE_FORM_ID: z.string().optional(),
 });
 
