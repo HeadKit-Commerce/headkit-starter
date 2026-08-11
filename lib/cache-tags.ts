@@ -111,7 +111,9 @@ function bridgeOne(raw: string): string[] {
   if (raw === "headkit:page:/") return [TAG.route("home")];
   if (raw === "headkit:page:shop") return [TAG.route("shop")];
   if (raw === "headkit:carousel") {
-    return [TAG.route("home")];
+    // Legacy carousel tag: home hero + CMS pages that embed hero carousels
+    // (slides are hydrated into page editorBlocks at fetch time).
+    return [TAG.route("home"), TAG.pages];
   }
   if (raw === "headkit:new-in") return [TAG.route("new")];
   if (raw === "headkit:sale") return [TAG.route("sale")];
