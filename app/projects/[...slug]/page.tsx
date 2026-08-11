@@ -18,6 +18,7 @@ import { makeSeoMetadata, resolveStoreName } from "@/lib/make-metadata";
 import { getBranding, getBrandingAssets } from "@/lib/branding";
 import { TAG } from "@/lib/cache-tags";
 import { decodeHtmlEntities } from "@/lib/utils";
+import { InstantLink } from "@/components/headkit-ui/instant-link";
 
 interface Props {
   params: Promise<{ slug: string[] }>;
@@ -145,10 +146,23 @@ async function ProjectArticleContent({
     const gallery = project.gallery ?? [];
     const projectProducts = (project.products ?? []).map(mapRelatedToProduct);
     const siteName = resolveStoreName(storeSettings.name);
+    const brandNames =
+      (project.brands?.length ?? 0) > 0
+        ? (project.brands ?? [])
+            .map((b) => decodeHtmlEntities(b.name))
+            .filter(Boolean)
+        : project.brand?.name
+          ? [decodeHtmlEntities(project.brand.name)]
+          : [];
     const metaBits = [
-      project.brand?.name ? decodeHtmlEntities(project.brand.name) : null,
+      ...brandNames,
       project.location ? decodeHtmlEntities(project.location) : null,
     ].filter(Boolean);
+    const client = project.client;
+    const clientName = client?.name
+      ? decodeHtmlEntities(client.name)
+      : null;
+    const clientHref = client?.uri?.trim() || (client?.slug ? `/client/${client.slug}` : null);
 
     const breadcrumbs = [
       { name: "Home", href: "/" },
@@ -173,6 +187,36 @@ async function ProjectArticleContent({
             title={project.title}
             image={project.featuredImage?.src ?? null}
           />
+
+          {client?.thumbnail ? (
+            <div className="flex items-center gap-3 px-5 pt-6 md:px-10">
+              {clientHref ? (
+                <InstantLink
+                  href={clientHref}
+                  className="relative block h-10 w-32"
+                  aria-label={clientName ?? "Client"}
+                >
+                  <Image
+                    src={client.thumbnail}
+                    alt={clientName ?? "Client"}
+                    fill
+                    className="object-contain object-left"
+                    sizes="128px"
+                  />
+                </InstantLink>
+              ) : (
+                <div className="relative h-10 w-32">
+                  <Image
+                    src={client.thumbnail}
+                    alt={clientName ?? "Client"}
+                    fill
+                    className="object-contain object-left"
+                    sizes="128px"
+                  />
+                </div>
+              )}
+            </div>
+          ) : null}
 
           {metaBits.length > 0 ? (
             <p className="px-5 pt-4 text-sm text-muted-foreground md:px-10">

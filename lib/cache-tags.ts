@@ -53,6 +53,7 @@ export const TAG = {
   brand: (slug: string): string => `headkit:brand:${slug}`,
   post: (slug: string): string => `headkit:post:${slug}`,
   project: (slug: string): string => `headkit:project:${slug}`,
+  client: (slug: string): string => `headkit:client:${slug}`,
   page: (slug: string): string => `headkit:page:${slug}`,
   // type/index — fired on create/delete of that type
   products: "headkit:products",
@@ -60,6 +61,7 @@ export const TAG = {
   brands: "headkit:brands",
   posts: "headkit:posts",
   projects: "headkit:projects",
+  clients: "headkit:clients",
   pages: "headkit:pages",
   // grid internal key (already used; keep) — remote, life minutes, self-healing
   catalogCat: (slug: string): string => `headkit:catalog:cat:${slug}`,
@@ -148,6 +150,7 @@ const KNOWN_EXACT_TAGS: ReadonlySet<string> = new Set([
   TAG.brands,
   TAG.posts,
   TAG.projects,
+  TAG.clients,
   TAG.pages,
   TAG.footer,
   TAG.branding,
@@ -167,6 +170,7 @@ const KNOWN_PREFIXES: readonly string[] = [
   "headkit:brand:",
   "headkit:post:",
   "headkit:project:",
+  "headkit:client:",
   "headkit:page:",
   "headkit:menu:",
   "headkit:route:",
