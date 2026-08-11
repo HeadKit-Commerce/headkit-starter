@@ -3,6 +3,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import { headkit } from "@/lib/sdk";
 import { getBranding } from "@/lib/branding";
 import { resolveSiteUrl } from "@/lib/site-url";
+import { TAG } from "@/lib/cache-tags";
 import {
   encodeFilterSlug,
   isColorAttrSlug,
@@ -11,6 +12,20 @@ import {
 import { shopSegmentsFromPath, uriToRelativePath } from "./shop/shop-slug";
 
 type SitemapItem = MetadataRoute.Sitemap[number];
+
+/**
+ * Tags that must invalidate the assembled sitemap. Content webhooks already
+ * fire these via `/api/revalidate`; listing them on the single cached entry
+ * means the XML stays warm until catalogue/CMS/branding actually changes.
+ */
+const SITEMAP_TAGS = [
+  TAG.products,
+  TAG.collections,
+  TAG.brands,
+  TAG.posts,
+  TAG.projects,
+  TAG.branding,
+] as const;
 
 /**
  * Normalise a raw product permalink into a site-relative path, or null.
@@ -97,9 +112,6 @@ function brandFilterSlug(brand: string): string {
 }
 
 async function makeProductSitemap(siteUrl: string): Promise<SitemapItem[]> {
-  "use cache";
-  cacheLife("hours");
-  cacheTag("headkit:products");
   try {
     const items: SitemapItem[] = [];
     let page = 1;
@@ -153,9 +165,6 @@ async function makeProductSitemap(siteUrl: string): Promise<SitemapItem[]> {
 }
 
 async function makeCollectionSitemap(siteUrl: string): Promise<SitemapItem[]> {
-  "use cache";
-  cacheLife("hours");
-  cacheTag("headkit:collections", "headkit:products", "headkit:brands");
   try {
     const [categories, brandsRes] = await Promise.all([
       headkit.collections.getCategories(),
@@ -225,9 +234,6 @@ async function makeCollectionSitemap(siteUrl: string): Promise<SitemapItem[]> {
 }
 
 async function makeBrandSitemap(siteUrl: string): Promise<SitemapItem[]> {
-  "use cache";
-  cacheLife("hours");
-  cacheTag("headkit:brands");
   try {
     const result = await headkit.brands.list({ perPage: 200 });
     return result.brands.map((b) => ({
@@ -242,9 +248,6 @@ async function makeBrandSitemap(siteUrl: string): Promise<SitemapItem[]> {
 }
 
 async function makePostSitemap(siteUrl: string): Promise<SitemapItem[]> {
-  "use cache";
-  cacheLife("hours");
-  cacheTag("headkit:posts");
   try {
     const result = await headkit.posts.list({ perPage: 200 });
     return result.posts.map((p) => ({
@@ -259,9 +262,6 @@ async function makePostSitemap(siteUrl: string): Promise<SitemapItem[]> {
 }
 
 async function makeProjectSitemap(siteUrl: string): Promise<SitemapItem[]> {
-  "use cache";
-  cacheLife("hours");
-  cacheTag("headkit:projects");
   try {
     const result = await headkit.projects.list({ perPage: 200 });
     return result.projects.map((p) => ({
@@ -275,7 +275,24 @@ async function makeProjectSitemap(siteUrl: string): Promise<SitemapItem[]> {
   }
 }
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+/**
+ * Assemble the full sitemap once and keep it remote-cached.
+ *
+ * With `cacheComponents: true`, `sitemap.ts` is a dynamic Route Handler by
+ * default (Next.js 16.3). Without an outer `"use cache"`, every Googlebot /
+ * GSC fetch rebuilds the catalogue fan-out (~10–20s) and Vercel never serves a
+ * HIT — which surfaces as Search Console "Couldn't fetch".
+ *
+ * Pattern matches Cache Components guidance: one durable cached entry,
+ * `cacheLife("days")` as the finite backstop, and contract tags so
+ * `/api/revalidate` (SWR via `revalidateTag(t, "max")`) refreshes only when
+ * products/collections/brands/posts/projects/branding change.
+ */
+async function buildCachedSitemap(): Promise<MetadataRoute.Sitemap> {
+  "use cache: remote";
+  cacheLife("days");
+  cacheTag(...SITEMAP_TAGS);
+
   // Sitemap off = remove completely (no entries). robots.ts omits the Sitemap line.
   const { seoSettings, storeSettings } = await getBranding();
   if (!seoSettings.enableSitemap) {
@@ -303,70 +320,74 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     makeProjectSitemap(siteUrl),
   ]);
 
+  // lastModified is stamped when the cache entry is filled — not per request —
+  // so crawlers see a stable document until the next tag invalidation.
+  const builtAt = new Date();
+
   const staticPages: SitemapItem[] = [
     {
       url: siteUrl,
-      lastModified: new Date(),
+      lastModified: builtAt,
       changeFrequency: "daily",
       priority: 1,
     },
     {
       url: `${siteUrl}/shop`,
-      lastModified: new Date(),
+      lastModified: builtAt,
       changeFrequency: "daily",
       priority: 0.8,
     },
     {
       url: `${siteUrl}/brand`,
-      lastModified: new Date(),
+      lastModified: builtAt,
       changeFrequency: "weekly",
       priority: 0.7,
     },
     {
       url: `${siteUrl}/news`,
-      lastModified: new Date(),
+      lastModified: builtAt,
       changeFrequency: "daily",
       priority: 0.7,
     },
     {
       url: `${siteUrl}/projects`,
-      lastModified: new Date(),
+      lastModified: builtAt,
       changeFrequency: "weekly",
       priority: 0.7,
     },
     {
       url: `${siteUrl}/faq`,
-      lastModified: new Date(),
+      lastModified: builtAt,
       changeFrequency: "monthly",
       priority: 0.6,
     },
     {
       url: `${siteUrl}/contact`,
-      lastModified: new Date(),
+      lastModified: builtAt,
       changeFrequency: "monthly",
       priority: 0.6,
     },
     {
       url: `${siteUrl}/sale`,
-      lastModified: new Date(),
+      lastModified: builtAt,
       changeFrequency: "daily",
       priority: 0.7,
     },
     {
       url: `${siteUrl}/new`,
-      lastModified: new Date(),
+      lastModified: builtAt,
       changeFrequency: "daily",
       priority: 0.7,
     },
     {
       url: `${siteUrl}/featured`,
-      lastModified: new Date(),
+      lastModified: builtAt,
       changeFrequency: "daily",
       priority: 0.7,
     },
     {
       url: `${siteUrl}/search`,
-      lastModified: new Date(),
+      lastModified: builtAt,
       changeFrequency: "daily",
       priority: 0.5,
     },
@@ -380,4 +401,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...postSitemap,
     ...projectSitemap,
   ];
+}
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  return buildCachedSitemap();
 }

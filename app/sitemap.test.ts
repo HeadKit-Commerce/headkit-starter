@@ -21,12 +21,14 @@ const { SITE_URL } = vi.hoisted(() => {
 });
 
 const productsList = vi.fn();
+const cacheLife = vi.fn<(profile: string) => void>();
+const cacheTag = vi.fn<(...tags: string[]) => void>();
 
 vi.mock("server-only", () => ({}));
 
 vi.mock("next/cache", () => ({
-  cacheLife: (): void => {},
-  cacheTag: (): void => {},
+  cacheLife: (profile: string): void => cacheLife(profile),
+  cacheTag: (...tags: string[]): void => cacheTag(...tags),
 }));
 
 vi.mock("@/lib/branding", () => ({
@@ -99,6 +101,27 @@ const STATIC_URLS = new Set(
 
 beforeEach(() => {
   productsList.mockReset();
+  cacheLife.mockClear();
+  cacheTag.mockClear();
+});
+
+describe("sitemap Cache Components contract", () => {
+  it("caches the assembled sitemap at cacheLife('days') with catalogue tags", async () => {
+    productsList.mockResolvedValue({ products: [], totalPages: 0 });
+    await sitemap();
+
+    expect(cacheLife).toHaveBeenCalledWith("days");
+    expect(cacheLife).not.toHaveBeenCalledWith("hours");
+    expect(cacheLife).not.toHaveBeenCalledWith("max");
+    expect(cacheTag).toHaveBeenCalledWith(
+      "headkit:products",
+      "headkit:collections",
+      "headkit:brands",
+      "headkit:posts",
+      "headkit:projects",
+      "headkit:branding",
+    );
+  });
 });
 
 describe("toSitemapPath", () => {
