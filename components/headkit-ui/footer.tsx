@@ -16,12 +16,8 @@ import {
 } from "@/components/icon";
 import { FooterSubscribe } from "@/components/headkit-ui/footer-subscribe";
 import { InstantLink } from "@/components/headkit-ui/instant-link";
+import { isAppNavigationHref } from "@/lib/convert-uri";
 import { cn, decodeHtmlEntities } from "@/lib/utils";
-
-/** Same-origin app routes get Instant Navigation prefetch; external keep Link. */
-function isAppPath(href: string): boolean {
-  return href.startsWith("/") && !href.startsWith("//");
-}
 
 // ---------------------------------------------------------------------------
 // HeadKit SVG assets
@@ -169,7 +165,7 @@ function FooterMenuColumn({
         {items.map((item) => {
           const label = decodeHtmlEntities(item.label);
           const className = "w-fit leading-relaxed hover:underline";
-          if (isAppPath(item.uri)) {
+          if (isAppNavigationHref(item.uri)) {
             return (
               <InstantLink
                 key={item.id}
@@ -182,15 +178,19 @@ function FooterMenuColumn({
               </InstantLink>
             );
           }
+          // tel:/mailto:/external — native <a>; Next <Link> is for app paths.
           return (
-            <Link
+            <a
               key={item.id}
               href={item.uri}
               target={item.target ?? "_self"}
               className={className}
+              {...(item.target === "_blank"
+                ? { rel: "noopener noreferrer" }
+                : {})}
             >
               {label}
-            </Link>
+            </a>
           );
         })}
       </div>

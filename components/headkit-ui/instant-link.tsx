@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useLinkStatus } from "next/link";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
+import { isAppNavigationHref } from "@/lib/convert-uri";
 import { cn } from "@/lib/utils";
 
 type PendingVariant = "card" | "text";
@@ -40,23 +41,46 @@ type InstantLinkProps = ComponentProps<typeof Link> & {
   pendingVariant?: PendingVariant;
 };
 
+function hrefToString(href: ComponentProps<typeof Link>["href"]): string {
+  if (typeof href === "string") return href;
+  if (href != null && typeof href === "object" && "pathname" in href) {
+    return href.pathname ?? "";
+  }
+  return "";
+}
+
 /**
  * Next.js 16.3 Instant Navigation link.
  *
  * With `partialPrefetching`, default `<Link>` only pulls the shared App Shell.
  * `prefetch={true}` opts into per-URL runtime prefetch so `'use cache'` content
  * keyed on `params`/`searchParams` can resolve before click.
+ *
+ * Non-app hrefs (`tel:`, `mailto:`, absolute http(s), …) render a plain `<a>`
+ * so special-scheme Custom Links from WordPress menus keep working.
  */
 export function InstantLink({
   prefetch = true,
   pendingVariant = "card",
   className,
   children,
+  href,
   ...rest
 }: InstantLinkProps): React.JSX.Element {
+  const hrefStr = hrefToString(href);
+
+  if (hrefStr && !isAppNavigationHref(hrefStr)) {
+    return (
+      <a href={hrefStr} className={cn("relative cursor-pointer", className)}>
+        {children as ReactNode}
+      </a>
+    );
+  }
+
   return (
     <Link
       {...rest}
+      href={href}
       prefetch={prefetch}
       className={cn("relative cursor-pointer", className)}
     >
