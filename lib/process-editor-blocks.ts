@@ -638,6 +638,11 @@ function pickRawEditorBlock(
   used: Set<number>,
 ): RawEditorBlock | undefined {
   const expectedQt = expectedQueryTypeForClasses(classList);
+  const altQueryTypes = classList.includes("headkit-client-carousel")
+    ? ["handpicked-clients"]
+    : classList.includes("headkit-category-carousel")
+      ? ["handpicked-categories"]
+      : [];
   if (expectedQt) {
     for (let i = 0; i < rawEditorBlocks.length; i++) {
       if (used.has(i)) continue;
@@ -648,7 +653,7 @@ function pickRawEditorBlock(
         (typeof raw.attrs?.["queryType"] === "string"
           ? raw.attrs["queryType"]
           : null);
-      if (qt === expectedQt) {
+      if (qt === expectedQt || (qt && altQueryTypes.includes(qt))) {
         used.add(i);
         return raw;
       }
@@ -670,8 +675,8 @@ function expectedQueryTypeForClasses(classList: string[]): string | null {
   if (classList.includes("headkit-category-carousel"))
     return "featured-categories";
   if (classList.includes("headkit-brand-carousel")) return "featured-brands";
-  if (classList.includes("headkit-client-carousel"))
-    return "handpicked-clients";
+  // Prefer auto-hydrated clients; handpicked falls back to index match.
+  if (classList.includes("headkit-client-carousel")) return "clients";
   if (classList.includes("headkit-product-carousel")) return "product-carousel";
   return null;
 }

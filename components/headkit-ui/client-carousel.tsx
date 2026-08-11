@@ -18,13 +18,19 @@ interface Props {
   clients: ClientCarouselItem[];
 }
 
-/** Logo strip: only clients with a real logo. */
+/** Logo strip: only clients with a real logo (same filter as Brands). */
 function clientsWithLogos(clients: Props["clients"]): Props["clients"] {
   return clients.filter(
     (c) => typeof c?.thumbnail === "string" && c.thumbnail.trim() !== "",
   );
 }
 
+/**
+ * Link rules:
+ * - 0 projects → no link
+ * - 1 project → `/projects/{slug}`
+ * - 2+ projects → `/client/{slug}`
+ */
 function clientHref(client: ClientCarouselItem): string | null {
   const count = client.projectCount ?? 0;
   if (count <= 0) return null;
@@ -34,6 +40,7 @@ function clientHref(client: ClientCarouselItem): string | null {
   return client.uri?.trim() || `/client/${client.slug}`;
 }
 
+/** Small text under the logo when the client has projects. */
 function clientLinkLabel(client: ClientCarouselItem): string | null {
   const count = client.projectCount ?? 0;
   if (count <= 0) return null;
@@ -41,6 +48,10 @@ function clientLinkLabel(client: ClientCarouselItem): string | null {
   return "View Projects";
 }
 
+/**
+ * Brands-pattern logo carousel, plus a small text link under the logo when
+ * the client has 1 or 2+ projects.
+ */
 const ClientCarousel = ({ clients }: Props) => {
   const logos = clientsWithLogos(clients);
   if (logos.length === 0) {

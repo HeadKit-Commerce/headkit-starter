@@ -216,4 +216,49 @@ describe("category / brand / post hydration from attrs", () => {
     expect(blocks[2]?.posts?.[0]?.slug).toBe("hello");
     expect(blocks[2]?.posts?.[0]?.featuredImage?.src).toContain("p.jpg");
   });
+
+  it("merges clients onto client-carousel for auto and handpicked queryTypes", () => {
+    const CLIENT_SECTION = `<div class="wp-block-group headkit-client-carousel headkit-block-section"><div class="wp-block-group__inner-container"><h2 class="wp-block-heading headkit-block-title">Our Clients</h2></div></div>`;
+
+    const auto = processHomepageContent(CLIENT_SECTION, [
+      {
+        queryType: "clients",
+        attrs: {
+          queryType: "clients",
+          clients: [
+            {
+              name: "Acme Co",
+              slug: "acme-co",
+              thumbnail: "https://example.com/acme-client.png",
+              uri: "/client/acme-co",
+              projectCount: 3,
+            },
+          ],
+        },
+      },
+    ]);
+    expect(auto.blocks).toHaveLength(1);
+    expect(auto.blocks[0]?.clients?.[0]?.slug).toBe("acme-co");
+    expect(getBlockQueryType(auto.blocks[0]!)).toBe("clients");
+
+    const handpicked = processHomepageContent(CLIENT_SECTION, [
+      {
+        queryType: "handpicked-clients",
+        attrs: {
+          queryType: "handpicked-clients",
+          clients: [
+            {
+              name: "Beta Inc",
+              slug: "beta",
+              thumbnail: "https://example.com/beta.png",
+              projectCount: 1,
+              singleProjectSlug: "beta-project",
+            },
+          ],
+        },
+      },
+    ]);
+    expect(handpicked.blocks[0]?.clients?.[0]?.slug).toBe("beta");
+    expect(getBlockQueryType(handpicked.blocks[0]!)).toBe("handpicked-clients");
+  });
 });

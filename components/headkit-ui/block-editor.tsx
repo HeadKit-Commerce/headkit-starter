@@ -327,8 +327,8 @@ const BlockEditor = async ({
                   />
                 ) : (
                   <p className="px-5 md:px-10 text-sm text-neutral-500">
-                    No clients to display yet. Add Clients in the CMS and pick
-                    logos in this pattern.
+                    No clients to display yet. Add Clients under Clients and
+                    upload logos.
                   </p>
                 )}
               </div>
