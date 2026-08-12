@@ -91,9 +91,6 @@ vi.mock("@/components/headkit-ui/product-carousel", () => ({
 vi.mock("@/components/headkit-ui/category-carousel", () => ({
   CategoryCarousel: (): null => null,
 }));
-vi.mock("@/components/headkit-ui/brand-carousel", () => ({
-  BrandCarousel: (): null => null,
-}));
 vi.mock("@/components/headkit-ui/section-header", () => ({
   SectionHeader: (): null => null,
 }));

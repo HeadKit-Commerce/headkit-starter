@@ -6,7 +6,6 @@ import type {
   Product,
   HeroCarouselItem,
   FeaturedCategory,
-  FeaturedBrand,
 } from "@headkit/sdk";
 import {
   processHomepageContent,
@@ -29,7 +28,6 @@ import { BlockEditor } from "@/components/headkit-ui/block-editor";
 import { EditorialContent } from "@/components/headkit-ui/editorial-content";
 import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
 import { CategoryCarousel } from "@/components/headkit-ui/category-carousel";
-import { BrandCarousel } from "@/components/headkit-ui/brand-carousel";
 import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { CarouselProductJsonLD } from "@/components/seo/carousel-product-json-ld";
 
@@ -134,8 +132,6 @@ export async function HomeContent() {
   const featuredCategories = nonEmptySlugs
     ? filterCategoriesByNonEmptySlugs(featuredCategoriesRaw, nonEmptySlugs)
     : featuredCategoriesRaw;
-  const featuredBrands = (homepage?.featuredBrands ??
-    []) as unknown as FeaturedBrand[];
   const featuredProducts = (homepage?.featuredProducts ??
     []) as unknown as Product[];
   const { blocks: editorBlocks, segments } = processHomepageContent(
@@ -159,14 +155,12 @@ export async function HomeContent() {
     onSaleProducts !== null &&
     onSaleProducts.products.length > 0;
 
-  // Same duplicate policy for Shop by Category / Our Brands when WP patterns
-  // (headkit-category-carousel / headkit-brand-carousel) are on the front page.
+  // Skip hardcoded Shop by Category when WP already provides the pattern.
+  // Brands are CMS-only (headkit-brand-carousel) — never append a fallback
+  // "Our Brands" strip after editor content (duplicates Clients / wrong order).
   const showHardcodedCategories =
     !hasEditorSectionClass(editorBlocks, "headkit-category-carousel") &&
     featuredCategories.length > 0;
-  const showHardcodedBrands =
-    !hasEditorSectionClass(editorBlocks, "headkit-brand-carousel") &&
-    featuredBrands.length > 0;
   // Prefer WP hero pattern placement over the hardcoded top carousel.
   const showHardcodedHero =
     !hasEditorSectionClass(editorBlocks, "headkit-hero-carousel") &&
@@ -249,20 +243,6 @@ export async function HomeContent() {
         </section>
       )}
 
-      {/* Brands — skipped when WP provides headkit-brand-carousel */}
-      {showHardcodedBrands && (
-        <section className="headkit-brand-carousel overflow-hidden py-20">
-          <SectionHeader
-            title="Our Brands"
-            description=""
-            allButton=""
-            className="px-5 md:px-10"
-          />
-          <div className="mt-8">
-            <BrandCarousel brands={featuredBrands} />
-          </div>
-        </section>
-      )}
     </>
   );
 }
