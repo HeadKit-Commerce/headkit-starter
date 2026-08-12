@@ -17,6 +17,7 @@ import { ProductJsonLD } from "@/components/seo/product-json-ld";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { makeSeoMetadata, resolveStoreName } from "@/lib/make-metadata";
 import { getBranding, getBrandingAssets } from "@/lib/branding";
+import { getStripeConfig } from "@/lib/stripe-config";
 import { isColorAttrSlug } from "@/components/headkit-ui/collection/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductPageShell } from "./product-page-shell";
@@ -252,9 +253,10 @@ export async function ProductPageContent({ params }: Props) {
     notFound();
   }
 
-  const [product, { storeSettings }] = await Promise.all([
+  const [product, { storeSettings }, stripeConfig] = await Promise.all([
     getCachedProduct(productSlug),
     getBranding(),
+    getStripeConfig(),
   ]);
 
   if (!product) {
@@ -313,6 +315,7 @@ export async function ProductPageContent({ params }: Props) {
           productBasePath={`/products/${productSlug}`}
           breadcrumbItems={breadcrumbItems}
           stockSlot={stockSlot}
+          stripeConfig={stripeConfig}
         />
       </div>
 

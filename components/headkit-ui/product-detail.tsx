@@ -27,7 +27,14 @@ import { MinusIcon, PlusIcon, HeartIcon } from "@/components/icon";
 import { addToCartAction } from "@/lib/cart-actions";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { useIsQuoteMode } from "@/components/checkout/checkout-mode-provider";
-import { cn, decodeHtmlEntities, formatWooRichText } from "@/lib/utils";
+import {
+  cn,
+  decodeHtmlEntities,
+  formatWooRichText,
+  getFloatVal,
+  getStoreCurrency,
+} from "@/lib/utils";
+import { PaymentMethodMessaging } from "@/components/stripe/payment-messaging";
 import { isInWishlist, toggleWishlist } from "@/lib/wishlist";
 import type { GiftCardFormValues } from "@/components/gift-card-form";
 import { DeliveryType } from "@/components/gift-card-delivery-type";
@@ -70,6 +77,12 @@ interface Props {
   productBasePath?: string;
   /** Slot for dynamic stock rendering (e.g. PPR Suspense boundary). Replaces inline AvailabilityStatus. */
   stockSlot?: ReactNode;
+  /** Per-store Stripe config for the BNPL badge. Omit to render no badge. */
+  stripeConfig?: {
+    publishableKey: string;
+    accountId: string;
+    bnplMessagingEnabled: boolean;
+  };
 }
 
 const VARIABLE = "VARIABLE";
@@ -96,6 +109,7 @@ export function ProductDetail({
   initialColor,
   productBasePath,
   stockSlot,
+  stripeConfig,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -743,6 +757,21 @@ export function ProductDetail({
               <HeartIcon className="h-5 w-5" />
             </button>
           </div>
+
+          {/* BNPL messaging — Stripe decides whether anything renders. Tracks the
+              SELECTED VARIANT price, which is why it is a client-side value. */}
+          {stripeConfig ? (
+            <div className="mb-6">
+              <PaymentMethodMessaging
+                price={getFloatVal(displayPrice)}
+                currency={getStoreCurrency()}
+                publishableKey={stripeConfig.publishableKey}
+                stripeAccountId={stripeConfig.accountId}
+                enabled={stripeConfig.bnplMessagingEnabled}
+                disabled={isOutOfStock}
+              />
+            </div>
+          ) : null}
 
           {!isGiftCard && (
             <div className="mb-6">
