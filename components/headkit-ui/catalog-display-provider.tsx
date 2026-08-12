@@ -7,6 +7,7 @@ const DEFAULT_PREFS: CatalogDisplayPrefs = {
   showVariants: true,
   showSwatches: false,
   imageRollover: false,
+  defaultCollectionSort: "CREATED_AT",
 };
 
 const CatalogDisplayContext = createContext<CatalogDisplayPrefs>(DEFAULT_PREFS);

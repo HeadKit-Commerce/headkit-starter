@@ -10,6 +10,8 @@ export interface CatalogDisplayPrefs {
   showVariants: boolean;
   showSwatches: boolean;
   imageRollover: boolean;
+  /** Default PLP sort when URL has no ?sort=. SortKey string. */
+  defaultCollectionSort: string;
 }
 
 /** Product card model with an optional locked colourway slug. */

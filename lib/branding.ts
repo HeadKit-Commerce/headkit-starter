@@ -72,6 +72,10 @@ export interface Branding {
   imageRollover: boolean;
   /** Hide categories with no products from carousels/menus. Default true. */
   hideEmptyCollections: boolean;
+  /**
+   * Default PLP sort when URL has no ?sort=. Matches SortKey; unset → CREATED_AT.
+   */
+  defaultCollectionSort: string;
 }
 
 export interface StoreSettings {
@@ -119,6 +123,27 @@ export const DEFAULT_SHOW_VARIANTS = true;
 export const DEFAULT_SHOW_SWATCHES = false;
 export const DEFAULT_IMAGE_ROLLOVER = false;
 export const DEFAULT_HIDE_EMPTY_COLLECTIONS = true;
+/** Newest first — historical WooCommerce date/DESC default. */
+export const DEFAULT_COLLECTION_SORT = "CREATED_AT";
+
+const KNOWN_COLLECTION_SORTS = new Set([
+  "FEATURED",
+  "BEST_SELLING",
+  "CREATED_AT",
+  "CREATED_AT_DESC",
+  "PRICE",
+  "PRICE_DESC",
+  "TITLE",
+  "TITLE_DESC",
+]);
+
+/** Coerce a branding sort string to a known SortKey (defaults to newest). */
+export function resolveCollectionSort(value?: string | null): string {
+  if (value && KNOWN_COLLECTION_SORTS.has(value)) {
+    return value;
+  }
+  return DEFAULT_COLLECTION_SORT;
+}
 
 const EMPTY_FONT: BrandingFont = {
   source: "",
@@ -145,6 +170,7 @@ const DEFAULT_BUNDLE: BrandingBundle = {
     showSwatches: DEFAULT_SHOW_SWATCHES,
     imageRollover: DEFAULT_IMAGE_ROLLOVER,
     hideEmptyCollections: DEFAULT_HIDE_EMPTY_COLLECTIONS,
+    defaultCollectionSort: DEFAULT_COLLECTION_SORT,
   },
   storeSettings: {
     id: null,
@@ -308,6 +334,7 @@ const BRANDING_QUERY = /* GraphQL */ `
       showSwatches
       imageRollover
       hideEmptyCollections
+      defaultCollectionSort
     }
     storeSettings {
       id
@@ -362,6 +389,7 @@ const BRANDING_QUERY_SEO_GATES = /* GraphQL */ `
       showSwatches
       imageRollover
       hideEmptyCollections
+      defaultCollectionSort
     }
     storeSettings {
       id
@@ -426,7 +454,11 @@ const CHECKOUT_TYPE_QUERY = /* GraphQL */ `
 interface FlatBranding extends Partial<
   Omit<
     Branding,
-    "showVariants" | "showSwatches" | "imageRollover" | "hideEmptyCollections"
+    | "showVariants"
+    | "showSwatches"
+    | "imageRollover"
+    | "hideEmptyCollections"
+    | "defaultCollectionSort"
   >
 > {
   headingFontSource?: string | null;
@@ -448,6 +480,7 @@ interface FlatBranding extends Partial<
   showSwatches?: boolean | null;
   imageRollover?: boolean | null;
   hideEmptyCollections?: boolean | null;
+  defaultCollectionSort?: string | null;
 }
 
 interface BrandingResponse {
@@ -523,6 +556,7 @@ function coerce(data: NonNullable<BrandingResponse["data"]>): BrandingBundle {
       showSwatches: b.showSwatches === true,
       imageRollover: b.imageRollover === true,
       hideEmptyCollections: b.hideEmptyCollections !== false,
+      defaultCollectionSort: resolveCollectionSort(b.defaultCollectionSort),
     },
     storeSettings: {
       id: s.id ?? null,

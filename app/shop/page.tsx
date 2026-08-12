@@ -9,6 +9,7 @@ import {
   buildProductListFilter,
   normalizeFilterKey,
   parseSearchParams,
+  type SortKeyType,
 } from "@/components/headkit-ui/collection/utils";
 import { makeSeoMetadata } from "@/lib/make-metadata";
 import { getBranding } from "@/lib/branding";
@@ -135,9 +136,12 @@ async function ProductResults({ searchParams }: Props) {
   const parsed = parseSearchParams(sp);
   const page = parsed.page;
 
+  const { branding } = await getBranding();
   // price_min/price_max + instock are read directly off `parsed` by
   // buildProductListFilter; no need to re-pass them as options.
-  const filter = buildProductListFilter(parsed);
+  const filter = buildProductListFilter(parsed, {
+    defaultSort: branding.defaultCollectionSort as SortKeyType,
+  });
   const filterKey = normalizeFilterKey(filter);
 
   const [productsResult, productFilter] = await Promise.all([

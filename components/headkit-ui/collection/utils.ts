@@ -164,6 +164,11 @@ export function buildProductListFilter(
     minPrice?: string;
     /** Price upper bound; coerced to a numeric string before mapping. */
     maxPrice?: string;
+    /**
+     * Branding default sort when `filterValues.sort` is empty (no ?sort=).
+     * Keeps the URL indexable while still applying merchant-chosen order.
+     */
+    defaultSort?: SortKeyType | "";
   } = {},
 ): ProductListFilter {
   const filter: ProductListFilter = {};
@@ -206,8 +211,11 @@ export function buildProductListFilter(
     TITLE_DESC: { orderby: "title", order: "desc" },
   };
 
-  if (filterValues.sort) {
-    const s = sortMap[filterValues.sort];
+  const effectiveSort = (filterValues.sort ||
+    options.defaultSort ||
+    "") as SortKeyType | "";
+  if (effectiveSort && effectiveSort in sortMap) {
+    const s = sortMap[effectiveSort];
     filter.orderby = s.orderby;
     filter.order = s.order;
   }

@@ -9,6 +9,7 @@ import {
   buildProductListFilter,
   normalizeFilterKey,
   parseSearchParams,
+  type SortKeyType,
 } from "@/components/headkit-ui/collection/utils";
 import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import { CATALOG_PAGE_SIZE } from "@/components/headkit-ui/catalog-grid";
@@ -60,7 +61,11 @@ async function LandingResults({ searchParams }: Props) {
   const parsed = parseSearchParams(sp);
   const page = parsed.page;
 
-  const filter = buildProductListFilter(parsed, { isNew: true });
+  // /new always defaults to newest-first; branding sort does not apply here.
+  const filter = buildProductListFilter(parsed, {
+    isNew: true,
+    defaultSort: "CREATED_AT" satisfies SortKeyType,
+  });
   const filterKey = normalizeFilterKey(filter);
 
   const [productsResult, productFilter] = await Promise.all([

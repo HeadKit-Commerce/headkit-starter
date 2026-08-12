@@ -76,6 +76,7 @@ const stubBranding: Branding = {
   showSwatches: false,
   imageRollover: false,
   hideEmptyCollections: true,
+  defaultCollectionSort: "CREATED_AT",
 };
 
 describe("sitemap enableSitemap gate", () => {

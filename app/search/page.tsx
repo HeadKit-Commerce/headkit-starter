@@ -58,22 +58,25 @@ async function SearchResults({ searchParams }: Props): Promise<ReactNode> {
   const sort = (sp.sort ?? "") as SortKeyType | "";
   const attributes: Record<string, string[]> = {};
 
-  const [productsResult, productFilter] = await Promise.all([
-    sdk.collections.list(
-      buildProductListFilter(
-        {
-          categories,
-          brands,
-          attributes,
-          instock,
-          sort,
-          page,
-        },
-        { search: q },
-      ),
+  // /search defaults to closest match (WP relevance), not branding sort.
+  const filter = buildProductListFilter(
+    {
+      categories,
+      brands,
+      attributes,
+      instock,
+      sort,
       page,
-      PER_PAGE,
-    ),
+    },
+    { search: q },
+  );
+  if (q && !sort) {
+    filter.orderby = "relevance";
+    filter.order = "desc";
+  }
+
+  const [productsResult, productFilter] = await Promise.all([
+    sdk.collections.list(filter, page, PER_PAGE),
     getSearchFilters(),
   ]);
 

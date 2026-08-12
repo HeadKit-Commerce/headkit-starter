@@ -10,6 +10,7 @@ import { CollectionPage } from "@/components/headkit-ui/collection/collection-pa
 import { buildProductListFilter } from "@/components/headkit-ui/collection/utils";
 import { getCachedCatalogPage } from "@/lib/catalog-cache";
 import { makeSeoMetadata } from "@/lib/make-metadata";
+import { getBranding } from "@/lib/branding";
 import type { SortKeyType } from "@/components/headkit-ui/collection/utils";
 import {
   CollectionPageSkeleton,
@@ -59,6 +60,7 @@ async function BrandProductsServer({
 }): Promise<ReactNode> {
   const sp = await searchParams;
   const page = sp.page ? parseInt(sp.page) : 1;
+  const { branding } = await getBranding();
 
   const filter = buildProductListFilter(
     {
@@ -69,7 +71,10 @@ async function BrandProductsServer({
       sort: (sp.sort ?? "") as SortKeyType | "",
       page,
     },
-    { brandSlug },
+    {
+      brandSlug,
+      defaultSort: branding.defaultCollectionSort as SortKeyType,
+    },
   );
 
   const [{ productFilter }, productsResult] = await Promise.all([

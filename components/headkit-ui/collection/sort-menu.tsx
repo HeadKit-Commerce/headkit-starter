@@ -13,11 +13,27 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "@/components/ui/popover";
+import { useCatalogDisplay } from "@/components/headkit-ui/catalog-display-provider";
 import { useCollection } from "./collection-context";
 import { SortKey, SortKeyLabels, type SortKeyType } from "./utils";
 
+/** Highlight the URL sort, or the route/branding default when ?sort= is absent. */
+function useEffectiveSort(): SortKeyType | "" {
+  const { filterValues, isNew, search } = useCollection();
+  const { defaultCollectionSort } = useCatalogDisplay();
+  if (filterValues.sort) return filterValues.sort;
+  // /search: closest match (relevance) — no SortKey to highlight.
+  if (search) return "";
+  // /new: always newest-first.
+  if (isNew) return "CREATED_AT";
+  return (defaultCollectionSort in SortKey
+    ? defaultCollectionSort
+    : "CREATED_AT") as SortKeyType;
+}
+
 export function SortMenu() {
   const { filterValues, setFilterValues } = useCollection();
+  const effectiveSort = useEffectiveSort();
 
   return (
     <NavigationMenuItem>
@@ -31,7 +47,7 @@ export function SortMenu() {
               key={key}
               className={cn(
                 "cursor-pointer p-2 hover:text-primary flex items-center w-fit gap-x-2",
-                filterValues.sort === key && "font-bold",
+                effectiveSort === key && "font-bold",
               )}
               onClick={() => setFilterValues({ ...filterValues, sort: key })}
             >
@@ -52,6 +68,7 @@ export function SortMenu() {
  */
 export function MobileSortMenu() {
   const { filterValues, setFilterValues } = useCollection();
+  const effectiveSort = useEffectiveSort();
   const [open, setOpen] = useState(false);
 
   return (
@@ -69,7 +86,7 @@ export function MobileSortMenu() {
               type="button"
               className={cn(
                 "w-full cursor-pointer px-2 py-2 text-left text-sm hover:text-primary",
-                filterValues.sort === key && "font-bold",
+                effectiveSort === key && "font-bold",
               )}
               onClick={() => {
                 setFilterValues({ ...filterValues, sort: key });

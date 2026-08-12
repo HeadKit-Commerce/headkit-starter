@@ -9,9 +9,11 @@ import {
   buildProductListFilter,
   normalizeFilterKey,
   parseSearchParams,
+  type SortKeyType,
 } from "@/components/headkit-ui/collection/utils";
 import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import { CATALOG_PAGE_SIZE } from "@/components/headkit-ui/catalog-grid";
+import { getBranding } from "@/lib/branding";
 
 export const metadata: Metadata = {
   title: "Sale",
@@ -60,7 +62,11 @@ async function LandingResults({ searchParams }: Props) {
   const parsed = parseSearchParams(sp);
   const page = parsed.page;
 
-  const filter = buildProductListFilter(parsed, { onSale: true });
+  const { branding } = await getBranding();
+  const filter = buildProductListFilter(parsed, {
+    onSale: true,
+    defaultSort: branding.defaultCollectionSort as SortKeyType,
+  });
   const filterKey = normalizeFilterKey(filter);
 
   const [productsResult, productFilter] = await Promise.all([

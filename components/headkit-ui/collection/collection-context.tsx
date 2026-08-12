@@ -15,6 +15,7 @@ import type {
   ProductFilters,
 } from "@headkit/sdk";
 import { listCollectionProducts } from "@/lib/collection-actions";
+import { useCatalogDisplay } from "@/components/headkit-ui/catalog-display-provider";
 import {
   buildProductListFilter,
   encodeFilterSlug,
@@ -39,6 +40,10 @@ interface CollectionContextType {
   loadMore: () => void;
   loadPrevious: () => void;
   productFilter: ProductFilters;
+  /** True on /new — sort default is newest-first, not branding. */
+  isNew: boolean;
+  /** Search query on /search — empty sort means relevance (closest match). */
+  search: string;
 }
 
 interface CollectionProviderProps {
@@ -86,6 +91,7 @@ export function CollectionProvider({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { defaultCollectionSort } = useCatalogDisplay();
   // Filter / catalog updates are non-urgent — keep checkbox/toggle INP low (ENG-856).
   const [, startFilterTransition] = useTransition();
 
@@ -213,7 +219,20 @@ export function CollectionProvider({
           ...(onSale !== undefined ? { onSale } : {}),
           ...(isNew !== undefined ? { isNew } : {}),
           ...(search !== undefined ? { search } : {}),
+          // Route exceptions: /new stays newest-first; /search uses relevance
+          // (applied below). Other catalog routes use branding default.
+          ...(isNew
+            ? { defaultSort: "CREATED_AT" as SortKeyType }
+            : search
+              ? {}
+              : {
+                  defaultSort: defaultCollectionSort as SortKeyType,
+                }),
         });
+        if (search && !filterValues.sort?.trim()) {
+          filter.orderby = "relevance";
+          filter.order = "desc";
+        }
         const result = await listCollectionProducts(filter, page, itemsPerPage);
 
         // Empty "after" page means we've exhausted the list — clamp the total
@@ -267,6 +286,7 @@ export function CollectionProvider({
       search,
       itemsPerPage,
       syncUrl,
+      defaultCollectionSort,
     ],
   );
 
@@ -345,6 +365,8 @@ export function CollectionProvider({
         loadMore,
         loadPrevious,
         productFilter,
+        isNew: Boolean(isNew),
+        search: search ?? "",
       }}
     >
       {children}

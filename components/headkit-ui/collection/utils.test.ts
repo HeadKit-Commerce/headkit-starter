@@ -7,6 +7,7 @@ import {
   encodeFilterSlug,
   decodeFilterSlug,
   buildBreadcrumbFromCategory,
+  buildProductListFilter,
   DEFAULT_FILTER_VALUES,
   type FilterValues,
 } from "./utils";
@@ -364,5 +365,42 @@ describe("buildBreadcrumbFromCategory", () => {
         current: true,
       },
     ]);
+  });
+});
+
+describe("buildProductListFilter defaultSort", () => {
+  it("applies branding defaultSort when URL sort is empty", () => {
+    const filter = buildProductListFilter(fv({}), { defaultSort: "PRICE" });
+    expect(filter.orderby).toBe("price");
+    expect(filter.order).toBe("asc");
+  });
+
+  it("lets an explicit URL sort override branding default", () => {
+    const filter = buildProductListFilter(fv({ sort: "TITLE" }), {
+      defaultSort: "PRICE",
+    });
+    expect(filter.orderby).toBe("title");
+    expect(filter.order).toBe("asc");
+  });
+
+  it("leaves orderby unset when neither sort nor defaultSort is set", () => {
+    const filter = buildProductListFilter(fv({}));
+    expect(filter.orderby).toBeUndefined();
+    expect(filter.order).toBeUndefined();
+  });
+
+  it("uses CREATED_AT (newest) for /new-style default without branding", () => {
+    const filter = buildProductListFilter(fv({}), {
+      isNew: true,
+      defaultSort: "CREATED_AT",
+    });
+    expect(filter.orderby).toBe("date");
+    expect(filter.order).toBe("desc");
+  });
+
+  it("leaves room for search relevance when no sort or defaultSort", () => {
+    const filter = buildProductListFilter(fv({}), { search: "hoodie" });
+    expect(filter.search).toBe("hoodie");
+    expect(filter.orderby).toBeUndefined();
   });
 });

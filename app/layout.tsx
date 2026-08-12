@@ -234,6 +234,7 @@ export default async function RootLayout({
                 showVariants: branding.showVariants,
                 showSwatches: branding.showSwatches,
                 imageRollover: branding.imageRollover,
+                defaultCollectionSort: branding.defaultCollectionSort,
               }}
             >
               <CheckoutModeProvider mode={checkoutMode}>

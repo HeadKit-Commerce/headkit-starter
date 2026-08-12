@@ -212,6 +212,8 @@ async function CollectionProductsServer({
     ? decoded.brands
     : (sp.brands?.split(",").filter(Boolean) ?? []);
 
+  const { branding } = await getBranding();
+
   // Build the category-scoped filter from the (path- or query-derived) facets,
   // then derive a STABLE normalized cache key so the durable remote catalog
   // cache (`getCatalogPage`) is shared across equivalent filter selections.
@@ -225,7 +227,10 @@ async function CollectionProductsServer({
       sort: (sp.sort ?? "") as SortKeyType | "",
       page,
     },
-    { categorySlug },
+    {
+      categorySlug,
+      defaultSort: branding.defaultCollectionSort as SortKeyType,
+    },
   );
   const filterKey = normalizeFilterKey(filter);
 
