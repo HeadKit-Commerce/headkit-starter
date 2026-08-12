@@ -32,6 +32,17 @@ const VALID_CURRENCIES = [
 
 type ValidCurrency = (typeof VALID_CURRENCIES)[number];
 
+/**
+ * Minimum painted height, in px, that counts as a real BNPL message rather than
+ * an empty element — see {@link PaymentMethodMessaging}'s `painted` state.
+ *
+ * Chosen from measurement, not taste: a no-provider account paints 9 px, a real
+ * one-line badge paints 40 px. 16 px sits above the sliver and below any single
+ * line of rendered text, so it separates the two without clipping a genuine
+ * message. Raise it only with a fresh measurement.
+ */
+const MIN_PAINTED_HEIGHT_PX = 16;
+
 function isValidCurrency(currency: string): currency is ValidCurrency {
   return (VALID_CURRENCIES as readonly string[]).includes(currency);
 }
@@ -154,14 +165,24 @@ export function PaymentMethodMessaging({
   }, [gate, near]);
 
   /**
-   * True once Stripe has painted something with real height into the host.
+   * True once Stripe has painted a real MESSAGE into the host — not merely
+   * something.
    *
-   * Stripe decides eligibility server-side and renders NOTHING when no plan
-   * qualifies — verified live: height 0, no iframe. A margin applied on mount
-   * would therefore leave a permanent 24 px gap on every ineligible store or
-   * amount. Measuring the painted height is the only honest signal, since the
-   * element is a cross-origin iframe we cannot inspect and its presence alone
-   * does not mean it drew anything.
+   * Stripe decides eligibility server-side, and there are three distinct
+   * outcomes, all measured live against the real API:
+   *
+   * | outcome                                   | iframe | host |
+   * |-------------------------------------------|--------|------|
+   * | request rejected (bad account, bad geo)   | none   |  0px |
+   * | accepted, but NO provider enabled         |  9px   |  1px |
+   * | accepted, Afterpay + Klarna eligible      | 48px   | 40px |
+   *
+   * The middle row is why a bare `> 0` test is wrong: an account with the
+   * toggle on but no BNPL provider enabled paints a 9 px sliver that shows the
+   * shopper nothing, yet would claim the full 24 px margin below. Since the
+   * element is a cross-origin iframe we cannot inspect, painted height is the
+   * only signal available — so the threshold has to sit between "sliver" and
+   * "line of text" rather than at zero.
    */
   const [painted, setPainted] = useState(false);
 
@@ -171,7 +192,9 @@ export function PaymentMethodMessaging({
 
     // ResizeObserver delivers an initial callback on observe(), so the current
     // size is picked up without a synchronous setState in the effect body.
-    const ro = new ResizeObserver(() => setPainted(node.offsetHeight > 0));
+    const ro = new ResizeObserver(() =>
+      setPainted(node.offsetHeight >= MIN_PAINTED_HEIGHT_PX),
+    );
     ro.observe(node);
     return () => ro.disconnect();
   }, [gate, near, price]);
