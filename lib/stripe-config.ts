@@ -105,18 +105,16 @@ async function post(
 }
 
 /**
- * Cached per-store Stripe config. `cacheLife("hours")` because a publishable key
- * and a connect account id change only when a merchant reconnects Stripe, and
- * the toggle is not latency-sensitive. `'use cache: remote'` (not plain `'use
- * cache'`) so the read is durable across Vercel Fluid Compute invocations
- * instead of re-evaluating per request. Tagged `TAG.settings` so a dashboard
- * BNPL-toggle change can invalidate it via `/api/revalidate`.
+ * Un-cached fetch + tiered-fallback (full → compat). Exported so the fallback
+ * wiring — the single most consequential path in this module — can be tested
+ * directly: `getStripeConfig()`'s `"use cache: remote"` directive requires a
+ * live Next.js Cache Components runtime, and calling `cacheLife()` outside one
+ * throws ("`cacheLife()` is only available with the `cacheComponents`
+ * config"), so `getStripeConfig()` itself cannot run under Vitest. This
+ * function has no cache directive and no `cacheLife`/`cacheTag` calls, so it
+ * is plain, testable async code.
  */
-export async function getStripeConfig(): Promise<StorefrontStripeConfig> {
-  "use cache: remote";
-  cacheLife("hours");
-  cacheTag(TAG.settings);
-
+export async function fetchStripeConfig(): Promise<StorefrontStripeConfig> {
   const endpoint = env.DASHBOARD_API_URL;
   const token = env.DASHBOARD_API_TOKEN;
   if (!endpoint || !token) return DISABLED_STRIPE_CONFIG;
@@ -126,4 +124,23 @@ export async function getStripeConfig(): Promise<StorefrontStripeConfig> {
 
   const compat = await post(endpoint, token, COMPAT_QUERY);
   return coerceStripeConfig(compat);
+}
+
+/**
+ * Cached per-store Stripe config. `cacheLife("hours")` because a publishable key
+ * and a connect account id change only when a merchant reconnects Stripe, and
+ * the toggle is not latency-sensitive. `'use cache: remote'` (not plain `'use
+ * cache'`) so the read is durable across Vercel Fluid Compute invocations
+ * instead of re-evaluating per request. Tagged `TAG.settings` so a dashboard
+ * BNPL-toggle change can invalidate it via `/api/revalidate`.
+ *
+ * Thin wrapper by design — see {@link fetchStripeConfig} for why the actual
+ * fetch/fallback logic lives there instead of here.
+ */
+export async function getStripeConfig(): Promise<StorefrontStripeConfig> {
+  "use cache: remote";
+  cacheLife("hours");
+  cacheTag(TAG.settings);
+
+  return fetchStripeConfig();
 }
