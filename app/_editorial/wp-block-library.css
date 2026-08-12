@@ -6215,11 +6215,12 @@ html :where(.is-position-sticky) {
    --------------------------------------------------------------------------
    Enabled in WP by add_theme_support('align-wide'). Sizes match theme.json
    AND the starter template grid (not a separate editor measure):
-     content  45rem — same readable column as prose / news
+     content  45rem — WP editorial reading measure (honoured on the storefront)
      wide     68rem — same as product-carousel default / wide media
-   On homepage / CMS chrome (`.hk-section-content`) both expand to 100% so
-   WP columns sit in the existing `px-5 md:px-10` padded column — do not
-   invent a third layout.
+     full     viewport — .alignfull bleed
+
+   Do not expand these to 100% for homepage/CMS chrome. Two-column layouts
+   (e.g. Contact) belong in WordPress Columns blocks, not a flattened measure.
 
    Centered blog-column model: top-level blocks center at content width,
    .alignwide is a bit wider (centered), .alignfull spans the full viewport
@@ -6701,24 +6702,6 @@ html :where(.is-position-sticky) {
     .wp-block-heading
   ) {
   line-height: normal;
-}
-
-/* ==========================================================================
-   Homepage / storefront section layout (full padded column)
-   --------------------------------------------------------------------------
-   Editorial pages keep --hk-content-size (45rem reading measure). Homepage
-   leftover Gutenberg + BlockEditor media sit beside Featured/Categories,
-   which use px-5 md:px-10 with no 45rem cap — opt in via .hk-section-content.
-
-   Honour WordPress column / layout formatting at full content width (no
-   artificial 9-of-12 column clamp — that broke Contact 50/50 and other
-   WP two-column patterns).
-   ========================================================================== */
-.hk-section-content .wp-block-content {
-  --hk-content-size: 100%;
-  --hk-wide-size: 100%;
-  --wp--style--global--content-size: 100%;
-  --wp--style--global--wide-size: 100%;
 }
 
 /* Product grid: responsive cards, no list bullets. */

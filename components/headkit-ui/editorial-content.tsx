@@ -9,6 +9,11 @@ import { scanProductCarouselsFromHtml } from "@/lib/scan-product-carousels-from-
 interface Props {
   /** Untrusted WordPress `content.rendered` HTML (block-authored). */
   html: string;
+  /**
+   * Optional fallback when a Gravity Form marker cannot load (plugin off,
+   * missing form id, fetch error). Passed through to each hydrated form.
+   */
+  formFallback?: React.ReactNode;
 }
 
 /** True if `node` is an Element carrying `cls` as a whole class token. */
@@ -59,6 +64,7 @@ function textOf(node: DOMNode): string {
  */
 export async function EditorialContent({
   html,
+  formFallback,
 }: Props): Promise<React.JSX.Element> {
   if (!html.trim()) {
     return <></>;
@@ -118,10 +124,15 @@ export async function EditorialContent({
       }
 
       // Gravity Forms marker (theme shortcode/block → headless hydrate).
+      // Stay in document order / WP Columns — do not lift into a React grid.
       if (hasClass(domNode, "headkit-gravity-form")) {
         const formId = domNode.attribs?.["data-form-id"];
         if (!formId) return <></>;
-        return <GravityForm formId={formId} />;
+        return formFallback ? (
+          <GravityForm formId={formId} fallback={formFallback} />
+        ) : (
+          <GravityForm formId={formId} />
+        );
       }
 
       // WP Accordion → native <details>. Each accordion-item becomes one

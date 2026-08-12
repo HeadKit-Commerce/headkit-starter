@@ -9,13 +9,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 /**
  * Contact is a WordPress page (slug `contact`), not a hardcoded storefront
- * route. Editors place a Gravity Forms shortcode/block in the page; the theme
- * emits a `.headkit-gravity-form` marker and CmsPageBody renders the standard
- * 2-column form layout.
+ * route. Editors place copy + Gravity Forms in a WP Columns layout; the theme
+ * emits a `.headkit-gravity-form` marker and EditorialContent hydrates the
+ * React form in place (no React 2-column override).
  *
- * Seed: docker/wordpress/seed-starter-content.php embeds `[gravityform id="1"]`
- * when GF form 1 (Contact) exists. Product enquiry on the PDP still uses form
- * id 3 — see ENQUIRY_FORM_ID in product-detail.tsx.
+ * Seed: docker/wordpress/seed-starter-content.php embeds a wide Columns block
+ * with `[gravityform id="1"]` when GF form 1 (Contact) exists. Product enquiry
+ * on the PDP still uses form id 3 — see ENQUIRY_FORM_ID in product-detail.tsx.
  */
 const CONTACT_SLUG = "contact";
 
