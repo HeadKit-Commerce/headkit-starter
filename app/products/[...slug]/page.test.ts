@@ -30,6 +30,23 @@ vi.mock("@/lib/branding", () => ({
   getBrandingAssets: (): Promise<Record<string, never>> => Promise.resolve({}),
 }));
 
+// page.tsx pulls in lib/stripe-config for the BNPL badge, which imports lib/env
+// and runs its Zod parse at module scope — that throws under Vitest and would
+// fail this file at COLLECT time, silently deleting the guards below rather
+// than reddening them.
+vi.mock("@/lib/stripe-config", () => ({
+  getStripeConfig: (): Promise<{
+    publishableKey: string;
+    accountId: string;
+    bnplMessagingEnabled: boolean;
+  }> =>
+    Promise.resolve({
+      publishableKey: "",
+      accountId: "",
+      bnplMessagingEnabled: false,
+    }),
+}));
+
 vi.mock("@/lib/make-metadata", () => ({
   makeSeoMetadata: (): Record<string, unknown> => ({}),
   seoFallbackDescription: (): string => "",
