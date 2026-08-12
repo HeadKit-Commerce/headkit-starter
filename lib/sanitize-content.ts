@@ -1,3 +1,4 @@
+import { cacheLife } from "next/cache";
 import sanitizeHtml from "sanitize-html";
 
 /**
@@ -27,10 +28,17 @@ const ALLOWED_IFRAME_HOSTS: readonly string[] = [
  * inline-style allowlist. script, style, on-handlers, and javascript: URIs are
  * never added.
  *
+ * Cached (`"use cache"`) so sanitize-html → postcss → nanoid's Math.random() is
+ * stable under Cache Components prerender (same dirty input → same clean HTML).
+ *
  * @param dirty - untrusted HTML (WordPress block content)
  * @returns sanitized HTML safe to inject into the DOM
  */
-export function sanitizeContent(dirty: string): string {
+export async function sanitizeContent(dirty: string): Promise<string> {
+  "use cache";
+  // Deterministic for a given `dirty` string; max keeps prerender shells warm.
+  cacheLife("max");
+
   return sanitizeHtml(dirty, {
     allowedTags: [
       ...sanitizeHtml.defaults.allowedTags, // includes figure/figcaption + table tags

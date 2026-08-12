@@ -23,7 +23,9 @@ import { resolveSiteUrl } from "@/lib/site-url";
  *   2. Dual-auth transition bridge — HMAC-SHA256 over raw bytes OR the legacy
  *      body-secret, both constant-time (`crypto.timingSafeEqual`, never `===`).
  *   3. Tag bridge + strict allowlist (`bridgeTags(...).filter(isKnownTag)`) so
- *      only contract tags reach `revalidateTag`, and `revalidateTag(t,'max')`.
+ *      only contract tags reach `revalidateTag`, and
+ *      `revalidateTag(t, { expire: 0 })` (immediate expire — WP webhooks must
+ *      not use profile `"max"` SWR or editors keep seeing stale CMS pages).
  *   4. Structured observability — one JSON log per call off the hot path.
  *
  * GET is a secret health check: `{ configured: boolean }` (200/503) that never
@@ -135,7 +137,11 @@ export async function POST(request: Request): Promise<Response> {
     // Only contract tags survive; unknown / raw-legacy / injected tags dropped
     // (threat T-09.5-06) — measured as `dropped` below.
     const tags = bridgeTags(rawTags).filter(isKnownTag);
-    for (const t of tags) revalidateTag(t, "max"); // D3 — replaces "default"
+    // Immediate expire: WP admin saves are external webhooks — profile "max"
+    // only marks stale and keeps serving cached HTML (SWR), so About/Services/
+    // Education etc. looked unchanged after save. Next.js docs: webhooks should
+    // use `{ expire: 0 }` for Route Handlers.
+    for (const t of tags) revalidateTag(t, { expire: 0 });
     for (const p of paths) revalidatePath(p); // WP still sends paths — do NOT drop
 
     // Structured observability + optional IndexNow notify off the hot path.

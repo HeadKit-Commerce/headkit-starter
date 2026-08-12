@@ -381,27 +381,12 @@ const BlockEditor = async ({
         }
 
         if (isMediaBlock(data.cssClasses) || data.html) {
-          const clean = sanitizeContent(data.html ?? "");
-          if (!clean.trim()) return null;
-
-          const isVideoFeature = data.cssClasses.includes(
-            "headkit-video-feature",
-          );
-
           return (
-            <div
+            <SanitizedMediaHtml
               key={index}
-              className={
-                isVideoFeature
-                  ? "hk-section-content headkit-video-feature-wrap overflow-hidden"
-                  : "hk-section-content px-5 md:px-10 py-10 overflow-hidden"
-              }
-            >
-              <div
-                className="wp-block-content prose max-w-none"
-                dangerouslySetInnerHTML={{ __html: clean }}
-              />
-            </div>
+              html={data.html ?? ""}
+              cssClasses={data.cssClasses}
+            />
           );
         }
 
@@ -419,6 +404,39 @@ interface CalloutProps {
     url?: string | null;
     linkTarget?: string | null;
   }>;
+}
+
+/**
+ * Media / raw HTML block — sanitize must be awaited (and runs under
+ * `"use cache"`), so this is a child async Server Component rather than
+ * work inside the sync `.map` callback.
+ */
+async function SanitizedMediaHtml({
+  html,
+  cssClasses,
+}: {
+  html: string;
+  cssClasses: string[];
+}): Promise<React.JSX.Element | null> {
+  const clean = await sanitizeContent(html);
+  if (!clean.trim()) return null;
+
+  const isVideoFeature = cssClasses.includes("headkit-video-feature");
+
+  return (
+    <div
+      className={
+        isVideoFeature
+          ? "hk-section-content headkit-video-feature-wrap overflow-hidden"
+          : "hk-section-content px-5 md:px-10 py-10 overflow-hidden"
+      }
+    >
+      <div
+        className="wp-block-content prose max-w-none"
+        dangerouslySetInnerHTML={{ __html: clean }}
+      />
+    </div>
+  );
 }
 
 /**

@@ -145,7 +145,7 @@ export async function EditorialContent({
     "<!--nextpage-->",
     '<hr class="wp-block-nextpage-divider" />',
   );
-  const clean = sanitizeContent(preprocessed);
+  const clean = await sanitizeContent(preprocessed);
   const carousels = scanCarousels(clean);
 
   // Resolve every referenced product once (slugs can repeat across carousels).

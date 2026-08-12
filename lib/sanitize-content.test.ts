@@ -1,4 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("next/cache", () => ({
+  cacheLife: (): void => undefined,
+  cacheTag: (): void => undefined,
+}));
+
 import { sanitizeContent } from "./sanitize-content";
 
 /**
@@ -28,9 +34,8 @@ const MALICIOUS_FIXTURE = [
 ].join("\n");
 
 describe("sanitizeContent (R6 XSS allowlist)", () => {
-  const output = sanitizeContent(MALICIOUS_FIXTURE);
-
-  it("keeps the block image and its wp-block-image class", () => {
+  it("keeps the block image and its wp-block-image class", async () => {
+    const output = await sanitizeContent(MALICIOUS_FIXTURE);
     expect(output).toContain("<img");
     expect(output).toContain("wp-block-image");
     expect(output).toContain(
@@ -38,33 +43,36 @@ describe("sanitizeContent (R6 XSS allowlist)", () => {
     );
   });
 
-  it("keeps the table tag and its wp-block-table class", () => {
+  it("keeps the table tag and its wp-block-table class", async () => {
+    const output = await sanitizeContent(MALICIOUS_FIXTURE);
     expect(output).toContain("<table");
     expect(output).toContain("wp-block-table");
   });
 
-  it("strips <script> elements and the alert payload entirely", () => {
+  it("strips <script> elements and the alert payload entirely", async () => {
+    const output = await sanitizeContent(MALICIOUS_FIXTURE);
     expect(output).not.toContain("<script");
     expect(output).not.toContain("alert(");
   });
 
-  it("strips on* handler attributes and javascript: URIs", () => {
+  it("strips on* handler attributes and javascript: URIs", async () => {
+    const output = await sanitizeContent(MALICIOUS_FIXTURE);
     expect(output).not.toContain("onclick");
     expect(output).not.toContain("javascript:");
   });
 
-  it("keeps HeadKit Gravity Forms markers (data-form-id) for storefront hydration", () => {
+  it("keeps HeadKit Gravity Forms markers (data-form-id) for storefront hydration", async () => {
     const marker =
       '<div class="headkit-gravity-form" data-form-id="1" data-headkit-gf="1"></div>';
-    const cleaned = sanitizeContent(`<p>Hi</p>${marker}`);
+    const cleaned = await sanitizeContent(`<p>Hi</p>${marker}`);
     expect(cleaned).toContain('data-form-id="1"');
     expect(cleaned).toContain("headkit-gravity-form");
   });
 
-  it("keeps handpicked colourway pins (data-colourway) on product list items", () => {
+  it("keeps handpicked colourway pins (data-colourway) on product list items", async () => {
     const item =
       '<li class="wc-block-grid__product" data-colourway="navy"><a class="wc-block-grid__product-link" href="https://example.com/product/tee/">Tee</a></li>';
-    const cleaned = sanitizeContent(item);
+    const cleaned = await sanitizeContent(item);
     expect(cleaned).toContain('data-colourway="navy"');
   });
 });

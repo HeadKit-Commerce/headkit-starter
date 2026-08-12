@@ -285,7 +285,7 @@ async function makeProjectSitemap(siteUrl: string): Promise<SitemapItem[]> {
  *
  * Pattern matches Cache Components guidance: one durable cached entry,
  * `cacheLife("days")` as the finite backstop, and contract tags so
- * `/api/revalidate` (SWR via `revalidateTag(t, "max")`) refreshes only when
+ * `/api/revalidate` (`revalidateTag(t, { expire: 0 })`) refreshes only when
  * products/collections/brands/posts/projects/branding change.
  */
 async function buildCachedSitemap(): Promise<MetadataRoute.Sitemap> {

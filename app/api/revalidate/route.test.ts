@@ -11,8 +11,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  *     tampered HMAC / missing → 401 (T-09.5-03, T-09.5-05)
  *   - replay window: timestamp just inside 300s → 200, just outside → 401
  *     (T-09.5-04)
- *   - tag allowlist: bridged+validated tags reach `revalidateTag(_, 'max')`,
- *     unknowns are dropped-and-counted, `revalidatePath` still runs (T-09.5-06)
+ *   - tag allowlist: bridged+validated tags reach
+ *     `revalidateTag(_, { expire: 0 })`, unknowns are dropped-and-counted,
+ *     `revalidatePath` still runs (T-09.5-06)
  *   - structured log carries requestId/count/matched/dropped (D8)
  *
  * The test's HMAC construction mirrors the route (raw body bytes, `${ts}.`+body,
@@ -145,7 +146,7 @@ describe("/api/revalidate (CACHE-02)", () => {
         post({ secret: SECRET, tags: ["headkit:products"] }),
       );
       expect(res.status).toBe(200);
-      expect(revalidateTag).toHaveBeenCalledWith("headkit:products", "max");
+      expect(revalidateTag).toHaveBeenCalledWith("headkit:products", { expire: 0 });
     });
 
     it("valid HMAC header → 200", async () => {
@@ -161,7 +162,7 @@ describe("/api/revalidate (CACHE-02)", () => {
         }),
       );
       expect(res.status).toBe(200);
-      expect(revalidateTag).toHaveBeenCalledWith("headkit:products", "max");
+      expect(revalidateTag).toHaveBeenCalledWith("headkit:products", { expire: 0 });
     });
 
     it("wrong legacy secret → 401", async () => {
@@ -234,12 +235,12 @@ describe("/api/revalidate (CACHE-02)", () => {
     });
   });
 
-  describe("tag bridge + allowlist + 'max' + paths + log fields (T-09.5-06, D8)", () => {
+  describe("tag bridge + allowlist + expire:0 + paths + log fields (T-09.5-06, D8)", () => {
     beforeEach(() => {
       process.env.REVALIDATION_SECRET = SECRET;
     });
 
-    it("bridges legacy tags, drops unknowns, calls revalidateTag(_, 'max') + revalidatePath", async () => {
+    it("bridges legacy tags, drops unknowns, calls revalidateTag(_, { expire: 0 }) + revalidatePath", async () => {
       const { POST } = await loadRoute();
       const res = await POST(
         post({
@@ -255,9 +256,9 @@ describe("/api/revalidate (CACHE-02)", () => {
       );
       expect(res.status).toBe(200);
 
-      // Every revalidateTag call carries the literal 'max' second arg (D3).
+      // WP webhooks need immediate expire — not profile "max" SWR.
       for (const call of revalidateTag.mock.calls) {
-        expect(call[1]).toBe("max");
+        expect(call[1]).toEqual({ expire: 0 });
       }
       const taggedWith = revalidateTag.mock.calls.map((c) => c[0]);
       expect(taggedWith).toEqual(
