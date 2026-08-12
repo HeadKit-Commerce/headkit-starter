@@ -13,6 +13,25 @@ const ALLOWED_IFRAME_HOSTS: readonly string[] = [
 ];
 
 /**
+ * Length values safe for editorial spacing / sizing.
+ * Allows WP spacing presets, px/em/rem/%, and 0 — rejects vw/vh/vmin/vmax so
+ * editor padding cannot break the starter full-bleed / padded column grid.
+ */
+const SAFE_CSS_LENGTH =
+  /^(?:auto|none|var\(--wp--preset--(?:spacing|font-size)--[a-z0-9-]+\)|-?\d*\.?\d+(?:px|em|rem|%)?|0)$/i;
+
+/** Multi-value margin/padding/gap shorthands (1–4 SAFE_CSS_LENGTH tokens). */
+const SAFE_CSS_LENGTH_LIST =
+  /^(?:auto|none|var\(--wp--preset--(?:spacing|font-size)--[a-z0-9-]+\)|-?\d*\.?\d+(?:px|em|rem|%)?|0)(?:\s+(?:auto|none|var\(--wp--preset--(?:spacing|font-size)--[a-z0-9-]+\)|-?\d*\.?\d+(?:px|em|rem|%)?|0)){0,3}$/i;
+
+/** Border width: length or thin/medium/thick. */
+const SAFE_BORDER_WIDTH =
+  /^(?:thin|medium|thick|0|-?\d*\.?\d+(?:px|em|rem|%)?)$/i;
+
+/** Border style keywords only (no url()/expression()). */
+const SAFE_BORDER_STYLE = /^(?:none|hidden|solid|dashed|dotted|double)$/i;
+
+/**
  * XSS allowlist for untrusted WordPress `content.rendered` HTML.
  *
  * OPT-IN, EDITORIAL ONLY: this util is the sanitize boundary applied by the
@@ -27,6 +46,14 @@ const ALLOWED_IFRAME_HOSTS: readonly string[] = [
  * styles), the img/a/iframe/table-cell attributes, and a property-restricted
  * inline-style allowlist. script, style, on-handlers, and javascript: URIs are
  * never added.
+ *
+ * Design controls (Tier 1):
+ * - Layout width reaches the storefront via `.alignwide` / `.alignfull` classes
+ *   (theme.json contentSize/wideSize match starter 45rem / 68rem).
+ * - Spacing (padding/margin/gap) is allowlisted with px/em/rem/% only.
+ * - Border width + style are allowlisted; border-color and border-radius are
+ *   intentionally omitted — editorial CSS paints those from dashboard branding
+ *   (`--color-primary`, `--radius`).
  *
  * Cached (`"use cache"`) so sanitize-html → postcss → nanoid's Math.random() is
  * stable under Cache Components prerender (same dirty input → same clean HTML).
@@ -115,31 +142,43 @@ export async function sanitizeContent(dirty: string): Promise<string> {
         "background-position": [/.*/],
         "background-repeat": [/.*/],
         "text-align": [/^left$|^right$|^center$|^justify$/],
-        width: [/.*/],
-        height: [/.*/],
-        "max-width": [/.*/],
-        "min-height": [/.*/],
-        margin: [/.*/],
-        "margin-top": [/.*/],
-        "margin-right": [/.*/],
-        "margin-bottom": [/.*/],
-        "margin-left": [/.*/],
-        padding: [/.*/],
+        // Sizing — length-only (no vw/vh) so columns stay on the starter grid.
+        width: [SAFE_CSS_LENGTH],
+        height: [SAFE_CSS_LENGTH],
+        "max-width": [SAFE_CSS_LENGTH],
+        "min-height": [SAFE_CSS_LENGTH],
+        margin: [SAFE_CSS_LENGTH_LIST],
+        "margin-top": [SAFE_CSS_LENGTH],
+        "margin-right": [SAFE_CSS_LENGTH],
+        "margin-bottom": [SAFE_CSS_LENGTH],
+        "margin-left": [SAFE_CSS_LENGTH],
+        padding: [SAFE_CSS_LENGTH_LIST],
         // WordPress's Dimensions panel emits individual side properties
         // (padding-top/right/bottom/left) — not the shorthand — so they must be
-        // allowlisted for editor-set spacing to reach the storefront. Layout-only
-        // props (no url()/expression()), so no XSS surface added.
-        "padding-top": [/.*/],
-        "padding-right": [/.*/],
-        "padding-bottom": [/.*/],
-        "padding-left": [/.*/],
+        // allowlisted for editor-set spacing to reach the storefront.
+        "padding-top": [SAFE_CSS_LENGTH],
+        "padding-right": [SAFE_CSS_LENGTH],
+        "padding-bottom": [SAFE_CSS_LENGTH],
+        "padding-left": [SAFE_CSS_LENGTH],
         // blockGap on flex/grid layouts.
-        gap: [/.*/],
-        "row-gap": [/.*/],
-        "column-gap": [/.*/],
+        gap: [SAFE_CSS_LENGTH_LIST],
+        "row-gap": [SAFE_CSS_LENGTH],
+        "column-gap": [SAFE_CSS_LENGTH],
         // Column widths (wp:column emits flex-basis:NN%).
-        "flex-basis": [/.*/],
-        "font-size": [/.*/],
+        "flex-basis": [SAFE_CSS_LENGTH],
+        "font-size": [SAFE_CSS_LENGTH],
+        // Border width + style only. Color and radius are NOT allowlisted —
+        // storefront CSS applies dashboard `--color-primary` / `--radius`.
+        "border-width": [SAFE_BORDER_WIDTH],
+        "border-top-width": [SAFE_BORDER_WIDTH],
+        "border-right-width": [SAFE_BORDER_WIDTH],
+        "border-bottom-width": [SAFE_BORDER_WIDTH],
+        "border-left-width": [SAFE_BORDER_WIDTH],
+        "border-style": [SAFE_BORDER_STYLE],
+        "border-top-style": [SAFE_BORDER_STYLE],
+        "border-right-style": [SAFE_BORDER_STYLE],
+        "border-bottom-style": [SAFE_BORDER_STYLE],
+        "border-left-style": [SAFE_BORDER_STYLE],
       },
     },
     disallowedTagsMode: "discard",

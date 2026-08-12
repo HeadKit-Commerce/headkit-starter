@@ -75,4 +75,36 @@ describe("sanitizeContent (R6 XSS allowlist)", () => {
     const cleaned = await sanitizeContent(item);
     expect(cleaned).toContain('data-colourway="navy"');
   });
+
+  it("keeps spacing padding/margin with rem/% and WP spacing presets", async () => {
+    const html =
+      '<div class="wp-block-group" style="padding-top:2rem;padding-left:var(--wp--preset--spacing--50);margin-bottom:1.5rem;gap:1rem 2%">x</div>';
+    const cleaned = await sanitizeContent(html);
+    expect(cleaned).toContain("padding-top:2rem");
+    expect(cleaned).toContain("var(--wp--preset--spacing--50)");
+    expect(cleaned).toContain("margin-bottom:1.5rem");
+    expect(cleaned).toContain("gap:1rem 2%");
+  });
+
+  it("strips viewport spacing units (vw/vh) that break the starter grid", async () => {
+    const html =
+      '<div class="wp-block-group" style="padding-top:10vh;margin-left:5vw;padding-bottom:2rem">x</div>';
+    const cleaned = await sanitizeContent(html);
+    expect(cleaned).not.toContain("10vh");
+    expect(cleaned).not.toContain("5vw");
+    expect(cleaned).toContain("padding-bottom:2rem");
+  });
+
+  it("keeps border width/style but strips border-color and border-radius", async () => {
+    const html =
+      '<div class="wp-block-group has-border-color" style="border-width:2px;border-style:solid;border-color:#ff0000;border-radius:99px">x</div>';
+    const cleaned = await sanitizeContent(html);
+    expect(cleaned).toContain("border-width:2px");
+    expect(cleaned).toContain("border-style:solid");
+    // Class may remain (CSS overrides palette); inline color/radius must go.
+    expect(cleaned).not.toMatch(/style="[^"]*border-color/);
+    expect(cleaned).not.toContain("#ff0000");
+    expect(cleaned).not.toMatch(/style="[^"]*border-radius/);
+    expect(cleaned).not.toContain("99px");
+  });
 });

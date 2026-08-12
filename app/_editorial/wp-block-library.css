@@ -6213,10 +6213,18 @@ html :where(.is-position-sticky) {
 /* ==========================================================================
    HeadKit editorial block alignment (contentSize / wideSize / full-bleed)
    --------------------------------------------------------------------------
-   Enabled in WP by add_theme_support('align-wide'). Centered blog-column
-   model: top-level blocks center at content width, .alignwide is a bit wider
-   (centered), .alignfull spans the full viewport edge-to-edge. Scoped to
-   .wp-block-content so it only affects editorial routes (D-04).
+   Enabled in WP by add_theme_support('align-wide'). Sizes match theme.json
+   AND the starter template grid (not a separate editor measure):
+     content  45rem — same readable column as prose / news
+     wide     68rem — same as product-carousel default / wide media
+   On homepage / CMS chrome (`.hk-section-content`) both expand to 100% so
+   WP columns sit in the existing `px-5 md:px-10` padded column — do not
+   invent a third layout.
+
+   Centered blog-column model: top-level blocks center at content width,
+   .alignwide is a bit wider (centered), .alignfull spans the full viewport
+   edge-to-edge. Scoped to .wp-block-content so it only affects editorial
+   routes (D-04).
 
    Full-bleed uses `margin-inline: calc(50% - 50vw)`, which lands edge-to-edge
    ONLY when the .wp-block-content container's center equals the viewport
@@ -6225,8 +6233,8 @@ html :where(.is-position-sticky) {
    this reason.
    ========================================================================== */
 .wp-block-content {
-  --hk-content-size: 45rem; /* ~720px — readable measure */
-  --hk-wide-size: 68rem; /* ~1088px — a bit wider than content */
+  --hk-content-size: 45rem; /* ~720px — starter content column */
+  --hk-wide-size: 68rem; /* ~1088px — starter wide column */
   /* WP's own layout vars too, so any core/theme layout CSS agrees. */
   --wp--style--global--content-size: 45rem;
   --wp--style--global--wide-size: 68rem;
@@ -6373,6 +6381,30 @@ html :where(.is-position-sticky) {
 }
 .wp-block-content :where(.has-vivid-purple-border-color) {
   border-color: var(--wp--preset--color--vivid-purple) !important;
+}
+
+/* ==========================================================================
+   Border color + radius → dashboard branding only
+   --------------------------------------------------------------------------
+   theme.json exposes border width/style but disables color + radius. WP 6.3+
+   may still emit border-color / has-*-border-color when width is set; strip
+   happens in sanitize-content (no border-color / border-radius allowlist).
+   Paint color from `--color-primary` and radius from `--radius` (layout.tsx
+   cornerStyle) so editorial borders match Branding, not the WP palette.
+   ========================================================================== */
+.wp-block-content
+  :where(
+    [style*="border-width"],
+    [style*="border-top-width"],
+    [style*="border-right-width"],
+    [style*="border-bottom-width"],
+    [style*="border-left-width"],
+    [style*="border-style"],
+    .has-border-color,
+    [class*="-border-color"]
+  ) {
+  border-color: var(--color-primary) !important;
+  border-radius: var(--radius);
 }
 
 /* Alignment works at ANY nesting depth (WP constrained-layout model): a block
