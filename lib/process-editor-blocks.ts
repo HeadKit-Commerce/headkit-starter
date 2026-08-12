@@ -642,7 +642,15 @@ function pickRawEditorBlock(
     ? ["handpicked-clients"]
     : classList.includes("headkit-category-carousel")
       ? ["handpicked-categories"]
-      : [];
+      : classList.includes("headkit-product-carousel")
+        ? [
+            "handpicked-products",
+            "on-sale",
+            "new",
+            "best-sellers",
+            "product-carousel",
+          ]
+        : [];
   if (expectedQt) {
     for (let i = 0; i < rawEditorBlocks.length; i++) {
       if (used.has(i)) continue;
@@ -677,6 +685,8 @@ function expectedQueryTypeForClasses(classList: string[]): string | null {
   if (classList.includes("headkit-brand-carousel")) return "featured-brands";
   // Prefer auto-hydrated clients; handpicked falls back to index match.
   if (classList.includes("headkit-client-carousel")) return "clients";
+  // Theme emits handpicked-products / on-sale / new / best-sellers — matching
+  // uses altQueryTypes. Keep a stable primary so index fallback still works.
   if (classList.includes("headkit-product-carousel")) return "product-carousel";
   return null;
 }

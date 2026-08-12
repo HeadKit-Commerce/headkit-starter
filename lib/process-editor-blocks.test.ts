@@ -261,4 +261,43 @@ describe("category / brand / post hydration from attrs", () => {
     expect(handpicked.blocks[0]?.clients?.[0]?.slug).toBe("beta");
     expect(getBlockQueryType(handpicked.blocks[0]!)).toBe("handpicked-clients");
   });
+
+  it("matches product carousel hydration via handpicked-products queryType", () => {
+    // Index-0 is an unrelated hero block so fragile index alignment would miss
+    // products; queryType matching must win.
+    const html = `${CAROUSEL_SECTION}`;
+    const { blocks } = processHomepageContent(html, [
+      {
+        queryType: "hero-carousel",
+        attrs: { queryType: "hero-carousel" },
+        products: [],
+      },
+      {
+        queryType: "handpicked-products",
+        attrs: { queryType: "handpicked-products" },
+        products: [
+          { id: "10", name: "First" },
+          { id: "20", name: "Second" },
+        ],
+      },
+    ]);
+
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]?.cssClasses).toContain("headkit-product-carousel");
+    expect(blocks[0]?.products).toHaveLength(2);
+    expect(blocks[0]?.products?.[0]).toMatchObject({ id: "10", name: "First" });
+    expect(getBlockQueryType(blocks[0]!)).toBe("handpicked-products");
+  });
+
+  it("matches on-sale product carousel when queryType is not product-carousel", () => {
+    const { blocks } = processHomepageContent(CAROUSEL_SECTION, [
+      {
+        queryType: "on-sale",
+        attrs: { queryType: "on-sale", orderby: "price" },
+        products: [{ id: "3", name: "Sale Item" }],
+      },
+    ]);
+    expect(blocks[0]?.products).toHaveLength(1);
+    expect(getBlockQueryType(blocks[0]!)).toBe("on-sale");
+  });
 });

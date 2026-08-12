@@ -7,6 +7,7 @@ import { ClientCarousel } from "@/components/headkit-ui/client-carousel";
 import { PostCarousel } from "@/components/headkit-ui/post/post-carousel";
 import { ProjectCarousel } from "@/components/headkit-ui/project/project-carousel";
 import { MainCarousel } from "@/components/headkit-ui/main-carousel";
+import { EditorialContent } from "@/components/headkit-ui/editorial-content";
 import { sanitizeContent } from "@/lib/sanitize-content";
 import type { ProcessedEditorBlock } from "@/lib/process-editor-blocks";
 import type {
@@ -231,7 +232,13 @@ const BlockEditor = async ({
 
         if (data.cssClasses.includes("headkit-product-carousel")) {
           const products: Product[] = data.products ?? [];
-          if (products.length === 0) return null;
+          // When GraphQL/theme hydration has not attached products yet, fall
+          // back to EditorialContent so WC handpicked markup in the section
+          // HTML can still resolve to storefront ProductCards (CMS pages).
+          if (products.length === 0) {
+            if (!data.html?.trim()) return null;
+            return <EditorialContent key={index} html={data.html} />;
+          }
           const colourwayPins = hydrateColourwayPins(
             data.attrs?.["productColourways"],
           );
