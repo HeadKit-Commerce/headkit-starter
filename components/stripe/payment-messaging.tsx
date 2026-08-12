@@ -89,14 +89,28 @@ export function shouldRenderMessaging(a: {
  * CORE WEB VITALS. Stripe.js is ~247 KB and this badge is decorative, so it must
  * never compete with hydration or LCP. An earlier integration was withdrawn for
  * exactly that reason; it used dynamic import + a Suspense skeleton but still
- * requested Stripe.js from a mount effect, i.e. in the initial burst. Here the
- * script is requested only when the badge scrolls near the viewport. Measured on
- * the live PDP, loading it after the page settles costs 0 ms of long-task time
- * and 0 CLS.
+ * requested Stripe.js from a mount effect, i.e. in the initial burst.
  *
- * EMPTY STATE. Stripe renders nothing when no plan is eligible, so no height is
- * reserved — a reserved height would leave a permanent gap on every ineligible
- * store or amount.
+ * BE PRECISE ABOUT WHAT THE OBSERVER BUYS. It does NOT wait for a scroll. This
+ * badge sits directly under the Add-to-Cart row, which on a desktop PDP is
+ * normally above the fold — measured locally at 309 px into a 720 px viewport —
+ * and `rootMargin` widens the trigger zone by a further 200 px. An
+ * IntersectionObserver fires its first callback within roughly one frame of
+ * `observe()`, so on a typical PDP load Stripe.js is requested about one frame
+ * after hydration, with no user gesture involved. What the observer reliably
+ * buys is: the request leaves the render path, and a badge genuinely far down
+ * the page costs nothing until approached.
+ *
+ * The CWV numbers are therefore NOT yet verified for this placement. LCP should
+ * be unaffected (the script is async and post-paint); TBT/INP is the metric at
+ * risk. Task 7 Step 4 of the plan takes the real measurement on a deployed
+ * store, and prescribes layering `requestIdleCallback` on top of the observer
+ * if it regresses. Do not quote a long-task or CLS figure here until that runs.
+ *
+ * EMPTY STATE. Stripe renders nothing when no plan is eligible — verified live:
+ * an account with no eligible provider produces a host div of height 0 and no
+ * iframe at all. So neither height NOR margin may be reserved up front; the
+ * spacing below is applied only once Stripe has actually painted something.
  */
 export function PaymentMethodMessaging({
   price,
@@ -139,6 +153,29 @@ export function PaymentMethodMessaging({
     return () => io.disconnect();
   }, [gate, near]);
 
+  /**
+   * True once Stripe has painted something with real height into the host.
+   *
+   * Stripe decides eligibility server-side and renders NOTHING when no plan
+   * qualifies — verified live: height 0, no iframe. A margin applied on mount
+   * would therefore leave a permanent 24 px gap on every ineligible store or
+   * amount. Measuring the painted height is the only honest signal, since the
+   * element is a cross-origin iframe we cannot inspect and its presence alone
+   * does not mean it drew anything.
+   */
+  const [painted, setPainted] = useState(false);
+
+  useEffect(() => {
+    const node = hostRef.current;
+    if (!node || typeof ResizeObserver === "undefined") return;
+
+    // ResizeObserver delivers an initial callback on observe(), so the current
+    // size is picked up without a synchronous setState in the effect body.
+    const ro = new ResizeObserver(() => setPainted(node.offsetHeight > 0));
+    ro.observe(node);
+    return () => ro.disconnect();
+  }, [gate, near, price]);
+
   const stripePromise = useMemo(() => {
     if (!gate || !near) return null;
     return loadStripe(publishableKey, {
@@ -157,14 +194,15 @@ export function PaymentMethodMessaging({
 
   // The host div is always present once gated in, so the observer has something
   // to watch. It has no height of its own until Stripe fills it, and it carries
-  // its own bottom margin ONLY once there is something to separate — spacing on
-  // an unfilled host would reserve a permanent gap on every ineligible store or
-  // amount, which is exactly what the collapsing empty state exists to avoid.
+  // its bottom margin ONLY once Stripe has actually PAINTED something — see
+  // {@link painted}. Keying the margin off `stripePromise` instead would still
+  // reserve 24 px on an account with no eligible provider, which is the common
+  // case and exactly what the collapsing empty state exists to avoid.
   return (
     <div
       ref={hostRef}
       data-testid="bnpl-messaging"
-      className={stripePromise && hasAmount ? "mb-6" : undefined}
+      className={painted ? "mb-6" : undefined}
     >
       {stripePromise && hasAmount ? (
         <Elements
