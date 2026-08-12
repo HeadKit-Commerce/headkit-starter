@@ -153,11 +153,20 @@ export function PaymentMethodMessaging({
   const normalizedCurrency = currency.toUpperCase();
   if (!isValidCurrency(normalizedCurrency)) return null;
 
+  const hasAmount = price > 0;
+
   // The host div is always present once gated in, so the observer has something
-  // to watch. It has no height of its own until Stripe fills it.
+  // to watch. It has no height of its own until Stripe fills it, and it carries
+  // its own bottom margin ONLY once there is something to separate — spacing on
+  // an unfilled host would reserve a permanent gap on every ineligible store or
+  // amount, which is exactly what the collapsing empty state exists to avoid.
   return (
-    <div ref={hostRef} data-testid="bnpl-messaging">
-      {stripePromise && price > 0 ? (
+    <div
+      ref={hostRef}
+      data-testid="bnpl-messaging"
+      className={stripePromise && hasAmount ? "mb-6" : undefined}
+    >
+      {stripePromise && hasAmount ? (
         <Elements
           stripe={stripePromise}
           options={{ appearance, currency: normalizedCurrency.toLowerCase() }}

@@ -759,18 +759,18 @@ export function ProductDetail({
           </div>
 
           {/* BNPL messaging — Stripe decides whether anything renders. Tracks the
-              SELECTED VARIANT price, which is why it is a client-side value. */}
+              SELECTED VARIANT price, which is why it is a client-side value.
+              No wrapper: the component owns its own spacing, so an ineligible
+              store or amount collapses to nothing instead of leaving a gap. */}
           {stripeConfig ? (
-            <div className="mb-6">
-              <PaymentMethodMessaging
-                price={getFloatVal(displayPrice)}
-                currency={getStoreCurrency()}
-                publishableKey={stripeConfig.publishableKey}
-                stripeAccountId={stripeConfig.accountId}
-                enabled={stripeConfig.bnplMessagingEnabled}
-                disabled={isOutOfStock}
-              />
-            </div>
+            <PaymentMethodMessaging
+              price={getFloatVal(displayPrice)}
+              currency={getStoreCurrency()}
+              publishableKey={stripeConfig.publishableKey}
+              stripeAccountId={stripeConfig.accountId}
+              enabled={stripeConfig.bnplMessagingEnabled}
+              disabled={isOutOfStock}
+            />
           ) : null}
 
           {!isGiftCard && (
