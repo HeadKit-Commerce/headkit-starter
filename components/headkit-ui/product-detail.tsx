@@ -296,7 +296,7 @@ export function ProductDetail({
   const enquiryInitialValues = useMemo(
     () =>
       buildEnquiryInitialValues({
-        productName: product.name,
+        productName: decodeHtmlEntities(product.name),
         productUrl:
           typeof window !== "undefined"
             ? `${window.location.origin}${pathname}`
@@ -311,11 +311,12 @@ export function ProductDetail({
   const galleryImages = useMemo(() => {
     // Variation-owned gallery replaces the parent product gallery entirely
     // (hide parent featured + gallery while that colourway is selected).
+    const productAlt = decodeHtmlEntities(product.name);
     const variationGallery = (selectedVariation?.images ?? [])
       .filter((img) => Boolean(img?.src))
       .map((img) => ({
         src: img.src,
-        alt: img.alt || product.name,
+        alt: decodeHtmlEntities(img.alt || product.name),
       }));
     if (variationGallery.length > 0) {
       return variationGallery;
@@ -323,11 +324,11 @@ export function ProductDetail({
 
     const base = product.images.map((img) => ({
       src: img.src,
-      alt: img.alt,
+      alt: decodeHtmlEntities(img.alt || product.name),
     }));
     return base.length > 0
       ? base
-      : [{ src: "/placeholder.png", alt: product.name }];
+      : [{ src: "/placeholder.png", alt: productAlt }];
   }, [product.images, product.name, selectedVariation]);
 
   // pickFirstPrice, not `??`: the gateway sends absent sale prices as ""
@@ -541,14 +542,16 @@ export function ProductDetail({
               {variationAttributes.map((attr) => (
                 <div key={attr.id}>
                   <div className="mb-2 flex items-center gap-2">
-                    <p className="font-semibold text-primary">{attr.name}</p>
+                    <p className="font-semibold text-primary">
+                      {decodeHtmlEntities(attr.name)}
+                    </p>
                     {selectedAttributes[attr.slug] && (
                       <span className="capitalize text-gray-700">
-                        {
+                        {decodeHtmlEntities(
                           attr.fullOptions.find(
                             (o) => o.slug === selectedAttributes[attr.slug],
-                          )?.name
-                        }
+                          )?.name ?? "",
+                        )}
                       </span>
                     )}
                   </div>
@@ -587,7 +590,7 @@ export function ProductDetail({
                       return (
                         <VariantSwatch
                           key={option.slug}
-                          label={option.name}
+                          label={decodeHtmlEntities(option.name)}
                           value={option.slug}
                           color1={option.swatchColor}
                           color2={option.swatchColor2}
@@ -748,7 +751,7 @@ export function ProductDetail({
             <div className="mb-6">
               <ProductEnquiry
                 formId={ENQUIRY_FORM_ID}
-                productName={product.name}
+                productName={decodeHtmlEntities(product.name)}
                 initialValues={enquiryInitialValues}
               />
             </div>

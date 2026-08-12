@@ -1,5 +1,6 @@
 import type { CartItem } from "@headkit/sdk";
 import { removeCartItemAction, updateCartItemAction } from "./cart-actions";
+import { decodeHtmlEntities } from "./utils";
 
 /** Backorder stock status constant matching WooCommerce/provider values. */
 const STOCK_STATUS_BACKORDER = "onbackorder";
@@ -65,7 +66,7 @@ export function validateCartStock(items: CartItem[]): CartValidationResult {
     if (available !== null && current > available) {
       issues.push({
         itemKey: item.key,
-        itemName: item.name,
+        itemName: decodeHtmlEntities(item.name),
         currentQuantity: current,
         availableStock: available,
         action: available === 0 ? "remove" : "reduce",

@@ -21,6 +21,13 @@ describe("decodeHtmlEntities", () => {
     expect(decodeHtmlEntities("&quot;Sale&quot;")).toBe('"Sale"');
   });
 
+  it("decodes en/em dashes used in Yoast SEO titles", () => {
+    expect(decodeHtmlEntities("Design &#8211; Build")).toBe("Design – Build");
+    expect(decodeHtmlEntities("Design &ndash; Build")).toBe("Design – Build");
+    expect(decodeHtmlEntities("Intro &#8212; Outro")).toBe("Intro — Outro");
+    expect(decodeHtmlEntities("Intro &mdash; Outro")).toBe("Intro — Outro");
+  });
+
   it("is a no-op for plain text", () => {
     expect(decodeHtmlEntities("Plain title")).toBe("Plain title");
   });

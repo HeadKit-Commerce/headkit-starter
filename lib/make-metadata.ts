@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { SeoData } from "@headkit/sdk";
+import { decodeHtmlEntities } from "@/lib/utils";
 
 const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 
@@ -20,8 +21,13 @@ export type SeoEntityType = "product" | "category" | "page";
  */
 type OptSeoStr = string | null | undefined;
 
+/** Decode + trim CMS/Yoast strings so entities never leak into `<title>` / OG. */
+function seoText(value?: OptSeoStr): string {
+  return decodeHtmlEntities(value ?? "").trim();
+}
+
 function stripTags(html?: OptSeoStr): string {
-  return (html ?? "").replace(/<[^>]*>/g, "");
+  return seoText(html).replace(/<[^>]*>/g, "");
 }
 
 function normalizeUrl(url?: OptSeoStr): string | undefined {
@@ -63,7 +69,7 @@ export function titleIncludesStoreBrand(
  * Never returns HeadKit marketing copy as a tenant default.
  */
 export function resolveStoreName(storeName?: OptSeoStr): string {
-  const trimmed = (storeName ?? "").trim();
+  const trimmed = seoText(storeName);
   return trimmed.length > 0 ? trimmed : "Store";
 }
 
@@ -75,7 +81,7 @@ export function resolveFooterDescription(
   seoDescription?: OptSeoStr,
   storeName?: OptSeoStr,
 ): string {
-  const desc = seoDescription?.trim();
+  const desc = seoText(seoDescription);
   if (desc) return desc;
   return resolveStoreName(storeName);
 }
@@ -89,10 +95,11 @@ export function resolveHomeTitle(options: {
   dashboardTitle?: OptSeoStr;
   storeName?: OptSeoStr;
 }): string {
-  if (isRealSeoTitle(options.yoastTitle)) {
-    return (options.yoastTitle ?? "").trim();
+  const yoast = seoText(options.yoastTitle);
+  if (isRealSeoTitle(yoast)) {
+    return yoast;
   }
-  const dashboard = options.dashboardTitle?.trim();
+  const dashboard = seoText(options.dashboardTitle);
   if (dashboard) return dashboard;
   return resolveStoreName(options.storeName);
 }
@@ -105,9 +112,9 @@ export function resolveHomeDescription(options: {
   yoastDescription?: OptSeoStr;
   dashboardDescription?: OptSeoStr;
 }): string {
-  const yoast = options.yoastDescription?.trim();
+  const yoast = seoText(options.yoastDescription);
   if (yoast) return yoast;
-  return options.dashboardDescription?.trim() ?? "";
+  return seoText(options.dashboardDescription);
 }
 
 /**
@@ -145,7 +152,7 @@ export function seoFallbackDescription(
   storeName?: OptSeoStr,
 ): string {
   const site = resolveStoreName(storeName);
-  const trimmed = (name ?? "").trim();
+  const trimmed = seoText(name);
   const label = trimmed.length > 0 ? trimmed : site;
   switch (entityType) {
     case "product":
@@ -167,7 +174,7 @@ export function seoFallbackTitle(
   name?: OptSeoStr,
   storeName?: OptSeoStr,
 ): string {
-  const trimmed = (name ?? "").trim();
+  const trimmed = seoText(name);
   if (trimmed.length > 0) return trimmed;
   return resolveStoreName(storeName);
 }
@@ -188,7 +195,7 @@ export function makeRootMetadata(options?: {
   allowIndexing?: boolean | undefined;
 }): Metadata {
   const siteName = resolveStoreName(options?.siteName);
-  const title = options?.title?.trim() || siteName;
+  const title = seoText(options?.title) || siteName;
   const description = stripTags(options?.description ?? "");
   const shareImage = resolveOgImageUrl({
     dashboardOgImageUrl: options?.ogImageUrl,
@@ -296,7 +303,9 @@ export function makeSeoMetadata(
   // Real SEO title that already includes the store brand wins as absolute
   // (Yoast is often "{name} - {site}"). Bare page titles (e.g. "Projects")
   // stay as a segment so the root `%s | {storeName}` template appends once.
-  const seoTitle = isRealSeoTitle(seo?.title) ? seo!.title.trim() : null;
+  // Always decode entities — Yoast frequently emits `&amp;` / `&#8211;`.
+  const decodedSeoTitle = seoText(seo?.title);
+  const seoTitle = isRealSeoTitle(decodedSeoTitle) ? decodedSeoTitle : null;
   const entityName = seoFallbackTitle(fallback?.title, storeName);
   const displayTitle = seoTitle ?? entityName;
   const titleMeta: Metadata["title"] =
@@ -321,6 +330,9 @@ export function makeSeoMetadata(
     brandingIconUrl: fallback?.brandingIconUrl,
   });
 
+  const openGraphTitle = seoText(seo?.opengraphTitle) || displayTitle;
+  const twitterTitle = seoText(seo?.twitterTitle) || displayTitle;
+
   return {
     title: titleMeta,
     description,
@@ -329,7 +341,7 @@ export function makeSeoMetadata(
     robots: resolveRobots(allowIndexing),
     openGraph: {
       type: "website",
-      title: seo?.opengraphTitle || displayTitle,
+      title: openGraphTitle,
       description: stripTags(seo?.opengraphDescription ?? description),
       url: canonical,
       siteName: storeName,
@@ -337,7 +349,7 @@ export function makeSeoMetadata(
     },
     twitter: {
       card: ogImage ? "summary_large_image" : "summary",
-      title: seo?.twitterTitle || displayTitle,
+      title: twitterTitle,
       description: stripTags(seo?.twitterDescription ?? description),
       ...(ogImage ? { images: [ogImage] } : {}),
     },

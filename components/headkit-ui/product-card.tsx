@@ -178,7 +178,7 @@ export const ProductCard = ({
           src={imageSelected}
           hoverSrc={hoverSrc}
           showHover={isHovering}
-          alt={product?.name ?? "Product"}
+          alt={decodeHtmlEntities(product?.name ?? "Product")}
           priority={priority}
           fit="contain"
         />

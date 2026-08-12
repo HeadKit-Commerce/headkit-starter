@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { XIcon } from "@/components/icon";
-import { cn } from "@/lib/utils";
+import { cn, decodeHtmlEntities } from "@/lib/utils";
 import {
   getCartAction,
   removeCartItemAction,
@@ -85,8 +85,9 @@ function QuoteCartItem({
     });
   };
 
+  const displayName = decodeHtmlEntities(item.name);
   const imageSrc = item.images[0]?.src ?? "/assets/HeadKit-Fallback.png";
-  const imageAlt = item.images[0]?.alt ?? item.name;
+  const imageAlt = decodeHtmlEntities(item.images[0]?.alt ?? item.name);
   const productHref = item.slug ? `/products/${item.slug}` : null;
   const variation = item.variation ?? [];
 
@@ -130,11 +131,11 @@ function QuoteCartItem({
                 onClick={() => toggleCart(false)}
                 className="line-clamp-2 text-base font-semibold capitalize text-[#343A40] hover:underline md:text-lg"
               >
-                {item.name}
+                {displayName}
               </InstantLink>
             ) : (
               <p className="line-clamp-2 text-base font-semibold capitalize text-[#343A40] md:text-lg">
-                {item.name}
+                {displayName}
               </p>
             )}
             {variation.length > 0 && (
@@ -142,7 +143,7 @@ function QuoteCartItem({
                 {variation.map((v, i) => (
                   <span key={v.attribute}>
                     {i > 0 && <span className="px-1">/</span>}
-                    {v.value}
+                    {decodeHtmlEntities(v.value)}
                   </span>
                 ))}
               </div>

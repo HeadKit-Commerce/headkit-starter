@@ -5,6 +5,7 @@ import type {
   ProjectSummaryFieldsFragment,
   ProjectFilters,
 } from "@headkit/sdk";
+import { decodeHtmlEntities } from "@/lib/utils";
 import { ProjectGrid } from "./project-grid";
 
 interface ProjectPageProps {
@@ -62,7 +63,7 @@ export function ProjectPage({
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
-              {brand.name}
+              {decodeHtmlEntities(brand.name)}
             </button>
           ))}
         </div>
@@ -92,7 +93,7 @@ export function ProjectPage({
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
-              {tag.name}
+              {decodeHtmlEntities(tag.name)}
             </button>
           ))}
         </div>

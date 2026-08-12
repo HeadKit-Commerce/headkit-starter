@@ -1,4 +1,5 @@
 import type { ProductFieldsFragment } from "@headkit/sdk";
+import { decodeHtmlEntities } from "@/lib/utils";
 import { safeJsonLdStringify } from "./safe-json-ld";
 
 type JsonLdVariation = ProductFieldsFragment["variations"][number];
@@ -72,7 +73,10 @@ function buildVariantProduct(
 
   return {
     "@type": "Product",
-    name: variation.attributes.map((a) => a.value).join(" / ") || "Variant",
+    name:
+      variation.attributes
+        .map((a) => decodeHtmlEntities(a.value))
+        .join(" / ") || "Variant",
     ...(sku ? { sku } : {}),
     image: variation.image?.src ? [variation.image.src] : undefined,
     offers: {
@@ -98,8 +102,13 @@ export function ProductJsonLD({
   const resolvedCurrency = currency ?? "AUD";
   const description = product.seo?.metaDesc ?? product.shortDescription;
   const images = collectImages(product);
+  const decodedDescription = description
+    ? decodeHtmlEntities(description)
+    : description;
 
-  const brand = brandName ? { "@type": "Brand", name: brandName } : undefined;
+  const brand = brandName
+    ? { "@type": "Brand", name: decodeHtmlEntities(brandName) }
+    : undefined;
 
   if (product.type === "variable" && product.variations.length > 0) {
     const variationAttrs = product.attributes.filter((attr) => attr.variation);
@@ -115,8 +124,8 @@ export function ProductJsonLD({
     const jsonLd = {
       "@context": "https://schema.org",
       "@type": "ProductGroup",
-      name: product.name,
-      description,
+      name: decodeHtmlEntities(product.name),
+      description: decodedDescription,
       image: images,
       url: productUrl,
       productGroupID: product.id,
@@ -138,8 +147,8 @@ export function ProductJsonLD({
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
-    name: product.name,
-    description,
+    name: decodeHtmlEntities(product.name),
+    description: decodedDescription,
     ...(product.sku ? { sku: product.sku } : {}),
     image: images,
     url: productUrl,

@@ -1,4 +1,5 @@
 import type { BreadcrumbList, ListItem, WithContext } from "schema-dts";
+import { decodeHtmlEntities } from "@/lib/utils";
 import { safeJsonLdStringify } from "./safe-json-ld";
 
 export interface BreadcrumbItem {
@@ -30,7 +31,7 @@ export function BreadcrumbJsonLD({ items }: BreadcrumbJsonLDProps) {
       return {
         "@type": "ListItem",
         position: index + 1,
-        name: item.name,
+        name: decodeHtmlEntities(item.name),
         ...(url ? { item: url } : {}),
       };
     }) as ListItem[],

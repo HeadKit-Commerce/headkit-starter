@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { getFloatVal, formatPrice } from "@/lib/utils";
+import { getFloatVal, formatPrice, decodeHtmlEntities } from "@/lib/utils";
 import {
   GiftCardDetails,
   type GiftCardDisplay,
@@ -31,8 +31,9 @@ export function LineItemDisplay({
   giftCard = null,
   hidePrice = false,
 }: LineItemDisplayProps) {
+  const displayName = decodeHtmlEntities(name);
   const imageSrc = images[0]?.src ?? "/assets/HeadKit-Fallback.png";
-  const imageAlt = images[0]?.alt ?? name;
+  const imageAlt = decodeHtmlEntities(images[0]?.alt ?? name);
 
   return (
     <div className="space-y-1.5">
@@ -50,14 +51,14 @@ export function LineItemDisplay({
 
         <div className="flex flex-1 flex-col justify-between">
           <p className="font-medium text-sm capitalize text-gray-900 truncate">
-            {name}
+            {displayName}
           </p>
           {variation.length > 0 && (
             <div className="flex flex-wrap text-xs text-gray-500">
               {variation.map((v, i) => (
                 <span key={v.attribute}>
                   {i > 0 && <span className="px-1">/</span>}
-                  {v.value}
+                  {decodeHtmlEntities(v.value)}
                 </span>
               ))}
             </div>

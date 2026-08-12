@@ -3,8 +3,7 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { MinusIcon, PlusIcon, XIcon } from "@/components/icon";
-import { cn } from "@/lib/utils";
-import { getFloatVal, formatPrice } from "@/lib/utils";
+import { cn, decodeHtmlEntities, getFloatVal, formatPrice } from "@/lib/utils";
 import {
   getCartAction,
   removeCartItemAction,
@@ -108,8 +107,9 @@ export function CartItemRow({
     });
   };
 
+  const displayName = decodeHtmlEntities(item.name);
   const imageSrc = item.images[0]?.src ?? "/assets/HeadKit-Fallback.png";
-  const imageAlt = item.images[0]?.alt ?? item.name;
+  const imageAlt = decodeHtmlEntities(item.images[0]?.alt ?? item.name);
   const productHref = item.slug ? `/products/${item.slug}` : null;
 
   return (
@@ -154,11 +154,11 @@ export function CartItemRow({
                 onClick={() => toggleCart(false)}
                 className="line-clamp-2 font-semibold capitalize text-[#343A40] hover:underline"
               >
-                {item.name}
+                {displayName}
               </InstantLink>
             ) : (
               <p className="line-clamp-2 font-semibold capitalize text-[#343A40]">
-                {item.name}
+                {displayName}
               </p>
             )}
             {item.variation.length > 0 && (
@@ -169,7 +169,7 @@ export function CartItemRow({
                     className="text-sm capitalize text-[#343A40]"
                   >
                     {i > 0 && <span className="px-1">/</span>}
-                    {v.value}
+                    {decodeHtmlEntities(v.value)}
                   </p>
                 ))}
               </div>

@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import { ArrowLeftIcon, ArrowRightIcon } from "@/components/icon";
 import { InstantLink } from "@/components/headkit-ui/instant-link";
+import { decodeHtmlEntities } from "@/lib/utils";
 
 interface Category {
   name: string;
@@ -46,7 +47,7 @@ export function CategorySwiper({ categories }: Props) {
             pendingVariant="text"
             className="flex min-w-fit items-center gap-2 rounded-full bg-gray-100 px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-200"
           >
-            {category.name}
+            {decodeHtmlEntities(category.name)}
             {category.count !== undefined && (
               <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs">
                 {category.count}

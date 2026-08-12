@@ -5,6 +5,7 @@
 import type { ProductSummaryFieldsFragment } from "@headkit/sdk";
 import { CATALOG_ROW_QUANTUM } from "@/components/headkit-ui/catalog-grid";
 import { findSwatchAttribute } from "@/lib/swatch-attribute";
+import { decodeHtmlEntities } from "@/lib/utils";
 
 export interface CatalogDisplayPrefs {
   showVariants: boolean;
@@ -162,7 +163,7 @@ function cardForColourway(
       : imageSrc
         ? {
             src: imageSrc,
-            alt: product.name ?? "",
+            alt: decodeHtmlEntities(product.name ?? ""),
             width: 0,
             height: 0,
           }
@@ -170,7 +171,7 @@ function cardForColourway(
     hoverImage: hoverSrc
       ? {
           src: hoverSrc,
-          alt: product.name ?? "",
+          alt: decodeHtmlEntities(product.name ?? ""),
           width: product.hoverImage?.width ?? 0,
           height: product.hoverImage?.height ?? 0,
         }

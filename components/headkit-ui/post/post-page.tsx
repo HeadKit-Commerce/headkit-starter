@@ -2,6 +2,7 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import type { PostSummaryFieldsFragment, PostFilters } from "@headkit/sdk";
+import { decodeHtmlEntities } from "@/lib/utils";
 import { PostGrid } from "./post-grid";
 
 interface PostPageProps {
@@ -58,7 +59,7 @@ export function PostPage({
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
-              {cat.name}
+              {decodeHtmlEntities(cat.name)}
             </button>
           ))}
         </div>

@@ -1,5 +1,6 @@
 import type { ProductSummaryFieldsFragment } from "@headkit/sdk";
 import type { ItemList, WithContext } from "schema-dts";
+import { decodeHtmlEntities } from "@/lib/utils";
 import { safeJsonLdStringify } from "./safe-json-ld";
 
 /** Minimal product fields required for ItemList / Product carousel JSON-LD. */
@@ -32,7 +33,7 @@ export function CarouselProductJsonLD({
       position: index + 1,
       item: {
         "@type": "Product",
-        name: product.name,
+        name: decodeHtmlEntities(product.name ?? ""),
         image: product.image?.src ?? "",
         offers: {
           "@type": "Offer",

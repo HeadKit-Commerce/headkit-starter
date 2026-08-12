@@ -215,6 +215,23 @@ describe("makeSeoMetadata fallback chain (FE-09)", () => {
     );
     expect(meta.title).toBe("Widgets");
   });
+
+  it("decodes HTML entities in Yoast titles and descriptions", () => {
+    const meta = makeSeoMetadata(
+      {
+        title: "Beds &amp; Mattresses &#8211; Acme",
+        metaDesc: "Shop beds &amp; mattresses",
+        opengraphTitle: "Beds &amp; Mattresses &#8211; Acme",
+        twitterTitle: "Beds &amp; Mattresses",
+      } as Parameters<typeof makeSeoMetadata>[0],
+      { title: "Beds &amp; Mattresses", storeName: "Acme" },
+    );
+
+    expect(meta.title).toEqual({ absolute: "Beds & Mattresses – Acme" });
+    expect(meta.description).toBe("Shop beds & mattresses");
+    expect(meta.openGraph?.title).toBe("Beds & Mattresses – Acme");
+    expect(meta.twitter?.title).toBe("Beds & Mattresses");
+  });
 });
 
 describe("makeRootMetadata title template", () => {
@@ -227,6 +244,21 @@ describe("makeRootMetadata title template", () => {
       default: "Acme",
       template: "%s | Acme",
     });
+  });
+
+  it("decodes HTML entities in root title, description, and siteName", () => {
+    const meta = makeRootMetadata({
+      title: "Acme &#8211; Home",
+      description: "Design &amp; build",
+      siteName: "Acme &amp; Co",
+    });
+    expect(meta.title).toEqual({
+      default: "Acme – Home",
+      template: "%s | Acme & Co",
+    });
+    expect(meta.description).toBe("Design & build");
+    expect(meta.openGraph?.title).toBe("Acme – Home");
+    expect(meta.openGraph?.siteName).toBe("Acme & Co");
   });
 
   it("links RSS feed via alternates.types", () => {

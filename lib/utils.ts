@@ -6,25 +6,45 @@ export function cn(...inputs: ClassValue[]): string {
 }
 
 /**
- * Decode common HTML entities in provider-sourced titles/labels.
- * WooCommerce often returns names with `&amp;` etc. that must not render literally.
+ * Decode HTML entities in provider/CMS-sourced titles and labels.
+ * WooCommerce and Yoast often return `&amp;`, `&#8211;`, etc. that must not
+ * appear literally in the UI or in `<title>` / OG tags.
  */
 export function decodeHtmlEntities(text: string): string {
+  const named: Record<string, string> = {
+    quot: '"',
+    apos: "'",
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    nbsp: " ",
+    ndash: "\u2013",
+    mdash: "\u2014",
+    lsquo: "\u2018",
+    rsquo: "\u2019",
+    ldquo: "\u201c",
+    rdquo: "\u201d",
+  };
+
   return text
-    .replace(/&quot;/g, '"')
-    .replace(/&#0*39;/g, "'")
-    .replace(/&#x27;/gi, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&#8217;/g, "\u2019")
-    .replace(/&#8216;/g, "\u2018")
-    .replace(/&#8220;/g, "\u201c")
-    .replace(/&#8221;/g, "\u201d")
-    .replace(/&#036;/g, "$")
-    .replace(/&#0*38;/g, "&")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
+    .replace(/&([a-z]+);/gi, (match, name: string) => {
+      const decoded = named[name.toLowerCase()];
+      return decoded !== undefined ? decoded : match;
+    })
+    .replace(/&#0*(\d+);/g, (match, digits: string) => {
+      const code = Number(digits);
+      if (!Number.isFinite(code) || code <= 0 || code > 0x10ffff) {
+        return match;
+      }
+      return String.fromCodePoint(code);
+    })
+    .replace(/&#x([0-9a-fA-F]+);/gi, (match, hex: string) => {
+      const code = Number.parseInt(hex, 16);
+      if (!Number.isFinite(code) || code <= 0 || code > 0x10ffff) {
+        return match;
+      }
+      return String.fromCodePoint(code);
+    });
 }
 
 /** Block-level islands that must stay intact (lists, tables, headings, …). */

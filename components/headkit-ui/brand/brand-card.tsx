@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { InstantLink } from "@/components/headkit-ui/instant-link";
+import { decodeHtmlEntities } from "@/lib/utils";
 import type { BrandSummaryFieldsFragment } from "@headkit/sdk";
 
 interface BrandCardProps {
@@ -7,6 +8,7 @@ interface BrandCardProps {
 }
 
 export function BrandCard({ brand }: BrandCardProps) {
+  const name = decodeHtmlEntities(brand.name);
   return (
     <InstantLink href={`/brand/${brand.slug}`}>
       <div className="group relative flex flex-col">
@@ -14,7 +16,7 @@ export function BrandCard({ brand }: BrandCardProps) {
           {brand.image?.src ? (
             <div className="relative h-[50px] w-[160px]">
               <Image
-                alt={brand.image.alt ?? brand.name}
+                alt={decodeHtmlEntities(brand.image.alt ?? brand.name)}
                 src={brand.image.src}
                 fill
                 className="object-contain object-center"
@@ -23,7 +25,7 @@ export function BrandCard({ brand }: BrandCardProps) {
           ) : brand.thumbnail ? (
             <div className="relative h-[50px] w-[160px]">
               <Image
-                alt={brand.name}
+                alt={name}
                 src={brand.thumbnail}
                 fill
                 className="object-contain object-center"
@@ -31,12 +33,12 @@ export function BrandCard({ brand }: BrandCardProps) {
             </div>
           ) : (
             <div className="flex h-full items-center justify-center">
-              <span className="text-lg text-gray-500">{brand.name}</span>
+              <span className="text-lg text-gray-500">{name}</span>
             </div>
           )}
         </div>
         <div className="mt-4 flex flex-col">
-          <h3 className="text-[17px] text-primary">{brand.name}</h3>
+          <h3 className="text-[17px] text-primary">{name}</h3>
         </div>
       </div>
     </InstantLink>
