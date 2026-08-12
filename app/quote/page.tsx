@@ -53,7 +53,7 @@ export default async function QuoteCheckoutPage(): Promise<React.ReactElement> {
   const customerEmail = resolveCheckoutEmail(cart, fallbackEmail);
 
   return (
-    <div className="bg-brand-bg text-brand-fg">
+    <div className="headkit-quote bg-brand-bg text-brand-fg">
       {stockCorrectionMessage ? (
         <div className="px-5 pt-6 md:px-10">
           <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">

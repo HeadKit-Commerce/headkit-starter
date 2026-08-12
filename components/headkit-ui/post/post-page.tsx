@@ -33,7 +33,7 @@ export function PostPage({
   };
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="headkit-news-page flex flex-col gap-8">
       {categories.length > 0 && (
         <div className="flex items-center gap-3 overflow-x-auto px-5 py-4 scrollbar-hide md:px-10">
           <button

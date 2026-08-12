@@ -26,7 +26,7 @@ export function SectionHeader({
   return (
     <div
       className={cn(
-        "flex w-full flex-col gap-4 md:flex-row md:items-end md:justify-between md:gap-8",
+        "headkit-section-header flex w-full flex-col gap-4 md:flex-row md:items-end md:justify-between md:gap-8",
         className,
       )}
     >

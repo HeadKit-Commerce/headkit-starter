@@ -106,7 +106,7 @@ async function ContactRoute(): Promise<React.ReactElement> {
   // Padding lives in CmsPageBody (same as other CMS pages) so a Contact page
   // with a hero carousel stays flush with the homepage layout.
   return (
-    <div className="min-h-[50vh] overflow-hidden">
+    <div className="headkit-contact min-h-[50vh] overflow-hidden">
       <BreadcrumbJsonLD
         items={[
           { name: "Home", href: "/" },

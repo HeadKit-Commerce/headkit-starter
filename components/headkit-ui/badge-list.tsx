@@ -12,12 +12,12 @@ const BadgeList = ({ isSale, isNewIn, className }: Props) => {
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       {isNewIn && (
-        <span className="rounded-brand uppercase font-semibold text-center px-2 py-1 bg-lime-400 text-primary">
+        <span className="headkit-badge-new rounded-brand uppercase font-semibold text-center px-2 py-1 bg-lime-400 text-primary">
           New
         </span>
       )}
       {isSale && (
-        <span className="rounded-brand uppercase font-semibold text-center px-2 py-1 bg-pink-600 text-white">
+        <span className="headkit-badge-sale rounded-brand uppercase font-semibold text-center px-2 py-1 bg-pink-600 text-white">
           Sale
         </span>
       )}

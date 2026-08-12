@@ -200,7 +200,7 @@ function FooterMenuColumn({
 
 function SocialConnect({ socialLinks }: { socialLinks: SocialLinks }) {
   return (
-    <div>
+    <div className="headkit-footer-connect">
       <div className="mb-[6px] text-lg font-semibold">Connect</div>
       <div className="flex flex-wrap gap-5">
         {(

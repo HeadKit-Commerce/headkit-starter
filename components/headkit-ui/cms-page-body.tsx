@@ -31,7 +31,7 @@ interface Props {
 }
 
 /** Matches homepage HTML segment padding (`app/page.tsx` HomeContent). */
-const CONTENT_PAD = "hk-section-content px-5 md:px-10 py-10";
+const CONTENT_PAD = "headkit-cms-page hk-section-content px-5 md:px-10 py-10";
 
 function GravityFormColumn({
   html,

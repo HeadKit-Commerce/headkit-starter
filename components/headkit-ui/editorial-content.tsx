@@ -4,42 +4,11 @@ import { headkit } from "@/lib/sdk";
 import { sanitizeContent } from "@/lib/sanitize-content";
 import { EditorialProductGrid } from "@/components/headkit-ui/editorial-product-grid";
 import { GravityForm } from "@/components/gravity-form-lazy";
+import { scanProductCarouselsFromHtml } from "@/lib/scan-product-carousels-from-html";
 
 interface Props {
   /** Untrusted WordPress `content.rendered` HTML (block-authored). */
   html: string;
-}
-
-/** One WordPress handpicked-products block: its product slugs, in order, plus
- *  the column count WP recorded (`has-N-columns`) and optional colourway pins. */
-interface Carousel {
-  slugs: string[];
-  columns: number;
-  /** Product slug → colourway term slug from `data-colourway`. */
-  colourwaysBySlug: Record<string, string>;
-}
-
-// The wrapper div for a `woocommerce/handpicked-products` block carries the
-// `headkit-product-lists` class and wraps a single `<ul class="wc-block-grid__
-// products">`. Capture the class attr (for the column count) and the inner
-// markup up to that list's close so we can pull the product permalinks.
-const CAROUSEL_RE =
-  /<div[^>]*\bclass="([^"]*headkit-product-lists[^"]*)"[^>]*>([\s\S]*?)<\/ul>/gi;
-const PRODUCT_ITEM_RE =
-  /<li\b[^>]*\bwc-block-grid__product\b[^>]*>[\s\S]*?<\/li>/gi;
-const PRODUCT_LINK_RE =
-  /<a[^>]+href="([^"]+)"[^>]*class="[^"]*wc-block-grid__product-link|<a[^>]+class="[^"]*wc-block-grid__product-link[^"]*"[^>]*href="([^"]+)"/i;
-
-/** WooCommerce product permalink → product slug (last non-empty path segment). */
-function slugFromHref(href: string): string {
-  try {
-    const path = new URL(href).pathname;
-    const segments = path.split("/").filter(Boolean);
-    return segments[segments.length - 1] ?? "";
-  } catch {
-    const segments = href.split("?")[0]?.split("/").filter(Boolean) ?? [];
-    return segments[segments.length - 1] ?? "";
-  }
 }
 
 /** True if `node` is an Element carrying `cls` as a whole class token. */
@@ -74,59 +43,19 @@ function textOf(node: DOMNode): string {
   return "";
 }
 
-/** Scan sanitized HTML for handpicked-products blocks, in document order. */
-function scanCarousels(html: string): Carousel[] {
-  const carousels: Carousel[] = [];
-  for (const block of html.matchAll(CAROUSEL_RE)) {
-    const classAttr = block[1] ?? "";
-    const inner = block[2] ?? "";
-    const columns = Number(/has-(\d+)-columns/.exec(classAttr)?.[1]) || 3;
-    const slugs: string[] = [];
-    const colourwaysBySlug: Record<string, string> = {};
-    for (const item of inner.matchAll(PRODUCT_ITEM_RE)) {
-      const li = item[0] ?? "";
-      const linkMatch = PRODUCT_LINK_RE.exec(li);
-      const href = linkMatch?.[1] || linkMatch?.[2] || "";
-      const slug = slugFromHref(href);
-      if (!slug) continue;
-      slugs.push(slug);
-      const colourway = /data-colourway="([^"]+)"/i.exec(li)?.[1]?.trim();
-      if (colourway) {
-        colourwaysBySlug[slug] = colourway;
-      }
-    }
-    // Fallback when list items are not present (older markup).
-    if (slugs.length === 0) {
-      for (const m of inner.matchAll(
-        /href="([^"]+)"[^>]*class="[^"]*wc-block-grid__product-link/gi,
-      )) {
-        const slug = slugFromHref(m[1] ?? "");
-        if (slug) slugs.push(slug);
-      }
-    }
-    carousels.push({ slugs, columns, colourwaysBySlug });
-  }
-  return carousels;
-}
-
 /**
  * Shared render layer for editorial content (pages + news).
  *
  * Sanitizes untrusted WordPress block HTML through the opt-in editorial
  * allowlist (sanitizeContent — the R6 XSS boundary), then renders it as React
  * so that `woocommerce/handpicked-products` carousels can be swapped for the
- * storefront's own ProductCard grid (matching the home page: real PDP links,
- * next/image, live prices, sale badges, swatches) instead of WordPress's static
- * thumbnail markup. Product slugs are read from the block's permalinks and
- * resolved to full Product objects via the SDK; everything else renders as-is.
+ * storefront's ProductCarousel (matching the homepage HeadKit pattern) instead
+ * of WordPress's static thumbnail markup.
  *
  * WordPress block CSS is loaded via dynamic `import()` of
  * `editorial-styles` only when there is HTML to render — so home routes that
  * only ship HeadKit React carousels never pay for ~153KB of unused
  * `.wp-block-*` rules. Never add that stylesheet to globals.css (D-04).
- *
- * Consumed by every editorial page (08-06 pages, 08-07 news) so the sanitize
- * boundary and block-CSS fidelity live in exactly one place.
  */
 export async function EditorialContent({
   html,
@@ -146,7 +75,7 @@ export async function EditorialContent({
     '<hr class="wp-block-nextpage-divider" />',
   );
   const clean = await sanitizeContent(preprocessed);
-  const carousels = scanCarousels(clean);
+  const carousels = scanProductCarouselsFromHtml(clean);
 
   // Resolve every referenced product once (slugs can repeat across carousels).
   const uniqueSlugs = [...new Set(carousels.flatMap((c) => c.slugs))];
@@ -159,10 +88,9 @@ export async function EditorialContent({
     if (product) bySlug.set(slug, product as Product);
   });
 
-  // Swap each handpicked-products node for the real ProductCard grid (matched by
+  // Swap each handpicked-products node for ProductCarousel (matched by
   // document order), and convert the WP Accordion block — which needs WP's
-  // Interactivity runtime we don't ship — into native <details>/<summary> so it
-  // toggles with zero JS.
+  // Interactivity runtime we don't ship — into native <details>/<summary>.
   let carouselIndex = 0;
   const options: Parameters<typeof parse>[1] = {
     replace: (domNode: DOMNode) => {
@@ -176,7 +104,6 @@ export async function EditorialContent({
         const products = carousel.slugs
           .map((slug) => bySlug.get(slug))
           .filter((p): p is Product => Boolean(p));
-        // Pins are keyed by product ID for collapseCatalogProducts; map from slug.
         const colourwayPins: Record<string, string> = {};
         for (const product of products) {
           const pinned = carousel.colourwaysBySlug[product.slug];
@@ -185,7 +112,6 @@ export async function EditorialContent({
         return (
           <EditorialProductGrid
             products={products}
-            columns={carousel.columns}
             colourwayPins={colourwayPins}
           />
         );

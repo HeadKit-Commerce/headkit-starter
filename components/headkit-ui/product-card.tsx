@@ -154,7 +154,7 @@ export const ProductCard = ({
   if (!product) return null;
 
   return (
-    <div className={cn("relative w-full", className)}>
+    <div className={cn("headkit-product-card relative w-full", className)}>
       <div className="absolute left-2 top-2 z-10">
         <BadgeList
           isSale={product?.onSale ?? false}

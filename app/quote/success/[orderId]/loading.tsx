@@ -18,7 +18,7 @@ function QuoteItemSkeleton() {
 export default function QuoteSuccessLoading(): React.ReactElement {
   return (
     <div className="min-h-screen bg-brand-bg">
-      <div className="px-5 pb-[80px] pt-10 md:px-10 md:pt-16">
+      <div className="px-5 pb-10 pt-10 md:px-10 md:pt-16">
         <div className="mb-10 max-w-2xl space-y-3">
           <Skeleton className="h-10 w-56" />
           <Skeleton className="h-5 w-full max-w-xl" />

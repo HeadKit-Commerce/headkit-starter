@@ -395,7 +395,7 @@ const Carousel = <T,>({
       )}
 
       {canScroll && showScrollbar && (
-        <div className={cn("mt-4 md:mt-6 mb-20", padding)}>
+        <div className={cn("mt-4 md:mt-6", padding)}>
           <input
             type="range"
             min={0}

@@ -1,67 +1,39 @@
 "use client";
 
 import type { Product } from "@headkit/sdk";
-import { cn } from "@/lib/utils";
-import { ProductCard } from "@/components/headkit-ui/product-card";
-import {
-  collapseCatalogProducts,
-  type ColourwayPins,
-} from "@/lib/catalog-display";
+import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
+import type { ColourwayPins } from "@/lib/catalog-display";
 
 interface Props {
   /** Products resolved (by slug) from a WordPress handpicked-products block. */
   products: Product[];
-  /** Column count from WP's `has-N-columns` class (desktop). Defaults to 3. */
+  /**
+   * Column count from WP's `has-N-columns` (unused — homepage styling uses the
+   * scrollable ProductCarousel, not a static grid). Kept for call-site compat.
+   */
   columns?: number;
   /** Optional admin pins: product ID → colourway slug. */
   colourwayPins?: ColourwayPins | null | undefined;
 }
 
-// Literal class strings so Tailwind's scanner keeps them (no dynamic names).
-const LG_COLS: Record<number, string> = {
-  2: "lg:grid-cols-2",
-  3: "lg:grid-cols-3",
-  4: "lg:grid-cols-4",
-  5: "lg:grid-cols-5",
-};
-
 /**
- * Renders a WordPress handpicked-products carousel using the storefront's own
- * ProductCard — the same component the home page uses — so editorial product
- * cards match the rest of the site (real PDP links, next/image, live prices,
- * sale badges, colour swatches) instead of WordPress's static thumbnail grid.
+ * Renders a WordPress handpicked-products block using the same ProductCarousel
+ * as the homepage HeadKit product sections (scrollable cards, scrollbar when
+ * overflow, one colourway per product).
  *
- * Injected by EditorialContent, which resolves the block's product slugs to
- * full Product objects via the SDK and swaps this in for the `.wc-block-grid`
- * node (see editorial-content.tsx). Always one colourway per product.
+ * Injected by EditorialContent in place of the `.wc-block-grid` node. Negative
+ * horizontal margin cancels the parent `hk-section-content` / prose pad so the
+ * carousel's own `px-5 md:px-10` matches homepage alignment.
  */
 export function EditorialProductGrid({
   products,
-  columns = 3,
   colourwayPins,
 }: Props): React.JSX.Element | null {
-  const catalogProducts = collapseCatalogProducts(products, colourwayPins);
-
-  if (!catalogProducts.length) return null;
+  if (!products.length) return null;
 
   return (
-    <div
-      className={cn(
-        // not-prose: this grid renders inside EditorialContent's `.prose`
-        // wrapper — opt out so Tailwind Typography doesn't bleed into ProductCard
-        // (img top-margin, h3 margin, underlined links) and it matches the home
-        // page card exactly.
-        "not-prose grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-6 sm:gap-y-10",
-        LG_COLS[columns] ?? LG_COLS[3],
-      )}
-    >
-      {catalogProducts.map((product) => (
-        <ProductCard
-          key={product.id || product.slug}
-          product={product}
-          isNew={product.isNew ?? false}
-        />
-      ))}
+    <div className="not-prose -mx-5 md:-mx-10">
+      <ProductCarousel products={products} colourwayPins={colourwayPins} />
     </div>
   );
 }

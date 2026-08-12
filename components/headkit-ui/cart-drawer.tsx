@@ -44,7 +44,7 @@ export function CartDrawer() {
 
   return (
     <Sheet open={cartOpen} onOpenChange={(open) => toggleCart(open)}>
-      <SheetContent className="flex flex-col bg-brand-bg">
+      <SheetContent className="headkit-cart-drawer flex flex-col bg-brand-bg">
         <SheetHeader>
           <SheetTitle className="mt-3 text-left">
             {isQuoteMode ? "My Quote" : "Your Bag"}
@@ -162,7 +162,7 @@ export function CartTriggerButton({
         <span>My Quote</span>
         <PlusIcon className="h-4 w-4" />
         {count > 0 && (
-          <span className="absolute -right-1 -top-1 z-10 h-[14px] min-w-[14px] rounded-full bg-brand-bg text-center text-[10px] font-medium leading-[14px] text-primary px-0.5">
+          <span className="headkit-badge-cart absolute -right-1 -top-1 z-10 h-[14px] min-w-[14px] rounded-full bg-brand-bg text-center text-[10px] font-medium leading-[14px] text-primary px-0.5">
             {count > 99 ? "99+" : count}
           </span>
         )}
@@ -180,7 +180,7 @@ export function CartTriggerButton({
     >
       <Cart className="h-6 w-6 text-primary transition-opacity hover:opacity-70" />
       {count > 0 && (
-        <span className="absolute right-0 top-[10px] z-10 h-[14px] min-w-[14px] rounded-full bg-primary text-center text-[10px] font-medium leading-[14px] text-white px-0.5">
+        <span className="headkit-badge-cart absolute right-0 top-[10px] z-10 h-[14px] min-w-[14px] rounded-full bg-primary text-center text-[10px] font-medium leading-[14px] text-white px-0.5">
           {count > 99 ? "99+" : count}
         </span>
       )}

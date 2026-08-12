@@ -523,7 +523,7 @@ export function CheckoutPageContent({
   }
 
   return (
-    <div className="min-h-[700px] py-10">
+    <div className="headkit-checkout min-h-[700px] py-10">
       <Suspense fallback={null}>
         <CheckoutErrorHandler onError={setErrorMessage} />
       </Suspense>

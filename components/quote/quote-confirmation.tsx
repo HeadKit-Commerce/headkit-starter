@@ -40,7 +40,7 @@ export function QuoteConfirmation({
   details,
 }: QuoteConfirmationProps): React.ReactElement {
   return (
-    <div className="px-5 pb-10 pt-10 md:px-10 md:pb-12 md:pt-16">
+    <div className="px-5 pb-10 pt-10 md:px-10 md:pt-16">
       <header className="mb-10 max-w-2xl">
         <h1 className="text-3xl font-medium tracking-tight text-brand-fg md:text-4xl">
           Thanks{firstName ? `, ${firstName}` : ""}!

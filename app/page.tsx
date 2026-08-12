@@ -180,7 +180,7 @@ export async function HomeContent() {
           return (
             <section
               key={`wp-html-${index}`}
-              className="hk-section-content px-5 md:px-10 py-10"
+              className="headkit-cms-html hk-section-content px-5 md:px-10 py-10"
             >
               <EditorialContent html={seg.html} />
             </section>
@@ -191,7 +191,7 @@ export async function HomeContent() {
 
       {/* Platform commerce modules (not WP page blocks) */}
       {featuredProducts.length > 0 && (
-        <section className="overflow-x-clip py-10">
+        <section className="headkit-product-carousel overflow-x-clip py-10">
           <SectionHeader
             title="Featured Products"
             description=""
@@ -210,7 +210,7 @@ export async function HomeContent() {
 
       {/* On Sale — skipped when WP already provides a product-on-sale carousel */}
       {showHardcodedSale && (
-        <section className="overflow-x-clip py-10 bg-gray-50">
+        <section className="headkit-product-carousel overflow-x-clip py-10 bg-gray-50">
           <SectionHeader
             title="On Sale"
             description=""

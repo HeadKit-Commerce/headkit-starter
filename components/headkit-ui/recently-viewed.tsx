@@ -77,7 +77,7 @@ export function RecentlyViewed({ currentSlug }: RecentlyViewedProps) {
   if (catalogProducts.length === 0) return null;
 
   return (
-    <section className="py-10">
+    <section className="headkit-recently-viewed py-10">
       <div className="px-5 md:px-10">
         <h2 className="mb-5 text-primary">Recently Viewed</h2>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">

@@ -86,7 +86,7 @@ export function SearchDrawer({ trigger }: SearchDrawerProps) {
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>{trigger ?? defaultTrigger}</SheetTrigger>
 
-      <SheetContent side="top" className="w-full">
+      <SheetContent side="top" className="headkit-search-drawer w-full">
         <SheetTitle className="sr-only">Search products</SheetTitle>
         <SheetDescription className="sr-only">Search products</SheetDescription>
 

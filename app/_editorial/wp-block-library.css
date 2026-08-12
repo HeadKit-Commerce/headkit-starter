@@ -6678,24 +6678,15 @@ html :where(.is-position-sticky) {
    leftover Gutenberg + BlockEditor media sit beside Featured/Categories,
    which use px-5 md:px-10 with no 45rem cap — opt in via .hk-section-content.
 
-   Desktop: constrain leftover prose to 9 of 12 columns (left-aligned),
-   matching the storefront grid used by Callout. Video feature stays full-bleed.
+   Honour WordPress column / layout formatting at full content width (no
+   artificial 9-of-12 column clamp — that broke Contact 50/50 and other
+   WP two-column patterns).
    ========================================================================== */
 .hk-section-content .wp-block-content {
   --hk-content-size: 100%;
   --hk-wide-size: 100%;
   --wp--style--global--content-size: 100%;
   --wp--style--global--wide-size: 100%;
-}
-@media (min-width: 768px) {
-  .hk-section-content:not(.headkit-video-feature-wrap) {
-    display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-  }
-  .hk-section-content:not(.headkit-video-feature-wrap) > * {
-    grid-column: 1 / span 9;
-    min-width: 0;
-  }
 }
 
 /* Product grid: responsive cards, no list bullets. */

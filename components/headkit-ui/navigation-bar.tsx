@@ -275,7 +275,7 @@ function Preheader({
   links?: { label: string; uri: string }[];
 }) {
   return (
-    <div className="flex h-[30px] items-center justify-end sm:justify-between bg-primary px-5 text-sm text-brand-bg md:px-10">
+    <div className="headkit-preheader flex h-[30px] items-center justify-end sm:justify-between bg-primary px-5 text-sm text-brand-bg md:px-10">
       {title ? (
         <div className="hidden sm:block text-brand-bg">
           {decodeHtmlEntities(title)}

@@ -7,7 +7,6 @@ import { ClientCarousel } from "@/components/headkit-ui/client-carousel";
 import { PostCarousel } from "@/components/headkit-ui/post/post-carousel";
 import { ProjectCarousel } from "@/components/headkit-ui/project/project-carousel";
 import { MainCarousel } from "@/components/headkit-ui/main-carousel";
-import { EditorialContent } from "@/components/headkit-ui/editorial-content";
 import { sanitizeContent } from "@/lib/sanitize-content";
 import type { ProcessedEditorBlock } from "@/lib/process-editor-blocks";
 import type {
@@ -21,6 +20,7 @@ import {
   filterCategoriesByNonEmptySlugs,
   getNonEmptyCollectionSlugs,
 } from "@/lib/hide-empty-collections";
+import { resolveCarouselProductsFromHtml } from "@/lib/resolve-carousel-products-from-html";
 
 interface Props {
   blocks: ProcessedEditorBlock[];
@@ -163,7 +163,9 @@ const BlockEditor = async ({
   return (
     <>
       {result?.map((data: ProcessedEditorBlock, index: number) => {
-        if (data.cssClasses.includes("headkit-category-carousel")) {
+        if (
+          data.cssClasses.includes("headkit-category-carousel")
+        ) {
           const rawCategories = data.categories ?? [];
           const categories = nonEmptySlugs
             ? filterCategoriesByNonEmptySlugs(rawCategories, nonEmptySlugs)
@@ -231,36 +233,19 @@ const BlockEditor = async ({
         }
 
         if (data.cssClasses.includes("headkit-product-carousel")) {
-          const products: Product[] = data.products ?? [];
-          // When GraphQL/theme hydration has not attached products yet, fall
-          // back to EditorialContent so WC handpicked markup in the section
-          // HTML can still resolve to storefront ProductCards (CMS pages).
-          if (products.length === 0) {
-            if (!data.html?.trim()) return null;
-            return <EditorialContent key={index} html={data.html} />;
-          }
           const colourwayPins = hydrateColourwayPins(
             data.attrs?.["productColourways"],
           );
           return (
-            <div
-              className="headkit-product-carousel overflow-x-clip py-10"
+            <HeadKitProductCarouselSection
               key={index}
-            >
-              <SectionHeader
-                title={data.title}
-                description={data.description}
-                allButton={data.button?.text ?? ""}
-                allButtonPath={data.button?.url ?? ""}
-                className="px-5 md:px-10"
-              />
-              <div className="mt-8">
-                <ProductCarousel
-                  products={products}
-                  colourwayPins={colourwayPins}
-                />
-              </div>
-            </div>
+              title={data.title}
+              description={data.description}
+              button={data.button}
+              products={data.products ?? []}
+              html={data.html}
+              colourwayPins={colourwayPins}
+            />
           );
         }
 
@@ -270,7 +255,7 @@ const BlockEditor = async ({
           );
           return (
             <div
-              className="headkit-brand-carousel overflow-hidden py-20"
+              className="headkit-brand-carousel overflow-hidden py-10"
               key={index}
             >
               <SectionHeader
@@ -300,13 +285,14 @@ const BlockEditor = async ({
           );
         }
 
+
         if (data.cssClasses.includes("headkit-client-carousel")) {
           const clients = (data.clients ?? []).filter(
             (c) => typeof c.thumbnail === "string" && c.thumbnail.trim() !== "",
           );
           return (
             <div
-              className="headkit-client-carousel overflow-hidden py-20"
+              className="headkit-client-carousel overflow-hidden py-10"
               key={index}
             >
               <SectionHeader
@@ -370,7 +356,7 @@ const BlockEditor = async ({
           if (projects.length === 0) return null;
           return (
             <div
-              className="headkit-project-carousel overflow-hidden py-20"
+              className="headkit-project-carousel overflow-hidden py-10"
               key={index}
             >
               <SectionHeader
@@ -414,6 +400,55 @@ interface CalloutProps {
 }
 
 /**
+ * Homepage-matching product carousel shell. When GraphQL/theme hydration has
+ * not attached products yet, resolve slugs from WC handpicked markup in the
+ * section HTML — always SectionHeader + ProductCarousel (never a static grid).
+ */
+async function HeadKitProductCarouselSection({
+  title,
+  description,
+  button,
+  products: hydratedProducts,
+  html,
+  colourwayPins,
+}: {
+  title: string;
+  description: string;
+  button?: { text?: string | null; url?: string | null } | null | undefined;
+  products: Product[];
+  html?: string | null | undefined;
+  colourwayPins?: Record<string, string> | undefined;
+}): Promise<React.JSX.Element | null> {
+  let products = hydratedProducts;
+  let pins = colourwayPins;
+
+  if (products.length === 0 && html?.trim()) {
+    const resolved = await resolveCarouselProductsFromHtml(html);
+    products = resolved.products;
+    if (!pins || Object.keys(pins).length === 0) {
+      pins = resolved.colourwayPins;
+    }
+  }
+
+  if (products.length === 0) return null;
+
+  return (
+    <div className="headkit-product-carousel overflow-x-clip py-10">
+      <SectionHeader
+        title={title}
+        description={description}
+        allButton={button?.text ?? ""}
+        allButtonPath={button?.url ?? ""}
+        className="px-5 md:px-10"
+      />
+      <div className="mt-8">
+        <ProductCarousel products={products} colourwayPins={pins} />
+      </div>
+    </div>
+  );
+}
+
+/**
  * Media / raw HTML block — sanitize must be awaited (and runs under
  * `"use cache"`), so this is a child async Server Component rather than
  * work inside the sync `.map` callback.
@@ -429,13 +464,23 @@ async function SanitizedMediaHtml({
   if (!clean.trim()) return null;
 
   const isVideoFeature = cssClasses.includes("headkit-video-feature");
+  const isGallery = cssClasses.includes("headkit-gallery");
+  const isEmbed = cssClasses.includes("headkit-embed");
+
+  const mediaHook = isVideoFeature
+    ? "headkit-video-feature-wrap"
+    : isGallery
+      ? "headkit-gallery"
+      : isEmbed
+        ? "headkit-embed"
+        : "headkit-media";
 
   return (
     <div
       className={
         isVideoFeature
-          ? "hk-section-content headkit-video-feature-wrap overflow-hidden"
-          : "hk-section-content px-5 md:px-10 py-10 overflow-hidden"
+          ? `hk-section-content ${mediaHook} overflow-hidden`
+          : `hk-section-content ${mediaHook} px-5 md:px-10 py-10 overflow-hidden`
       }
     >
       <div
@@ -452,7 +497,7 @@ async function SanitizedMediaHtml({
  */
 const Callout = ({ title, content, buttons }: CalloutProps) => {
   return (
-    <div className="px-5 py-10 md:px-10">
+    <div className="headkit-callout-section px-5 py-10 md:px-10">
       <div className="headkit-callout rounded-brand border border-gray-200 px-6 py-10 md:px-10 md:py-14">
         <div className="grid grid-cols-1 md:grid-cols-12">
           <div className="flex flex-col gap-6 md:col-span-6 md:col-start-4">

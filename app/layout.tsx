@@ -241,7 +241,7 @@ export default async function RootLayout({
                   <CartProvider>
                     <LazyCartDrawer />
                     <NavigationWrapper />
-                    <main>{children}</main>
+                    <main className="headkit-main pb-10">{children}</main>
                     <Footer
                       siteName={siteName}
                       description={siteDescription}

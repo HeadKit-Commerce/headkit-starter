@@ -31,7 +31,7 @@ export const MainCarousel = ({ carouselItems }: Props) => {
   if (items.length === 0) return null;
 
   return (
-    <div className="overflow-hidden mx-5">
+    <div className="headkit-hero-carousel overflow-hidden mx-5">
       <Carousel
         items={items}
         renderItem={(carousel, index) => {
