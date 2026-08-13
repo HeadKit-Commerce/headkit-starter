@@ -1,6 +1,10 @@
 import Image from "next/image";
 import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { CATALOG_GRID_IMAGE_SIZES } from "@/components/headkit-ui/catalog-grid";
+import {
+  DEFAULT_POSTS_BASE_PATH,
+  resolvePostHref,
+} from "@/lib/posts-path";
 import { cn, decodeHtmlEntities } from "@/lib/utils";
 import type { PostSummaryFieldsFragment } from "@headkit/sdk";
 
@@ -10,6 +14,8 @@ interface PostCardProps {
   /** Mark early-grid images as LCP candidates. */
   priority?: boolean;
   className?: string;
+  /** WP Posts-page slug when `post.uri` is missing. */
+  postsBasePath?: string;
 }
 
 export function PostCard({
@@ -17,8 +23,9 @@ export function PostCard({
   textStyle = "dark",
   priority = false,
   className,
+  postsBasePath = DEFAULT_POSTS_BASE_PATH,
 }: PostCardProps) {
-  const href = post.uri ?? `/news/${post.slug}/`;
+  const href = resolvePostHref(post.uri ?? post.slug ?? "", postsBasePath);
 
   // Hide WordPress's default "Uncategorized" bucket — it is noise, not a
   // real editorial category (F10).

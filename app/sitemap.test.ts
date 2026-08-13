@@ -49,7 +49,10 @@ vi.mock("@/lib/sdk", () => ({
       getFilters: (): Promise<unknown> => Promise.resolve({ attributes: [] }),
     },
     brands: { list: (): Promise<unknown> => Promise.resolve({ brands: [] }) },
-    posts: { list: (): Promise<unknown> => Promise.resolve({ posts: [] }) },
+    posts: {
+      list: (): Promise<unknown> => Promise.resolve({ posts: [] }),
+      getLanding: (): Promise<null> => Promise.resolve(null),
+    },
     projects: {
       list: (): Promise<unknown> => Promise.resolve({ projects: [] }),
     },
@@ -111,7 +114,8 @@ describe("sitemap Cache Components contract", () => {
     await sitemap();
 
     expect(cacheLife).toHaveBeenCalledWith("days");
-    expect(cacheLife).not.toHaveBeenCalledWith("hours");
+    // Nested getPostsBasePath also uses cacheLife("hours") — the assembled
+    // sitemap entry itself must stay on "days".
     expect(cacheLife).not.toHaveBeenCalledWith("max");
     expect(cacheTag).toHaveBeenCalledWith(
       "headkit:products",

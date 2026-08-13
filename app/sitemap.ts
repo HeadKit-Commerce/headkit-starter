@@ -10,6 +10,7 @@ import {
   DEFAULT_FILTER_VALUES,
 } from "@/components/headkit-ui/collection/utils";
 import { shopSegmentsFromPath, uriToRelativePath } from "./shop/shop-slug";
+import { getPostsBasePath, postsIndexPath } from "@/lib/posts-base-path";
 
 type SitemapItem = MetadataRoute.Sitemap[number];
 
@@ -247,11 +248,15 @@ async function makeBrandSitemap(siteUrl: string): Promise<SitemapItem[]> {
   }
 }
 
-async function makePostSitemap(siteUrl: string): Promise<SitemapItem[]> {
+async function makePostSitemap(
+  siteUrl: string,
+  postsBase: string,
+): Promise<SitemapItem[]> {
   try {
     const result = await headkit.posts.list({ perPage: 200 });
+    const index = postsIndexPath(postsBase);
     return result.posts.map((p) => ({
-      url: `${siteUrl}/news/${p.slug}`,
+      url: `${siteUrl}${index}/${p.slug}`,
       lastModified: p.date ? new Date(p.date) : new Date(),
       changeFrequency: "weekly" as const,
       priority: 0.8,
@@ -306,23 +311,27 @@ async function buildCachedSitemap(): Promise<MetadataRoute.Sitemap> {
     return [];
   }
 
+  const postsBasePromise = getPostsBasePath();
   const [
     productSitemap,
     collectionSitemap,
     brandSitemap,
-    postSitemap,
+    postsBase,
     projectSitemap,
+    postSitemap,
   ] = await Promise.all([
     makeProductSitemap(siteUrl),
     makeCollectionSitemap(siteUrl),
     makeBrandSitemap(siteUrl),
-    makePostSitemap(siteUrl),
+    postsBasePromise,
     makeProjectSitemap(siteUrl),
+    postsBasePromise.then((base) => makePostSitemap(siteUrl, base)),
   ]);
 
   // lastModified is stamped when the cache entry is filled — not per request —
   // so crawlers see a stable document until the next tag invalidation.
   const builtAt = new Date();
+  const postsIndex = postsIndexPath(postsBase);
 
   const staticPages: SitemapItem[] = [
     {
@@ -344,7 +353,7 @@ async function buildCachedSitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     },
     {
-      url: `${siteUrl}/news`,
+      url: `${siteUrl}${postsIndex}`,
       lastModified: builtAt,
       changeFrequency: "daily",
       priority: 0.7,

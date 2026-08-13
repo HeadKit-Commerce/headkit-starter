@@ -4,8 +4,8 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
-import { EditorialContent } from "@/components/headkit-ui/editorial-content";
 import { FeaturedImageHeader } from "@/components/headkit-ui/post/featured-image-header";
+import { PostBody } from "@/components/headkit-ui/post/post-body";
 import { PostCarousel } from "@/components/headkit-ui/post/post-carousel";
 import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { ArticleJsonLD } from "@/components/seo/article-json-ld";
@@ -14,6 +14,11 @@ import { CarouselPostJsonLD } from "@/components/seo/carousel-post-json-ld";
 import { Skeleton } from "@/components/ui/skeleton";
 import { makeSeoMetadata, resolveStoreName } from "@/lib/make-metadata";
 import { getBranding, getBrandingAssets } from "@/lib/branding";
+import {
+  getPostsBasePath,
+  postsArticlePath,
+  postsIndexPath,
+} from "@/lib/posts-base-path";
 
 interface Props {
   params: Promise<{ slug: string[] }>;
@@ -50,13 +55,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const postSlug = slug[slug.length - 1];
   if (!postSlug) return {};
   try {
-    const [post, { seoSettings, storeSettings }, { iconUrl }] =
+    const [post, { seoSettings, storeSettings }, { iconUrl }, postsBase] =
       await Promise.all([
         getPost(postSlug),
         getBranding(),
         getBrandingAssets(),
+        getPostsBasePath(),
       ]);
     if (!post) return {};
+    const siteUrl = (process.env.NEXT_PUBLIC_FRONTEND_URL ?? "").replace(
+      /\/$/,
+      "",
+    );
+    const path = postsArticlePath(postsBase, postSlug);
     return makeSeoMetadata(post.seo, {
       title: post.title,
       ...(post.excerpt ? { description: post.excerpt } : {}),
@@ -64,6 +75,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       dashboardOgImageUrl: seoSettings.ogImageUrl ?? undefined,
       brandingIconUrl: iconUrl ?? undefined,
       allowIndexing: seoSettings.allowIndexing,
+      ...(siteUrl ? { canonical: `${siteUrl}${path}` } : {}),
     });
   } catch {
     return {};
@@ -90,19 +102,28 @@ async function NewsArticleContent({ params }: Props): Promise<ReactNode> {
   if (!postSlug) return notFound();
 
   try {
-    const [post, { storeSettings }] = await Promise.all([
+    const [post, { storeSettings }, postsBase, landing] = await Promise.all([
       getPost(postSlug),
       getBranding(),
+      getPostsBasePath(),
+      sdk.posts.getLanding().catch(() => null),
     ]);
     if (!post) return notFound();
 
     const related = post.relatedPosts ?? [];
     const siteName = resolveStoreName(storeSettings.name);
+    const indexPath = postsIndexPath(postsBase);
+    const articlePath = postsArticlePath(postsBase, postSlug);
+    const postsLabel = landing?.title?.trim() || "News";
+    const siteUrl = (process.env.NEXT_PUBLIC_FRONTEND_URL ?? "").replace(
+      /\/$/,
+      "",
+    );
 
     const breadcrumbs = [
       { name: "Home", href: "/" },
-      { name: "News", href: "/news" },
-      { name: post.title, href: `/news/${postSlug}` },
+      { name: postsLabel, href: indexPath },
+      { name: post.title, href: articlePath },
     ];
 
     return (
@@ -113,7 +134,7 @@ async function NewsArticleContent({ params }: Props): Promise<ReactNode> {
           datePublished={post.date ?? undefined}
           dateModified={post.modified ?? undefined}
           image={post.featuredImage?.src}
-          url={`${(process.env.NEXT_PUBLIC_FRONTEND_URL ?? "").replace(/\/$/, "")}/news/${postSlug}`}
+          url={`${siteUrl}${articlePath}`}
         />
         <BreadcrumbJsonLD items={breadcrumbs} />
         {related.length > 0 && <CarouselPostJsonLD posts={related} />}
@@ -124,23 +145,21 @@ async function NewsArticleContent({ params }: Props): Promise<ReactNode> {
             image={post.featuredImage?.src ?? null}
           />
 
-          {/* Full-width symmetric wrapper: EditorialContent centers its own
-              blocks; .alignwide/.alignfull break out from viewport centre. */}
-          <div className="my-[40px] px-[20px] md:px-[40px]">
-            <EditorialContent html={post.content} />
-          </div>
+          {/* HeadKit sections (callouts, etc.) hydrate via PostBody; leftover
+              HTML keeps EditorialContent so .alignwide/.alignfull still work. */}
+          <PostBody html={post.content ?? ""} />
 
           {related.length > 0 && (
             <div className="overflow-hidden py-[30px] lg:pt-[60px] lg:pb-[30px]">
               <SectionHeader
-                title="Latest News"
+                title={`Latest ${postsLabel}`}
                 description="Get the latest news and updates from our blog."
                 allButton="View All"
-                allButtonPath="/news"
+                allButtonPath={indexPath}
                 className="px-5 md:px-10"
               />
               <div className="mt-5">
-                <PostCarousel posts={related} />
+                <PostCarousel posts={related} postsBasePath={postsBase} />
               </div>
             </div>
           )}

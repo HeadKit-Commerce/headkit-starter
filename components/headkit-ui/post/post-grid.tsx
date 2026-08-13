@@ -1,12 +1,18 @@
 import type { PostSummaryFieldsFragment } from "@headkit/sdk";
 import { CATALOG_GRID_CLASS } from "@/components/headkit-ui/catalog-grid";
+import { DEFAULT_POSTS_BASE_PATH } from "@/lib/posts-path";
 import { PostCard } from "./post-card";
 
 interface PostGridProps {
   posts: PostSummaryFieldsFragment[];
+  /** Public posts base path (WP Posts page slug). */
+  postsBasePath?: string;
 }
 
-export function PostGrid({ posts }: PostGridProps) {
+export function PostGrid({
+  posts,
+  postsBasePath = DEFAULT_POSTS_BASE_PATH,
+}: PostGridProps) {
   if (!posts.length) {
     return (
       <div className="flex flex-col items-center justify-center px-5 py-20 text-center md:px-10">
@@ -25,6 +31,7 @@ export function PostGrid({ posts }: PostGridProps) {
           <PostCard
             key={post.id}
             post={post}
+            postsBasePath={postsBasePath}
             priority={index < 2}
             {...(index >= 4
               ? {

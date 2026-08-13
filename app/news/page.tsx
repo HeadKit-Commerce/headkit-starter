@@ -9,6 +9,7 @@ import { CarouselPostJsonLD } from "@/components/seo/carousel-post-json-ld";
 import { makeSeoMetadata } from "@/lib/make-metadata";
 import { getBranding } from "@/lib/branding";
 import { TAG } from "@/lib/cache-tags";
+import { getPostsBasePath, postsIndexPath } from "@/lib/posts-base-path";
 
 const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 const FALLBACK_TITLE = "News";
@@ -24,24 +25,28 @@ async function getNewsLanding() {
   return sdk.posts.getLanding().catch(() => null);
 }
 
+function canonicalForPostsBase(base: string): string {
+  const path = postsIndexPath(base);
+  return SITE_URL ? `${SITE_URL.replace(/\/$/, "")}${path}` : path;
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   try {
-    const [page, { seoSettings, storeSettings }] = await Promise.all([
-      getNewsLanding(),
-      getBranding(),
-    ]);
+    const [page, { seoSettings, storeSettings }, postsBase] = await Promise.all(
+      [getNewsLanding(), getBranding(), getPostsBasePath()],
+    );
     return makeSeoMetadata(page?.seo ?? null, {
       title: page?.title?.trim() || FALLBACK_TITLE,
       description: page?.seo?.metaDesc?.trim() || FALLBACK_DESCRIPTION,
       storeName: storeSettings.name ?? undefined,
       allowIndexing: seoSettings.allowIndexing,
-      canonical: SITE_URL ? `${SITE_URL.replace(/\/$/, "")}/news` : "/news",
+      canonical: canonicalForPostsBase(postsBase),
     });
   } catch {
     return makeSeoMetadata(null, {
       title: FALLBACK_TITLE,
       description: FALLBACK_DESCRIPTION,
-      canonical: SITE_URL ? `${SITE_URL.replace(/\/$/, "")}/news` : "/news",
+      canonical: canonicalForPostsBase("news"),
     });
   }
 }
@@ -74,8 +79,10 @@ async function getPostsPage(category: string, page: number) {
 
 async function PostsServer({
   searchParams,
+  postsBasePath,
 }: {
   searchParams: Promise<Record<string, string>>;
+  postsBasePath: string;
 }) {
   const sp = await searchParams;
   const activeCategory = sp.category ?? "";
@@ -101,6 +108,7 @@ async function PostsServer({
         initialPosts={postsResult.posts}
         postFilters={postFilters}
         activeCategory={activeCategory}
+        postsBasePath={postsBasePath}
       />
     </>
   );
@@ -135,9 +143,13 @@ export default function Page({ searchParams }: Props) {
 }
 
 async function NewsRoute({ searchParams }: Props) {
-  const page = await getNewsLanding();
+  const [page, postsBase] = await Promise.all([
+    getNewsLanding(),
+    getPostsBasePath(),
+  ]);
   const title = page?.title?.trim() || FALLBACK_TITLE;
   const content = page?.content?.trim();
+  const indexPath = postsIndexPath(postsBase);
 
   return (
     <>
@@ -146,11 +158,14 @@ async function NewsRoute({ searchParams }: Props) {
         {...(content ? { content } : { description: FALLBACK_DESCRIPTION })}
         breadcrumbs={[
           { name: "Home", uri: "/", current: false },
-          { name: title, uri: "/news", current: true },
+          { name: title, uri: indexPath, current: true },
         ]}
       />
       <Suspense fallback={<EditorialGridSkeleton aspect="video" />}>
-        <PostsServer searchParams={searchParams} />
+        <PostsServer
+          searchParams={searchParams}
+          postsBasePath={postsBase}
+        />
       </Suspense>
     </>
   );

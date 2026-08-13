@@ -77,6 +77,8 @@ function toPostSummaries(
     slug: post.slug,
     excerpt: post.excerpt ?? "",
     date: post.date ?? "",
+    // Prefer WordPress `uri` (Posts-page slug). Fallback keeps listings working
+    // before theme ≥0.4.49 ships dynamic base paths.
     uri: post.uri ?? `/news/${post.slug}/`,
     featuredImage: post.featuredImage?.src
       ? {

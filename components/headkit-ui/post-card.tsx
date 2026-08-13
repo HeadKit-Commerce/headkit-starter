@@ -1,17 +1,30 @@
 import Image from "next/image";
 import { InstantLink } from "@/components/headkit-ui/instant-link";
+import {
+  DEFAULT_POSTS_BASE_PATH,
+  resolvePostHref,
+} from "@/lib/posts-path";
 import { decodeHtmlEntities } from "@/lib/utils";
 
 interface Props {
   title: string;
   image: string;
+  /** Storefront-relative URI (`/insights/…`) or bare post slug. */
   uri: string;
+  /** WP Posts-page slug when `uri` is a bare slug. */
+  postsBasePath?: string;
 }
 
-const PostCard = ({ title, image, uri }: Props) => {
+const PostCard = ({
+  title,
+  image,
+  uri,
+  postsBasePath = DEFAULT_POSTS_BASE_PATH,
+}: Props) => {
   const decodedTitle = decodeHtmlEntities(title);
+  const href = resolvePostHref(uri, postsBasePath);
   return (
-    <InstantLink href={`/news/${uri}`} className="block group">
+    <InstantLink href={href} className="block group">
       <div className="relative aspect-video w-full overflow-hidden rounded-brand bg-gray-100">
         {image && (
           <Image

@@ -2,6 +2,7 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import type { PostSummaryFieldsFragment, PostFilters } from "@headkit/sdk";
+import { DEFAULT_POSTS_BASE_PATH } from "@/lib/posts-path";
 import { decodeHtmlEntities } from "@/lib/utils";
 import { PostGrid } from "./post-grid";
 
@@ -9,12 +10,15 @@ interface PostPageProps {
   initialPosts: PostSummaryFieldsFragment[];
   postFilters?: PostFilters;
   activeCategory?: string;
+  /** Public posts base path (WP Posts page slug). */
+  postsBasePath?: string;
 }
 
 export function PostPage({
   initialPosts,
   postFilters,
   activeCategory = "",
+  postsBasePath = DEFAULT_POSTS_BASE_PATH,
 }: PostPageProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -65,7 +69,7 @@ export function PostPage({
         </div>
       )}
       {/* Server already applied `?category=` — do not re-slice the first page. */}
-      <PostGrid posts={initialPosts} />
+      <PostGrid posts={initialPosts} postsBasePath={postsBasePath} />
     </div>
   );
 }

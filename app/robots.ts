@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { getBranding } from "@/lib/branding";
 import { env } from "@/lib/env";
 import { isIndexableHost } from "@/lib/host-indexing";
+import { getPostsBasePath, postsIndexPath } from "@/lib/posts-base-path";
 import { resolveSiteUrl } from "@/lib/site-url";
 
 /**
@@ -79,6 +80,15 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     return disallowEverything(host || undefined);
   }
 
+  // Allow the store's Posts-page slug (e.g. /insights/*) plus legacy /news/*
+  // so crawlers stay green during/after the base-path rewrite.
+  const postsBase = await getPostsBasePath().catch(() => "news");
+  const postsAllow = postsIndexPath(postsBase);
+  const postAllows =
+    postsAllow === "/news"
+      ? ["/news/*"]
+      : [`${postsAllow}/*`, "/news/*"];
+
   return {
     rules: [
       {
@@ -87,7 +97,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
           "/",
           "/shop/*",
           "/brand/*",
-          "/news/*",
+          ...postAllows,
           "/projects/*",
           "/collections/*",
         ],

@@ -66,8 +66,10 @@ export async function getPageData(
 }
 
 /**
- * WordPress Reading → Posts page slug (e.g. "insights"). Nav often links here;
- * the storefront post collection lives at `/news`. Redirect so posts show.
+ * WordPress Reading → Posts page slug (e.g. "insights"). Nav often links here.
+ * `proxy.ts` rewrites that slug onto the internal `/news` tree; this redirect
+ * is a safety net when the proxy rewrite is skipped (base === news, or fetch
+ * failure) and someone still hits the CMS catch-all for the Posts page.
  */
 async function getPostsLandingSlug(): Promise<string | null> {
   "use cache";
@@ -146,7 +148,8 @@ async function CmsRoute({ params }: Props) {
   const contentSlug = slug.join("/");
 
   // Posts page may use any WP slug (Insights, Blog, …). That page alone has no
-  // post grid — send visitors to the /news collection (ENG-558).
+  // post grid. `proxy.ts` normally rewrites the slug onto `/news` before this
+  // catch-all runs; if that rewrite is skipped, send visitors to /news (ENG-558).
   const postsLandingSlug = await getPostsLandingSlug();
   if (
     postsLandingSlug &&
