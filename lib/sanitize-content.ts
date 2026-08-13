@@ -14,15 +14,16 @@ const ALLOWED_IFRAME_HOSTS: readonly string[] = [
 
 /**
  * Length values safe for editorial spacing / sizing.
- * Allows WP spacing presets, px/em/rem/%, and 0 — rejects vw/vh/vmin/vmax so
- * editor padding cannot break the starter full-bleed / padded column grid.
+ * Allows WP spacing presets, px/em/rem/%, auto/none/unset/0 — rejects vw/vh
+ * so editor padding cannot break the starter full-bleed / padded column grid.
+ * `unset` is required when WP pairs aspect-ratio with height/min-height:unset.
  */
 const SAFE_CSS_LENGTH =
-  /^(?:auto|none|var\(--wp--preset--(?:spacing|font-size)--[a-z0-9-]+\)|-?\d*\.?\d+(?:px|em|rem|%)?|0)$/i;
+  /^(?:auto|none|unset|var\(--wp--preset--(?:spacing|font-size)--[a-z0-9-]+\)|-?\d*\.?\d+(?:px|em|rem|%)?|0)$/i;
 
 /** Multi-value margin/padding/gap shorthands (1–4 SAFE_CSS_LENGTH tokens). */
 const SAFE_CSS_LENGTH_LIST =
-  /^(?:auto|none|var\(--wp--preset--(?:spacing|font-size)--[a-z0-9-]+\)|-?\d*\.?\d+(?:px|em|rem|%)?|0)(?:\s+(?:auto|none|var\(--wp--preset--(?:spacing|font-size)--[a-z0-9-]+\)|-?\d*\.?\d+(?:px|em|rem|%)?|0)){0,3}$/i;
+  /^(?:auto|none|unset|var\(--wp--preset--(?:spacing|font-size)--[a-z0-9-]+\)|-?\d*\.?\d+(?:px|em|rem|%)?|0)(?:\s+(?:auto|none|unset|var\(--wp--preset--(?:spacing|font-size)--[a-z0-9-]+\)|-?\d*\.?\d+(?:px|em|rem|%)?|0)){0,3}$/i;
 
 /** Border width: length or thin/medium/thick. */
 const SAFE_BORDER_WIDTH =
@@ -30,6 +31,16 @@ const SAFE_BORDER_WIDTH =
 
 /** Border style keywords only (no url()/expression()). */
 const SAFE_BORDER_STYLE = /^(?:none|hidden|solid|dashed|dotted|double)$/i;
+
+/**
+ * CSS aspect-ratio values from WP Dimensions (Image/Cover).
+ * Numeric (`1`, `16/9`, `16 / 9`), keywords, or a theme preset var.
+ */
+const SAFE_ASPECT_RATIO =
+  /^(?:auto|unset|inherit|[\d.]+(?:\s*\/\s*[\d.]+)?|var\(--wp--preset--aspect-ratio--[a-z0-9-]+\))$/i;
+
+/** object-fit keywords WP emits with cropped aspect-ratio images. */
+const SAFE_OBJECT_FIT = /^(?:contain|cover|fill|none|scale-down)$/i;
 
 /**
  * XSS allowlist for untrusted WordPress `content.rendered` HTML.
@@ -54,6 +65,8 @@ const SAFE_BORDER_STYLE = /^(?:none|hidden|solid|dashed|dotted|double)$/i;
  * - Border width + style are allowlisted; border-color and border-radius are
  *   intentionally omitted — editorial CSS paints those from dashboard branding
  *   (`--color-primary`, `--radius`).
+ * - Image/Cover aspect ratio (`aspect-ratio` + `object-fit`) is allowlisted so
+ *   theme.json `dimensions.aspectRatio` reaches the storefront.
  *
  * Cached (`"use cache"`) so sanitize-html → postcss → nanoid's Math.random() is
  * stable under Cache Components prerender (same dirty input → same clean HTML).
@@ -179,6 +192,9 @@ export async function sanitizeContent(dirty: string): Promise<string> {
         "border-right-style": [SAFE_BORDER_STYLE],
         "border-bottom-style": [SAFE_BORDER_STYLE],
         "border-left-style": [SAFE_BORDER_STYLE],
+        // Image/Cover Dimensions → Aspect ratio (theme.json dimensions.aspectRatio).
+        "aspect-ratio": [SAFE_ASPECT_RATIO],
+        "object-fit": [SAFE_OBJECT_FIT],
       },
     },
     disallowedTagsMode: "discard",

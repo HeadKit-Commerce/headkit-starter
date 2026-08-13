@@ -6836,11 +6836,12 @@ html :where(.is-position-sticky) {
   margin-bottom: 1.75em;
   /* Space between adjacent columns (and stacked rows on mobile). */
   gap: 40px;
-  /* Vendored core sets `align-items: initial !important` (stretch). That leaves
-     short copy (e.g. “Call …”) looking bottom-heavy next to button rows.
-     Default to middle align; honour explicit WP vertical-alignment classes. */
-  align-items: center !important;
+  /* Do NOT force align-items here. Core uses `align-items: initial` (stretch);
+     editor vertical alignment is `are-vertically-aligned-*` on the row and/or
+     `is-vertically-aligned-*` on each column. A prior center default fought both. */
 }
+/* Row-level vertical alignment — !important beats core's `align-items: initial
+   !important` (same as editor). */
 .wp-block-content .wp-block-columns.are-vertically-aligned-top {
   align-items: flex-start !important;
 }
@@ -6850,11 +6851,42 @@ html :where(.is-position-sticky) {
 .wp-block-content .wp-block-columns.are-vertically-aligned-bottom {
   align-items: flex-end !important;
 }
+/* Per-column vertical alignment when columns differ. */
+.wp-block-content .wp-block-column.is-vertically-aligned-top {
+  align-self: flex-start;
+}
+.wp-block-content .wp-block-column.is-vertically-aligned-center {
+  align-self: center;
+}
+.wp-block-content .wp-block-column.is-vertically-aligned-bottom {
+  align-self: flex-end;
+}
+.wp-block-content .wp-block-column.is-vertically-aligned-stretch {
+  align-self: stretch;
+}
 
 /* A column with an explicit width (flex-basis) must respect it rather than grow
    to equal width — WP gates this on the [style*=flex-basis] selector. */
 .wp-block-content .wp-block-column[style*="flex-basis"] {
   flex-grow: 0;
+}
+
+/* Image Dimensions → Aspect ratio. WP puts `aspect-ratio` (+ often height/min-
+   height:unset) on the figure and `object-fit:cover` on the img. Fill the ratio
+   box so crop matches the editor (core `img { height: auto }` alone does not). */
+.wp-block-content .wp-block-image:where([style*="aspect-ratio"]) {
+  position: relative;
+  overflow: hidden;
+}
+.wp-block-content .wp-block-image:where([style*="aspect-ratio"]) > img,
+.wp-block-content .wp-block-image:where([style*="aspect-ratio"]) > a > img,
+.wp-block-content
+  .wp-block-image:where([style*="aspect-ratio"])
+  > figure
+  > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 /* ==========================================================================

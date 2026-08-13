@@ -107,4 +107,23 @@ describe("sanitizeContent (R6 XSS allowlist)", () => {
     expect(cleaned).not.toMatch(/style="[^"]*border-radius/);
     expect(cleaned).not.toContain("99px");
   });
+
+  it("keeps image aspect-ratio and object-fit (WP Dimensions)", async () => {
+    const html =
+      '<figure class="wp-block-image" style="aspect-ratio:16/9;height:unset;min-height:unset"><img src="https://example.com/a.jpg" alt="" style="object-fit:cover;width:100%;height:100%" /></figure>';
+    const cleaned = await sanitizeContent(html);
+    expect(cleaned).toContain("aspect-ratio:16/9");
+    expect(cleaned).toContain("height:unset");
+    expect(cleaned).toContain("min-height:unset");
+    expect(cleaned).toContain("object-fit:cover");
+  });
+
+  it("keeps spaced aspect-ratio values and preset vars", async () => {
+    const html =
+      '<figure class="wp-block-image" style="aspect-ratio:16 / 9"><img src="https://example.com/a.jpg" alt="" /></figure>' +
+      '<figure class="wp-block-image" style="aspect-ratio:var(--wp--preset--aspect-ratio--square)"><img src="https://example.com/b.jpg" alt="" /></figure>';
+    const cleaned = await sanitizeContent(html);
+    expect(cleaned).toContain("aspect-ratio:16 / 9");
+    expect(cleaned).toContain("var(--wp--preset--aspect-ratio--square)");
+  });
 });
