@@ -27,7 +27,5 @@ export async function getPostsBasePath(): Promise<string> {
   cacheLife("hours");
   cacheTag(TAG.posts, TAG.pages);
   const landing = await sdk.posts.getLanding().catch(() => null);
-  return (
-    normalizePostsBasePath(landing?.slug) ?? DEFAULT_POSTS_BASE_PATH
-  );
+  return normalizePostsBasePath(landing?.slug) ?? DEFAULT_POSTS_BASE_PATH;
 }

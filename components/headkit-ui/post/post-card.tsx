@@ -1,10 +1,7 @@
 import Image from "next/image";
 import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { CATALOG_GRID_IMAGE_SIZES } from "@/components/headkit-ui/catalog-grid";
-import {
-  DEFAULT_POSTS_BASE_PATH,
-  resolvePostHref,
-} from "@/lib/posts-path";
+import { DEFAULT_POSTS_BASE_PATH, resolvePostHref } from "@/lib/posts-path";
 import { cn, decodeHtmlEntities } from "@/lib/utils";
 import type { PostSummaryFieldsFragment } from "@headkit/sdk";
 

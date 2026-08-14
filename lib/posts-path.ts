@@ -33,7 +33,10 @@ export function normalizePostsBasePath(
   raw: string | null | undefined,
 ): string | null {
   if (!raw) return null;
-  const slug = raw.trim().replace(/^\/+|\/+$/g, "").toLowerCase();
+  const slug = raw
+    .trim()
+    .replace(/^\/+|\/+$/g, "")
+    .toLowerCase();
   if (!slug || slug.includes("/") || slug.includes("..")) return null;
   if (RESERVED_POSTS_BASE.has(slug)) return null;
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return null;
@@ -42,8 +45,7 @@ export function normalizePostsBasePath(
 
 /** Listing href for the storefront blog (`/news` or `/insights`, …). */
 export function postsIndexPath(base: string): string {
-  const segment =
-    normalizePostsBasePath(base) ?? DEFAULT_POSTS_BASE_PATH;
+  const segment = normalizePostsBasePath(base) ?? DEFAULT_POSTS_BASE_PATH;
   return `/${segment}`;
 }
 

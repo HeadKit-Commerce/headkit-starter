@@ -146,7 +146,9 @@ describe("/api/revalidate (CACHE-02)", () => {
         post({ secret: SECRET, tags: ["headkit:products"] }),
       );
       expect(res.status).toBe(200);
-      expect(revalidateTag).toHaveBeenCalledWith("headkit:products", { expire: 0 });
+      expect(revalidateTag).toHaveBeenCalledWith("headkit:products", {
+        expire: 0,
+      });
     });
 
     it("valid HMAC header → 200", async () => {
@@ -162,7 +164,9 @@ describe("/api/revalidate (CACHE-02)", () => {
         }),
       );
       expect(res.status).toBe(200);
-      expect(revalidateTag).toHaveBeenCalledWith("headkit:products", { expire: 0 });
+      expect(revalidateTag).toHaveBeenCalledWith("headkit:products", {
+        expire: 0,
+      });
     });
 
     it("wrong legacy secret → 401", async () => {

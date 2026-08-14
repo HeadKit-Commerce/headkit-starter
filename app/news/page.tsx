@@ -162,10 +162,7 @@ async function NewsRoute({ searchParams }: Props) {
         ]}
       />
       <Suspense fallback={<EditorialGridSkeleton aspect="video" />}>
-        <PostsServer
-          searchParams={searchParams}
-          postsBasePath={postsBase}
-        />
+        <PostsServer searchParams={searchParams} postsBasePath={postsBase} />
       </Suspense>
     </>
   );

@@ -2,11 +2,7 @@ import type { Metadata } from "next";
 import { cacheLife, cacheTag } from "next/cache";
 import { TAG } from "@/lib/cache-tags";
 import { headkit } from "@/lib/sdk";
-import type {
-  Product,
-  HeroCarouselItem,
-  FeaturedCategory,
-} from "@headkit/sdk";
+import type { Product, HeroCarouselItem, FeaturedCategory } from "@headkit/sdk";
 import {
   processHomepageContent,
   getBlockQueryType,
@@ -242,7 +238,6 @@ export async function HomeContent() {
           </div>
         </section>
       )}
-
     </>
   );
 }

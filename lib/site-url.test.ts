@@ -38,9 +38,9 @@ describe("resolveSiteUrl", () => {
   });
 
   it("falls back to the frontend env url when store domain is unset", () => {
-    expect(
-      resolveSiteUrl(null, "https://paralel-furniture.headkit.app"),
-    ).toBe("https://paralel-furniture.headkit.app");
+    expect(resolveSiteUrl(null, "https://paralel-furniture.headkit.app")).toBe(
+      "https://paralel-furniture.headkit.app",
+    );
   });
 
   it("returns empty when neither source is usable", () => {

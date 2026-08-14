@@ -4,10 +4,7 @@ import crypto from "node:crypto";
 import { env } from "@/lib/env";
 import { bridgeTags, isKnownTag } from "@/lib/cache-tags";
 import { getBranding } from "@/lib/branding";
-import {
-  isIndexNowProductionHost,
-  submitIndexNow,
-} from "@/lib/indexnow";
+import { isIndexNowProductionHost, submitIndexNow } from "@/lib/indexnow";
 import { logger } from "@/lib/logger";
 import { resolveSiteUrl } from "@/lib/site-url";
 

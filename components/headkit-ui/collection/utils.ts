@@ -211,9 +211,9 @@ export function buildProductListFilter(
     TITLE_DESC: { orderby: "title", order: "desc" },
   };
 
-  const effectiveSort = (filterValues.sort ||
-    options.defaultSort ||
-    "") as SortKeyType | "";
+  const effectiveSort = (filterValues.sort || options.defaultSort || "") as
+    | SortKeyType
+    | "";
   if (effectiveSort && effectiveSort in sortMap) {
     const s = sortMap[effectiveSort];
     filter.orderby = s.orderby;

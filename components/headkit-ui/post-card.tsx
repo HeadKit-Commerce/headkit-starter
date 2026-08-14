@@ -1,9 +1,6 @@
 import Image from "next/image";
 import { InstantLink } from "@/components/headkit-ui/instant-link";
-import {
-  DEFAULT_POSTS_BASE_PATH,
-  resolvePostHref,
-} from "@/lib/posts-path";
+import { DEFAULT_POSTS_BASE_PATH, resolvePostHref } from "@/lib/posts-path";
 import { decodeHtmlEntities } from "@/lib/utils";
 
 interface Props {

@@ -78,10 +78,7 @@ describe("submitIndexNow", () => {
       status: 200,
     });
     expect(fetchImpl).toHaveBeenCalledOnce();
-    const [url, init] = fetchImpl.mock.calls[0] as [
-      string,
-      RequestInit,
-    ];
+    const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("https://api.indexnow.org/indexnow");
     expect(JSON.parse(String(init.body))).toEqual({
       host: "shop.example.com",

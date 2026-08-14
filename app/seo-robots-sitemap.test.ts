@@ -13,7 +13,12 @@ vi.mock("@/lib/sdk", () => ({
       getFilters: vi.fn(async () => ({ attributes: [] })),
     },
     brands: { list: vi.fn(async () => ({ brands: [] })) },
-    posts: { list: vi.fn(async () => ({ posts: [] })) },
+    posts: {
+      list: vi.fn(async () => ({ posts: [] })),
+      // sitemap() → getPostsBasePath() → posts.getLanding(); `null` is the
+      // unset-Posts-page case and falls back to DEFAULT_POSTS_BASE_PATH.
+      getLanding: vi.fn(async () => null),
+    },
     projects: { list: vi.fn(async () => ({ projects: [] })) },
   },
 }));
@@ -140,9 +145,7 @@ describe("sitemap enableSitemap gate", () => {
     const entries = await sitemap();
     expect(entries.length).toBeGreaterThan(0);
     expect(
-      entries.every((e) =>
-        e.url.startsWith("https://paralelfurniture.com.au"),
-      ),
+      entries.every((e) => e.url.startsWith("https://paralelfurniture.com.au")),
       "stale NEXT_PUBLIC_FRONTEND_URL must not win over Store.domain",
     ).toBe(true);
     expect(entries.some((e) => e.url.includes("headkit.app"))).toBe(false);
@@ -347,9 +350,7 @@ describe("robots allowIndexing + enableSitemap", () => {
     const result = await robots();
 
     expect(result.host).toBe("https://paralelfurniture.com.au");
-    expect(result.sitemap).toBe(
-      "https://paralelfurniture.com.au/sitemap.xml",
-    );
+    expect(result.sitemap).toBe("https://paralelfurniture.com.au/sitemap.xml");
     expect(result.rules).not.toEqual(DISALLOW_EVERYTHING);
   });
 });

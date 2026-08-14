@@ -45,73 +45,73 @@ The starter ships **hook classes** on key layout regions so you can target them 
 
 ### Shell & chrome
 
-| Hook class                 | Where                              | Use for                                      |
-| -------------------------- | ---------------------------------- | -------------------------------------------- |
-| `headkit-main`             | `<main>` in root layout            | Site-wide content padding / footer gap       |
-| `headkit-preheader`        | Promo / announcement bar           | Background, text, link colour                |
-| `headkit-nav`              | Main navigation bar                | Nav link typography, uppercase, hover states |
-| `headkit-nav-secondary`    | Right-side nav list (actions)      | Icon row spacing, secondary link styles      |
-| `headkit-footer`           | Site footer                        | Footer background, borders, typography       |
-| `headkit-footer-connect`   | Footer social / Connect block      | Hide socials or restyle icons                |
-| `headkit-footer-subscribe` | Footer mailing-list form           | Subscribe label / input / button             |
-| `headkit-footer-payment-methods` | Footer payment icon row      | Hide or resize payment badges                |
-| `headkit-cart-drawer`      | Cart / quote drawer sheet          | Drawer background, item list, CTA            |
-| `headkit-search-drawer`    | Search overlay sheet               | Search input / result grid                   |
+| Hook class                       | Where                         | Use for                                      |
+| -------------------------------- | ----------------------------- | -------------------------------------------- |
+| `headkit-main`                   | `<main>` in root layout       | Site-wide content padding / footer gap       |
+| `headkit-preheader`              | Promo / announcement bar      | Background, text, link colour                |
+| `headkit-nav`                    | Main navigation bar           | Nav link typography, uppercase, hover states |
+| `headkit-nav-secondary`          | Right-side nav list (actions) | Icon row spacing, secondary link styles      |
+| `headkit-footer`                 | Site footer                   | Footer background, borders, typography       |
+| `headkit-footer-connect`         | Footer social / Connect block | Hide socials or restyle icons                |
+| `headkit-footer-subscribe`       | Footer mailing-list form      | Subscribe label / input / button             |
+| `headkit-footer-payment-methods` | Footer payment icon row       | Hide or resize payment badges                |
+| `headkit-cart-drawer`            | Cart / quote drawer sheet     | Drawer background, item list, CTA            |
+| `headkit-search-drawer`          | Search overlay sheet          | Search input / result grid                   |
 
 ### Homepage & CMS sections
 
-| Hook class                   | Where                                    | Use for                                            |
-| ---------------------------- | ---------------------------------------- | -------------------------------------------------- |
-| `headkit-home`               | Homepage root wrapper                    | Homepage-only rules (section backgrounds, spacing) |
-| `headkit-cms-page`           | CMS page content padding wrappers        | Inner-page typography / max-width                  |
-| `headkit-cms-html`           | Homepage leftover WP HTML segments       | Editorial copy between HeadKit sections            |
-| `headkit-hero-carousel`      | Hero / main carousel                     | Slide overlay, CTA, pagination dots                |
-| `headkit-callout`            | Callout / promo box                      | Background, text colour, button row                |
-| `headkit-callout-section`    | Outer padding around a callout           | Section vertical rhythm                            |
-| `headkit-brand-carousel`     | Brand carousel sections                  | Logo sizing, section padding, dots                 |
-| `headkit-client-carousel`    | Client carousel sections                 | Same for client logo rails                         |
-| `headkit-category-carousel`  | Category carousel sections               | Category rail styling                              |
-| `headkit-product-carousel`   | Product carousel sections (CMS + home)   | Product rail styling                               |
-| `headkit-post-carousel`      | News / blog carousel sections            | Post card styling                                  |
-| `headkit-project-carousel`   | Projects carousel sections               | Project card styling                               |
-| `headkit-section-header`     | Section title + description + View all   | Heading colour, CTA underline                      |
-| `headkit-gallery`            | WP gallery media blocks                  | Gallery layout / gaps                              |
-| `headkit-embed`              | WP embed / iframe blocks                 | Embed sizing                                       |
-| `headkit-video-feature-wrap` | Video feature sections                   | Two-column video + copy layout                     |
-| `headkit-media`              | Other sanitized media HTML blocks        | Generic media section styling                      |
+| Hook class                   | Where                                  | Use for                                            |
+| ---------------------------- | -------------------------------------- | -------------------------------------------------- |
+| `headkit-home`               | Homepage root wrapper                  | Homepage-only rules (section backgrounds, spacing) |
+| `headkit-cms-page`           | CMS page content padding wrappers      | Inner-page typography / max-width                  |
+| `headkit-cms-html`           | Homepage leftover WP HTML segments     | Editorial copy between HeadKit sections            |
+| `headkit-hero-carousel`      | Hero / main carousel                   | Slide overlay, CTA, pagination dots                |
+| `headkit-callout`            | Callout / promo box                    | Background, text colour, button row                |
+| `headkit-callout-section`    | Outer padding around a callout         | Section vertical rhythm                            |
+| `headkit-brand-carousel`     | Brand carousel sections                | Logo sizing, section padding, dots                 |
+| `headkit-client-carousel`    | Client carousel sections               | Same for client logo rails                         |
+| `headkit-category-carousel`  | Category carousel sections             | Category rail styling                              |
+| `headkit-product-carousel`   | Product carousel sections (CMS + home) | Product rail styling                               |
+| `headkit-post-carousel`      | News / blog carousel sections          | Post card styling                                  |
+| `headkit-project-carousel`   | Projects carousel sections             | Project card styling                               |
+| `headkit-section-header`     | Section title + description + View all | Heading colour, CTA underline                      |
+| `headkit-gallery`            | WP gallery media blocks                | Gallery layout / gaps                              |
+| `headkit-embed`              | WP embed / iframe blocks               | Embed sizing                                       |
+| `headkit-video-feature-wrap` | Video feature sections                 | Two-column video + copy layout                     |
+| `headkit-media`              | Other sanitized media HTML blocks      | Generic media section styling                      |
 
 ### Catalog & commerce
 
-| Hook class               | Where                         | Use for                                      |
-| ------------------------ | ----------------------------- | -------------------------------------------- |
-| `headkit-collection`     | PLP / collection grid shell   | Filters, grid, load-more                     |
-| `headkit-product-card`   | Individual product card       | Card image, title, price, swatches           |
-| `headkit-product-detail` | PDP (product detail)          | Gallery + buy box layout                     |
-| `headkit-badge-new`      | “New” product badge           | Colour, hide, typography                     |
-| `headkit-badge-sale`     | “Sale” product badge          | Colour, hide, typography                     |
-| `headkit-badge-cart`     | Cart quantity badge on icon   | Badge colour / size                          |
-| `headkit-recently-viewed`| Recently viewed products strip| Section spacing / heading                    |
+| Hook class                | Where                          | Use for                            |
+| ------------------------- | ------------------------------ | ---------------------------------- |
+| `headkit-collection`      | PLP / collection grid shell    | Filters, grid, load-more           |
+| `headkit-product-card`    | Individual product card        | Card image, title, price, swatches |
+| `headkit-product-detail`  | PDP (product detail)           | Gallery + buy box layout           |
+| `headkit-badge-new`       | “New” product badge            | Colour, hide, typography           |
+| `headkit-badge-sale`      | “Sale” product badge           | Colour, hide, typography           |
+| `headkit-badge-cart`      | Cart quantity badge on icon    | Badge colour / size                |
+| `headkit-recently-viewed` | Recently viewed products strip | Section spacing / heading          |
 
 ### Key routes
 
-| Hook class            | Where                | Use for                             |
-| --------------------- | -------------------- | ----------------------------------- |
-| `headkit-contact`     | `/contact` page root | Contact layout / form column        |
-| `headkit-checkout`    | Checkout page root   | Checkout form / summary             |
-| `headkit-quote`       | Quote checkout root  | Quote form styling                  |
-| `headkit-news-page`   | `/news` listing      | Category chips, post grid           |
-| `headkit-projects-page` | `/projects` listing| Category chips, project grid        |
+| Hook class              | Where                | Use for                      |
+| ----------------------- | -------------------- | ---------------------------- |
+| `headkit-contact`       | `/contact` page root | Contact layout / form column |
+| `headkit-checkout`      | Checkout page root   | Checkout form / summary      |
+| `headkit-quote`         | Quote checkout root  | Quote form styling           |
+| `headkit-news-page`     | `/news` listing      | Category chips, post grid    |
+| `headkit-projects-page` | `/projects` listing  | Category chips, project grid |
 
 WordPress also emits related markers in content HTML (not React wrappers):
 
-| Marker / class             | Where                         | Notes                                      |
-| -------------------------- | ----------------------------- | ------------------------------------------ |
-| `headkit-gravity-form`     | GF placeholder in CMS HTML    | Replaced by React Gravity Form             |
-| `headkit-product-lists`    | WP product grid in CMS HTML   | Hydrated into `headkit-product-carousel`   |
-| `headkit-block-section`    | WP HeadKit section groups     | Parsed into BlockEditor sections           |
-| `headkit-block-title`      | Section title in WP HTML      | Extracted for SectionHeader                |
-| `headkit-block-description`| Section description in WP HTML| Extracted for SectionHeader                |
-| `headkit-hilight`          | Legacy callout alias          | Treated like `headkit-callout`             |
+| Marker / class              | Where                          | Notes                                    |
+| --------------------------- | ------------------------------ | ---------------------------------------- |
+| `headkit-gravity-form`      | GF placeholder in CMS HTML     | Replaced by React Gravity Form           |
+| `headkit-product-lists`     | WP product grid in CMS HTML    | Hydrated into `headkit-product-carousel` |
+| `headkit-block-section`     | WP HeadKit section groups      | Parsed into BlockEditor sections         |
+| `headkit-block-title`       | Section title in WP HTML       | Extracted for SectionHeader              |
+| `headkit-block-description` | Section description in WP HTML | Extracted for SectionHeader              |
+| `headkit-hilight`           | Legacy callout alias           | Treated like `headkit-callout`           |
 
 ### Examples
 

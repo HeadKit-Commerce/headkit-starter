@@ -21,9 +21,7 @@ export function CarouselPostJsonLD({ posts }: CarouselPostJsonLDProps) {
     "@context": "https://schema.org",
     "@type": "ItemList",
     itemListElement: posts.map((post, index) => {
-      const path = post.uri?.startsWith("/")
-        ? post.uri
-        : `/news/${post.slug}/`;
+      const path = post.uri?.startsWith("/") ? post.uri : `/news/${post.slug}/`;
       // Prefer absolute `uri` from the API; otherwise join site + path.
       // WordPress ≥0.4.49 emits Posts-page–relative URIs (e.g. /insights/…).
       const url = post.uri?.startsWith("http") ? post.uri : `${siteUrl}${path}`;

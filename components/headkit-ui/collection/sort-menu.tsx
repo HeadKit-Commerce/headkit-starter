@@ -26,9 +26,9 @@ function useEffectiveSort(): SortKeyType | "" {
   if (search) return "";
   // /new: always newest-first.
   if (isNew) return "CREATED_AT";
-  return (defaultCollectionSort in SortKey
-    ? defaultCollectionSort
-    : "CREATED_AT") as SortKeyType;
+  return (
+    defaultCollectionSort in SortKey ? defaultCollectionSort : "CREATED_AT"
+  ) as SortKeyType;
 }
 
 export function SortMenu() {

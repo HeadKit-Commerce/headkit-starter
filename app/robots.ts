@@ -57,8 +57,10 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
   let storeDomain: string | null | undefined;
   let seoSettings: Awaited<ReturnType<typeof getBranding>>["seoSettings"];
   try {
-    ({ storeSettings: { domain: storeDomain }, seoSettings } =
-      await getBranding());
+    ({
+      storeSettings: { domain: storeDomain },
+      seoSettings,
+    } = await getBranding());
   } catch {
     // A thrown branding read CLOSES indexing. Prefer the env fallback only for
     // the Host hint so operators still see which origin was configured.
@@ -85,9 +87,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
   const postsBase = await getPostsBasePath().catch(() => "news");
   const postsAllow = postsIndexPath(postsBase);
   const postAllows =
-    postsAllow === "/news"
-      ? ["/news/*"]
-      : [`${postsAllow}/*`, "/news/*"];
+    postsAllow === "/news" ? ["/news/*"] : [`${postsAllow}/*`, "/news/*"];
 
   return {
     rules: [

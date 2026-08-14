@@ -4,7 +4,9 @@ import { convertToRelativePath, isAppNavigationHref } from "./convert-uri";
 describe("convertToRelativePath", () => {
   it("strips the host from absolute http(s) WordPress permalinks", () => {
     expect(
-      convertToRelativePath("https://commerce-backend.com/shop/general/beanie/"),
+      convertToRelativePath(
+        "https://commerce-backend.com/shop/general/beanie/",
+      ),
     ).toBe("/shop/general/beanie/");
     expect(convertToRelativePath("http://wp.local/about")).toBe("/about");
   });
@@ -22,14 +24,18 @@ describe("convertToRelativePath", () => {
 
   it("preserves tel: custom links used in WP menus (e.g. preheader phone)", () => {
     expect(convertToRelativePath("tel:1300883919")).toBe("tel:1300883919");
-    expect(convertToRelativePath("tel:+611300883919")).toBe("tel:+611300883919");
+    expect(convertToRelativePath("tel:+611300883919")).toBe(
+      "tel:+611300883919",
+    );
   });
 
   it("preserves mailto: and sms: custom links", () => {
     expect(convertToRelativePath("mailto:hello@example.com")).toBe(
       "mailto:hello@example.com",
     );
-    expect(convertToRelativePath("sms:+611300883919")).toBe("sms:+611300883919");
+    expect(convertToRelativePath("sms:+611300883919")).toBe(
+      "sms:+611300883919",
+    );
   });
 
   it("does not reduce tel: to a bare phone pathname", () => {
