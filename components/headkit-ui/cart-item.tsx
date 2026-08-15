@@ -13,6 +13,7 @@ import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { useIsQuoteMode } from "@/components/checkout/checkout-mode-provider";
 import { GiftCardDetails } from "@/components/checkout/gift-card-details";
+import { AddonDetails } from "@/components/checkout/addon-details";
 import type { CartFieldsFragment } from "@headkit/sdk";
 
 type CartItem = CartFieldsFragment["items"][number];
@@ -250,6 +251,15 @@ export function CartItemRow({
       </div>
 
       {item.giftCard && <GiftCardDetails giftCard={item.giftCard} />}
+      {/* Gift card first, add-ons second: a line can legitimately carry both,
+          and this leaves the element order of a gift-card-only line untouched.
+          The guard is a length test, not a null guard — the schema types
+          `addons` as a non-null list with an empty default (D-14.1-04), so
+          optional chaining here would assert a contract the schema forbids.
+          AddonDetails also returns null for an empty list; the guard is here
+          because "no add-ons means no element" should be legible at the mount
+          point, which is where a reader looks. */}
+      {item.addons.length > 0 && <AddonDetails addons={item.addons} />}
     </div>
   );
 }

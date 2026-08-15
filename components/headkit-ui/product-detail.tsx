@@ -28,6 +28,19 @@ import { addToCartAction } from "@/lib/cart-actions";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { useIsQuoteMode } from "@/components/checkout/checkout-mode-provider";
 import {
+  ProductAddons,
+  addonControlDomId,
+  addonGroupDomId,
+} from "@/components/headkit-ui/product-addons";
+import {
+  attributeAddonError,
+  buildAddonsConfiguration,
+  buildAddonsVerify,
+  hasBlockingAddon,
+  type AddonSelection,
+  type AddonServerError,
+} from "@/lib/addons";
+import {
   cn,
   decodeHtmlEntities,
   formatWooRichText,
@@ -103,6 +116,40 @@ const VARIABLE = "VARIABLE";
  */
 const ENQUIRY_FORM_ID = "3";
 
+/** UI-SPEC's copy for a rejection that belongs to no single add-on group. */
+const ADDON_FORM_ERROR_COPY =
+  "We couldn't add this to your cart. Please review your options above and try again.";
+
+/**
+ * The one add-on rejection whose own sentence is the right thing to show a
+ * shopper when it cannot be pinned to a group: the R1 drift guard's, which is
+ * deliberately one string with two renderers (the theme's `esc_html__()` and
+ * this banner). Everything else unattributable — `CART_REJECTED`, the two
+ * `ADDONS_*_INVALID` shape sentinels — is either unreviewed or a storefront bug,
+ * and must not reach a shopper as guidance.
+ */
+const ADDON_DRIFT_CODE = "headkit_addon_option_drift";
+
+/** Anchors the disabled CTA to the reason it is disabled. */
+const ADDON_UPLOAD_NOTICE_ID = "addon-upload-notice";
+
+/**
+ * Bring the rejected group into view and put the caret in it.
+ *
+ * On a phone this is the difference between a working form and a broken one: a
+ * shopper taps the sticky add-to-cart bar, the rejection lands six screens up,
+ * and without this nothing appears to have happened at all.
+ */
+function revealAddonGroup(addonId: string): void {
+  if (typeof document === "undefined") return;
+  document
+    .getElementById(addonGroupDomId(addonId))
+    ?.scrollIntoView({ block: "center", behavior: "smooth" });
+  document
+    .getElementById(addonControlDomId(addonId))
+    ?.focus({ preventScroll: true });
+}
+
 export function ProductDetail({
   product,
   initialSearchParams,
@@ -134,6 +181,40 @@ export function ProductDetail({
   const [giftCardValues, setGiftCardValues] =
     useState<GiftCardFormValues | null>(null);
   const [isGiftCardFormValid, setIsGiftCardFormValid] = useState(false);
+
+  // Add-on state is plain useState and the object is already the wire shape —
+  // there is no model to translate, which is the whole reason that shape was
+  // kept. No form library, and no client-side validity flag: unlike the gift
+  // card above, the store is the only validator (D-14.1-02).
+  const [addonSelection, setAddonSelection] = useState<AddonSelection>({});
+  const [addonErrors, setAddonErrors] = useState<Record<string, string>>({});
+  const [addonFormError, setAddonFormError] = useState<string | null>(null);
+  // The schema types this `[ProductAddon!]!` with default `[]`, and that IS the
+  // contract — but only for a response that CARRIES the field. A store still on an
+  // older theme omits the key entirely and the SDK yields `undefined`, which is
+  // every store until its theme ships. Treating the schema guarantee as a runtime
+  // one threw inside `hasBlockingAddon` during prerender and failed the whole
+  // build, rather than degrading to "no add-ons" as D-14.1-04 requires. Normalised
+  // once here so every consumer below reads the same list.
+  const addons = product.addons ?? [];
+  const hasUploadAddon = hasBlockingAddon(addons);
+
+  const handleAddonChange = useCallback(
+    (next: AddonSelection, changedAddonId: string) => {
+      setAddonSelection(next);
+      // The rejection clears the moment that group's value changes, not on the
+      // next submit. The client cannot know the new value is valid — but a
+      // stale rejection sitting beside a changed field is actively misleading.
+      setAddonErrors((prev) => {
+        if (!(changedAddonId in prev)) return prev;
+        const rest = { ...prev };
+        delete rest[changedAddonId];
+        return rest;
+      });
+      setAddonFormError(null);
+    },
+    [],
+  );
 
   const variationAttributes = useMemo(
     () => product.attributes.filter((a) => a.variation),
@@ -378,11 +459,19 @@ export function ProductDetail({
   // validity alone let a fast click fire an add BEFORE giftConfig was captured,
   // sending a bare gift-card line the WooCommerce plugin rejects with
   // "some required data is missing" (GIFT-02 flake / race).
+  //
+  // Add-ons contribute EXACTLY ONE new conjunct: whether the product carries a
+  // file-upload group. Deliberately no validity term and no async-capture term.
+  // The gift-card path above needs both because its form is validated
+  // client-side and its values land asynchronously; the add-on path is neither,
+  // and copying that gate would reintroduce the client-side required check this
+  // phase exists to not port. An incomplete add-on form is submittable.
   const canAddToCart =
     (isVariable
       ? selectedVariation !== null && !isOutOfStock && !isAtStockLimit
       : !isOutOfStock && !isAtStockLimit) &&
-    (!isGiftCard || (isGiftCardFormValid && giftCardValues !== null));
+    (!isGiftCard || (isGiftCardFormValid && giftCardValues !== null)) &&
+    !hasUploadAddon;
 
   // Sticky ATC bar: only after the primary ATC scrolls above the viewport
   // (not when it is still below the fold).
@@ -420,6 +509,34 @@ export function ProductDetail({
                 ? "Add to Quote"
                 : "Add to cart";
 
+  /**
+   * Land a rejection against the group it belongs to, or in the banner when it
+   * belongs to none. The existing label ladder and the existing network-error
+   * path are untouched — this channel sits beside them rather than replacing
+   * them.
+   */
+  function routeAddonRejection(addonError: AddonServerError | undefined): void {
+    if (!addonError) {
+      setAddonErrors({});
+      setAddonFormError(null);
+      return;
+    }
+
+    const { addonId, message } = attributeAddonError(addons, addonError);
+
+    if (addonId) {
+      setAddonErrors({ [addonId]: message });
+      setAddonFormError(null);
+      revealAddonGroup(addonId);
+      return;
+    }
+
+    setAddonErrors({});
+    setAddonFormError(
+      addonError.code === ADDON_DRIFT_CODE ? message : ADDON_FORM_ERROR_COPY,
+    );
+  }
+
   function handleAddToCart() {
     setCartFeedback("idle");
     startTransition(async () => {
@@ -455,15 +572,43 @@ export function ProductDetail({
               }
             : undefined;
 
+        // Indexes and text only. There is no field in this payload a price
+        // could travel in, so the estimated total the shopper is looking at
+        // cannot reach the store even by accident.
+        const addonsConfiguration = buildAddonsConfiguration(
+          addons,
+          addonSelection,
+        );
+        const addonsVerify = buildAddonsVerify(addons, addonSelection);
+        const addonConfig =
+          Object.keys(addonsConfiguration).length > 0
+            ? { addonsConfiguration, addonsVerify }
+            : {};
+
         const result = await addToCartAction(
           hasVariation
-            ? { id, quantity, variation, ...(giftConfig ? { giftConfig } : {}) }
-            : { id, quantity, ...(giftConfig ? { giftConfig } : {}) },
+            ? {
+                id,
+                quantity,
+                variation,
+                ...(giftConfig ? { giftConfig } : {}),
+                ...addonConfig,
+              }
+            : {
+                id,
+                quantity,
+                ...(giftConfig ? { giftConfig } : {}),
+                ...addonConfig,
+              },
         );
         if (result.success) {
+          setAddonErrors({});
+          setAddonFormError(null);
           setCartData(result.cart);
           toggleCart(true);
           setQuantity(1);
+        } else {
+          routeAddonRejection(result.addonError);
         }
         setCartFeedback(result.success ? "success" : "error");
       } catch {
@@ -653,6 +798,23 @@ export function ProductDetail({
             </div>
           )}
 
+          {/* Add-on groups. Guarded at the CALL SITE on list length, not just
+              by the component returning null, so a product without add-ons
+              contributes no element and no margin to the DOM (PAO-04). No
+              Suspense boundary and no loading.tsx: the definitions arrive as
+              props from the already-cached server page, and a boundary here
+              risks re-introducing the recorded empty-static-shell defect. */}
+          {addons.length > 0 && (
+            <ProductAddons
+              addons={addons}
+              selection={addonSelection}
+              onChange={handleAddonChange}
+              errors={addonErrors}
+              quantity={quantity}
+              basePrice={getFloatVal(displayPrice)}
+            />
+          )}
+
           {/* Gift card recipient form */}
           {isGiftCard && (
             <Suspense fallback={null}>
@@ -688,6 +850,56 @@ export function ProductDetail({
               quoteMessage="Add to Quote for pricing"
             />
           </div>
+
+          {/* A disabled button with no visible reason is the failure this
+              avoids: the notice sits directly above the CTA row as well as in
+              the group's own position, and the CTA points at it. */}
+          {hasUploadAddon && (
+            <div
+              id={ADDON_UPLOAD_NOTICE_ID}
+              className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3"
+            >
+              <svg
+                className="mt-0.5 h-4 w-4 shrink-0 text-amber-500"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <p className="flex-1 text-sm text-amber-800">
+                This product needs a file upload, which this store can&rsquo;t
+                accept online yet. Please contact us to order it.
+              </p>
+            </div>
+          )}
+
+          {/* A rejection that belongs to no single group lands here rather than
+              beside an arbitrary one. */}
+          {addonFormError && (
+            <div
+              role="alert"
+              className="mb-4 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3"
+            >
+              <svg
+                className="mt-0.5 h-4 w-4 shrink-0 text-red-600"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <p className="flex-1 text-sm text-red-700">{addonFormError}</p>
+            </div>
+          )}
 
           {/* Quantity selector + Add to Cart + Wishlist */}
           <div ref={atcSectionRef} className="mb-6 flex items-center gap-3">
@@ -735,6 +947,9 @@ export function ProductDetail({
                 cartFeedback === "error" && "bg-red-600 hover:bg-red-700",
               )}
               disabled={!canAddToCart}
+              aria-describedby={
+                hasUploadAddon ? ADDON_UPLOAD_NOTICE_ID : undefined
+              }
               loading={addingToCart}
               loadingText="Adding…"
               rightIcon={isQuoteMode ? "plus" : "shoppingBag"}
@@ -934,6 +1149,9 @@ export function ProductDetail({
               cartFeedback === "error" && "bg-red-600 hover:bg-red-700",
             )}
             disabled={!canAddToCart}
+            aria-describedby={
+              hasUploadAddon ? ADDON_UPLOAD_NOTICE_ID : undefined
+            }
             loading={addingToCart}
             loadingText="Adding…"
             rightIcon={isQuoteMode ? "plus" : "shoppingBag"}

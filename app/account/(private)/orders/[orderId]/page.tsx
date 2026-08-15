@@ -150,6 +150,7 @@ export default async function Page({ params, searchParams }: Props) {
                   "0"
                 }
                 currency={currency}
+                addons={item.addons}
               />
             ))}
           </div>

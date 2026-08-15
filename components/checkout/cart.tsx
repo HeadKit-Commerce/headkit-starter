@@ -53,6 +53,7 @@ const Cart = ({ showDisplayShipping }: Props) => {
             lineSubtotal={item.totals.lineSubtotal}
             currency={currency}
             giftCard={item.giftCard ?? null}
+            addons={item.addons}
             hidePrice={isQuoteMode}
           />
         ))}

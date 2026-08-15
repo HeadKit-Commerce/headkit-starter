@@ -9,6 +9,7 @@ import type {
 } from "@headkit/sdk";
 import { GraphQLError } from "@headkit/sdk";
 import type { ServerSDK } from "@headkit/sdk/server";
+import type { AddonServerError } from "@/lib/addons";
 import { createServerHeadkit } from "@/lib/sdk.server";
 import { getCartToken, cartTokenCookieOptions } from "@/lib/cart";
 import { getAuthToken } from "@/lib/auth-cookie";
@@ -18,7 +19,7 @@ export type FullCart = NonNullable<GetCartQuery["commerce"]["cart"]>;
 
 export type AddToCartResult =
   | { success: true; cart: CartFieldsFragment }
-  | { success: false; error: string };
+  | { success: false; error: string; addonError?: AddonServerError };
 
 export type CartActionResult =
   | { success: true; cart: CartFieldsFragment }
@@ -201,6 +202,41 @@ function sanitizeCartErrorMessage(raw: string, fallback: string): string {
   return stripped.length > 280 ? `${stripped.slice(0, 277)}…` : stripped;
 }
 
+/**
+ * Lift the structured rejection out of a GraphQL error before the message is
+ * flattened.
+ *
+ * `sanitizeCartErrorMessage` strips tags and caps length — it exists because a
+ * provider can dump a WordPress fatal into a flight payload — and whatever
+ * structure the error carried is gone once it has run. So the code, the group
+ * name and the add-on id are read here, off the SDK's own `errors[].extensions`
+ * (14.1-04's contract; `packages/sdk/src/errors.ts` already carries them, so
+ * nothing needed re-plumbing for transport).
+ *
+ * `field` and `addonId` are **absent keys** when there is nothing to put in
+ * them, never empty strings — so this tests presence, not emptiness.
+ */
+function extractAddonError(err: unknown): AddonServerError | undefined {
+  if (!(err instanceof GraphQLError)) return undefined;
+
+  for (const entry of err.errors) {
+    const code = entry.extensions?.["code"];
+    if (typeof code !== "string") continue;
+    const field = entry.extensions?.["field"];
+    const addonId = entry.extensions?.["addonId"];
+    return {
+      code,
+      // Verbatim, entity-encoding and all. The storefront decodes it at the
+      // point of render; commerce deliberately does not rewrite it.
+      message: entry.message,
+      ...(typeof field === "string" && field ? { field } : {}),
+      ...(typeof addonId === "string" && addonId ? { addonId } : {}),
+    };
+  }
+
+  return undefined;
+}
+
 export async function addToCartAction(
   input: AddToCartInput,
   opts?: CartMutationOptions,
@@ -213,7 +249,14 @@ export async function addToCartAction(
       err instanceof Error ? err.message : "",
       "Failed to add to cart",
     );
-    return { success: false, error: message };
+    // Additive: `error` keeps the exact shape and content every existing caller
+    // already depends on, and the structured channel sits beside it.
+    const addonError = extractAddonError(err);
+    return {
+      success: false,
+      error: message,
+      ...(addonError ? { addonError } : {}),
+    };
   }
 }
 

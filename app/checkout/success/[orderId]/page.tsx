@@ -623,6 +623,7 @@ export default async function Page({ params, searchParams }: Props) {
                 }
                 currency={currency}
                 giftCard={item.giftCard ?? null}
+                addons={item.addons}
                 hidePrice={isQuoteMode}
               />
             ))}

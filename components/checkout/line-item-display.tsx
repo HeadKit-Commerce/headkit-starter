@@ -6,8 +6,12 @@ import {
   GiftCardDetails,
   type GiftCardDisplay,
 } from "@/components/checkout/gift-card-details";
+import {
+  AddonDetails,
+  type AddonDisplay,
+} from "@/components/checkout/addon-details";
 
-export type { GiftCardDisplay };
+export type { GiftCardDisplay, AddonDisplay };
 
 export interface LineItemDisplayProps {
   name: string;
@@ -17,6 +21,14 @@ export interface LineItemDisplayProps {
   lineSubtotal: string;
   currency: string;
   giftCard?: GiftCardDisplay | null;
+  /**
+   * The shopper's Product Add-Ons selections for this line. Typed as a plain
+   * list rather than a nullable one because the schema guarantees
+   * `[CartItemAddonSelection!]!` with an empty default (D-14.1-04) — a line
+   * that has no add-ons carries `[]`, never null. The default below exists for
+   * the one caller that has no line item at all to read from.
+   */
+  addons?: readonly AddonDisplay[];
   /** When true, omit the line price (HeadKit Quote mode). */
   hidePrice?: boolean;
 }
@@ -29,6 +41,7 @@ export function LineItemDisplay({
   lineSubtotal,
   currency,
   giftCard = null,
+  addons = [],
   hidePrice = false,
 }: LineItemDisplayProps) {
   const displayName = decodeHtmlEntities(name);
@@ -74,6 +87,12 @@ export function LineItemDisplay({
       </div>
 
       {giftCard && <GiftCardDetails giftCard={giftCard} />}
+      {/* Gift card first, add-ons second: a line can legitimately carry both,
+          and this keeps the existing element order untouched for every line
+          that carries only a gift card. The guard is a length test, not a null
+          guard — `addons` is a non-null list with an empty default
+          (D-14.1-04). */}
+      {addons.length > 0 && <AddonDetails addons={addons} />}
     </div>
   );
 }

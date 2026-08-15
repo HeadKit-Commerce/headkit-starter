@@ -79,6 +79,9 @@ function mapRelatedToProduct(r: RelatedProduct): Product {
     upsells: [],
     projects: [],
     isGiftCard: false,
+    // A related-product summary carries no add-on definitions; the empty list is
+    // the same shape a store without the Product Add-Ons extension produces.
+    addons: [],
   };
 }
 
