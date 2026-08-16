@@ -156,6 +156,19 @@ const HAZARD_COLLISION_GROUP = "1900000504"; // Keepsake Extras
 /** `glam-booth-hazards` base price in minor units, with no add-on applied. */
 const HAZARDS_BASE_TOTAL = "20000";
 
+/* ─── glam-booth-real-shapes — plan 15.2a-09's COMPUTED coverage gap ───────────
+   Four groups, one per tuple in the difference between the shapes a real
+   merchant catalogue uses and the shapes this seed already covered. Ids are the
+   fixed literals seed-product-addons.php section 8 writes. */
+const REAL_SHAPES_SLUG =
+  process.env.HK_ADDONS_REAL_SHAPES_SLUG ?? "glam-booth-real-shapes";
+const REAL_SHAPE_CHECKBOX_REQUIRED = "1900000601"; // checkbox, heading title, REQUIRED
+const REAL_SHAPE_TEXT_OPTIONAL = "1900000602"; // custom_text + the admin's empty option row
+const REAL_SHAPE_TEXT_REQUIRED = "1900000603"; // the same, REQUIRED
+const REAL_SHAPE_DATE_REQUIRED = "1900000604"; // datepicker + the empty row, REQUIRED
+/** The product's own price in MINOR units ($150.00), before any add-on. */
+const REAL_SHAPES_BASE_TOTAL = 15000;
+
 /**
  * The configuration the purchase test submits, as `[group name, chosen value]`.
  * One list, asserted on three surfaces, so the cart drawer, the confirmation
@@ -2115,6 +2128,173 @@ test.describe("product add-ons — the release's three purchase hazards", () => 
         `the charge now equals the honest price of "${option.label}" — the collision resolves correctly and this hazard is fixed`,
       ).not.toBe(honest);
     }
+
+    await api.dispose();
+  });
+});
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * The shapes a REAL merchant catalogue uses that this suite never covered.
+ *
+ * Added by plan 15.2a-09, from a COMPUTED set difference rather than from a
+ * hunch. A real merchant's add-on catalogue was swept read-only off a contained
+ * clone (98 groups, 514 options, 14 products) and reduced to 7 distinct shape
+ * tuples; this seed covered 3 of them; `glam-booth-real-shapes` was seeded with
+ * the other 4. Both enumerated sets and the difference are recorded in
+ * `.planning/phases/15.2-pebblr-booth-rehearsal/artifacts/15.2a-09-addon-replay.md`.
+ *
+ * WHY THESE TWO CASES AND NOT FOUR. The plan's rule is to extend the suite only
+ * where a newly-seeded shape has behaviour the existing cases do not exercise.
+ * Three of the four new tuples differ from a covered one only by `required` or
+ * `title_format`, which nothing here would newly assert. What IS new is the
+ * arrangement itself:
+ *
+ *   1. A NON-CHOICE field carrying exactly ONE option whose label and price are
+ *      both the empty string. That is what the PAO admin screen writes for every
+ *      `custom_text` / `datepicker` field — 46 of the real catalogue's 98 groups
+ *      have it — and every `custom_text` / `datepicker` group in this seed before
+ *      today carried ZERO options. A wire encoder or a cart-line builder that
+ *      trips over the empty option row would have been invisible to this suite.
+ *   2. A REQUIRED text field and a REQUIRED date field. Every `required`
+ *      assertion in this file so far runs against a `multiple_choice` group, and
+ *      `multiple_choice` is validated by a different field class
+ *      (WC_Product_Addons_Field_Select) than the text and date types are.
+ *
+ * These are API-level cases on purpose: the behaviour under test is the Store
+ * API's, and routing it through the PDP would add render coupling that the
+ * existing PDP cases already cover for other shapes.
+ * ──────────────────────────────────────────────────────────────────────────── */
+test.describe("product add-ons — the real-catalogue shapes", () => {
+  test.beforeAll(async () => {
+    test.skip(
+      !(await stackIsUp()),
+      "local stack down — bring up WP :8090 + gateway + starter before running the add-on suite",
+    );
+  });
+
+  /** Re-assert the shape before asserting the behaviour (RESEARCH Pitfall 6). */
+  function shapeGroup(fixture: AddonFixture, id: string): AddonGroup {
+    const group = fixture.addons.find((g) => g.id === id);
+    if (!group) {
+      throw new Error(
+        `real-shape group ${id} is not on "${REAL_SHAPES_SLUG}". This case can no longer FAIL, ` +
+          `which is worse than failing: re-run docker/wordpress/seed-product-addons.php ` +
+          `(section 8 carries the four computed-gap groups).`,
+      );
+    }
+    return group;
+  }
+
+  test("15.2a-09: a REQUIRED text field and a REQUIRED date field are enforced, and the rejection leaves the session clean", async () => {
+    const api = await request.newContext();
+    const fixture = await readFixture(api, REAL_SHAPES_SLUG);
+
+    // PRECONDITIONS. Without `required` on a NON-multiple_choice group there is
+    // nothing here that the existing required case does not already cover.
+    for (const id of [REAL_SHAPE_TEXT_REQUIRED, REAL_SHAPE_DATE_REQUIRED]) {
+      const group = shapeGroup(fixture, id);
+      expect(
+        group.required,
+        `group ${id} is no longer required — the shape this case exists for has left seed-product-addons.php and the case is vacuous`,
+      ).toBeTruthy();
+      expect(
+        group.type === "custom_text" || group.type === "datepicker",
+        `group ${id} is type "${group.type}" — this case is about the NON-choice field classes`,
+      ).toBeTruthy();
+    }
+
+    const token = await mintCartToken(api);
+
+    // Omit every required group. PAO must refuse. Hazard 1b's signature is the
+    // opposite — a 201 here would mean the group's validator never ran.
+    const omitted = await storePost(api, token, "cart/add-item", {
+      id: fixture.id,
+      quantity: 1,
+      addons_configuration: {},
+    });
+    expect(
+      omitted.status,
+      `omitting every required group was ACCEPTED. Either the required check no longer runs for the text/date field classes, or the seeded groups stopped being required.`,
+    ).toBe(400);
+    expect(
+      omitted.body.code,
+      "the rejection carries a different code than the store's add-on validator emits",
+    ).toBe("woocommerce_rest_cart_invalid_product_addons");
+
+    // PAO-05, on the SAME token with no re-mint. A rejection that poisons the
+    // session is the failure a fresh token would hide.
+    const afterReject = await storeCart(api, token);
+    expect(
+      (afterReject.errors ?? []) as unknown[],
+      "the rejected add-item wedged the cart session",
+    ).toEqual([]);
+    expect((afterReject.items ?? []) as unknown[]).toEqual([]);
+
+    await api.dispose();
+  });
+
+  test("15.2a-09: a text/date field whose only option is the admin's empty row buys, and each selection reaches the line exactly once", async () => {
+    const api = await request.newContext();
+    const fixture = await readFixture(api, REAL_SHAPES_SLUG);
+
+    // PRECONDITION — the empty option row IS the shape. A group that lost it
+    // would fall back to this suite's pre-existing optionless arrangement and
+    // this case would cover nothing new.
+    for (const id of [
+      REAL_SHAPE_TEXT_OPTIONAL,
+      REAL_SHAPE_TEXT_REQUIRED,
+      REAL_SHAPE_DATE_REQUIRED,
+    ]) {
+      const group = shapeGroup(fixture, id);
+      expect(
+        group.options.length,
+        `group ${id} no longer carries exactly one option — the merchant-authored empty option row has left the seed and this case is vacuous`,
+      ).toBe(1);
+      expect(
+        group.options[0]!.label,
+        `group ${id}'s single option is no longer the admin's EMPTY row`,
+      ).toBe("");
+    }
+
+    const checkbox = shapeGroup(fixture, REAL_SHAPE_CHECKBOX_REQUIRED);
+    const token = await mintCartToken(api);
+
+    const line = await addWithAddons(api, token, fixture.id, 1, {
+      [REAL_SHAPE_CHECKBOX_REQUIRED]: [0],
+      [REAL_SHAPE_TEXT_OPTIONAL]: "optional text",
+      [REAL_SHAPE_TEXT_REQUIRED]: "required text",
+      [REAL_SHAPE_DATE_REQUIRED]: "2026-12-24",
+    });
+
+    const selections = line.extensions?.headkit?.addons_selection ?? [];
+    // EXACTLY ONCE per selection. A count assertion, not a presence one:
+    // hazard 1c returns 201 with MORE entries than were selected and hazard 1b
+    // returns 201 with FEWER, and a presence check passes both.
+    for (const id of [
+      REAL_SHAPE_CHECKBOX_REQUIRED,
+      REAL_SHAPE_TEXT_OPTIONAL,
+      REAL_SHAPE_TEXT_REQUIRED,
+      REAL_SHAPE_DATE_REQUIRED,
+    ]) {
+      expect(
+        selections.filter((s) => String(s.addon_id) === id).length,
+        `group ${id} appears on the cart line a number of times other than once — 0 is the dropped-selection failure, >1 is the charged-for-both failure`,
+      ).toBe(1);
+    }
+
+    // The checkbox option's flat fee must actually be charged; a text field that
+    // silently swallowed its neighbours' pricing would still pass a count check.
+    const expectedFee = Math.round(
+      Number(checkbox.options[0]!.price || 0) * 100,
+    );
+    expect(
+      expectedFee,
+      "the seeded checkbox option is now free — the price assertion below would be vacuous",
+    ).toBeGreaterThan(0);
+    expect(
+      Number(line.totals.line_total),
+      "the line total does not include the selected checkbox option's flat fee",
+    ).toBe(REAL_SHAPES_BASE_TOTAL + expectedFee);
 
     await api.dispose();
   });
