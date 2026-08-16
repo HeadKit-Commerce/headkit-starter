@@ -14,7 +14,29 @@ import {
   type EmailMarketingStatusResult,
 } from "@/lib/email-marketing";
 
-export type { EmailMarketingStatusResult };
+/**
+ * DO NOT re-export a type from this file.
+ *
+ * A `"use server"` module is rewritten by Next's server-actions loader into a
+ * list of RUNTIME re-exports — `export {X as '<action-id>'} from 'ACTIONS_MODULE'`
+ * — and under Turbopack that rewrite does not distinguish a type-only export
+ * from a value one. `export type { EmailMarketingStatusResult };` therefore
+ * compiled to a runtime binding for a name that only ever existed in the type
+ * system, and the module threw on evaluation:
+ *
+ *   ReferenceError: EmailMarketingStatusResult is not defined
+ *     at .next-internal/server/app/products/[...slug]/page/actions.js
+ *
+ * That is a 500 on every route whose action graph includes this file — which is
+ * every PDP — and it is INVISIBLE to `tsc --noEmit`, because at the type level
+ * the re-export is perfectly legal. It was introduced with the Klaviyo
+ * integration (81a140fc, PR #103) and had no consumer: nothing imports
+ * `EmailMarketingStatusResult` from this module. Import it from
+ * `@/lib/email-marketing`, which is a plain module and can export types freely.
+ *
+ * Found while running the add-on suite for plan 15.2a-03: 8 of its 17 cases were
+ * failing on a 500 PDP before this line was removed, and all 8 pass after.
+ */
 
 export type SubscribeEmailSource = "footer" | "checkout" | "form" | "other";
 
