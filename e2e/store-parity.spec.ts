@@ -1,10 +1,18 @@
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { test, expect, request } from "@playwright/test";
 import type { APIRequestContext, Page } from "@playwright/test";
 
 /**
- * Dishee V1 -> V2 route/parity gate (phase 15.1, MIG-03 / MIG-04).
+ * Store V1 -> V2 route/parity gate (MIG-03 / MIG-04).
+ *
+ * STORE-AGNOSTIC BY CONSTRUCTION, AND THAT IS THE POINT. This file names no
+ * store. Which store a run asserts is decided entirely by its three REQUIRED
+ * environment variables below — the origin under test, the url inventory swept
+ * against it, and the search-engine posture that origin is claimed to have.
+ * None of the three is defaulted, because every default here would silently
+ * decide something the run is supposed to state. One gate serves every store,
+ * so a fix to it is a fix for all of them rather than for one of several
+ * divergent forks.
  *
  * RED UNTIL THE PHASE'S STOREFRONT WORK LANDS AND THE STORE IS DEPLOYED. This
  * spec is authored as the phase acceptance target, not as a description of
@@ -13,13 +21,14 @@ import type { APIRequestContext, Page } from "@playwright/test";
  * robots, `/wholesale` and the first production deployment are all in place on
  * the target host, entries of it WILL fail. That is the intended state.
  *
- * FIXTURE PREREQUISITE, AND THIS SPEC DOES NOT MOCK. Its only inputs are
- * `e2e/fixtures/dishee-url-inventory.json` (see the sibling
- * `dishee-url-inventory.md` for how it was captured and why it cannot be
- * recaptured) and a base url. Everything else is read over the wire from the
- * host under test. An empty, missing, unparseable or self-inconsistent fixture
- * makes this spec FAIL LOUDLY — it never reports a passing zero-case run,
- * because a green run must mean the sweep actually happened.
+ * FIXTURE PREREQUISITE, AND THIS SPEC DOES NOT MOCK. Its only inputs are the
+ * per-store url inventory named by `PARITY_URL_INVENTORY` (see the `.md`
+ * provenance document sitting beside that fixture for how it was captured and
+ * why it cannot be recaptured) and a base url. Everything else is read over the
+ * wire from the host under test. An empty, missing, unparseable or
+ * self-inconsistent fixture makes this spec FAIL LOUDLY — it never reports a
+ * passing zero-case run, because a green run must mean the sweep actually
+ * happened.
  *
  * NON-LOCAL HOST — EXPLICIT OPERATOR WAIVER, NOT AN OVERSIGHT. Every other
  * spec in this suite, and `playwright.config.ts:6-7` itself, states LOCAL-ONLY
@@ -31,13 +40,14 @@ import type { APIRequestContext, Page } from "@playwright/test";
  * no customer hostname appears anywhere in this file, and the spec issues GET
  * only — it signs nothing in, submits no form, adds nothing to a cart, and
  * performs no checkout action of any kind. Do not "fix" this file back to
- * local-only; read `e2e/fixtures/dishee-url-inventory.md` § "The waiver" first.
+ * local-only; read the `.md` provenance document beside the store's inventory
+ * fixture, § "The waiver", first.
  *
- * THE TRANSACTING SPECS MUST NEVER JOIN A RUN AGAINST THIS HOST. Dishee's
- * Stripe account is LIVE, not test, and its WooCommerce database is the live
- * order book. The safe invocation NAMES THIS ONE FILE:
+ * THE TRANSACTING SPECS MUST NEVER JOIN A RUN AGAINST THIS HOST. A migrating
+ * store's Stripe account is LIVE, not test, and its WooCommerce database is the
+ * live order book. The safe invocation NAMES THIS ONE FILE:
  *
- *     bunx playwright test e2e/dishee-parity.spec.ts --project=chromium
+ *     bunx playwright test e2e/store-parity.spec.ts --project=chromium
  *
  * `playwright.config.ts:27-31` also offers `E2E_TEST_IGNORE` as a denylist, and
  * it should be set as defence in depth — but it is a DENYLIST, so it fails open
@@ -64,15 +74,17 @@ import type { APIRequestContext, Page } from "@playwright/test";
  *      deployment is READY"
  *       -> "one deployment identifier is served across the sweep"
  *   - MIG-04 "post-flip: the same parity spec passes against the live host"
- *       -> the same cases, run with DISHEE_TEMP_HOST=false
+ *       -> the same cases, run with PARITY_TEMP_HOST=false
  *   - MIG-04 "zero 404s on /api/checkout/confirm"
  *       -> "the legacy checkout-confirmation path does not answer not-found"
  *
- * Environment:
- *   E2E_BASE_URL         REQUIRED, no default — the origin under test
- *   DISHEE_TEMP_HOST     REQUIRED, "true"|"false" — whether this run targets a
+ * Environment — ALL THREE REQUIRED, NONE DEFAULTED:
+ *   E2E_BASE_URL         the origin under test
+ *   PARITY_URL_INVENTORY the store's url inventory fixture (path to the json).
+ *                        No default at all: a default asserts against whichever
+ *                        store's inventory was there first.
+ *   PARITY_TEMP_HOST     "true"|"false" — whether this run targets a
  *                        temporary host. Both branches ASSERT; neither skips.
- *   DISHEE_URL_INVENTORY optional — fixture path, defaults to the file above
  */
 
 /**
@@ -85,13 +97,14 @@ import type { APIRequestContext, Page } from "@playwright/test";
  */
 export const BUILD_TIME_PLACEHOLDER_SLUG = "__hk_static_placeholder";
 
-const DEFAULT_FIXTURE = resolve(
-  __dirname,
-  "fixtures",
-  "dishee-url-inventory.json",
-);
-
-const FIXTURE_PATH = process.env.DISHEE_URL_INVENTORY ?? DEFAULT_FIXTURE;
+/**
+ * No default, and deliberately not even a fallback to a file in `fixtures/`.
+ * Several stores' inventories live side by side there, so ANY default here
+ * would let a run sweep one store's host against another store's inventory and
+ * report a parity verdict for neither. Unset fails in the before-all hook,
+ * naming this variable.
+ */
+const FIXTURE_PATH = (process.env.PARITY_URL_INVENTORY ?? "").trim();
 
 /**
  * No default. `playwright.config.ts` defaults `baseURL` to localhost, which is
@@ -107,11 +120,29 @@ const BASE_URL = (process.env.E2E_BASE_URL ?? "").replace(/\/+$/, "");
  * because defaulting the flag would silently pick one of the two assertions.
  */
 const TEMP_HOST: boolean | null = (() => {
-  const raw = (process.env.DISHEE_TEMP_HOST ?? "").trim().toLowerCase();
+  const raw = (process.env.PARITY_TEMP_HOST ?? "").trim().toLowerCase();
   if (raw === "true" || raw === "1") return true;
   if (raw === "false" || raw === "0") return false;
   return null;
 })();
+
+/**
+ * The before-all hook aborts on the FIRST missing variable, so a run that set
+ * none of the three would otherwise learn about them one re-run at a time.
+ * Every abort message below carries this suffix, which names all of them at
+ * once. It is wording, not control flow: each variable still has its own
+ * assertion and its own explanation of why it is not defaulted.
+ */
+const MISSING_REQUIRED_ENV: readonly string[] = [
+  ...(FIXTURE_PATH === "" ? ["PARITY_URL_INVENTORY"] : []),
+  ...(BASE_URL === "" ? ["E2E_BASE_URL"] : []),
+  ...(TEMP_HOST === null ? ["PARITY_TEMP_HOST"] : []),
+];
+
+const MISSING_REQUIRED_SUFFIX =
+  MISSING_REQUIRED_ENV.length > 1
+    ? ` This run is missing ${MISSING_REQUIRED_ENV.length} of the 3 required variables: ${MISSING_REQUIRED_ENV.join(", ")}.`
+    : "";
 
 /** How many urls are fetched at once. The source capture used 2 req/s; four
  * concurrent GETs against a CDN-fronted deployment is polite and keeps a
@@ -127,7 +158,7 @@ const DEPLOYMENT_SAMPLE_SIZE = 10;
 /** Legacy V1 3DS return path — V2 answers it as a migration safety net. */
 const LEGACY_CONFIRM_PATH = "/api/checkout/confirm";
 
-const CAPTURE_HINT = `capture the inventory first (see e2e/fixtures/dishee-url-inventory.md) — this spec does NOT mock and has no fallback data`;
+const CAPTURE_HINT = `capture the inventory first (see the \`.md\` provenance document beside the store's inventory fixture) — this spec does NOT mock and has no fallback data`;
 
 // ---------------------------------------------------------------------------
 // Fixture contract
@@ -579,15 +610,26 @@ function ctx(): string {
   return `[base=${BASE_URL || "<unset>"} fixture=${FIXTURE_PATH}]`;
 }
 
+/**
+ * Every reported line carries the inventory's OWN source host, so a run's
+ * output says which store's inventory produced it. Read from the fixture rather
+ * than from a constant: a hard-coded store name is exactly the coupling this
+ * file no longer has, and a run whose fixture failed to load falls back to the
+ * generic prefix rather than claiming a store it never read.
+ */
+const REPORT_PREFIX = `parity:${inventory?.source_host ?? "unknown-source"}`;
+
 // Reporting is the point of several of these cases (the skipped count, the
 // distinct deployment identifiers). `no-console` is a lint warning in this
 // workspace; suppressed deliberately and only here.
-// eslint-disable-next-line no-console
-const report = (line: string): void => console.log(`[dishee-parity] ${line}`);
+const report = (line: string): void => {
+  // eslint-disable-next-line no-console
+  console.log(`[${REPORT_PREFIX}] ${line}`);
+};
 
 // ---------------------------------------------------------------------------
 
-test.describe("Dishee V1->V2 route parity gate (MIG-03/MIG-04)", () => {
+test.describe("Store V1->V2 route parity gate (MIG-03/MIG-04)", () => {
   // This file shares one sweep across all its cases, so its tests must run in
   // one worker rather than under the config's fullyParallel. `default` (rather
   // than `serial`) is deliberate: under `serial` the first failing entry would
@@ -600,17 +642,24 @@ test.describe("Dishee V1->V2 route parity gate (MIG-03/MIG-04)", () => {
 
     // Fail loudly BEFORE anything is swept. A green run must mean the sweep
     // ran against a host somebody chose, over data that actually loaded.
+    // This one comes first: with the variable unset there is no path to report,
+    // so the fixture-load abort below could only say the empty path could not
+    // be read, which names nothing a reader can act on.
+    expect(
+      FIXTURE_PATH,
+      `PARITY_URL_INVENTORY is unset. This spec has NO default inventory by design: a default would silently assert this host against whichever store's inventory happened to sit beside the spec, and report a parity verdict for neither store. Set PARITY_URL_INVENTORY to the url inventory captured for the store under test.${MISSING_REQUIRED_SUFFIX}`,
+    ).not.toBe("");
     expect(
       loaded.ok,
       `${ctx()} inventory fixture ${FIXTURE_PATH} ${loaded.ok ? "" : loaded.reason} — ${CAPTURE_HINT}`,
     ).toBe(true);
     expect(
       BASE_URL,
-      `E2E_BASE_URL is unset. This spec has NO default host by design: defaulting to localhost would report a Dishee parity result for the local dev server. Set E2E_BASE_URL to the origin under test.`,
+      `E2E_BASE_URL is unset. This spec has NO default host by design: defaulting to localhost would report a store parity result for the local dev server. Set E2E_BASE_URL to the origin under test.${MISSING_REQUIRED_SUFFIX}`,
     ).not.toBe("");
     expect(
       TEMP_HOST,
-      `DISHEE_TEMP_HOST is unset or unrecognised. Set it to "true" (a temporary host: must be non-indexable and advertise no sitemap) or "false" (the live host: must be indexable and advertise a sitemap). It is not defaulted, because defaulting it would silently choose which SEO posture this run asserts.`,
+      `PARITY_TEMP_HOST is unset or unrecognised. Set it to "true" (a temporary host: must be non-indexable and advertise no sitemap) or "false" (the live host: must be indexable and advertise a sitemap). It is not defaulted, because defaulting it would silently choose which SEO posture this run asserts.${MISSING_REQUIRED_SUFFIX}`,
     ).not.toBeNull();
     expect(
       activeEntries.length,
