@@ -1,0 +1,1055 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_version": "1.0.0",
+  "captured_at": "2026-08-16T06:59:55Z",
+  "source_host": "pebblrbooth.com.au",
+  "source_entry_count": 59,
+  "expected_product_count": 13,
+  "derived_from": ".planning/phases/15.2-pebblr-booth-rehearsal/artifacts/15.2a-06-url-inventory-raw.json",
+  "derived_by": "plan 15.2a-06, task 3",
+  "provenance_document": "pebblr-url-inventory.md",
+  "contract": {
+    "expected_final_path": "the path V2 MUST serve this url at. Equal to `path` unless a redirect is DECLARED, in which case `redirect_reason` is mandatory and the spec rejects the whole fixture without it.",
+    "expected_status": "the status V2 MUST return at expected_final_path",
+    "excluded": "written explicitly on EVERY entry, true or false, because an inventory that shrinks quietly is how this gate rots. Set true where the capture recorded a non-200 final status (there are NONE here) OR where the url was deliberately not swept and carries an excluded_reason saying so.",
+    "observed_on_source": "what the capture actually saw on the source host \u2014 provenance for the expectation beside it, never itself an assertion",
+    "per_kind_expectations": "product = detail markers + self-referential canonical; category/listing = minimum product cards; editorial = minimum rendered body text; functional = status only",
+    "expectations_are_derived_from_observation": "Every floor below was measured on the live V1 host, never assumed. Where V1 shows nothing, the floor is 0 and a baseline_note says so \u2014 a floor V1 does not meet would convert this store's own long-standing behaviour into a V2 regression."
+  },
+  "entries": [
+    {
+      "path": "/",
+      "kind": "editorial",
+      "expected_final_path": "/",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 7,
+        "has_canonical": true,
+        "html_bytes": 241258,
+        "visible_text_length": 2962
+      }
+    },
+    {
+      "path": "/about",
+      "kind": "editorial",
+      "expected_final_path": "/about",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": true,
+        "html_bytes": 131962,
+        "visible_text_length": 1474
+      }
+    },
+    {
+      "path": "/account",
+      "kind": "functional",
+      "expected_final_path": "/account",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "status_only": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": false,
+        "html_bytes": 123291,
+        "visible_text_length": 1087
+      }
+    },
+    {
+      "path": "/account/forgot-password",
+      "kind": "functional",
+      "expected_final_path": "/account/forgot-password",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "status_only": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": false,
+        "html_bytes": 120573,
+        "visible_text_length": 993
+      }
+    },
+    {
+      "path": "/account/reset-password",
+      "kind": "functional",
+      "expected_final_path": "/account/reset-password",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "status_only": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": false,
+        "html_bytes": 119968,
+        "visible_text_length": 956
+      }
+    },
+    {
+      "path": "/backdrop-designs",
+      "kind": "editorial",
+      "expected_final_path": "/backdrop-designs",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": true,
+        "html_bytes": 286086,
+        "visible_text_length": 3068
+      }
+    },
+    {
+      "path": "/birthdays",
+      "kind": "editorial",
+      "expected_final_path": "/birthdays",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 3,
+        "has_canonical": true,
+        "html_bytes": 156221,
+        "visible_text_length": 2614
+      }
+    },
+    {
+      "path": "/book-now",
+      "kind": "listing",
+      "expected_final_path": "/book-now",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_cards": 9
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 9,
+        "has_canonical": true,
+        "html_bytes": 184758,
+        "visible_text_length": 2421
+      }
+    },
+    {
+      "path": "/brand-activation-2",
+      "kind": "editorial",
+      "expected_final_path": "/brand-activation-2",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": true,
+        "html_bytes": 136707,
+        "visible_text_length": 2208
+      }
+    },
+    {
+      "path": "/checkout",
+      "kind": "functional",
+      "expected_final_path": "/checkout",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "status_only": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": false,
+        "html_bytes": 114851,
+        "visible_text_length": 835
+      }
+    },
+    {
+      "path": "/checkout/error",
+      "kind": "functional",
+      "expected_final_path": "/checkout/error",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "status_only": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": false,
+        "html_bytes": 115070,
+        "visible_text_length": 864
+      }
+    },
+    {
+      "path": "/collections/booths",
+      "kind": "category",
+      "expected_final_path": "/collections/booths",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_cards": 13
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 13,
+        "has_canonical": true,
+        "html_bytes": 169503,
+        "visible_text_length": 1345
+      }
+    },
+    {
+      "path": "/collections/booths/photo",
+      "kind": "category",
+      "expected_final_path": "/collections/booths/photo",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_cards": 9
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 9,
+        "has_canonical": true,
+        "html_bytes": 156625,
+        "visible_text_length": 1195
+      }
+    },
+    {
+      "path": "/collections/booths/video",
+      "kind": "category",
+      "expected_final_path": "/collections/booths/video",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_cards": 2
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 2,
+        "has_canonical": true,
+        "html_bytes": 131183,
+        "visible_text_length": 982
+      }
+    },
+    {
+      "path": "/collections/packages",
+      "kind": "category",
+      "expected_final_path": "/collections/packages",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_cards": 8
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 8,
+        "has_canonical": true,
+        "html_bytes": 153541,
+        "visible_text_length": 1204
+      }
+    },
+    {
+      "path": "/contact",
+      "kind": "functional",
+      "expected_final_path": "/contact",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "status_only": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": true,
+        "html_bytes": 122309,
+        "visible_text_length": 985
+      }
+    },
+    {
+      "path": "/corporate-events",
+      "kind": "editorial",
+      "expected_final_path": "/corporate-events",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 5,
+        "has_canonical": true,
+        "html_bytes": 164969,
+        "visible_text_length": 2278
+      }
+    },
+    {
+      "path": "/events",
+      "kind": "editorial",
+      "expected_final_path": "/events",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": true,
+        "html_bytes": 124660,
+        "visible_text_length": 972
+      }
+    },
+    {
+      "path": "/extra-add-on-services",
+      "kind": "editorial",
+      "expected_final_path": "/extra-add-on-services",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": true,
+        "html_bytes": 144788,
+        "visible_text_length": 2378
+      }
+    },
+    {
+      "path": "/faq",
+      "kind": "editorial",
+      "expected_final_path": "/faq",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": true,
+        "html_bytes": 178921,
+        "visible_text_length": 1741
+      }
+    },
+    {
+      "path": "/fundraisers",
+      "kind": "editorial",
+      "expected_final_path": "/fundraisers",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": true,
+        "html_bytes": 124715,
+        "visible_text_length": 982
+      }
+    },
+    {
+      "path": "/graduations",
+      "kind": "editorial",
+      "expected_final_path": "/graduations",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 6,
+        "has_canonical": true,
+        "html_bytes": 170292,
+        "visible_text_length": 2639
+      }
+    },
+    {
+      "path": "/news",
+      "kind": "listing",
+      "expected_final_path": "/news",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_cards": 0,
+        "baseline_zero_cards": true,
+        "baseline_note": "V1 serves this page with zero product cards \u2014 it is the blog index, not a catalogue listing. Pre-existing V1 behaviour, recorded so the gate cannot report it as a new-storefront regression. The spec's baseline branch asserts a 200-character body-text floor instead, so the case is not vacuous."
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": true,
+        "html_bytes": 147549,
+        "visible_text_length": 1415
+      }
+    },
+    {
+      "path": "/news/10-creative-ways-to-use-a-photobooth-at-your-wedding",
+      "kind": "editorial",
+      "expected_final_path": "/news/10-creative-ways-to-use-a-photobooth-at-your-wedding",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": true,
+        "html_bytes": 156556,
+        "visible_text_length": 4323
+      }
+    },
+    {
+      "path": "/news/diy-photobooth-props",
+      "kind": "editorial",
+      "expected_final_path": "/news/diy-photobooth-props",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": true,
+        "html_bytes": 154849,
+        "visible_text_length": 4171
+      }
+    },
+    {
+      "path": "/news/how-to-choose-the-perfect-photobooth-backdrop",
+      "kind": "editorial",
+      "expected_final_path": "/news/how-to-choose-the-perfect-photobooth-backdrop",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": true,
+        "html_bytes": 156279,
+        "visible_text_length": 4330
+      }
+    },
+    {
+      "path": "/news/how-to-choose-the-perfect-photobooth-for-your-event",
+      "kind": "editorial",
+      "expected_final_path": "/news/how-to-choose-the-perfect-photobooth-for-your-event",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": true,
+        "html_bytes": 157117,
+        "visible_text_length": 4593
+      }
+    },
+    {
+      "path": "/news/the-benefits-of-photobooth-marketing",
+      "kind": "editorial",
+      "expected_final_path": "/news/the-benefits-of-photobooth-marketing",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": true,
+        "html_bytes": 153928,
+        "visible_text_length": 4548
+      }
+    },
+    {
+      "path": "/news/the-benefits-of-renting-a-photobooth-for-your-corporate-event",
+      "kind": "editorial",
+      "expected_final_path": "/news/the-benefits-of-renting-a-photobooth-for-your-corporate-event",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": true,
+        "html_bytes": 154689,
+        "visible_text_length": 4507
+      }
+    },
+    {
+      "path": "/news/the-process-of-organising-a-photobooth",
+      "kind": "editorial",
+      "expected_final_path": "/news/the-process-of-organising-a-photobooth",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": true,
+        "html_bytes": 151378,
+        "visible_text_length": 3245
+      }
+    },
+    {
+      "path": "/news/the-rise-of-the-social-media-photobooth",
+      "kind": "editorial",
+      "expected_final_path": "/news/the-rise-of-the-social-media-photobooth",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": true,
+        "html_bytes": 154089,
+        "visible_text_length": 4581
+      }
+    },
+    {
+      "path": "/news/what-are-the-different-types-of-photobooths",
+      "kind": "editorial",
+      "expected_final_path": "/news/what-are-the-different-types-of-photobooths",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": true,
+        "html_bytes": 150849,
+        "visible_text_length": 3010
+      }
+    },
+    {
+      "path": "/news/what-is-a-photobooth",
+      "kind": "editorial",
+      "expected_final_path": "/news/what-is-a-photobooth",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": true,
+        "html_bytes": 149244,
+        "visible_text_length": 2741
+      }
+    },
+    {
+      "path": "/packages",
+      "kind": "editorial",
+      "expected_final_path": "/packages",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": true,
+        "html_bytes": 125685,
+        "visible_text_length": 1001
+      }
+    },
+    {
+      "path": "/photo-booth-print-template",
+      "kind": "editorial",
+      "expected_final_path": "/photo-booth-print-template",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": true,
+        "html_bytes": 175799,
+        "visible_text_length": 2381
+      }
+    },
+    {
+      "path": "/quote",
+      "kind": "functional",
+      "expected_final_path": "/quote",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "status_only": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": true,
+        "html_bytes": 126334,
+        "visible_text_length": 1218
+      }
+    },
+    {
+      "path": "/search",
+      "kind": "functional",
+      "expected_final_path": "/search",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "status_only": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 13,
+        "has_canonical": true,
+        "html_bytes": 159976,
+        "visible_text_length": 1474
+      }
+    },
+    {
+      "path": "/shop",
+      "kind": "listing",
+      "expected_final_path": "/shop",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_cards": 13
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 13,
+        "has_canonical": true,
+        "html_bytes": 156127,
+        "visible_text_length": 1294
+      }
+    },
+    {
+      "path": "/shop/booths/mini-claw-machine-hire",
+      "kind": "product",
+      "expected_final_path": "/shop/booths/mini-claw-machine-hire",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 0,
+        "canonical_expected": true,
+        "baseline_note": "V1 emits ZERO of the three product-detail markers on every product page (no Product JSON-LD, no Offer JSON-LD, no add-to-cart text), so the floor is 0 BY MEASUREMENT. A borrowed floor of 2 would manufacture a regression. The canonical assertion is what keeps this case from asserting nothing: all 13 pages emit one."
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 11,
+        "has_canonical": true,
+        "html_bytes": 202383,
+        "visible_text_length": 4003,
+        "product_detail_marker_count": 0
+      }
+    },
+    {
+      "path": "/shop/booths/photo/corporate-package",
+      "kind": "product",
+      "expected_final_path": "/shop/booths/photo/corporate-package",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 0,
+        "canonical_expected": true,
+        "baseline_note": "V1 emits ZERO of the three product-detail markers on every product page (no Product JSON-LD, no Offer JSON-LD, no add-to-cart text), so the floor is 0 BY MEASUREMENT. A borrowed floor of 2 would manufacture a regression. The canonical assertion is what keeps this case from asserting nothing: all 13 pages emit one."
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 11,
+        "has_canonical": true,
+        "html_bytes": 214382,
+        "visible_text_length": 3015,
+        "product_detail_marker_count": 0
+      }
+    },
+    {
+      "path": "/shop/booths/photo/custom-button-badge-photo-booth",
+      "kind": "product",
+      "expected_final_path": "/shop/booths/photo/custom-button-badge-photo-booth",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 0,
+        "canonical_expected": true,
+        "baseline_note": "V1 emits ZERO of the three product-detail markers on every product page (no Product JSON-LD, no Offer JSON-LD, no add-to-cart text), so the floor is 0 BY MEASUREMENT. A borrowed floor of 2 would manufacture a regression. The canonical assertion is what keeps this case from asserting nothing: all 13 pages emit one."
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 11,
+        "has_canonical": true,
+        "html_bytes": 193307,
+        "visible_text_length": 2923,
+        "product_detail_marker_count": 0
+      }
+    },
+    {
+      "path": "/shop/booths/photo/custom-photo-key-chain",
+      "kind": "product",
+      "expected_final_path": "/shop/booths/photo/custom-photo-key-chain",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 0,
+        "canonical_expected": true,
+        "baseline_note": "V1 emits ZERO of the three product-detail markers on every product page (no Product JSON-LD, no Offer JSON-LD, no add-to-cart text), so the floor is 0 BY MEASUREMENT. A borrowed floor of 2 would manufacture a regression. The canonical assertion is what keeps this case from asserting nothing: all 13 pages emit one."
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 11,
+        "has_canonical": true,
+        "html_bytes": 214244,
+        "visible_text_length": 3623,
+        "product_detail_marker_count": 0
+      }
+    },
+    {
+      "path": "/shop/booths/photo/glam-booth-package",
+      "kind": "product",
+      "expected_final_path": "/shop/booths/photo/glam-booth-package",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 0,
+        "canonical_expected": true,
+        "baseline_note": "V1 emits ZERO of the three product-detail markers on every product page (no Product JSON-LD, no Offer JSON-LD, no add-to-cart text), so the floor is 0 BY MEASUREMENT. A borrowed floor of 2 would manufacture a regression. The canonical assertion is what keeps this case from asserting nothing: all 13 pages emit one."
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 11,
+        "has_canonical": true,
+        "html_bytes": 197476,
+        "visible_text_length": 2663,
+        "product_detail_marker_count": 0
+      }
+    },
+    {
+      "path": "/shop/booths/photo/gold-package",
+      "kind": "product",
+      "expected_final_path": "/shop/booths/photo/gold-package",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 0,
+        "canonical_expected": true,
+        "baseline_note": "V1 emits ZERO of the three product-detail markers on every product page (no Product JSON-LD, no Offer JSON-LD, no add-to-cart text), so the floor is 0 BY MEASUREMENT. A borrowed floor of 2 would manufacture a regression. The canonical assertion is what keeps this case from asserting nothing: all 13 pages emit one."
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 11,
+        "has_canonical": true,
+        "html_bytes": 226122,
+        "visible_text_length": 3169,
+        "product_detail_marker_count": 0
+      }
+    },
+    {
+      "path": "/shop/booths/photo/roamer-photo-booth",
+      "kind": "product",
+      "expected_final_path": "/shop/booths/photo/roamer-photo-booth",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 0,
+        "canonical_expected": true,
+        "baseline_note": "V1 emits ZERO of the three product-detail markers on every product page (no Product JSON-LD, no Offer JSON-LD, no add-to-cart text), so the floor is 0 BY MEASUREMENT. A borrowed floor of 2 would manufacture a regression. The canonical assertion is what keeps this case from asserting nothing: all 13 pages emit one."
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 11,
+        "has_canonical": true,
+        "html_bytes": 192766,
+        "visible_text_length": 2374,
+        "product_detail_marker_count": 0
+      }
+    },
+    {
+      "path": "/shop/booths/photo/silver-package",
+      "kind": "product",
+      "expected_final_path": "/shop/booths/photo/silver-package",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 0,
+        "canonical_expected": true,
+        "baseline_note": "V1 emits ZERO of the three product-detail markers on every product page (no Product JSON-LD, no Offer JSON-LD, no add-to-cart text), so the floor is 0 BY MEASUREMENT. A borrowed floor of 2 would manufacture a regression. The canonical assertion is what keeps this case from asserting nothing: all 13 pages emit one."
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 11,
+        "has_canonical": true,
+        "html_bytes": 227654,
+        "visible_text_length": 2808,
+        "product_detail_marker_count": 0
+      }
+    },
+    {
+      "path": "/shop/booths/photo/trading-card-photobooth-2",
+      "kind": "product",
+      "expected_final_path": "/shop/booths/photo/trading-card-photobooth-2",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 0,
+        "canonical_expected": true,
+        "baseline_note": "V1 emits ZERO of the three product-detail markers on every product page (no Product JSON-LD, no Offer JSON-LD, no add-to-cart text), so the floor is 0 BY MEASUREMENT. A borrowed floor of 2 would manufacture a regression. The canonical assertion is what keeps this case from asserting nothing: all 13 pages emit one."
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 11,
+        "has_canonical": true,
+        "html_bytes": 203954,
+        "visible_text_length": 3269,
+        "product_detail_marker_count": 0
+      }
+    },
+    {
+      "path": "/shop/booths/photo/wedding-package",
+      "kind": "product",
+      "expected_final_path": "/shop/booths/photo/wedding-package",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 0,
+        "canonical_expected": true,
+        "baseline_note": "V1 emits ZERO of the three product-detail markers on every product page (no Product JSON-LD, no Offer JSON-LD, no add-to-cart text), so the floor is 0 BY MEASUREMENT. A borrowed floor of 2 would manufacture a regression. The canonical assertion is what keeps this case from asserting nothing: all 13 pages emit one."
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 11,
+        "has_canonical": true,
+        "html_bytes": 197284,
+        "visible_text_length": 2332,
+        "product_detail_marker_count": 0
+      }
+    },
+    {
+      "path": "/shop/booths/reaction-falling-stick-game-hire",
+      "kind": "product",
+      "expected_final_path": "/shop/booths/reaction-falling-stick-game-hire",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 0,
+        "canonical_expected": true,
+        "baseline_note": "V1 emits ZERO of the three product-detail markers on every product page (no Product JSON-LD, no Offer JSON-LD, no add-to-cart text), so the floor is 0 BY MEASUREMENT. A borrowed floor of 2 would manufacture a regression. The canonical assertion is what keeps this case from asserting nothing: all 13 pages emit one."
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 11,
+        "has_canonical": true,
+        "html_bytes": 206963,
+        "visible_text_length": 4849,
+        "product_detail_marker_count": 0
+      }
+    },
+    {
+      "path": "/shop/booths/video/360-spin-video-booth",
+      "kind": "product",
+      "expected_final_path": "/shop/booths/video/360-spin-video-booth",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 0,
+        "canonical_expected": true,
+        "baseline_note": "V1 emits ZERO of the three product-detail markers on every product page (no Product JSON-LD, no Offer JSON-LD, no add-to-cart text), so the floor is 0 BY MEASUREMENT. A borrowed floor of 2 would manufacture a regression. The canonical assertion is what keeps this case from asserting nothing: all 13 pages emit one."
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 11,
+        "has_canonical": true,
+        "html_bytes": 192475,
+        "visible_text_length": 2252,
+        "product_detail_marker_count": 0
+      }
+    },
+    {
+      "path": "/shop/booths/video/video-guest-book-booth",
+      "kind": "product",
+      "expected_final_path": "/shop/booths/video/video-guest-book-booth",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 0,
+        "canonical_expected": true,
+        "baseline_note": "V1 emits ZERO of the three product-detail markers on every product page (no Product JSON-LD, no Offer JSON-LD, no add-to-cart text), so the floor is 0 BY MEASUREMENT. A borrowed floor of 2 would manufacture a regression. The canonical assertion is what keeps this case from asserting nothing: all 13 pages emit one."
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 11,
+        "has_canonical": true,
+        "html_bytes": 189827,
+        "visible_text_length": 2408,
+        "product_detail_marker_count": 0
+      }
+    },
+    {
+      "path": "/venue-checklist",
+      "kind": "editorial",
+      "expected_final_path": "/venue-checklist",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": true,
+        "html_bytes": 141781,
+        "visible_text_length": 2305
+      }
+    },
+    {
+      "path": "/wedding-photo-booth-adelaide",
+      "kind": "editorial",
+      "expected_final_path": "/wedding-photo-booth-adelaide",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 2,
+        "has_canonical": true,
+        "html_bytes": 151293,
+        "visible_text_length": 2469
+      }
+    },
+    {
+      "path": "/white-labelling",
+      "kind": "editorial",
+      "expected_final_path": "/white-labelling",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": true,
+        "html_bytes": 141667,
+        "visible_text_length": 2483
+      }
+    },
+    {
+      "path": "/account/address",
+      "kind": "functional",
+      "expected_final_path": "/account/address",
+      "expected_status": 200,
+      "excluded": true,
+      "excluded_reason": "auth-gated: source-derived from the (private) route group. An unauthenticated GET records only the login redirect, which asserts nothing about the page, and plan 15.2a-06 forbids an authenticated request of any kind. Carried here rather than dropped so the inventory does not shrink quietly; its EXISTENCE is established from source, its RENDERED behaviour is not observed.",
+      "expectations": {
+        "status_only": true
+      },
+      "observed_on_source": {
+        "captured": false,
+        "why_not_captured": "auth-gated: source-derived from the (private) route group. An unauthenticated GET records only the login redirect, which asserts nothing about the page, and plan 15.2a-06 forbids an authenticated request of any kind. Carried here rather than dropped so the inventory does not shrink quietly; its EXISTENCE is established from source, its RENDERED behaviour is not observed."
+      }
+    },
+    {
+      "path": "/account/change-password",
+      "kind": "functional",
+      "expected_final_path": "/account/change-password",
+      "expected_status": 200,
+      "excluded": true,
+      "excluded_reason": "auth-gated: source-derived from the (private) route group. An unauthenticated GET records only the login redirect, which asserts nothing about the page, and plan 15.2a-06 forbids an authenticated request of any kind. Carried here rather than dropped so the inventory does not shrink quietly; its EXISTENCE is established from source, its RENDERED behaviour is not observed.",
+      "expectations": {
+        "status_only": true
+      },
+      "observed_on_source": {
+        "captured": false,
+        "why_not_captured": "auth-gated: source-derived from the (private) route group. An unauthenticated GET records only the login redirect, which asserts nothing about the page, and plan 15.2a-06 forbids an authenticated request of any kind. Carried here rather than dropped so the inventory does not shrink quietly; its EXISTENCE is established from source, its RENDERED behaviour is not observed."
+      }
+    },
+    {
+      "path": "/account/orders",
+      "kind": "functional",
+      "expected_final_path": "/account/orders",
+      "expected_status": 200,
+      "excluded": true,
+      "excluded_reason": "auth-gated: source-derived from the (private) route group. An unauthenticated GET records only the login redirect, which asserts nothing about the page, and plan 15.2a-06 forbids an authenticated request of any kind. Carried here rather than dropped so the inventory does not shrink quietly; its EXISTENCE is established from source, its RENDERED behaviour is not observed.",
+      "expectations": {
+        "status_only": true
+      },
+      "observed_on_source": {
+        "captured": false,
+        "why_not_captured": "auth-gated: source-derived from the (private) route group. An unauthenticated GET records only the login redirect, which asserts nothing about the page, and plan 15.2a-06 forbids an authenticated request of any kind. Carried here rather than dropped so the inventory does not shrink quietly; its EXISTENCE is established from source, its RENDERED behaviour is not observed."
+      }
+    },
+    {
+      "path": "/account/profile",
+      "kind": "functional",
+      "expected_final_path": "/account/profile",
+      "expected_status": 200,
+      "excluded": true,
+      "excluded_reason": "auth-gated: source-derived from the (private) route group. An unauthenticated GET records only the login redirect, which asserts nothing about the page, and plan 15.2a-06 forbids an authenticated request of any kind. Carried here rather than dropped so the inventory does not shrink quietly; its EXISTENCE is established from source, its RENDERED behaviour is not observed.",
+      "expectations": {
+        "status_only": true
+      },
+      "observed_on_source": {
+        "captured": false,
+        "why_not_captured": "auth-gated: source-derived from the (private) route group. An unauthenticated GET records only the login redirect, which asserts nothing about the page, and plan 15.2a-06 forbids an authenticated request of any kind. Carried here rather than dropped so the inventory does not shrink quietly; its EXISTENCE is established from source, its RENDERED behaviour is not observed."
+      }
+    },
+    {
+      "path": "/account/wishlist",
+      "kind": "functional",
+      "expected_final_path": "/account/wishlist",
+      "expected_status": 200,
+      "excluded": true,
+      "excluded_reason": "auth-gated: source-derived from the (private) route group. An unauthenticated GET records only the login redirect, which asserts nothing about the page, and plan 15.2a-06 forbids an authenticated request of any kind. Carried here rather than dropped so the inventory does not shrink quietly; its EXISTENCE is established from source, its RENDERED behaviour is not observed.",
+      "expectations": {
+        "status_only": true
+      },
+      "observed_on_source": {
+        "captured": false,
+        "why_not_captured": "auth-gated: source-derived from the (private) route group. An unauthenticated GET records only the login redirect, which asserts nothing about the page, and plan 15.2a-06 forbids an authenticated request of any kind. Carried here rather than dropped so the inventory does not shrink quietly; its EXISTENCE is established from source, its RENDERED behaviour is not observed."
+      }
+    }
+  ]
+}
