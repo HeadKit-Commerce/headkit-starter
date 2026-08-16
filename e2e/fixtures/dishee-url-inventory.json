@@ -1,0 +1,852 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_version": "1.0.0",
+  "captured_at": "2026-08-09T12:02:31Z",
+  "source_host": "www.dishee.com.au",
+  "source_entry_count": 50,
+  "expected_product_count": 25,
+  "derived_from": ".planning/phases/15.1-dishee-migration/artifacts/10-url-inventory-raw.json",
+  "derived_by": "plan 15.1-11, task 1",
+  "provenance_document": "dishee-url-inventory.md",
+  "contract": {
+    "expected_final_path": "the path V2 MUST serve this url at. Equal to `path` unless a redirect is DECLARED, in which case `redirect_reason` is mandatory and the spec rejects the whole fixture without it.",
+    "expected_status": "the status V2 MUST return at expected_final_path",
+    "excluded": "true when the capture recorded a non-200 final status; the spec skips these and prints the count, because an inventory that shrinks quietly is how this gate would rot",
+    "observed_on_source": "what the capture actually saw on the source host — provenance for the expectation beside it, never itself an assertion",
+    "per_kind_expectations": "product = detail markers + self-referential canonical; category/listing = minimum product cards; editorial = minimum rendered body text; functional = status only"
+  },
+  "entries": [
+    {
+      "path": "/",
+      "kind": "editorial",
+      "expected_final_path": "/",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 11,
+        "has_canonical": true,
+        "html_bytes": 172440
+      }
+    },
+    {
+      "path": "/about",
+      "kind": "editorial",
+      "expected_final_path": "/about",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": false,
+        "html_bytes": 67158
+      }
+    },
+    {
+      "path": "/brand/dishee",
+      "kind": "category",
+      "expected_final_path": "/brand/dishee",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_cards": 24
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 24,
+        "has_canonical": false,
+        "html_bytes": 176535
+      }
+    },
+    {
+      "path": "/cart",
+      "kind": "functional",
+      "expected_final_path": "/cart",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "status_only": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": false,
+        "html_bytes": 70651
+      }
+    },
+    {
+      "path": "/collections/dish-brushes",
+      "kind": "category",
+      "expected_final_path": "/collections/dish-brushes",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_cards": 5
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 5,
+        "has_canonical": true,
+        "html_bytes": 94498
+      }
+    },
+    {
+      "path": "/collections/swedish-dish-cloths",
+      "kind": "category",
+      "expected_final_path": "/collections/swedish-dish-cloths",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_cards": 20
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 20,
+        "has_canonical": true,
+        "html_bytes": 165516
+      }
+    },
+    {
+      "path": "/collections/swedish-dish-cloths/amalfi-stripe",
+      "kind": "category",
+      "expected_final_path": "/collections/swedish-dish-cloths/amalfi-stripe",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_cards": 5
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 5,
+        "has_canonical": true,
+        "html_bytes": 104245
+      }
+    },
+    {
+      "path": "/collections/swedish-dish-cloths/flora",
+      "kind": "category",
+      "expected_final_path": "/collections/swedish-dish-cloths/flora",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_cards": 3
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 3,
+        "has_canonical": true,
+        "html_bytes": 94347
+      }
+    },
+    {
+      "path": "/collections/swedish-dish-cloths/floral-haze",
+      "kind": "category",
+      "expected_final_path": "/collections/swedish-dish-cloths/floral-haze",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_cards": 4
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 4,
+        "has_canonical": true,
+        "html_bytes": 99562
+      }
+    },
+    {
+      "path": "/collections/swedish-dish-cloths/fresh-fruits",
+      "kind": "category",
+      "expected_final_path": "/collections/swedish-dish-cloths/fresh-fruits",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_cards": 4
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 4,
+        "has_canonical": true,
+        "html_bytes": 100120
+      }
+    },
+    {
+      "path": "/collections/swedish-dish-cloths/furry-friends",
+      "kind": "category",
+      "expected_final_path": "/collections/swedish-dish-cloths/furry-friends",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_cards": 2
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 2,
+        "has_canonical": true,
+        "html_bytes": 89484
+      }
+    },
+    {
+      "path": "/collections/swedish-dish-cloths/patterns",
+      "kind": "category",
+      "expected_final_path": "/collections/swedish-dish-cloths/patterns",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_cards": 2
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 2,
+        "has_canonical": true,
+        "html_bytes": 89135
+      }
+    },
+    {
+      "path": "/contact",
+      "kind": "functional",
+      "expected_final_path": "/contact",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "status_only": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": false,
+        "html_bytes": 68793
+      }
+    },
+    {
+      "path": "/faq",
+      "kind": "editorial",
+      "expected_final_path": "/faq",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": false,
+        "html_bytes": 71047
+      }
+    },
+    {
+      "path": "/featured",
+      "kind": "listing",
+      "expected_final_path": "/featured",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_cards": 6
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 6,
+        "has_canonical": true,
+        "html_bytes": 105459
+      }
+    },
+    {
+      "path": "/legal/privacy-policy",
+      "kind": "editorial",
+      "expected_final_path": "/legal/privacy-policy",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": false,
+        "html_bytes": 75699
+      }
+    },
+    {
+      "path": "/legal/terms-conditions",
+      "kind": "editorial",
+      "expected_final_path": "/legal/terms-conditions",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": false,
+        "html_bytes": 75508
+      }
+    },
+    {
+      "path": "/new",
+      "kind": "listing",
+      "expected_final_path": "/new",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_cards": 0,
+        "baseline_zero_cards": true,
+        "baseline_note": "the capture observed 0 product cards here on www.dishee.com.au; recorded as the V1 baseline, not as a defect for V2 to fix"
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": true,
+        "html_bytes": 75757
+      }
+    },
+    {
+      "path": "/posts",
+      "kind": "listing",
+      "expected_final_path": "/news",
+      "expected_status": 200,
+      "redirect_reason": "V1 (headkit-demo lineage) served the blog index at /posts; apps/starter serves it at /news for the whole fleet, so the blog is the one namespace this migration cannot preserve in place without forking the template. app/posts/page.tsx exists purely to move it, and the sibling permanence assertion requires that move to be 301/308 so the indexed /posts ranking consolidates onto /news instead of being stranded on a url V2 no longer renders.",
+      "excluded": false,
+      "expectations": {
+        "min_product_cards": 0,
+        "baseline_zero_cards": true,
+        "baseline_note": "the capture observed 0 product cards here on www.dishee.com.au; recorded as the V1 baseline, not as a defect for V2 to fix"
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": false,
+        "html_bytes": 70992
+      }
+    },
+    {
+      "path": "/returns",
+      "kind": "editorial",
+      "expected_final_path": "/returns",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": false,
+        "html_bytes": 67392
+      }
+    },
+    {
+      "path": "/sale",
+      "kind": "listing",
+      "expected_final_path": "/sale",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_cards": 0,
+        "baseline_zero_cards": true,
+        "baseline_note": "the capture observed 0 product cards here on www.dishee.com.au; recorded as the V1 baseline, not as a defect for V2 to fix"
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": false,
+        "html_bytes": 74907
+      }
+    },
+    {
+      "path": "/search",
+      "kind": "functional",
+      "expected_final_path": "/search",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "status_only": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 24,
+        "has_canonical": false,
+        "html_bytes": 173960
+      }
+    },
+    {
+      "path": "/shipping-delivery",
+      "kind": "editorial",
+      "expected_final_path": "/shipping-delivery",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": false,
+        "html_bytes": 69293
+      }
+    },
+    {
+      "path": "/shop",
+      "kind": "listing",
+      "expected_final_path": "/shop",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_cards": 24
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 24,
+        "has_canonical": false,
+        "html_bytes": 174210
+      }
+    },
+    {
+      "path": "/shop/dish-brushes/dishee-dish-brush-black",
+      "kind": "product",
+      "expected_final_path": "/shop/dish-brushes/dishee-dish-brush-black",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 2,
+        "canonical_expected": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 4,
+        "has_canonical": true,
+        "html_bytes": 116933
+      }
+    },
+    {
+      "path": "/shop/dish-brushes/dishee-dish-brush-coral",
+      "kind": "product",
+      "expected_final_path": "/shop/dish-brushes/dishee-dish-brush-coral",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 2,
+        "canonical_expected": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 4,
+        "has_canonical": true,
+        "html_bytes": 117160
+      }
+    },
+    {
+      "path": "/shop/dish-brushes/dishee-dish-brush-ocean",
+      "kind": "product",
+      "expected_final_path": "/shop/dish-brushes/dishee-dish-brush-ocean",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 2,
+        "canonical_expected": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 4,
+        "has_canonical": true,
+        "html_bytes": 117295
+      }
+    },
+    {
+      "path": "/shop/dish-brushes/dishee-dish-brush-sky",
+      "kind": "product",
+      "expected_final_path": "/shop/dish-brushes/dishee-dish-brush-sky",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 2,
+        "canonical_expected": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 4,
+        "has_canonical": true,
+        "html_bytes": 116901
+      }
+    },
+    {
+      "path": "/shop/dish-brushes/dishee-dish-brush-white",
+      "kind": "product",
+      "expected_final_path": "/shop/dish-brushes/dishee-dish-brush-white",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 2,
+        "canonical_expected": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 4,
+        "has_canonical": true,
+        "html_bytes": 116933
+      }
+    },
+    {
+      "path": "/shop/swedish-dish-cloths/amalfi-stripe/dishee-swedish-dish-cloths-amalfi-stripe-grey",
+      "kind": "product",
+      "expected_final_path": "/shop/swedish-dish-cloths/amalfi-stripe/dishee-swedish-dish-cloths-amalfi-stripe-grey",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 2,
+        "canonical_expected": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 10,
+        "has_canonical": true,
+        "html_bytes": 169874
+      }
+    },
+    {
+      "path": "/shop/swedish-dish-cloths/amalfi-stripe/dishee-swedish-dish-cloths-amalfi-stripe-mineral-blue",
+      "kind": "product",
+      "expected_final_path": "/shop/swedish-dish-cloths/amalfi-stripe/dishee-swedish-dish-cloths-amalfi-stripe-mineral-blue",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 2,
+        "canonical_expected": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 10,
+        "has_canonical": true,
+        "html_bytes": 170121
+      }
+    },
+    {
+      "path": "/shop/swedish-dish-cloths/amalfi-stripe/dishee-swedish-dish-cloths-amalfi-stripe-moss-green",
+      "kind": "product",
+      "expected_final_path": "/shop/swedish-dish-cloths/amalfi-stripe/dishee-swedish-dish-cloths-amalfi-stripe-moss-green",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 2,
+        "canonical_expected": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 10,
+        "has_canonical": true,
+        "html_bytes": 169996
+      }
+    },
+    {
+      "path": "/shop/swedish-dish-cloths/amalfi-stripe/dishee-swedish-dish-cloths-amalfi-stripe-navy",
+      "kind": "product",
+      "expected_final_path": "/shop/swedish-dish-cloths/amalfi-stripe/dishee-swedish-dish-cloths-amalfi-stripe-navy",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 2,
+        "canonical_expected": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 10,
+        "has_canonical": true,
+        "html_bytes": 169780
+      }
+    },
+    {
+      "path": "/shop/swedish-dish-cloths/amalfi-stripe/dishee-swedish-dish-cloths-amalfi-stripe-terracotta",
+      "kind": "product",
+      "expected_final_path": "/shop/swedish-dish-cloths/amalfi-stripe/dishee-swedish-dish-cloths-amalfi-stripe-terracotta",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 2,
+        "canonical_expected": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 10,
+        "has_canonical": true,
+        "html_bytes": 170236
+      }
+    },
+    {
+      "path": "/shop/swedish-dish-cloths/flora/dishee-swedish-dish-cloths-flora-autumn",
+      "kind": "product",
+      "expected_final_path": "/shop/swedish-dish-cloths/flora/dishee-swedish-dish-cloths-flora-autumn",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 2,
+        "canonical_expected": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 10,
+        "has_canonical": true,
+        "html_bytes": 168627
+      }
+    },
+    {
+      "path": "/shop/swedish-dish-cloths/flora/dishee-swedish-dish-cloths-flora-spring",
+      "kind": "product",
+      "expected_final_path": "/shop/swedish-dish-cloths/flora/dishee-swedish-dish-cloths-flora-spring",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 2,
+        "canonical_expected": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 10,
+        "has_canonical": true,
+        "html_bytes": 168621
+      }
+    },
+    {
+      "path": "/shop/swedish-dish-cloths/flora/dishee-swedish-dish-cloths-flora-wild",
+      "kind": "product",
+      "expected_final_path": "/shop/swedish-dish-cloths/flora/dishee-swedish-dish-cloths-flora-wild",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 2,
+        "canonical_expected": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 10,
+        "has_canonical": true,
+        "html_bytes": 168929
+      }
+    },
+    {
+      "path": "/shop/swedish-dish-cloths/floral-haze/dishee-swedish-dish-cloths-floral-haze-black",
+      "kind": "product",
+      "expected_final_path": "/shop/swedish-dish-cloths/floral-haze/dishee-swedish-dish-cloths-floral-haze-black",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 2,
+        "canonical_expected": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 10,
+        "has_canonical": true,
+        "html_bytes": 169255
+      }
+    },
+    {
+      "path": "/shop/swedish-dish-cloths/floral-haze/dishee-swedish-dish-cloths-floral-haze-orange",
+      "kind": "product",
+      "expected_final_path": "/shop/swedish-dish-cloths/floral-haze/dishee-swedish-dish-cloths-floral-haze-orange",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 2,
+        "canonical_expected": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 10,
+        "has_canonical": true,
+        "html_bytes": 169313
+      }
+    },
+    {
+      "path": "/shop/swedish-dish-cloths/floral-haze/dishee-swedish-dish-cloths-floral-haze-white",
+      "kind": "product",
+      "expected_final_path": "/shop/swedish-dish-cloths/floral-haze/dishee-swedish-dish-cloths-floral-haze-white",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 2,
+        "canonical_expected": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 10,
+        "has_canonical": true,
+        "html_bytes": 169243
+      }
+    },
+    {
+      "path": "/shop/swedish-dish-cloths/floral-haze/dishee-swedish-dish-cloths-floral-haze-yellow",
+      "kind": "product",
+      "expected_final_path": "/shop/swedish-dish-cloths/floral-haze/dishee-swedish-dish-cloths-floral-haze-yellow",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 2,
+        "canonical_expected": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 10,
+        "has_canonical": true,
+        "html_bytes": 169325
+      }
+    },
+    {
+      "path": "/shop/swedish-dish-cloths/fresh-fruits/dishee-swedish-dish-cloths-fresh-fruits-citrus-blast",
+      "kind": "product",
+      "expected_final_path": "/shop/swedish-dish-cloths/fresh-fruits/dishee-swedish-dish-cloths-fresh-fruits-citrus-blast",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 2,
+        "canonical_expected": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 10,
+        "has_canonical": true,
+        "html_bytes": 170736
+      }
+    },
+    {
+      "path": "/shop/swedish-dish-cloths/fresh-fruits/dishee-swedish-dish-cloths-fresh-fruits-lemon",
+      "kind": "product",
+      "expected_final_path": "/shop/swedish-dish-cloths/fresh-fruits/dishee-swedish-dish-cloths-fresh-fruits-lemon",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 2,
+        "canonical_expected": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 10,
+        "has_canonical": true,
+        "html_bytes": 170262
+      }
+    },
+    {
+      "path": "/shop/swedish-dish-cloths/fresh-fruits/dishee-swedish-dish-cloths-fresh-fruits-orange",
+      "kind": "product",
+      "expected_final_path": "/shop/swedish-dish-cloths/fresh-fruits/dishee-swedish-dish-cloths-fresh-fruits-orange",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 2,
+        "canonical_expected": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 10,
+        "has_canonical": true,
+        "html_bytes": 169915
+      }
+    },
+    {
+      "path": "/shop/swedish-dish-cloths/fresh-fruits/dishee-swedish-dish-cloths-fresh-fruits-pomegranate",
+      "kind": "product",
+      "expected_final_path": "/shop/swedish-dish-cloths/fresh-fruits/dishee-swedish-dish-cloths-fresh-fruits-pomegranate",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 2,
+        "canonical_expected": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 10,
+        "has_canonical": true,
+        "html_bytes": 170743
+      }
+    },
+    {
+      "path": "/shop/swedish-dish-cloths/furry-friends/dishee-swedish-dish-cloths-furry-friends-cats",
+      "kind": "product",
+      "expected_final_path": "/shop/swedish-dish-cloths/furry-friends/dishee-swedish-dish-cloths-furry-friends-cats",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 2,
+        "canonical_expected": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 10,
+        "has_canonical": true,
+        "html_bytes": 169081
+      }
+    },
+    {
+      "path": "/shop/swedish-dish-cloths/furry-friends/dishee-swedish-dish-cloths-furry-friends-dogs",
+      "kind": "product",
+      "expected_final_path": "/shop/swedish-dish-cloths/furry-friends/dishee-swedish-dish-cloths-furry-friends-dogs",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 2,
+        "canonical_expected": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 10,
+        "has_canonical": true,
+        "html_bytes": 169261
+      }
+    },
+    {
+      "path": "/shop/swedish-dish-cloths/patterns/dishee-swedish-dish-cloths-patterns-leaves",
+      "kind": "product",
+      "expected_final_path": "/shop/swedish-dish-cloths/patterns/dishee-swedish-dish-cloths-patterns-leaves",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 2,
+        "canonical_expected": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 10,
+        "has_canonical": true,
+        "html_bytes": 169052
+      }
+    },
+    {
+      "path": "/shop/swedish-dish-cloths/patterns/dishee-swedish-dish-cloths-patterns-olives",
+      "kind": "product",
+      "expected_final_path": "/shop/swedish-dish-cloths/patterns/dishee-swedish-dish-cloths-patterns-olives",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_product_detail_markers": 2,
+        "canonical_expected": true
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 10,
+        "has_canonical": true,
+        "html_bytes": 169369
+      }
+    },
+    {
+      "path": "/wholesale",
+      "kind": "editorial",
+      "expected_final_path": "/wholesale",
+      "expected_status": 200,
+      "excluded": false,
+      "expectations": {
+        "min_body_text_length": 200
+      },
+      "observed_on_source": {
+        "final_status": 200,
+        "product_card_count": 0,
+        "has_canonical": false,
+        "html_bytes": 69356
+      }
+    }
+  ]
+}
