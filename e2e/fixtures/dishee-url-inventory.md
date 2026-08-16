@@ -18,15 +18,15 @@ It backs `e2e/store-parity.spec.ts`, the MIG-03 route/parity gate for phase 15.1
 
 ## 1. When the capture ran, against what, and how
 
-| Property | Value |
-| --- | --- |
-| Captured | `2026-08-09T12:02:31Z` |
-| Source host | `www.dishee.com.au` (the **V1** production storefront, before any change) |
-| Captured by | phase 15.1, plan **15.1-10** |
-| Raw artifact | `.planning/phases/15.1-dishee-migration/artifacts/10-url-inventory-raw.json` |
-| Derived into this fixture by | plan **15.1-11**, task 1 |
-| Entries | **50** — 41 sitemap `<loc>` entries UNION 9 reachable-but-unlisted paths |
-| Result | all 50 returned final status **200**, with **zero** redirects |
+| Property                     | Value                                                                        |
+| ---------------------------- | ---------------------------------------------------------------------------- |
+| Captured                     | `2026-08-09T12:02:31Z`                                                       |
+| Source host                  | `www.dishee.com.au` (the **V1** production storefront, before any change)    |
+| Captured by                  | phase 15.1, plan **15.1-10**                                                 |
+| Raw artifact                 | `.planning/phases/15.1-dishee-migration/artifacts/10-url-inventory-raw.json` |
+| Derived into this fixture by | plan **15.1-11**, task 1                                                     |
+| Entries                      | **50** — 41 sitemap `<loc>` entries UNION 9 reachable-but-unlisted paths     |
+| Result                       | all 50 returned final status **200**, with **zero** redirects                |
 
 Method, as recorded in the raw artifact's own `extraction_method` block:
 
@@ -99,10 +99,10 @@ The capture recorded three things that look like defects and are not. They are
 pre-existing **V1** behaviour. The entire purpose of a baseline is that V2 is not
 blamed for them, so the fixture asserts **nothing** that would flag them:
 
-| Observation | Fixture treatment |
-| --- | --- |
-| `/new` and `/sale` return **200 with zero product cards** | `min_product_cards: 0` + `baseline_zero_cards: true` + a `baseline_note`. The plan's "floor at 1" rule is **not** applied here — see § 4. |
-| `/posts` is empty (Dishee has an empty blog) | same treatment |
+| Observation                                                               | Fixture treatment                                                                                                                                                                                                                  |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/new` and `/sale` return **200 with zero product cards**                 | `min_product_cards: 0` + `baseline_zero_cards: true` + a `baseline_note`. The plan's "floor at 1" rule is **not** applied here — see § 4.                                                                                          |
+| `/posts` is empty (Dishee has an empty blog)                              | same treatment                                                                                                                                                                                                                     |
 | `/shop` lists **24** distinct PDP links against **25** published products | `/shop` carries `min_product_cards: 24`, the observed number — not 25. The catalogue-completeness claim is made by the separate product-count assertion over the 25 `kind: product` entries, which is the right instrument for it. |
 
 `/cart` is carried with `expected_status: 200` even though `apps/starter` has no
@@ -120,23 +120,23 @@ declared redirect that carries no reason.
 The raw capture records what V1 **does**. The fixture records what V2 **must do**.
 Every rule below was applied mechanically to all 50 entries.
 
-| Field | Rule |
-| --- | --- |
-| `expected_final_path` | the requested `path` itself for every entry. **No redirect is declared anywhere**, because D-15-04 preserves the nested `/shop/{cat}[/{sub}]/{slug}` shape rather than redirecting it. |
-| `redirect_reason` | mandatory on any entry whose `expected_final_path` differs from its `path`. There are none today. A declared redirect without a reason makes the **whole fixture invalid** — the spec rejects it rather than skipping the entry, because a skipped entry is a silently shrinking inventory. |
-| `expected_status` | `200` for every entry (every captured entry was 200). |
-| `excluded` / `excluded_reason` | set when the capture recorded a **non-200** final status. **There are ZERO such entries** — see § 6. |
-| `observed_on_source` | the capture's own numbers, carried beside each expectation so a reader can re-judge the expectation instead of trusting the derivation. Never itself asserted. |
+| Field                          | Rule                                                                                                                                                                                                                                                                                        |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `expected_final_path`          | the requested `path` itself for every entry. **No redirect is declared anywhere**, because D-15-04 preserves the nested `/shop/{cat}[/{sub}]/{slug}` shape rather than redirecting it.                                                                                                      |
+| `redirect_reason`              | mandatory on any entry whose `expected_final_path` differs from its `path`. There are none today. A declared redirect without a reason makes the **whole fixture invalid** — the spec rejects it rather than skipping the entry, because a skipped entry is a silently shrinking inventory. |
+| `expected_status`              | `200` for every entry (every captured entry was 200).                                                                                                                                                                                                                                       |
+| `excluded` / `excluded_reason` | set when the capture recorded a **non-200** final status. **There are ZERO such entries** — see § 6.                                                                                                                                                                                        |
+| `observed_on_source`           | the capture's own numbers, carried beside each expectation so a reader can re-judge the expectation instead of trusting the derivation. Never itself asserted.                                                                                                                              |
 
 Per-kind expectations (kind vocabulary is the raw artifact's `kind_rule`):
 
-| Kind | Count | Expectation |
-| --- | --- | --- |
-| `product` | 25 | `min_product_detail_markers: 2` (of three: product JSON-LD, offer JSON-LD, an add-to-cart affordance) and `canonical_expected: true` |
-| `category` | 9 | `min_product_cards` = the observed card count |
-| `listing` | 5 | `min_product_cards` = the observed card count, or `0` + `baseline_zero_cards` where the observation was zero |
-| `editorial` | 8 | `min_body_text_length: 200` |
-| `functional` | 3 | `status_only: true` |
+| Kind         | Count | Expectation                                                                                                                          |
+| ------------ | ----- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `product`    | 25    | `min_product_detail_markers: 2` (of three: product JSON-LD, offer JSON-LD, an add-to-cart affordance) and `canonical_expected: true` |
+| `category`   | 9     | `min_product_cards` = the observed card count                                                                                        |
+| `listing`    | 5     | `min_product_cards` = the observed card count, or `0` + `baseline_zero_cards` where the observation was zero                         |
+| `editorial`  | 8     | `min_body_text_length: 200`                                                                                                          |
+| `functional` | 3     | `status_only: true`                                                                                                                  |
 
 Two derivation decisions are deliberate departures from the plan's literal text,
 both because the literal rule would have asserted something false. They are named
@@ -159,7 +159,7 @@ here rather than applied silently:
 
 ## 5. Product-card counting differs between capture and gate — on purpose
 
-The capture counted *distinct hrefs matching `/shop/<seg>/<seg>…`*, because that is
+The capture counted _distinct hrefs matching `/shop/<seg>/<seg>…`_, because that is
 the PDP link shape V1 emits. V2's product cards link to the **flat** shape:
 `productUrl()` in `lib/convert-uri.ts` returns `/products/{slug}`.
 
@@ -174,8 +174,8 @@ every V2 page and would be a gate that fails for a reason that is not a defect.
 ## 6. Excluded entries
 
 **There are none.** Every one of the 50 captured entries returned a final status of
-200, so the plan's exclusion rule — *"any raw entry whose final status was not
-200"* — selects nothing.
+200, so the plan's exclusion rule — _"any raw entry whose final status was not
+200"_ — selects nothing.
 
 This is recorded explicitly because the plan's acceptance criteria expect excluded
 entries to be listed. The honest answer is that the rule found none, not that the
@@ -189,9 +189,9 @@ visible in the run output rather than inferred from a passing gate.
 
 ## 7. The waiver
 
-`playwright.config.ts:6-7` states the suite-wide rule: *"LOCAL-ONLY (HARD RULE):
+`playwright.config.ts:6-7` states the suite-wide rule: _"LOCAL-ONLY (HARD RULE):
 every target is a localhost Docker endpoint. No staging/prod host may appear in
-this file."* The project's `CLAUDE.md` carries the same rule for build/dev work.
+this file."_ The project's `CLAUDE.md` carries the same rule for build/dev work.
 
 `store-parity.spec.ts` runs against a **remote** host. This is an explicit operator
 waiver, not an oversight, and it is bounded:
@@ -229,11 +229,11 @@ PARITY_TEMP_HOST=false \
 bunx playwright test e2e/store-parity.spec.ts --project=chromium
 ```
 
-| Variable | Required | Meaning |
-| --- | --- | --- |
-| `E2E_BASE_URL` | yes, no default | the origin under test |
-| `PARITY_TEMP_HOST` | yes, `true`/`false`, no default | whether this run targets a temporary host. `true` asserts the host is non-indexable and advertises no sitemap; `false` asserts the live posture. Neither branch skips. |
-| `PARITY_URL_INVENTORY` | **yes, no default** | path to the url inventory the run sweeps — this file, for Dishee. Since plan 15.2a-05 the spec is store-agnostic and several stores' inventories sit side by side in `e2e/fixtures/`, so there is no default: unset aborts in the before-all hook naming this variable, because a default would sweep one store's host against another store's inventory. |
+| Variable               | Required                        | Meaning                                                                                                                                                                                                                                                                                                                                                   |
+| ---------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `E2E_BASE_URL`         | yes, no default                 | the origin under test                                                                                                                                                                                                                                                                                                                                     |
+| `PARITY_TEMP_HOST`     | yes, `true`/`false`, no default | whether this run targets a temporary host. `true` asserts the host is non-indexable and advertises no sitemap; `false` asserts the live posture. Neither branch skips.                                                                                                                                                                                    |
+| `PARITY_URL_INVENTORY` | **yes, no default**             | path to the url inventory the run sweeps — this file, for Dishee. Since plan 15.2a-05 the spec is store-agnostic and several stores' inventories sit side by side in `e2e/fixtures/`, so there is no default: unset aborts in the before-all hook naming this variable, because a default would sweep one store's host against another store's inventory. |
 
 ---
 
