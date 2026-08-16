@@ -4,11 +4,11 @@ This document is half of the fixture. The JSON is what the gate asserts; this fi
 is where the numbers came from, why they cannot be produced again, and what a
 reader must do if the migration is ever restarted from a point before the capture.
 
-It backs `e2e/dishee-parity.spec.ts`, the MIG-03 route/parity gate for phase 15.1
+It backs `e2e/store-parity.spec.ts`, the MIG-03 route/parity gate for phase 15.1
 (Dishee V1 → V2 migration).
 
 > **NON-LOCAL HOST — OPERATOR WAIVER.** Every other spec in this suite, and
-> `playwright.config.ts:6-7` itself, asserts LOCAL-ONLY. `dishee-parity.spec.ts`
+> `playwright.config.ts:6-7` itself, asserts LOCAL-ONLY. `store-parity.spec.ts`
 > is the single deliberate exception: it is pointed at a remote host by
 > `E2E_BASE_URL`. That waiver is recorded in the spec's own docblock as well, so
 > a later reader finds the reason rather than "fixing" the violation. See
@@ -193,7 +193,7 @@ visible in the run output rather than inferred from a passing gate.
 every target is a localhost Docker endpoint. No staging/prod host may appear in
 this file."* The project's `CLAUDE.md` carries the same rule for build/dev work.
 
-`dishee-parity.spec.ts` runs against a **remote** host. This is an explicit operator
+`store-parity.spec.ts` runs against a **remote** host. This is an explicit operator
 waiver, not an oversight, and it is bounded:
 
 - **No host is hardcoded.** `E2E_BASE_URL` is required and has **no default** in
@@ -204,7 +204,7 @@ waiver, not an oversight, and it is bounded:
   kind.
 - **The transacting specs must never join this run.** Dishee's Stripe account is
   **LIVE**, not test. The safe invocation names this one file:
-  `bunx playwright test e2e/dishee-parity.spec.ts --project=chromium`.
+  `bunx playwright test e2e/store-parity.spec.ts --project=chromium`.
   `E2E_TEST_IGNORE` exists as defence in depth, but it is a **denylist** and a
   denylist fails open on any spec added after it was written — so naming the single
   file is the primary control, not the denylist.
@@ -218,20 +218,22 @@ cd submodules/headkit-platform/apps/starter
 
 # against the temporary host, before the flip
 E2E_BASE_URL=https://<slug>.headkit.app \
-DISHEE_TEMP_HOST=true \
-bunx playwright test e2e/dishee-parity.spec.ts --project=chromium
+PARITY_URL_INVENTORY="$PWD/e2e/fixtures/dishee-url-inventory.json" \
+PARITY_TEMP_HOST=true \
+bunx playwright test e2e/store-parity.spec.ts --project=chromium
 
 # against the live host, after the flip — same fixture, same spec, comparable run
 E2E_BASE_URL=https://www.dishee.com.au \
-DISHEE_TEMP_HOST=false \
-bunx playwright test e2e/dishee-parity.spec.ts --project=chromium
+PARITY_URL_INVENTORY="$PWD/e2e/fixtures/dishee-url-inventory.json" \
+PARITY_TEMP_HOST=false \
+bunx playwright test e2e/store-parity.spec.ts --project=chromium
 ```
 
 | Variable | Required | Meaning |
 | --- | --- | --- |
 | `E2E_BASE_URL` | yes, no default | the origin under test |
-| `DISHEE_TEMP_HOST` | yes, `true`/`false`, no default | whether this run targets a temporary host. `true` asserts the host is non-indexable and advertises no sitemap; `false` asserts the live posture. Neither branch skips. |
-| `DISHEE_URL_INVENTORY` | no | path to this fixture; defaults to it |
+| `PARITY_TEMP_HOST` | yes, `true`/`false`, no default | whether this run targets a temporary host. `true` asserts the host is non-indexable and advertises no sitemap; `false` asserts the live posture. Neither branch skips. |
+| `PARITY_URL_INVENTORY` | **yes, no default** | path to the url inventory the run sweeps — this file, for Dishee. Since plan 15.2a-05 the spec is store-agnostic and several stores' inventories sit side by side in `e2e/fixtures/`, so there is no default: unset aborts in the before-all hook naming this variable, because a default would sweep one store's host against another store's inventory. |
 
 ---
 
@@ -240,4 +242,4 @@ bunx playwright test e2e/dishee-parity.spec.ts --project=chromium
 - `.planning/phases/15.1-dishee-migration/artifacts/10-url-inventory-raw.json` — the capture
 - `.planning/phases/15.1-dishee-migration/15.1-CONTEXT.md` — `<code_context>` "Dishee's shape", traps 10 and 13
 - `.planning/phases/15.1-dishee-migration/15.1-VALIDATION.md` — the six rows this gate is the automated command for
-- `e2e/dishee-parity.spec.ts` — the consumer
+- `e2e/store-parity.spec.ts` — the consumer
