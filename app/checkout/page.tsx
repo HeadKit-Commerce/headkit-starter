@@ -8,6 +8,7 @@ import { getFullCartAction } from "@/lib/cart-actions";
 import { getCustomer } from "@/lib/account-actions";
 import { getAuthToken } from "@/lib/auth-cookie";
 import { resolveCheckoutEmail } from "@/lib/checkout-email";
+import { hostedCheckoutUrl } from "@/lib/hosted-checkout";
 import { getFloatVal } from "@/lib/utils";
 import { createServerHeadkit } from "@/lib/sdk.server";
 import { PaymentFailedBanner } from "@/components/checkout/payment-failed-banner";
@@ -48,6 +49,13 @@ export default async function CheckoutPage({
   }
   if (cart.itemsCount === 0) {
     redirect("/checkout/error?reason=empty_cart");
+  }
+
+  // Shopify Checkout is authoritative: redirect to Storefront cart.checkoutUrl
+  // instead of creating a Stripe Checkout Session (ADR 004 / ENG-836).
+  const shopifyCheckout = hostedCheckoutUrl(cart);
+  if (shopifyCheckout) {
+    redirect(shopifyCheckout);
   }
 
   // Server-side stock validation — auto-correct before showing the page.
