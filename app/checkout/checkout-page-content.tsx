@@ -7,7 +7,7 @@ import { CheckoutForm } from "@/app/checkout/CheckoutForm";
 import { Button } from "@/components/ui/button";
 import { Cart } from "@/components/checkout/cart";
 import { OfflinePaymentCheckout } from "@/components/checkout/offline-payment-checkout";
-import { hasStripeGateway, offlineGateways } from "@/lib/payment-gateways";
+import { isOfflineOnlyCart } from "@/lib/payment-gateways";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { getFloatVal, formatPrice, cn } from "@/lib/utils";
 import { ChevronDownIcon } from "@/components/icon";
@@ -529,8 +529,7 @@ export function CheckoutPageContent({
   // NOT offer Stripe, the Stripe flow below is unreachable for this shopper —
   // drive the offline form instead. A store offering both keeps Stripe as the
   // default path; the offline choice is a follow-up, not a silent downgrade.
-  const offline = offlineGateways(cartData.paymentMethods);
-  if (offline.length > 0 && !hasStripeGateway(cartData.paymentMethods)) {
+  if (isOfflineOnlyCart(cartData.paymentMethods)) {
     return <OfflinePaymentCheckout cart={cartData} />;
   }
 

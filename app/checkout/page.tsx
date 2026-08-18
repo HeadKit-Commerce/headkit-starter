@@ -14,6 +14,7 @@ import { PaymentFailedBanner } from "@/components/checkout/payment-failed-banner
 import { CartChangedBanner } from "@/components/checkout/cart-changed-banner";
 import { getBranding } from "@/lib/branding";
 import { normalizeCheckoutMode } from "@/lib/checkout-mode";
+import { isOfflineOnlyCart } from "@/lib/payment-gateways";
 
 export default async function CheckoutPage({
   searchParams,
@@ -125,7 +126,14 @@ export default async function CheckoutPage({
       (pkg?.shippingRates ?? []).some((rate) => rate?.selected),
     );
   const isSettledFreeCart = zeroTotal && shippingSettled;
-  if (!isSettledFreeCart) {
+  // A store whose only gateways are offline (bacs / cheque / cod) takes payment
+  // outside the storefront, so there is no Stripe session to create and the
+  // provider has no card capability to create one with. CheckoutPageContent
+  // renders the offline form for exactly this cart — but it never gets the
+  // chance if we throw here first, because the failure redirects to
+  // /checkout/error. Same classifier, same condition, decided one level up.
+  const offlineOnly = isOfflineOnlyCart(cart.paymentMethods);
+  if (!isSettledFreeCart && !offlineOnly) {
     try {
       // Only request shipping-address collection when the cart actually needs
       // shipping. For digital/no-shipping carts the session must NOT require a

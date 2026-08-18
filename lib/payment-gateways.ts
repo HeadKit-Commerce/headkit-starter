@@ -53,3 +53,23 @@ export function hasStripeGateway(
 ): boolean {
   return (paymentMethods ?? []).includes(STRIPE_PAYMENT_METHOD);
 }
+
+/**
+ * Whether this cart checks out entirely outside the storefront: it offers at
+ * least one offline gateway and no Stripe.
+ *
+ * Two places must agree on this. `app/checkout/page.tsx` uses it to skip
+ * creating a Stripe Checkout Session server-side — a store with no card
+ * capability throws there, and the failure redirects to /checkout/error before
+ * any component renders. `checkout-page-content.tsx` uses it to render the
+ * offline form. Split definitions would let the page redirect away from the
+ * very branch it was supposed to reach, so keep exactly one.
+ */
+export function isOfflineOnlyCart(
+  paymentMethods: readonly string[] | null | undefined,
+): boolean {
+  return (
+    offlineGateways(paymentMethods).length > 0 &&
+    !hasStripeGateway(paymentMethods)
+  );
+}
