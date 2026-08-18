@@ -60,6 +60,10 @@ import {
 } from "@/lib/product-colourway-nav";
 import { findSwatchAttribute } from "@/lib/swatch-attribute";
 import {
+  isSizeAttrSlug,
+  isVariationOutOfStock,
+} from "@/lib/variation-stock";
+import {
   Accordion,
   AccordionContent,
   AccordionItem,
@@ -272,7 +276,9 @@ export function ProductDetail({
   // (deferred to avoid SSR/hydration mismatch).
   useEffect(() => {
     if (!productBasePath || !isVariable) return;
-    const sizeKey = variationAttributes.find((a) => a.slug === "pa_size")?.slug;
+    const sizeKey = variationAttributes.find((a) =>
+      isSizeAttrSlug(a.slug),
+    )?.slug;
     if (!sizeKey) return;
     const saved = localStorage.getItem(`headkit:size:${product.slug}`);
     if (!saved) return;
@@ -340,8 +346,8 @@ export function ProductDetail({
     (next: Record<string, string>) => {
       if (productBasePath) {
         const colorKey = findSwatchAttribute(variationAttributes)?.slug;
-        const sizeKey = variationAttributes.find(
-          (a) => a.slug === "pa_size",
+        const sizeKey = variationAttributes.find((a) =>
+          isSizeAttrSlug(a.slug),
         )?.slug;
 
         // Persist size to localStorage on every change
@@ -443,7 +449,12 @@ export function ProductDetail({
 
   const stockStatus =
     selectedVariation?.stockStatus ?? product.stockStatus ?? "instock";
-  const isOutOfStock = stockStatus?.toLowerCase() === "outofstock";
+  const stockQuantity =
+    selectedVariation?.stockQuantity ?? product.stockQuantity ?? null;
+  const isOutOfStock = isVariationOutOfStock({
+    stockStatus,
+    stockQuantity,
+  });
 
   const targetId = isVariable
     ? (selectedVariation?.id ?? product.id)
@@ -716,7 +727,7 @@ export function ProductDetail({
                   </div>
                   <div className="flex flex-wrap gap-3">
                     {attr.fullOptions.map((option) => {
-                      const isUnavailable = !product.variations.some(
+                      const hasAnyVariation = product.variations.some(
                         (v: ProductVariation) =>
                           v.attributes.some(
                             (a) =>
@@ -724,14 +735,14 @@ export function ProductDetail({
                           ),
                       );
 
-                      const isIncompatible =
-                        !isUnavailable &&
-                        !product.variations.some((v: ProductVariation) => {
+                      const matchingWithOthers = product.variations.filter(
+                        (v: ProductVariation) => {
                           const matchesThis = v.attributes.some(
                             (a) =>
                               a.key === attr.slug && a.value === option.slug,
                           );
-                          const matchesOthers = variationAttributes
+                          if (!matchesThis) return false;
+                          return variationAttributes
                             .filter((other) => other.slug !== attr.slug)
                             .every((other) => {
                               const sel = selectedAttributes[other.slug];
@@ -743,8 +754,15 @@ export function ProductDetail({
                                 )
                               );
                             });
-                          return matchesThis && matchesOthers;
-                        });
+                        },
+                      );
+
+                      const isIncompatible =
+                        hasAnyVariation && matchingWithOthers.length === 0;
+                      const isUnavailable =
+                        !hasAnyVariation ||
+                        (matchingWithOthers.length > 0 &&
+                          matchingWithOthers.every(isVariationOutOfStock));
 
                       return (
                         <VariantSwatch
@@ -753,6 +771,7 @@ export function ProductDetail({
                           value={option.slug}
                           color1={option.swatchColor}
                           color2={option.swatchColor2}
+                          imageSrc={option.swatchImage ?? ""}
                           selectedOptionValue={
                             selectedAttributes[attr.slug] ?? ""
                           }

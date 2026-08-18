@@ -8,6 +8,8 @@ interface Props {
   value: string;
   color1?: string;
   color2?: string;
+  /** Optional image URL for an image swatch (Shopify option image or Woo term). */
+  imageSrc?: string;
   selectedOptionValue: string;
   onClick: () => void;
   isUnavailable?: boolean;
@@ -22,6 +24,7 @@ const VariantSwatch = ({
   value,
   color1,
   color2,
+  imageSrc,
   selectedOptionValue,
   onClick,
   isUnavailable = false,
@@ -29,7 +32,38 @@ const VariantSwatch = ({
   size = "default",
 }: Props) => {
   const isSelected = selectedOptionValue === value;
+  const hasImage = Boolean(imageSrc);
   const hasColor = !!color1;
+
+  if (hasImage) {
+    return (
+      <button
+        type="button"
+        title={label}
+        onClick={onClick}
+        className={cn(
+          "relative cursor-pointer overflow-hidden rounded-brand-button border outline transition-all hover:outline-primary",
+          size === "default"
+            ? "h-6 w-6 outline-2 outline-offset-1"
+            : "h-4 w-4 outline-1 outline-offset-1",
+          isUnavailable ? "border-gray-500" : "border-gray-700",
+          isSelected ? "outline-primary" : "outline-transparent",
+          isIncompatible && !isSelected && "opacity-50",
+        )}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- tiny swatch, not LCP */}
+        <img
+          src={imageSrc}
+          alt=""
+          className="h-full w-full object-cover"
+        />
+        <span className="sr-only">{label}</span>
+        {isUnavailable && (
+          <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 rotate-45 transform bg-gray-500" />
+        )}
+      </button>
+    );
+  }
 
   if (hasColor) {
     const color1Formatted = isUnavailable ? addAlphaToHex(color1, 0.5) : color1;

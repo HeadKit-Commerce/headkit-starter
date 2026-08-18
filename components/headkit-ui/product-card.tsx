@@ -241,6 +241,7 @@ export const ProductCard = ({
                               selectedOptionValue={colourSelected ?? ""}
                               color1={option?.swatchColor ?? ""}
                               color2={option?.swatchColor2 ?? ""}
+                              imageSrc={option?.swatchImage ?? ""}
                               size="small"
                             />
                           </InstantLink>

@@ -21,6 +21,11 @@ describe("isSwatchAttribute", () => {
     expect(isSwatchAttribute({ slug: "pa_colour", type: "select" })).toBe(true);
   });
 
+  it("treats Shopify color / colour slugs as swatches", () => {
+    expect(isSwatchAttribute({ slug: "color", type: "select" })).toBe(true);
+    expect(isSwatchAttribute({ slug: "colour", type: "select" })).toBe(true);
+  });
+
   it("falls back to term swatch colours when type is missing", () => {
     expect(
       isSwatchAttribute({
@@ -36,6 +41,16 @@ describe("isSwatchAttribute", () => {
         fullOptions: [{ swatchColor: "" }],
       }),
     ).toBe(false);
+  });
+
+  it("treats a swatch image as a visual swatch even without hex", () => {
+    expect(
+      isSwatchAttribute({
+        slug: "pa_finish",
+        type: "select",
+        fullOptions: [{ swatchImage: "https://cdn.shopify.com/s/files/red.png" }],
+      }),
+    ).toBe(true);
   });
 });
 

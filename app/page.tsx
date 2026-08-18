@@ -206,7 +206,7 @@ export async function HomeContent() {
 
       {/* On Sale — skipped when WP already provides a product-on-sale carousel */}
       {showHardcodedSale && (
-        <section className="headkit-product-carousel overflow-x-clip py-10 bg-gray-50">
+        <section className="headkit-product-carousel overflow-x-clip py-10">
           <SectionHeader
             title="On Sale"
             description=""
