@@ -4,7 +4,11 @@ import { decodeHtmlEntities } from "@/lib/utils";
 
 const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 
-/** WP / CMS titles that are not real SEO — fall through to dashboard / store name. */
+/**
+ * Provider CMS titles that are not real SEO — fall through to dashboard /
+ * store name. Applies to Woo (WP defaults) and Shopify Online Store pages
+ * titled "Home" / "Homepage".
+ */
 const GENERIC_SEO_TITLES = new Set([
   "home",
   "homepage",
@@ -36,7 +40,7 @@ function normalizeUrl(url?: OptSeoStr): string | undefined {
   return url;
 }
 
-/** True when a Yoast/CMS title is real SEO (not empty or a generic WP default). */
+/** True when a provider CMS title is real SEO (not empty or a generic default). */
 export function isRealSeoTitle(title?: OptSeoStr): boolean {
   const trimmed = (title ?? "").trim();
   if (!trimmed) return false;
@@ -87,17 +91,25 @@ export function resolveFooterDescription(
 }
 
 /**
- * Home title hierarchy: real Yoast/WP title → dashboard SEO title → store name.
- * WP `"Home"` (and similar) is not real SEO.
+ * Storefront SEO hierarchy (matches Woo + Shopify):
+ * 1. Built-in starter fallbacks (`seoFallbackTitle` / `seoFallbackDescription`)
+ * 2. Provider SEO — Woo Yoast/Rank Math **or** Shopify Admin search-engine
+ *    listing on shop / page / product / article / collection
+ * 3. HeadKit dashboard SEO title / description / OG / `allowIndexing`
+ *
+ * `yoastTitle` / `yoastDescription` remain the param names for call-site
+ * compatibility; they mean “provider CMS SEO”, not Woo-only.
  */
 export function resolveHomeTitle(options: {
   yoastTitle?: OptSeoStr;
+  /** Alias for {@link yoastTitle} (provider SEO title). */
+  providerTitle?: OptSeoStr;
   dashboardTitle?: OptSeoStr;
   storeName?: OptSeoStr;
 }): string {
-  const yoast = seoText(options.yoastTitle);
-  if (isRealSeoTitle(yoast)) {
-    return yoast;
+  const provider = seoText(options.providerTitle ?? options.yoastTitle);
+  if (isRealSeoTitle(provider)) {
+    return provider;
   }
   const dashboard = seoText(options.dashboardTitle);
   if (dashboard) return dashboard;
@@ -105,21 +117,25 @@ export function resolveHomeTitle(options: {
 }
 
 /**
- * Home description hierarchy: Yoast metaDesc → dashboard description → empty
+ * Home description hierarchy: provider metaDesc → dashboard description → empty
  * (layout/OG can still omit empty description; never HeadKit marketing copy).
  */
 export function resolveHomeDescription(options: {
   yoastDescription?: OptSeoStr;
+  /** Alias for {@link yoastDescription} (provider SEO description). */
+  providerDescription?: OptSeoStr;
   dashboardDescription?: OptSeoStr;
 }): string {
-  const yoast = seoText(options.yoastDescription);
-  if (yoast) return yoast;
+  const provider = seoText(
+    options.providerDescription ?? options.yoastDescription,
+  );
+  if (provider) return provider;
   return seoText(options.dashboardDescription);
 }
 
 /**
  * OG / Twitter image precedence:
- * Yoast entity image → dashboard `ogImageUrl` → branding icon → none.
+ * Provider entity image → dashboard `ogImageUrl` → branding icon → none.
  */
 export function resolveOgImageUrl(options: {
   entityImageUrl?: OptSeoStr;
@@ -143,8 +159,8 @@ export function resolveRobots(allowIndexing = true): Metadata["robots"] {
 /**
  * Templated per-entity SEO description fallback (FE-09 / D-04).
  *
- * When Yoast / SDK SEOData is absent, every entity route still needs a
- * non-empty, sensible description built from the entity name + store name.
+ * When provider SEOData (Yoast or Shopify SEO panels) is absent, every entity
+ * route still needs a non-empty description from the entity name + store name.
  */
 export function seoFallbackDescription(
   entityType: SeoEntityType,
@@ -167,8 +183,8 @@ export function seoFallbackDescription(
 /**
  * Entity page title segment for the root `%s | {storeName}` template.
  * Returns the bare entity name (or store name when empty) — the layout
- * title template appends `| {storeName}`. Callers with a complete Yoast
- * title should pass it via {@link makeSeoMetadata}, which uses `absolute`.
+ * title template appends `| {storeName}`. Callers with a complete provider
+ * SEO title should pass it via {@link makeSeoMetadata}, which uses `absolute`.
  */
 export function seoFallbackTitle(
   name?: OptSeoStr,
