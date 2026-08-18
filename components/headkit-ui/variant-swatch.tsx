@@ -52,11 +52,7 @@ const VariantSwatch = ({
         )}
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- tiny swatch, not LCP */}
-        <img
-          src={imageSrc}
-          alt=""
-          className="h-full w-full object-cover"
-        />
+        <img src={imageSrc} alt="" className="h-full w-full object-cover" />
         <span className="sr-only">{label}</span>
         {isUnavailable && (
           <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 rotate-45 transform bg-gray-500" />

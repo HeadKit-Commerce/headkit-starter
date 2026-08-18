@@ -48,7 +48,9 @@ describe("isSwatchAttribute", () => {
       isSwatchAttribute({
         slug: "pa_finish",
         type: "select",
-        fullOptions: [{ swatchImage: "https://cdn.shopify.com/s/files/red.png" }],
+        fullOptions: [
+          { swatchImage: "https://cdn.shopify.com/s/files/red.png" },
+        ],
       }),
     ).toBe(true);
   });
