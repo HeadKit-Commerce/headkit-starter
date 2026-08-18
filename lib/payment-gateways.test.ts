@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  hasStripeGateway,
-  offlineGateways,
   QUOTE_PAYMENT_METHOD_ID,
   STRIPE_PAYMENT_METHOD,
+  hasStripeGateway,
+  isOfflineOnlyCart,
+  offlineGateways,
 } from "./payment-gateways";
 
 describe("offlineGateways", () => {
@@ -70,5 +71,29 @@ describe("hasStripeGateway", () => {
 
   it("is false when only offline gateways are available", () => {
     expect(hasStripeGateway(["bacs", "cod"])).toBe(false);
+  });
+});
+
+describe("isOfflineOnlyCart", () => {
+  it("is true for Pebblr's real gateway list (bacs + quote, no Stripe)", () => {
+    expect(isOfflineOnlyCart(["bacs", "headkit-quote"])).toBe(true);
+  });
+
+  it("is false when Stripe is also offered, so the Stripe session is still created", () => {
+    expect(isOfflineOnlyCart(["bacs", "headkit-payments"])).toBe(false);
+  });
+
+  it("is false for a Stripe-only store", () => {
+    expect(isOfflineOnlyCart(["headkit-payments"])).toBe(false);
+  });
+
+  it("is false when quote is the only gateway — quote has its own route", () => {
+    expect(isOfflineOnlyCart(["headkit-quote"])).toBe(false);
+  });
+
+  it("is false for an absent or empty list, so an unknown cart keeps the Stripe path", () => {
+    expect(isOfflineOnlyCart(undefined)).toBe(false);
+    expect(isOfflineOnlyCart(null)).toBe(false);
+    expect(isOfflineOnlyCart([])).toBe(false);
   });
 });
