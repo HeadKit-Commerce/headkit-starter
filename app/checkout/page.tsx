@@ -22,14 +22,6 @@ export default async function CheckoutPage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  // HeadKit Quote stores use /quote instead of the payment checkout.
-  const { storeSettings } = await getBranding();
-  if (normalizeCheckoutMode(storeSettings.checkoutType) === "quote") {
-    const { error: quoteError } = await searchParams;
-    const qs = quoteError ? `?error=${encodeURIComponent(quoteError)}` : "";
-    redirect(`/quote${qs}`);
-  }
-
   // ENG-789: the checkout return page redirects failed/canceled payments
   // (e.g. Afterpay declines) back here with ?error=payment_failed for an
   // in-place retry. Reading searchParams keeps the page dynamic — it already
@@ -41,7 +33,19 @@ export default async function CheckoutPage({
   // session minted below, honest banner on top.
   const cartChanged = error === "cart_changed";
 
-  let cart = await getFullCartAction();
+  // Parallel: quote-mode needs branding; Shopify hosted redirect needs cart.
+  const [{ storeSettings }, cartResult] = await Promise.all([
+    getBranding(),
+    getFullCartAction(),
+  ]);
+
+  // HeadKit Quote stores use /quote instead of the payment checkout.
+  if (normalizeCheckoutMode(storeSettings.checkoutType) === "quote") {
+    const qs = error ? `?error=${encodeURIComponent(error)}` : "";
+    redirect(`/quote${qs}`);
+  }
+
+  let cart = cartResult;
 
   // null  = no cookie, or WooCommerce session expired (stale cookie was cleared)
   // empty = user genuinely has an empty cart
@@ -54,6 +58,7 @@ export default async function CheckoutPage({
 
   // Shopify Checkout is authoritative: redirect to Storefront cart.checkoutUrl
   // instead of creating a Stripe Checkout Session (ADR 004 / ENG-836).
+  // Primary CTA is cart-drawer → checkoutUrl; this remains a deep-link safety net.
   const shopifyCheckout = hostedCheckoutUrl(cart);
   if (shopifyCheckout) {
     redirect(shopifyCheckout);
