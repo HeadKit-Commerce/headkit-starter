@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { CheckoutForm } from "@/app/checkout/CheckoutForm";
 import { Button } from "@/components/ui/button";
 import { Cart } from "@/components/checkout/cart";
+import { OfflinePaymentCheckout } from "@/components/checkout/offline-payment-checkout";
+import { isOfflineOnlyCart } from "@/lib/payment-gateways";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { getFloatVal, formatPrice, cn } from "@/lib/utils";
 import { ChevronDownIcon } from "@/components/icon";
@@ -520,6 +522,15 @@ export function CheckoutPageContent({
         </div>
       </div>
     );
+  }
+
+  // Offline gateways (bacs / cheque / cod) take payment outside the storefront,
+  // so there is no Stripe session to create. When the store offers one and does
+  // NOT offer Stripe, the Stripe flow below is unreachable for this shopper —
+  // drive the offline form instead. A store offering both keeps Stripe as the
+  // default path; the offline choice is a follow-up, not a silent downgrade.
+  if (isOfflineOnlyCart(cartData.paymentMethods)) {
+    return <OfflinePaymentCheckout cart={cartData} />;
   }
 
   return (
