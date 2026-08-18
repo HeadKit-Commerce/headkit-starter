@@ -59,10 +59,7 @@ import {
   colourSlugFromProductPath,
 } from "@/lib/product-colourway-nav";
 import { findSwatchAttribute } from "@/lib/swatch-attribute";
-import {
-  isSizeAttrSlug,
-  isVariationOutOfStock,
-} from "@/lib/variation-stock";
+import { isSizeAttrSlug, isVariationOutOfStock } from "@/lib/variation-stock";
 import {
   Accordion,
   AccordionContent,
