@@ -10,6 +10,7 @@ import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { processCheckoutAction } from "@/app/checkout/actions";
 import { EMPTY_CART } from "@/components/checkout/clear-cart";
 import { clearCartTokenAction } from "@/lib/cart-actions";
+import { Cart } from "@/components/checkout/cart";
 import {
   offlineGateways,
   type PaymentGatewayChoice,
@@ -57,13 +58,10 @@ const INITIAL_FORM: BillingForm = {
 
 export type OfflinePaymentCheckoutProps = {
   cart: CartFieldsFragment;
-  /** Rendered above the form — the order summary the page already builds. */
-  summary?: React.ReactNode;
 };
 
 export function OfflinePaymentCheckout({
   cart,
-  summary,
 }: OfflinePaymentCheckoutProps): React.JSX.Element {
   const router = useRouter();
   const { setCartData, toggleCart } = useCartContext();
@@ -169,169 +167,184 @@ export function OfflinePaymentCheckout({
   const selected = gateways.find((g) => g.id === gatewayId);
 
   return (
-    <div className="headkit-offline-checkout min-h-[700px] py-10 px-[20px] md:px-32">
-      <div className="mx-auto w-full max-w-[560px]">
-        <h1 className="mb-6 text-2xl font-bold text-primary">Checkout</h1>
+    <div className="headkit-offline-checkout min-h-[700px] py-10 px-[20px] md:px-10">
+      <div className="mx-auto grid w-full max-w-[1100px] grid-cols-1 gap-10 md:grid-cols-2">
+        <div>
+          <h1 className="mb-6 text-2xl font-bold text-primary">Checkout</h1>
 
-        {summary}
+          {gateways.length > 1 && (
+            <fieldset className="mb-6">
+              <legend className="mb-2 text-sm font-medium">
+                Payment method
+              </legend>
+              <div className="space-y-2">
+                {gateways.map((gateway) => (
+                  <label
+                    key={gateway.id}
+                    className="flex cursor-pointer items-center gap-3 rounded-md border border-neutral-200 px-3 py-2"
+                  >
+                    <input
+                      type="radio"
+                      name="offline-gateway"
+                      value={gateway.id}
+                      checked={gatewayId === gateway.id}
+                      onChange={() => setGatewayId(gateway.id)}
+                      disabled={isPlacing}
+                    />
+                    <span>{gateway.label}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
 
-        {gateways.length > 1 && (
-          <fieldset className="mb-6">
-            <legend className="mb-2 text-sm font-medium">Payment method</legend>
-            <div className="space-y-2">
-              {gateways.map((gateway) => (
-                <label
-                  key={gateway.id}
-                  className="flex cursor-pointer items-center gap-3 rounded-md border border-neutral-200 px-3 py-2"
-                >
-                  <input
-                    type="radio"
-                    name="offline-gateway"
-                    value={gateway.id}
-                    checked={gatewayId === gateway.id}
-                    onChange={() => setGatewayId(gateway.id)}
-                    disabled={isPlacing}
-                  />
-                  <span>{gateway.label}</span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-        )}
+          {gateways.length === 1 && selected && (
+            <p className="mb-6 text-sm text-gray-600">
+              Payment method:{" "}
+              <span className="font-medium">{selected.label}</span>
+            </p>
+          )}
 
-        {gateways.length === 1 && selected && (
-          <p className="mb-6 text-sm text-gray-600">
-            Payment method:{" "}
-            <span className="font-medium">{selected.label}</span>
-          </p>
-        )}
+          <div className="mb-6 space-y-3 text-left">
+            <div>
+              <Label htmlFor="offline-email">Email</Label>
+              <Input
+                id="offline-email"
+                type="email"
+                autoComplete="email"
+                value={form.email}
+                onChange={(e) => setField("email", e.target.value)}
+                disabled={isPlacing}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="offline-first-name">First name</Label>
+                <Input
+                  id="offline-first-name"
+                  autoComplete="given-name"
+                  value={form.firstName}
+                  onChange={(e) => setField("firstName", e.target.value)}
+                  disabled={isPlacing}
+                />
+              </div>
+              <div>
+                <Label htmlFor="offline-last-name">Last name</Label>
+                <Input
+                  id="offline-last-name"
+                  autoComplete="family-name"
+                  value={form.lastName}
+                  onChange={(e) => setField("lastName", e.target.value)}
+                  disabled={isPlacing}
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="offline-address1">Address line 1</Label>
+              <Input
+                id="offline-address1"
+                autoComplete="address-line1"
+                value={form.address1}
+                onChange={(e) => setField("address1", e.target.value)}
+                disabled={isPlacing}
+              />
+            </div>
+            <div>
+              <Label htmlFor="offline-address2">
+                Address line 2 (optional)
+              </Label>
+              <Input
+                id="offline-address2"
+                autoComplete="address-line2"
+                value={form.address2}
+                onChange={(e) => setField("address2", e.target.value)}
+                disabled={isPlacing}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="offline-city">City</Label>
+                <Input
+                  id="offline-city"
+                  autoComplete="address-level2"
+                  value={form.city}
+                  onChange={(e) => setField("city", e.target.value)}
+                  disabled={isPlacing}
+                />
+              </div>
+              <div>
+                <Label htmlFor="offline-state">State</Label>
+                <Input
+                  id="offline-state"
+                  autoComplete="address-level1"
+                  value={form.state}
+                  onChange={(e) => setField("state", e.target.value)}
+                  disabled={isPlacing}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="offline-postcode">Postcode</Label>
+                <Input
+                  id="offline-postcode"
+                  autoComplete="postal-code"
+                  value={form.postcode}
+                  onChange={(e) => setField("postcode", e.target.value)}
+                  disabled={isPlacing}
+                />
+              </div>
+              <div>
+                <Label htmlFor="offline-country">Country</Label>
+                <Input
+                  id="offline-country"
+                  autoComplete="country"
+                  value={form.country}
+                  onChange={(e) => setField("country", e.target.value)}
+                  disabled={isPlacing}
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="offline-phone">Phone</Label>
+              <Input
+                id="offline-phone"
+                autoComplete="tel"
+                value={form.phone}
+                onChange={(e) => setField("phone", e.target.value)}
+                disabled={isPlacing}
+              />
+            </div>
+          </div>
 
-        <div className="mb-6 space-y-3 text-left">
-          <div>
-            <Label htmlFor="offline-email">Email</Label>
-            <Input
-              id="offline-email"
-              type="email"
-              autoComplete="email"
-              value={form.email}
-              onChange={(e) => setField("email", e.target.value)}
-              disabled={isPlacing}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label htmlFor="offline-first-name">First name</Label>
-              <Input
-                id="offline-first-name"
-                autoComplete="given-name"
-                value={form.firstName}
-                onChange={(e) => setField("firstName", e.target.value)}
-                disabled={isPlacing}
-              />
+          {shippingBlocked && (
+            <div className="mb-4 text-center text-sm text-red-500">
+              Choose a delivery option in your cart before placing this order.
             </div>
-            <div>
-              <Label htmlFor="offline-last-name">Last name</Label>
-              <Input
-                id="offline-last-name"
-                autoComplete="family-name"
-                value={form.lastName}
-                onChange={(e) => setField("lastName", e.target.value)}
-                disabled={isPlacing}
-              />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="offline-address1">Address line 1</Label>
-            <Input
-              id="offline-address1"
-              autoComplete="address-line1"
-              value={form.address1}
-              onChange={(e) => setField("address1", e.target.value)}
-              disabled={isPlacing}
-            />
-          </div>
-          <div>
-            <Label htmlFor="offline-address2">Address line 2 (optional)</Label>
-            <Input
-              id="offline-address2"
-              autoComplete="address-line2"
-              value={form.address2}
-              onChange={(e) => setField("address2", e.target.value)}
-              disabled={isPlacing}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label htmlFor="offline-city">City</Label>
-              <Input
-                id="offline-city"
-                autoComplete="address-level2"
-                value={form.city}
-                onChange={(e) => setField("city", e.target.value)}
-                disabled={isPlacing}
-              />
-            </div>
-            <div>
-              <Label htmlFor="offline-state">State</Label>
-              <Input
-                id="offline-state"
-                autoComplete="address-level1"
-                value={form.state}
-                onChange={(e) => setField("state", e.target.value)}
-                disabled={isPlacing}
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label htmlFor="offline-postcode">Postcode</Label>
-              <Input
-                id="offline-postcode"
-                autoComplete="postal-code"
-                value={form.postcode}
-                onChange={(e) => setField("postcode", e.target.value)}
-                disabled={isPlacing}
-              />
-            </div>
-            <div>
-              <Label htmlFor="offline-country">Country</Label>
-              <Input
-                id="offline-country"
-                autoComplete="country"
-                value={form.country}
-                onChange={(e) => setField("country", e.target.value)}
-                disabled={isPlacing}
-              />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="offline-phone">Phone</Label>
-            <Input
-              id="offline-phone"
-              autoComplete="tel"
-              value={form.phone}
-              onChange={(e) => setField("phone", e.target.value)}
-              disabled={isPlacing}
-            />
-          </div>
+          )}
+          {errorMessage && (
+            <div className="mb-4 text-center text-red-500">{errorMessage}</div>
+          )}
+
+          <Button
+            fullWidth
+            onClick={placeOrder}
+            disabled={isPlacing || shippingBlocked}
+          >
+            {isPlacing ? "Placing order…" : "Place order"}
+          </Button>
         </div>
 
-        {shippingBlocked && (
-          <div className="mb-4 text-center text-sm text-red-500">
-            Choose a delivery option in your cart before placing this order.
-          </div>
-        )}
-        {errorMessage && (
-          <div className="mb-4 text-center text-red-500">{errorMessage}</div>
-        )}
-
-        <Button
-          fullWidth
-          onClick={placeOrder}
-          disabled={isPlacing || shippingBlocked}
-        >
-          {isPlacing ? "Placing order…" : "Place order"}
-        </Button>
+        {/* Order summary. `Cart` carries the line items with their add-ons, the
+            unified coupon / gift-card box, and the totals — the same component
+            the Stripe checkout shows, so an offline shopper sees exactly what a
+            card shopper sees. CouponBox reads `useCheckoutActions()`, whose
+            context DEFAULTS to `{actions: null}`, so outside the Stripe provider
+            it applies straight to the cart instead of re-syncing a session that
+            does not exist. */}
+        <div className="md:pt-[60px]">
+          <Cart showDisplayShipping={true} />
+        </div>
       </div>
     </div>
   );
