@@ -35,6 +35,10 @@ const clientSchema = z.object({
   NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN: z.string().optional(),
   NEXT_PUBLIC_SHOPIFY_SHOP_ID: z.string().optional(),
   NEXT_PUBLIC_SHOPIFY_CAA_CLIENT_ID: z.string().optional(),
+  // Sales-channel handle appended to Shopify cart.checkoutUrl so Online Store
+  // password protection does not intercept Checkout. Defaults to
+  // headless-storefronts in lib/hosted-checkout.ts when unset.
+  NEXT_PUBLIC_SHOPIFY_CHECKOUT_CHANNEL: z.string().min(1).optional(),
 });
 
 const serverSchema = clientSchema.extend({
@@ -89,6 +93,8 @@ function createEnv(): ClientEnv & Partial<ServerEnv> {
       process.env.NEXT_PUBLIC_SHOPIFY_SHOP_ID || undefined,
     NEXT_PUBLIC_SHOPIFY_CAA_CLIENT_ID:
       process.env.NEXT_PUBLIC_SHOPIFY_CAA_CLIENT_ID || undefined,
+    NEXT_PUBLIC_SHOPIFY_CHECKOUT_CHANNEL:
+      process.env.NEXT_PUBLIC_SHOPIFY_CHECKOUT_CHANNEL || undefined,
   });
 }
 
