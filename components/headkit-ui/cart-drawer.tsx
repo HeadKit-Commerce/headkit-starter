@@ -17,10 +17,7 @@ import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { useChromeIcons } from "@/components/branding/branding-icons-provider";
 import { useIsQuoteMode } from "@/components/checkout/checkout-mode-provider";
 import { getCartAction } from "@/lib/cart-actions";
-import {
-  hostedCheckoutUrl,
-  isHostedCheckoutHref,
-} from "@/lib/hosted-checkout";
+import { hostedCheckoutUrl, isHostedCheckoutHref } from "@/lib/hosted-checkout";
 import { getFloatVal, formatPrice, getStoreCurrency } from "@/lib/utils";
 import { PlusIcon } from "@/components/icon";
 
@@ -47,9 +44,7 @@ export function CartDrawer() {
   // Shopify: leave HeadKit entirely — do not route through /checkout (skeleton
   // + blank redirect flash). WooCommerce keeps the internal Stripe checkout.
   const hostedCheckout = isQuoteMode ? null : hostedCheckoutUrl(displayCart);
-  const checkoutHref = isQuoteMode
-    ? "/quote"
-    : (hostedCheckout ?? "/checkout");
+  const checkoutHref = isQuoteMode ? "/quote" : (hostedCheckout ?? "/checkout");
   const checkoutIsExternal = isHostedCheckoutHref(checkoutHref);
 
   return (
