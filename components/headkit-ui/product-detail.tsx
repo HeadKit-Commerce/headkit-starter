@@ -768,7 +768,8 @@ export function ProductDetail({
                           value={option.slug}
                           color1={option.swatchColor}
                           color2={option.swatchColor2}
-                          imageSrc={option.swatchImage ?? ""}
+                          // imageSrc omitted: SDK does not select swatchImage
+                          // until production AttributeOption exposes the field.
                           selectedOptionValue={
                             selectedAttributes[attr.slug] ?? ""
                           }

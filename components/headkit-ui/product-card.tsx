@@ -241,7 +241,8 @@ export const ProductCard = ({
                               selectedOptionValue={colourSelected ?? ""}
                               color1={option?.swatchColor ?? ""}
                               color2={option?.swatchColor2 ?? ""}
-                              imageSrc={option?.swatchImage ?? ""}
+                              // imageSrc omitted: SDK does not select swatchImage
+                              // until production AttributeOption exposes the field.
                               size="small"
                             />
                           </InstantLink>
