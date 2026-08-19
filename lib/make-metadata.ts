@@ -78,16 +78,14 @@ export function resolveStoreName(storeName?: OptSeoStr): string {
 }
 
 /**
- * Footer blurb: dashboard SEO description → else store name only.
- * Never falls back to HeadKit marketing copy.
+ * Footer blurb: the dashboard SEO description, or nothing.
+ *
+ * Returns "" when no description is set so the footer renders no paragraph at
+ * all. It must never fall back to the store name — that printed the dashboard
+ * store record where a brand paragraph belongs — nor to HeadKit marketing copy.
  */
-export function resolveFooterDescription(
-  seoDescription?: OptSeoStr,
-  storeName?: OptSeoStr,
-): string {
-  const desc = seoText(seoDescription);
-  if (desc) return desc;
-  return resolveStoreName(storeName);
+export function resolveFooterDescription(seoDescription?: OptSeoStr): string {
+  return seoText(seoDescription);
 }
 
 /**

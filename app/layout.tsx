@@ -125,11 +125,10 @@ export default async function RootLayout({
         ? ENV_HUBSPOT_PORTAL_ID || null
         : null;
   const showFooterSubscribe = emailMarketing.enabled;
-  // Footer blurb: dashboard SEO description → else store name only.
-  const siteDescription = resolveFooterDescription(
-    seoSettings.description,
-    storeSettings.name,
-  );
+  // Feeds two consumers: the Footer paragraph and the WebSite JSON-LD
+  // `description`. When the dashboard SEO description is unset both render
+  // nothing by design — never the store name, which is not a description.
+  const siteDescription = resolveFooterDescription(seoSettings.description);
   const orgLogoUrl = iconUrl ?? branding.iconUrl ?? undefined;
 
   const fonts = await resolveBrandFonts({

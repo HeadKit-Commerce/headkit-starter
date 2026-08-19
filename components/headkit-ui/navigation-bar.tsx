@@ -26,6 +26,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { isAppNavigationHref } from "@/lib/convert-uri";
 import { cn, decodeHtmlEntities } from "@/lib/utils";
 import { HeaderActions } from "@/components/headkit-ui/header-actions";
 import { CartTriggerButton } from "@/components/headkit-ui/cart-drawer";
@@ -319,60 +320,80 @@ function DesktopMenuSection({
   const router = useRouter();
   return (
     <>
-      {items.map((item) => (
-        <NavigationMenuItem key={item.id} className={itemClassName}>
-          {item.children.length > 0 ? (
-            <>
-              <NavigationMenuTrigger
-                asChild
-                className={cn(
-                  "font-body font-semibold text-primary hover:text-primary",
-                  isHighlightedItem(item, highlightedLinks) &&
-                    "text-pink-500 hover:!text-pink-600",
-                )}
-              >
+      {items.map((item) => {
+        const href = removeTrailingSlash(item.uri);
+        const label = decodeHtmlEntities(item.label);
+        const triggerClassName = cn(
+          "font-body font-semibold text-primary hover:text-primary",
+          isHighlightedItem(item, highlightedLinks) &&
+            "text-pink-500 hover:!text-pink-600",
+        );
+        return (
+          <NavigationMenuItem key={item.id} className={itemClassName}>
+            {item.children.length > 0 ? (
+              <>
                 {/*
-                  Radix Trigger's onClick preventDefault()s before Next Link's
-                  navigation, so a plain <Link> only toggles the dropdown.
-                  Drive navigation explicitly so click → parent uri while the
-                  href stays for SEO/a11y and hover still opens the MegaMenu.
+                  This gate routes EVERY non-app-navigable dropdown parent to
+                  the hrefless <button> branch. Absolute http(s) Custom Links
+                  reach this component already collapsed to a path by
+                  convertToRelativePath() (lib/convert-uri.ts) via
+                  normalizeMenuItems() (navigation-wrapper.tsx), so in practice
+                  only truly non-navigable parents — `#`, `tel:`, `mailto:` —
+                  take the button branch.
                 */}
-                <InstantLink
-                  href={removeTrailingSlash(item.uri)}
-                  pendingVariant="text"
-                  onClick={(e) => {
-                    // Radix Trigger preventDefault()s before Next Link navigates;
-                    // drive navigation explicitly while keeping prefetch={true}
-                    // for Instant Navigation / Partial Prefetching.
-                    e.preventDefault();
-                    router.push(removeTrailingSlash(item.uri));
-                  }}
-                >
-                  {decodeHtmlEntities(item.label)}
-                </InstantLink>
-              </NavigationMenuTrigger>
-              <NavigationMenuContent className="w-screen! rounded-none! bg-brand-bg">
-                <MegaMenu items={item.children} />
-              </NavigationMenuContent>
-            </>
-          ) : (
-            <NavigationMenuLink asChild>
-              <InstantLink
-                href={removeTrailingSlash(item.uri)}
-                pendingVariant="text"
-                className={cn(
-                  navigationMenuTriggerStyle(),
-                  "font-body font-semibold text-primary hover:text-primary",
-                  isHighlightedItem(item, highlightedLinks) &&
-                    "text-pink-500 hover:!text-pink-600",
+                {isAppNavigationHref(href) ? (
+                  <NavigationMenuTrigger asChild className={triggerClassName}>
+                    {/*
+                      Radix Trigger's onClick preventDefault()s before Next
+                      Link's navigation, so a plain <Link> only toggles the
+                      dropdown. Drive navigation explicitly so click → parent
+                      uri while the href stays for SEO/a11y and hover still
+                      opens the MegaMenu.
+                    */}
+                    <InstantLink
+                      href={href}
+                      pendingVariant="text"
+                      onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
+                        e.preventDefault();
+                        router.push(href);
+                      }}
+                    >
+                      {label}
+                    </InstantLink>
+                  </NavigationMenuTrigger>
+                ) : (
+                  // A dropdown parent whose WordPress Custom Link URL is not an
+                  // in-app path (`#`, `tel:`, `mailto:`) navigates nowhere.
+                  // Radix renders its own <button>, so there is no href for the
+                  // browser to follow and click / Enter / touch all open the
+                  // menu.
+                  <NavigationMenuTrigger className={triggerClassName}>
+                    {label}
+                  </NavigationMenuTrigger>
                 )}
-              >
-                {decodeHtmlEntities(item.label)}
-              </InstantLink>
-            </NavigationMenuLink>
-          )}
-        </NavigationMenuItem>
-      ))}
+                <NavigationMenuContent className="w-screen! rounded-none! bg-brand-bg">
+                  <MegaMenu items={item.children} />
+                </NavigationMenuContent>
+              </>
+            ) : (
+              <NavigationMenuLink asChild>
+                <InstantLink
+                  href={href}
+                  pendingVariant="text"
+                  className={cn(
+                    navigationMenuTriggerStyle(),
+                    "font-body font-semibold text-primary hover:text-primary",
+                    isHighlightedItem(item, highlightedLinks) &&
+                      "text-pink-500 hover:!text-pink-600",
+                  )}
+                >
+                  {label}
+                </InstantLink>
+              </NavigationMenuLink>
+            )}
+          </NavigationMenuItem>
+        );
+      })}
     </>
   );
 }

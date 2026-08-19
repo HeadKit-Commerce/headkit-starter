@@ -5,6 +5,7 @@ import {
   seoFallbackDescription,
   resolveHomeTitle,
   resolveFooterDescription,
+  resolveStoreName,
   resolveOgImageUrl,
   isRealSeoTitle,
 } from "./make-metadata";
@@ -82,17 +83,27 @@ describe("resolveHomeTitle hierarchy", () => {
 
 describe("resolveFooterDescription", () => {
   it("uses dashboard description when set", () => {
-    expect(resolveFooterDescription("Our tagline", "Acme")).toBe("Our tagline");
+    expect(resolveFooterDescription("Our tagline")).toBe("Our tagline");
   });
 
-  it("falls back to store name only when description empty", () => {
-    expect(resolveFooterDescription("", "Acme")).toBe("Acme");
-    expect(resolveFooterDescription(null, "Acme")).toBe("Acme");
+  it("renders nothing when the description is empty", () => {
+    expect(resolveFooterDescription("")).toBe("");
+    expect(resolveFooterDescription("   ")).toBe("");
+    expect(resolveFooterDescription(null)).toBe("");
+    expect(resolveFooterDescription(undefined)).toBe("");
+  });
+
+  it("never substitutes the store name for a missing description", () => {
+    // The Pebblr rehearsal regression: an unset SEO description printed the
+    // dashboard store record ("Pebblrbooth Rehearsal") as the footer blurb.
+    expect(resolveFooterDescription(null)).not.toBe(
+      resolveStoreName("Pebblrbooth Rehearsal"),
+    );
+    expect(resolveFooterDescription(null)).not.toBe(resolveStoreName(null));
   });
 
   it("never uses HeadKit marketing string", () => {
-    const desc = resolveFooterDescription(null, null);
-    expect(desc).toBe("Store");
+    const desc = resolveFooterDescription(null);
     expect(desc).not.toMatch(/cloud platform/i);
     expect(desc).not.toMatch(/HeadKit/i);
   });

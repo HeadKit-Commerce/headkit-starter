@@ -43,7 +43,13 @@ export function convertToRelativePath(uri: string | null | undefined): string {
 
 /**
  * True when `href` is an in-app path suitable for Next.js `<Link>` prefetch.
- * Special schemes (`tel:`, `mailto:`, …) and absolute http(s) URLs are not.
+ * Special schemes (`tel:`, `mailto:`, …), absolute http(s) URLs, and bare
+ * fragments (`#`, `#section`) are not.
+ *
+ * Callers also use it as the "navigates anywhere in-app" gate, not only as a
+ * prefetch hint: NavigationBar renders a dropdown parent as a hrefless
+ * `<button>` when this is false, because `#` is the WordPress convention for a
+ * mega-menu parent that opens children and goes nowhere.
  */
 export function isAppNavigationHref(href: string): boolean {
   if (!href) return false;
