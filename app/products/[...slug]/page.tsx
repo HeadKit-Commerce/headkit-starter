@@ -7,7 +7,7 @@ import type {
   ProjectSummaryFieldsFragment,
 } from "@headkit/sdk";
 import { headkit } from "@/lib/sdk";
-import { getCachedProduct } from "@/lib/product-cache";
+import { getCachedProduct, getProductForPage } from "@/lib/product-cache";
 import { ProductDetail } from "@/components/headkit-ui/product-detail";
 import { ProductStock } from "@/components/headkit-ui/product-stock";
 import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
@@ -39,7 +39,18 @@ const SHOP_BREADCRUMB = { name: "Shop", href: "/shop" } as const;
 
 type Props = {
   params: Promise<{ slug: string[] }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>> | undefined;
 };
+
+function shopifyPreviewKeyFromSearchParams(
+  searchParams: Record<string, string | string[] | undefined> | undefined,
+): string | undefined {
+  const raw = searchParams?.preview_key;
+  if (typeof raw === "string" && raw.trim() !== "") {
+    return raw;
+  }
+  return undefined;
+}
 
 /** Re-export for PDP tag/life guard tests (ENG-853). */
 export const getProduct = getCachedProduct;
@@ -151,10 +162,16 @@ export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
   return [{ slug: [STATIC_GEN_PLACEHOLDER_SLUG] }];
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+  searchParams,
+}: Props): Promise<Metadata> {
   const { slug } = await params;
   const productSlug = slug[0]!;
   const colorSlug = slug[1]; // undefined for simple/base; a color slug for a colorway URL
+  const previewKey = shopifyPreviewKeyFromSearchParams(
+    searchParams ? await searchParams : undefined,
+  );
 
   // Build-time placeholder param (API was unreachable during SSG): never a real
   // product, so emit empty metadata rather than hitting the backend.
@@ -163,13 +180,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   try {
     const [product, { seoSettings, storeSettings }, { iconUrl }] =
       await Promise.all([
-        getCachedProduct(productSlug),
+        getProductForPage(productSlug, { shopifyPreviewKey: previewKey }),
         getBranding(),
         getBrandingAssets(),
       ]);
     if (!product) {
       return { robots: { index: false, follow: false } };
     }
+
+    const previewRobots = previewKey
+      ? ({ robots: { index: false, follow: false } } as const)
+      : ({} as const);
 
     const desc = product.shortDescription || product.description;
     const baseCanonical = `${SITE_URL}/products/${productSlug}`;
@@ -187,6 +208,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         canonical: baseCanonical,
         ...(desc ? { description: desc } : {}),
         ...brandingOpts,
+        ...previewRobots,
       });
     }
 
@@ -213,6 +235,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       ...(ogImage ? { ogImage } : {}),
       ...(desc ? { description: desc } : {}),
       ...brandingOpts,
+      ...previewRobots,
     });
   } catch {
     return { robots: { index: false, follow: false } };
@@ -230,10 +253,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  */
 export const instant = true;
 
-export default function ProductPage({ params }: Props) {
+export default function ProductPage({ params, searchParams }: Props) {
   return (
     <Suspense fallback={<ProductPageShell />}>
-      <ProductPageContent params={params} />
+      <ProductPageContent params={params} searchParams={searchParams} />
     </Suspense>
   );
 }
@@ -243,10 +266,13 @@ export default function ProductPage({ params }: Props) {
  * composition rather than duplicating it (D-15-04). The two routes serve two
  * valid URL shapes for one product; only their canonicals differ.
  */
-export async function ProductPageContent({ params }: Props) {
+export async function ProductPageContent({ params, searchParams }: Props) {
   const { slug } = await params;
   const productSlug = slug[0]!;
   const colorSlug = slug[1]; // undefined for simple products or base variable URL
+  const previewKey = shopifyPreviewKeyFromSearchParams(
+    searchParams ? await searchParams : undefined,
+  );
 
   // Build-time placeholder param (see generateStaticParams) is never served.
   if (productSlug === STATIC_GEN_PLACEHOLDER_SLUG) {
@@ -254,7 +280,7 @@ export async function ProductPageContent({ params }: Props) {
   }
 
   const [product, { storeSettings }, stripeConfig] = await Promise.all([
-    getCachedProduct(productSlug),
+    getProductForPage(productSlug, { shopifyPreviewKey: previewKey }),
     getBranding(),
     getStripeConfig(),
   ]);

@@ -32,7 +32,7 @@ const NOINDEX: Metadata = { robots: { index: false, follow: false } };
 
 type Props = {
   params: Promise<{ slug: string[] }>;
-  searchParams: Promise<Record<string, string>>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>> | undefined;
 };
 
 /**
@@ -220,6 +220,7 @@ async function ShopRouteContent({
     return (
       <ProductPageContent
         params={Promise.resolve({ slug: [resolved.productSlug] })}
+        {...(searchParams !== undefined ? { searchParams } : {})}
       />
     );
   }
@@ -231,7 +232,7 @@ async function ShopRouteContent({
     return (
       <CollectionRoute
         params={Promise.resolve({ slug: resolved.segments })}
-        searchParams={searchParams}
+        searchParams={searchParams ?? Promise.resolve({})}
       />
     );
   }
