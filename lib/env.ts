@@ -39,6 +39,10 @@ const clientSchema = z.object({
   // password protection does not intercept Checkout. Defaults to
   // headless-storefronts in lib/hosted-checkout.ts when unset.
   NEXT_PUBLIC_SHOPIFY_CHECKOUT_CHANNEL: z.string().min(1).optional(),
+  // Optional custom Shopify checkout hostname (no protocol). When set,
+  // hostedCheckoutUrl rewrites cart.checkoutUrl to this host (Dashboard →
+  // Checkout → custom checkout subdomain).
+  NEXT_PUBLIC_SHOPIFY_CHECKOUT_DOMAIN: z.string().min(1).optional(),
 });
 
 const serverSchema = clientSchema.extend({

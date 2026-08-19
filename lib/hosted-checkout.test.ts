@@ -8,6 +8,7 @@ import {
 describe("hostedCheckoutUrl", () => {
   afterEach(() => {
     delete process.env.NEXT_PUBLIC_SHOPIFY_CHECKOUT_CHANNEL;
+    delete process.env.NEXT_PUBLIC_SHOPIFY_CHECKOUT_DOMAIN;
   });
 
   it("returns the Shopify checkout URL with channel query when present", () => {
@@ -36,6 +37,17 @@ describe("hostedCheckoutUrl", () => {
         checkoutUrl: "https://velvet.myshopify.com/cart/c/abc",
       }),
     ).toBe("https://velvet.myshopify.com/cart/c/abc?channel=headkit-velvet");
+  });
+
+  it("rewrites host when NEXT_PUBLIC_SHOPIFY_CHECKOUT_DOMAIN is set", () => {
+    process.env.NEXT_PUBLIC_SHOPIFY_CHECKOUT_DOMAIN = "checkout.velvet.com.au";
+    expect(
+      hostedCheckoutUrl({
+        checkoutUrl: "https://velvet.myshopify.com/cart/c/abc",
+      }),
+    ).toBe(
+      "https://checkout.velvet.com.au/cart/c/abc?channel=headless-storefronts",
+    );
   });
 
   it("returns null for WooCommerce carts (unset / empty checkoutUrl)", () => {
