@@ -32,7 +32,9 @@ const NOINDEX: Metadata = { robots: { index: false, follow: false } };
 
 type Props = {
   params: Promise<{ slug: string[] }>;
-  searchParams?: Promise<Record<string, string | string[] | undefined>> | undefined;
+  searchParams?:
+    | Promise<Record<string, string | string[] | undefined>>
+    | undefined;
 };
 
 /**

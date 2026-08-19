@@ -11,7 +11,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const cacheTag = vi.fn<(...tags: string[]) => void>();
 const cacheLife = vi.fn<(profile: string) => void>();
 const productsGet = vi.fn<(slug: string) => Promise<unknown>>();
-const withShopifyPreviewKey = vi.fn<(key: string) => { products: { get: typeof productsGet } }>();
+const withShopifyPreviewKey =
+  vi.fn<(key: string) => { products: { get: typeof productsGet } }>();
 
 vi.mock("server-only", () => ({}));
 
