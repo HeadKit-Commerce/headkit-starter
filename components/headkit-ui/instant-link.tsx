@@ -56,8 +56,18 @@ function hrefToString(href: ComponentProps<typeof Link>["href"]): string {
  * `prefetch={true}` opts into per-URL runtime prefetch so `'use cache'` content
  * keyed on `params`/`searchParams` can resolve before click.
  *
- * Non-app hrefs (`tel:`, `mailto:`, absolute http(s), …) render a plain `<a>`
- * so special-scheme Custom Links from WordPress menus keep working.
+ * Non-app hrefs (`tel:`, `mailto:`, `#`, absolute http(s), …) render a plain
+ * `<a>` so special-scheme Custom Links from WordPress menus keep working.
+ *
+ * That plain `<a>` MUST still forward every prop it was handed. InstantLink is
+ * used as a Radix `asChild` target (see NavigationBar), and Radix injects the
+ * trigger wiring — `ref`, `onPointerEnter`/`onClick`, `id`, `aria-expanded`,
+ * `data-state`, `data-radix-collection-item` — through the child's props.
+ * Dropping them turned a WordPress mega-menu parent whose Custom Link URL is
+ * `#` (the conventional "opens a dropdown, navigates nowhere" parent) into an
+ * inert anchor: the trigger never mounted, so its children were unreachable and
+ * the item looked like a plain top-level link. Only `next/link`-specific props
+ * are stripped — they are not valid DOM attributes on `<a>`.
  */
 export function InstantLink({
   prefetch = true,
@@ -70,8 +80,25 @@ export function InstantLink({
   const hrefStr = hrefToString(href);
 
   if (hrefStr && !isAppNavigationHref(hrefStr)) {
+    // Destructured (not deleted by key) so a future next/link rename fails the
+    // typecheck here instead of silently leaking a prop onto the DOM.
+    const {
+      as: _as,
+      replace: _replace,
+      scroll: _scroll,
+      shallow: _shallow,
+      passHref: _passHref,
+      locale: _locale,
+      legacyBehavior: _legacyBehavior,
+      onNavigate: _onNavigate,
+      ...anchorProps
+    } = rest;
     return (
-      <a href={hrefStr} className={cn("relative cursor-pointer", className)}>
+      <a
+        {...anchorProps}
+        href={hrefStr}
+        className={cn("relative cursor-pointer", className)}
+      >
         {children as ReactNode}
       </a>
     );

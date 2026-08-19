@@ -63,10 +63,11 @@ export async function GET(): Promise<Response> {
     ]);
 
   const siteName = resolveStoreName(storeSettings.name);
-  const description = resolveFooterDescription(
-    seoSettings.description,
-    storeSettings.name,
-  );
+  // RSS 2.0 requires <channel><description>, so this call site keeps the store
+  // name as a last resort even though the footer now renders nothing.
+  const description =
+    resolveFooterDescription(seoSettings.description) ||
+    resolveStoreName(storeSettings.name);
   const channelLink = SITE_URL || "http://localhost:3000";
   const feedSelf = `${channelLink}/feed.xml`;
   const postsIndex = postsIndexPath(postsBase);

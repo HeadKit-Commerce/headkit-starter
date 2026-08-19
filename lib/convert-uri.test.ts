@@ -54,4 +54,12 @@ describe("isAppNavigationHref", () => {
     expect(isAppNavigationHref("//cdn.example/x")).toBe(false);
     expect(isAppNavigationHref("")).toBe(false);
   });
+
+  it("rejects the `#` placeholder WordPress uses for dropdown-only parents", () => {
+    // NavigationBar gates `router.push` on this: a mega-menu parent authored as
+    // a `#` Custom Link opens its dropdown and navigates nowhere, so pushing it
+    // as a route would be a bogus navigation.
+    expect(isAppNavigationHref("#")).toBe(false);
+    expect(isAppNavigationHref("#section")).toBe(false);
+  });
 });
