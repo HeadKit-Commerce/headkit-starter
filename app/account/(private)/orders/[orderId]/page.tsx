@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { getOrderAction } from "@/app/checkout/actions";
 import { LineItemDisplay } from "@/components/checkout/line-item-display";
+import {
+  lineDisplayTotal,
+  orderDiscountDisplayTotal,
+  orderItemsDisplayTotal,
+  shippingDisplayTotal,
+} from "@/lib/cart-prices";
 import type { StoreOrder } from "@/app/checkout/actions";
 import { getFloatVal, formatPrice, getStoreCurrency } from "@/lib/utils";
 
@@ -79,11 +85,10 @@ export default async function Page({ params, searchParams }: Props) {
 
   const displayId = order.databaseId ?? order.id ?? orderId;
   const currency = order.currency?.code ?? getStoreCurrency();
-  const shippingCost =
-    order.totals != null
-      ? getFloatVal(order.totals.totalShipping) +
-        getFloatVal(order.totals.totalShippingTax)
-      : 0;
+
+  const shippingCost = shippingDisplayTotal(order);
+  const itemsSubtotal = orderItemsDisplayTotal(order.items, order);
+  const discount = orderDiscountDisplayTotal(order.items, order);
 
   // Click & Collect: mirror native Woo — hide the (billing-copied) shipping
   // address for pickup orders and show the store collection address instead.
@@ -143,36 +148,45 @@ export default async function Page({ params, searchParams }: Props) {
                 images={item.images ?? []}
                 variation={item.variation ?? []}
                 quantity={item.quantity}
-                lineSubtotal={
-                  item.totals?.lineSubtotal ??
-                  item.totals?.lineTotal ??
-                  item.prices?.price ??
-                  "0"
-                }
+                lineTotal={lineDisplayTotal(
+                  item.totals,
+                  item.prices?.price,
+                  order,
+                )}
                 currency={currency}
                 addons={item.addons}
+                // Deliberately unconditional, INCLUDING on a quote store. A
+                // placed order in account history is a record of what was
+                // actually charged, so its line prices and add-on prices belong
+                // beside the totals block below — hiding them would leave a
+                // priced receipt with a blank itemisation. Quote-mode price
+                // suppression belongs on the PRE-purchase surfaces
+                // (`components/checkout/cart.tsx`, the confirmation page),
+                // where a quote genuinely has no price yet. Do not "restore"
+                // consistency with those two by re-adding it here.
+                hideLineTotal={false}
+                hideAddonPrices={false}
               />
             ))}
           </div>
 
           {order.totals && (
             <div className="mt-6 pt-4 border-t space-y-2">
+              {/* Subtotal, Discount and Shipping are all tax-INCLUSIVE, so
+                  Subtotal − Discount + Shipping equals the inclusive Total and
+                  the Subtotal equals the line rows printed above it; the tax
+                  row beneath them is informational, not another addend.
+                  Subtotal and Discount are summed from the LINES because an
+                  order's cart-level `totalItemsTax` / `totalDiscountTax` are
+                  hard-coded "0" upstream. */}
               <div className="flex gap-4 justify-between font-medium">
                 <p>Subtotal</p>
-                <p>
-                  {formatPrice(getFloatVal(order.totals.totalItems), currency)}
-                </p>
+                <p>{formatPrice(itemsSubtotal, currency)}</p>
               </div>
-              {getFloatVal(order.totals.totalDiscount) > 0 && (
+              {discount > 0 && (
                 <div className="flex gap-4 justify-between font-medium">
                   <p>Discount</p>
-                  <p>
-                    −
-                    {formatPrice(
-                      getFloatVal(order.totals.totalDiscount),
-                      currency,
-                    )}
-                  </p>
+                  <p>−{formatPrice(discount, currency)}</p>
                 </div>
               )}
               <div className="flex gap-4 justify-between font-medium">
@@ -185,7 +199,7 @@ export default async function Page({ params, searchParams }: Props) {
               </div>
               {getFloatVal(order.totals.totalTax) > 0 && (
                 <div className="flex gap-4 justify-between font-medium">
-                  <p>Tax</p>
+                  <p>Includes tax</p>
                   <p>
                     {formatPrice(getFloatVal(order.totals.totalTax), currency)}
                   </p>

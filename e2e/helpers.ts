@@ -668,3 +668,99 @@ export async function awaitOrderConfirmation(
   expect(orderKey, "order key in the confirmation URL").toMatch(/^wc_order_/);
   return { orderId, orderKey };
 }
+
+/**
+ * The taxed fixture seeded by `docker/wordpress/seed-tax.php` — one product on
+ * its own 10% GST tax class.
+ *
+ * Shared by `tax-inclusive-display.spec.ts` and `tax-inclusive-checkout.spec.ts`
+ * (split so the Stripe-dependent half can be dropped from a keyless CI run
+ * without taking the drawer coverage with it).
+ */
+export const TAXED_SLUG =
+  process.env.E2E_TAXED_PRODUCT_SLUG ?? "taxed-test-product";
+
+/** The money figures one Store API cart line carries, in major units. */
+export interface TaxedLine {
+  productId: number;
+  /** `totals.line_subtotal`, tax-EXCLUSIVE. */
+  exTax: number;
+  /** `totals.line_subtotal_tax`. */
+  tax: number;
+  /** What a shopper must be shown: `exTax + tax`. */
+  incTax: number;
+  /** `cart.totals.total_items` + `total_items_tax`. */
+  cartIncTax: number;
+  minorUnit: number;
+}
+
+/** Format a major-unit figure the way the storefront's `formatPrice` does. */
+export function money(value: number, currency = "AUD"): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+/** Resolve the taxed fixture's product id, failing loudly if the seed is missing. */
+export async function taxedProductId(api: APIRequestContext): Promise<number> {
+  const url = `${WP_BASE_URL}/wp-json/headkit/v2/products/slug/${TAXED_SLUG}`;
+  const res = await api.get(url);
+  expect(
+    res.ok(),
+    `the taxed fixture "${TAXED_SLUG}" is not in the local catalogue (HTTP ${res.status()} from ${url}). ` +
+      `This is a SEED REGRESSION, not a reason to skip: re-run docker/wordpress/seed-tax.php ` +
+      `(scripts/e2e-ci-stack.sh runs it as part of "up").`,
+  ).toBe(true);
+  const body = await res.json();
+  const id = Number(body?.id ?? body?.data?.id);
+  expect(id, `no product id in the response for ${TAXED_SLUG}`).toBeGreaterThan(
+    0,
+  );
+  return id;
+}
+
+/** Put the taxed fixture in a fresh cart and read back what WooCommerce charges. */
+export async function seedTaxedCart(
+  api: APIRequestContext,
+): Promise<{ cartToken: string; line: TaxedLine }> {
+  const productId = await taxedProductId(api);
+  const cartToken = await bootstrapCart(api);
+  const add = await api.post(`${STORE_API}/cart/add-item`, {
+    headers: { "Content-Type": "application/json", "Cart-Token": cartToken },
+    data: { id: productId, quantity: 1 },
+  });
+  expect(
+    [200, 201],
+    `add-item failed for the taxed fixture ${productId} (HTTP ${add.status()})`,
+  ).toContain(add.status());
+  const cart = await add.json();
+
+  const item = (cart.items ?? []).find(
+    (i: { id: number }) => Number(i.id) === productId,
+  );
+  expect(
+    item,
+    `the taxed fixture is not in the cart after add-item`,
+  ).toBeTruthy();
+
+  // Store API money is in MINOR units scaled by the store's own decimals
+  // setting; `currency_minor_unit` is the exponent (2 for AUD cents, 0 for a
+  // no-decimals store). Divide by it rather than assuming cents — a
+  // `minor_unit: 0` store is exactly the shape the original defect was
+  // reported on.
+  const minorUnit = Number(cart.totals?.currency_minor_unit ?? 2);
+  const scale = 10 ** minorUnit;
+  const exTax = Number(item.totals.line_subtotal) / scale;
+  const tax = Number(item.totals.line_subtotal_tax) / scale;
+  const cartIncTax =
+    (Number(cart.totals.total_items) + Number(cart.totals.total_items_tax)) /
+    scale;
+
+  return {
+    cartToken,
+    line: { productId, exTax, tax, incTax: exTax + tax, cartIncTax, minorUnit },
+  };
+}

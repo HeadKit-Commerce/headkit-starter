@@ -24,10 +24,13 @@ import { AddonDetails, type AddonDisplay } from "./addon-details";
  *      order side returning `Sam &amp; Alex, 12 Dec`) and then rendered as React
  *      children, so they come back **escaped**. Decode-then-escape, never
  *      raw HTML;
- *   3. **no money appears.** A flat fee is reported by the Store API divided by
- *      line quantity, and quantity-based / percentage-based add-ons produce no
- *      per-add-on figure at all, so any per-add-on price would misquote
- *      (UI-SPEC U-03, measurement-driven);
+ *   3. **each priced option shows its own price**, in the format its price type
+ *      means, and a free option shows none. This REVERSES UI-SPEC U-03, whose
+ *      suppression rested on a measurement of `prices.price` (the line's unit
+ *      price, which PAO does divide a flat fee into) misattributed to
+ *      `extensions.headkit.addons_selection[].price`, which is the field this
+ *      component receives and which is quantity-invariant. Re-measured on the
+ *      local e2e stack — see the component doc for the transcript;
  *   4. the panel's three off-scale spacing values are **byte-identical** to
  *      `gift-card-details.tsx`. That identity is the feature — the two panels
  *      must be indistinguishable when a cart carries both (UI-SPEC Dimension 5
@@ -35,24 +38,60 @@ import { AddonDetails, type AddonDisplay } from "./addon-details";
  *      "normalising" them to the 4px scale.
  */
 
-/** The real order-230 selections, as the gateway returns them (measured). */
+/**
+ * The real order-230 selections, as the gateway returns them (measured).
+ *
+ * The prices are the ones `order_provider_addons_test.go` pins off the same
+ * order's `_pao_ids` meta — 10 / 50 / 25 / 0, all `flat_fee` — so this fixture
+ * and the Go extractor's fixture describe one order.
+ */
 const ORDER_230: AddonDisplay[] = [
-  { addonId: "1900000001", name: "Add-ons", value: "Animated Welcome Screen" },
+  {
+    addonId: "1900000001",
+    name: "Add-ons",
+    value: "Animated Welcome Screen",
+    price: "10",
+    priceType: "flat_fee",
+  },
   {
     addonId: "1900000002",
     name: "Guest Book Service",
     value: "Hardcover Book",
+    price: "50",
+    priceType: "flat_fee",
   },
-  { addonId: "1900000003", name: "Backdrop Design", value: "Sequin Gold" },
+  {
+    addonId: "1900000003",
+    name: "Backdrop Design",
+    value: "Sequin Gold",
+    price: "25",
+    priceType: "flat_fee",
+  },
   {
     addonId: "1900000004",
     name: "Event Message",
     value: "Sam &amp; Alex, 12 Dec",
+    price: "0",
+    priceType: "flat_fee",
   },
 ];
 
-function render(addons: AddonDisplay[]): string {
-  return renderToStaticMarkup(<AddonDetails addons={addons} />);
+/** A free selection — the shape every "no suffix" case below is built from. */
+function free(addonId: string, name: string, value: string): AddonDisplay {
+  return { addonId, name, value, price: "0", priceType: "flat_fee" };
+}
+
+function render(addons: AddonDisplay[], currency = "AUD"): string {
+  return renderToStaticMarkup(
+    <AddonDetails addons={addons} currency={currency} hidePrice={false} />,
+  );
+}
+
+/** HeadKit Quote mode: the same panel, with every price suffix suppressed. */
+function renderQuote(addons: AddonDisplay[], currency = "AUD"): string {
+  return renderToStaticMarkup(
+    <AddonDetails addons={addons} currency={currency} hidePrice />,
+  );
 }
 
 const SRC_DIR = resolve(__dirname);
@@ -110,8 +149,8 @@ describe("AddonDetails — the shopper sees what they configured", () => {
 
   it("renders one row per selection even when a group repeats (checkbox groups)", () => {
     const markup = render([
-      { addonId: "1900000103", name: "Extras", value: "Extra Prints" },
-      { addonId: "1900000103", name: "Extras", value: "USB Copy" },
+      free("1900000103", "Extras", "Extra Prints"),
+      free("1900000103", "Extras", "USB Copy"),
     ]);
     expect(markup).toContain("Extra Prints");
     expect(markup).toContain("USB Copy");
@@ -131,28 +170,20 @@ describe("AddonDetails — decode, then escape", () => {
   });
 
   it("decodes an entity whose decoded form is not re-escaped, so the decode is visible", () => {
-    const markup = render([
-      { addonId: "1", name: "Event Dates", value: "12 &ndash; 14 Dec" },
-    ]);
+    const markup = render([free("1", "Event Dates", "12 &ndash; 14 Dec")]);
     expect(markup).toContain("12 – 14 Dec");
     expect(markup).not.toContain("ndash");
   });
 
   it("decodes the group name too, not only the value", () => {
-    const markup = render([
-      { addonId: "1", name: "Rob &amp; Sam&#039;s picks", value: "Yes" },
-    ]);
+    const markup = render([free("1", "Rob &amp; Sam&#039;s picks", "Yes")]);
     expect(markup).toContain("Rob &amp; Sam&#x27;s picks");
     expect(markup).not.toContain("&amp;#039;");
   });
 
   it("escapes a shopper-supplied value that contains markup", () => {
     const markup = render([
-      {
-        addonId: "1",
-        name: "Message",
-        value: '<img src=x onerror="alert(1)">',
-      },
+      free("1", "Message", '<img src=x onerror="alert(1)">'),
     ]);
     expect(markup).toContain("&lt;img");
     expect(markup).not.toContain("<img");
@@ -163,9 +194,7 @@ describe("AddonDetails — decode, then escape", () => {
     // `&amp;lt;script&amp;gt;` decodes once to `&lt;script&gt;`, which React
     // escapes back to `&amp;lt;script&amp;gt;`. A single decode never yields a
     // live tag, which is the property that matters.
-    const markup = render([
-      { addonId: "1", name: "Note", value: "&amp;lt;script&amp;gt;" },
-    ]);
+    const markup = render([free("1", "Note", "&amp;lt;script&amp;gt;")]);
     expect(markup).not.toContain("<script");
   });
 
@@ -174,41 +203,158 @@ describe("AddonDetails — decode, then escape", () => {
   });
 });
 
-describe("AddonDetails — no money on the row (UI-SPEC U-03)", () => {
-  it("renders no price even when the selection carries one", () => {
-    // The SDK's selection type carries `price` / `priceType` / `fieldType`;
-    // the panel's own display type deliberately does not. The wider shape is
-    // what the call sites really pass, and the component must ignore the extra
-    // fields rather than find a use for them.
-    const priced: Array<
-      AddonDisplay & { price: string; priceType: string; fieldType: string }
-    > = [
+describe("AddonDetails — quote mode carries the selection but no money", () => {
+  // Part C gave every priced option a suffix, but this panel mounts OUTSIDE the
+  // quote-mode gates that hide the line total (`hidePrice` on LineItemDisplay,
+  // `isQuoteMode` on the drawer row) — so without its own flag it leaked prices
+  // into a mode built to hide them.
+  it("renders no price suffix at all", () => {
+    const markup = renderQuote(ORDER_230);
+    expect(markup).not.toContain("A$");
+    expect(markup).not.toContain("$");
+  });
+
+  it("still echoes every option name and value", () => {
+    const markup = renderQuote(ORDER_230);
+    for (const a of ORDER_230) expect(markup).toContain(a.name);
+    expect(markup).toContain("Hardcover Book");
+    expect(markup).toContain("Sequin Gold");
+    expect(markup).toContain(">Options</p>");
+  });
+
+  it("differs from the priced render ONLY by the suffixes", () => {
+    const priced = render([ORDER_230[1]!]);
+    const quoted = renderQuote([ORDER_230[1]!]);
+    expect(priced).toContain("+A$50.00");
+    expect(quoted).not.toContain("+A$50.00");
+    expect(quoted).toBe(
+      priced.replace('<span class="shrink-0">+A$50.00</span>', ""),
+    );
+  });
+
+  it("suppresses a percentage suffix too, not just currency ones", () => {
+    const markup = renderQuote([
+      {
+        addonId: "1900000005",
+        name: "Rush Fee",
+        value: "Yes",
+        price: "10",
+        priceType: "percentage_based",
+      },
+    ]);
+    expect(markup).toContain("Rush Fee:");
+    expect(markup).not.toContain("%");
+  });
+});
+
+describe("AddonDetails — each priced option shows its own price", () => {
+  it("renders a flat fee as a plain currency suffix", () => {
+    const markup = render([
       {
         addonId: "1900000002",
         name: "Guest Book Service",
         value: "Hardcover Book",
         price: "50",
         priceType: "flat_fee",
-        fieldType: "multiple_choice",
+      },
+    ]);
+    expect(markup).toContain("Hardcover Book");
+    expect(markup).toContain("+A$50.00");
+  });
+
+  it("renders a quantity_based price with `each`, and a percentage as a percentage", () => {
+    // Rendering all three price types as `+$X` would misquote two of them —
+    // the reason the suffix format is delegated to `formatAddonPriceSuffix`,
+    // the same function the PDP's "Your selection" panel calls, rather than
+    // re-derived here. The figures are the seeded `glam-booth-all-types`
+    // group 1900000103, measured on the local stack at both quantity 1 and 3.
+    const markup = render([
+      {
+        addonId: "1900000103",
+        name: "Extra Hours",
+        value: "Extra hour (per guest)",
+        price: "20",
+        priceType: "quantity_based",
+      },
+      {
+        addonId: "1900000103",
+        name: "Extra Hours",
+        value: "Premium finish (10%)",
+        price: "10",
+        priceType: "percentage_based",
+      },
+    ]);
+    expect(markup).toContain("+A$20.00 each");
+    expect(markup).toContain("+10%");
+  });
+
+  it("renders NO suffix for a free option", () => {
+    const markup = render([free("1900000001", "Add-ons", "Sharing Station")]);
+    expect(markup).toContain("Sharing Station");
+    expect(markup).not.toContain("+");
+    expect(markup).not.toContain("A$");
+  });
+
+  it("renders the store currency it is given, not a hard-coded one", () => {
+    const priced: AddonDisplay[] = [
+      {
+        addonId: "1",
+        name: "Extras",
+        value: "Rush",
+        price: "5",
+        priceType: "flat_fee",
       },
     ];
-    const markup = renderToStaticMarkup(<AddonDetails addons={priced} />);
-    expect(markup).toContain("Hardcover Book");
-    expect(markup).not.toContain("50");
-    expect(markup).not.toContain("$");
-    expect(markup).not.toContain("flat_fee");
+    expect(render(priced, "AUD")).toContain("+A$5.00");
+    expect(render(priced, "USD")).toContain("+$5.00");
   });
 
-  it("calls no currency formatter and reads no price field in its source", () => {
-    expect(addonSource).not.toContain("formatPrice");
-    expect(addonSource).not.toContain("getFloatVal");
-    expect(addonSource).not.toContain("formatAddonPriceSuffix");
-    expect(/\.price\b/.test(addonSource)).toBe(false);
-    expect(/\.priceType\b/.test(addonSource)).toBe(false);
+  it("prices only the options that carry one, leaving free rows bare", () => {
+    // The Pblr line the tax-display bug was reported against: two free
+    // selections and two paid ones on one product.
+    const markup = render([
+      free("1900000001", "Add-ons", "Sharing Station (Included)"),
+      {
+        addonId: "1900000001",
+        name: "Add-ons",
+        value: "Animated Welcome Screen",
+        price: "10",
+        priceType: "flat_fee",
+      },
+      {
+        addonId: "1900000002",
+        name: "Guest Book Service",
+        value: "Hardcover Book",
+        price: "50",
+        priceType: "flat_fee",
+      },
+      free("1900000003", "Backdrop Design", "White"),
+    ]);
+    expect(markup).toContain("+A$10.00");
+    expect(markup).toContain("+A$50.00");
+    // Two suffixes, not four: the free rows contribute no money at all.
+    expect(markup.split("A$").length - 1).toBe(2);
   });
 
-  it("never branches on fieldType, which is always empty for a placed order", () => {
-    expect(/\.fieldType\b/.test(addonSource)).toBe(false);
+  it("never renders the raw price_type string", () => {
+    expect(render(ORDER_230)).not.toContain("flat_fee");
+  });
+
+  it("ignores a fieldType riding along on a wider selection object", () => {
+    // `fieldType` is populated for a live cart but always empty for a placed
+    // order, so no display may branch on it. Same selection, two different
+    // fieldTypes, byte-identical markup.
+    const withField = (fieldType: string): AddonDisplay =>
+      ({
+        addonId: "1900000001",
+        name: "Add-ons",
+        value: "Animated Welcome Screen",
+        price: "10",
+        priceType: "flat_fee",
+        fieldType,
+      }) as AddonDisplay;
+
+    expect(render([withField("checkbox")])).toBe(render([withField("")]));
   });
 });
 

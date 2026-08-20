@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { MinusIcon, PlusIcon, XIcon } from "@/components/icon";
 import { cn, decodeHtmlEntities, getFloatVal, formatPrice } from "@/lib/utils";
+import { lineDisplayTotal } from "@/lib/cart-prices";
 import {
   getCartAction,
   removeCartItemAction,
@@ -33,6 +34,7 @@ export function CartItemRow({
 }: CartItemProps) {
   const [quantity, setQuantity] = useState(item.quantity);
   const {
+    cartData,
     toggleCart,
     isPending: loading,
     optimisticRemoveItem,
@@ -223,7 +225,7 @@ export function CartItemRow({
               )}
               <p className={cn("font-medium", isOnSale && "text-pink-600")}>
                 {formatPrice(
-                  getFloatVal(item.totals.lineSubtotal),
+                  lineDisplayTotal(item.totals, null, cartData),
                   currency.code,
                 )}
               </p>
@@ -259,7 +261,13 @@ export function CartItemRow({
           AddonDetails also returns null for an empty list; the guard is here
           because "no add-ons means no element" should be legible at the mount
           point, which is where a reader looks. */}
-      {item.addons.length > 0 && <AddonDetails addons={item.addons} />}
+      {item.addons.length > 0 && (
+        <AddonDetails
+          addons={item.addons}
+          currency={currency.code}
+          hidePrice={isQuoteMode}
+        />
+      )}
     </div>
   );
 }

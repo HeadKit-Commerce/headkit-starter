@@ -18,7 +18,8 @@ import { useChromeIcons } from "@/components/branding/branding-icons-provider";
 import { useIsQuoteMode } from "@/components/checkout/checkout-mode-provider";
 import { getCartAction } from "@/lib/cart-actions";
 import { hostedCheckoutUrl, isHostedCheckoutHref } from "@/lib/hosted-checkout";
-import { getFloatVal, formatPrice, getStoreCurrency } from "@/lib/utils";
+import { formatPrice, getStoreCurrency } from "@/lib/utils";
+import { cartItemsDisplayTotal } from "@/lib/cart-prices";
 import { PlusIcon } from "@/components/icon";
 
 export function CartDrawer() {
@@ -40,7 +41,7 @@ export function CartDrawer() {
     symbol: "$",
     minorUnit: 2,
   };
-  const totalPrice = getFloatVal(displayCart?.totals?.totalItems ?? "0");
+  const totalPrice = cartItemsDisplayTotal(displayCart);
   // Shopify: leave HeadKit entirely — do not route through /checkout (skeleton
   // + blank redirect flash). WooCommerce keeps the internal Stripe checkout.
   const hostedCheckout = isQuoteMode ? null : hostedCheckoutUrl(displayCart);
@@ -114,7 +115,7 @@ export function CartDrawer() {
               {!isQuoteMode && (
                 <div className="flex font-medium gap-1">
                   <p className="flex-1 flex items-end">
-                    Shipping and tax calculated at checkout
+                    Shipping calculated at checkout
                   </p>
                   <p className="flex items-end text-xl">
                     {formatPrice(totalPrice, currency.code)}
