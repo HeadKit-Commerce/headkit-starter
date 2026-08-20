@@ -3,6 +3,12 @@
 import type { CartFieldsFragment } from "@headkit/sdk";
 import { CouponBox } from "@/components/checkout/coupon-box";
 import { LineItemDisplay } from "@/components/checkout/line-item-display";
+import {
+  cartDiscountDisplayTotal,
+  cartItemsDisplayTotal,
+  lineDisplayTotal,
+  shippingDisplayTotal,
+} from "@/lib/cart-prices";
 import { getFloatVal, formatPrice } from "@/lib/utils";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { useIsQuoteMode } from "@/components/checkout/checkout-mode-provider";
@@ -19,9 +25,9 @@ const Cart = ({ showDisplayShipping }: Props) => {
 
   const currency = cartData.currency.code;
 
-  const shippingCost =
-    getFloatVal(cartData.totals.totalShipping) +
-    getFloatVal(cartData.totals.totalShippingTax);
+  const shippingCost = shippingDisplayTotal(cartData);
+
+  const discount = cartDiscountDisplayTotal(cartData);
 
   const calculateShipping = () => {
     if (!showDisplayShipping) {
@@ -50,11 +56,12 @@ const Cart = ({ showDisplayShipping }: Props) => {
             images={item.images}
             variation={item.variation ?? []}
             quantity={item.quantity}
-            lineSubtotal={item.totals.lineSubtotal}
+            lineTotal={lineDisplayTotal(item.totals, null, cartData)}
             currency={currency}
             giftCard={item.giftCard ?? null}
             addons={item.addons}
-            hidePrice={isQuoteMode}
+            hideLineTotal={isQuoteMode}
+            hideAddonPrices={isQuoteMode}
           />
         ))}
       </div>
@@ -68,24 +75,19 @@ const Cart = ({ showDisplayShipping }: Props) => {
             <CouponBox cart={cartData as CartFieldsFragment} />
           </div>
 
-          {/* Totals */}
+          {/* Totals. Subtotal, Discount and Shipping are all tax-INCLUSIVE, so
+              they reconcile against the inclusive line rows above and the
+              inclusive Total below; the tax row beneath them is informational,
+              not another addend. */}
           <div className="flex justify-between font-medium">
             <p>Subtotal</p>
-            <p>
-              {formatPrice(getFloatVal(cartData.totals.totalItems), currency)}
-            </p>
+            <p>{formatPrice(cartItemsDisplayTotal(cartData), currency)}</p>
           </div>
 
-          {getFloatVal(cartData.totals.totalDiscount) > 0 && (
+          {discount > 0 && (
             <div className="flex justify-between font-medium mt-[8px]">
               <p>Discount</p>
-              <p>
-                −
-                {formatPrice(
-                  getFloatVal(cartData.totals.totalDiscount),
-                  currency,
-                )}
-              </p>
+              <p>−{formatPrice(discount, currency)}</p>
             </div>
           )}
 
@@ -96,7 +98,7 @@ const Cart = ({ showDisplayShipping }: Props) => {
 
           {getFloatVal(cartData.totals.totalTax) > 0 && (
             <div className="flex justify-between font-medium mt-[8px]">
-              <p>Tax</p>
+              <p>Includes tax</p>
               <p>
                 {formatPrice(getFloatVal(cartData.totals.totalTax), currency)}
               </p>

@@ -55,14 +55,37 @@ export function withShopifyCheckoutChannel(url: string): string {
   return parsed.toString();
 }
 
-export function hostedCheckoutUrl(
-  cart: { checkoutUrl?: string | null } | null | undefined,
+/** A cart, as the hosted-checkout question needs it. */
+export interface HostedCheckoutCart {
+  checkoutUrl?: string | null;
+}
+
+function rawCheckoutUrl(
+  cart: HostedCheckoutCart | null | undefined,
 ): string | null {
   const url = cart?.checkoutUrl?.trim();
-  if (!url) {
-    return null;
-  }
-  return withShopifyCheckoutChannel(url);
+  return url ? url : null;
+}
+
+/**
+ * True when the provider — not HeadKit — owns this cart's checkout.
+ *
+ * The single definition of "this is a hosted-checkout cart", because two
+ * unrelated behaviours hang off it: the CTA leaves the HeadKit origin, and the
+ * provider's totals follow a different tax convention (`lib/cart-prices.ts`).
+ * Two copies of the null-check would let those two answers drift apart.
+ */
+export function hasHostedCheckout(
+  cart: HostedCheckoutCart | null | undefined,
+): boolean {
+  return rawCheckoutUrl(cart) !== null;
+}
+
+export function hostedCheckoutUrl(
+  cart: HostedCheckoutCart | null | undefined,
+): string | null {
+  const url = rawCheckoutUrl(cart);
+  return url === null ? null : withShopifyCheckoutChannel(url);
 }
 
 /** True when the CTA should leave the HeadKit origin (Shopify Checkout). */

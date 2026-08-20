@@ -10,6 +10,12 @@ import {
 import { ClearCart } from "@/components/checkout/clear-cart";
 import { PaymentProcessing } from "@/components/checkout/payment-processing";
 import { LineItemDisplay } from "@/components/checkout/line-item-display";
+import {
+  lineDisplayTotal,
+  orderDiscountDisplayTotal,
+  orderItemsDisplayTotal,
+  shippingDisplayTotal,
+} from "@/lib/cart-prices";
 import { PaymentMethodDisplay } from "@/components/checkout/payment-method-display";
 import { needsCheckoutOrderProcessing } from "@/lib/checkout-success-utils";
 import { getFloatVal, formatPrice } from "@/lib/utils";
@@ -399,9 +405,10 @@ export default async function Page({ params, searchParams }: Props) {
   const shipping = order.shippingAddress;
   const shippingLines = order.shippingLines ?? [];
 
-  const shippingCost =
-    getFloatVal(order.totals.totalShipping) +
-    getFloatVal(order.totals.totalShippingTax);
+  const shippingCost = shippingDisplayTotal(order);
+
+  const itemsSubtotal = orderItemsDisplayTotal(order.items, order);
+  const discount = orderDiscountDisplayTotal(order.items, order);
 
   // Click & Collect: WooCommerce copies the billing address into the order's
   // shipping fields even for pickup, but native Woo hides that address and shows
@@ -615,40 +622,38 @@ export default async function Page({ params, searchParams }: Props) {
                 images={item.images}
                 variation={item.variation ?? []}
                 quantity={item.quantity}
-                lineSubtotal={
-                  item.totals?.lineSubtotal ??
-                  item.totals?.lineTotal ??
-                  item.prices?.price ??
-                  "0"
-                }
+                lineTotal={lineDisplayTotal(
+                  item.totals,
+                  item.prices?.price,
+                  order,
+                )}
                 currency={currency}
                 giftCard={item.giftCard ?? null}
                 addons={item.addons}
-                hidePrice={isQuoteMode}
+                hideLineTotal={isQuoteMode}
+                hideAddonPrices={isQuoteMode}
               />
             ))}
           </div>
 
           {!isQuoteMode && (
             <>
-              {/* Totals */}
+              {/* Totals. Subtotal, Discount and Shipping are all tax-INCLUSIVE,
+                  so Subtotal − Discount + Shipping equals the inclusive Total
+                  and the Subtotal equals the line rows printed above it; the
+                  tax row beneath them is informational, not another addend.
+                  Subtotal and Discount are summed from the LINES because an
+                  order's cart-level `totalItemsTax` / `totalDiscountTax` are
+                  hard-coded "0" upstream. */}
               <div className="flex gap-4 justify-between font-medium">
                 <p>Subtotal</p>
-                <p>
-                  {formatPrice(getFloatVal(order.totals.totalItems), currency)}
-                </p>
+                <p>{formatPrice(itemsSubtotal, currency)}</p>
               </div>
 
-              {getFloatVal(order.totals.totalDiscount) > 0 && (
+              {discount > 0 && (
                 <div className="flex gap-4 justify-between font-medium mt-[8px]">
                   <p>Discount</p>
-                  <p>
-                    −
-                    {formatPrice(
-                      getFloatVal(order.totals.totalDiscount),
-                      currency,
-                    )}
-                  </p>
+                  <p>−{formatPrice(discount, currency)}</p>
                 </div>
               )}
 
@@ -663,7 +668,7 @@ export default async function Page({ params, searchParams }: Props) {
 
               {getFloatVal(order.totals.totalTax) > 0 && (
                 <div className="flex gap-4 justify-between font-medium mt-[8px]">
-                  <p>Tax</p>
+                  <p>Includes tax</p>
                   <p>
                     {formatPrice(getFloatVal(order.totals.totalTax), currency)}
                   </p>

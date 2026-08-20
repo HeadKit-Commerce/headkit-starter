@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { getFloatVal, formatPrice, decodeHtmlEntities } from "@/lib/utils";
+import { formatPrice, decodeHtmlEntities } from "@/lib/utils";
 import {
   GiftCardDetails,
   type GiftCardDisplay,
@@ -18,7 +18,18 @@ export interface LineItemDisplayProps {
   images: Array<{ src?: string | null; alt?: string | null }>;
   variation?: Array<{ attribute: string; value: string }>;
   quantity: number;
-  lineSubtotal: string;
+  /**
+   * The line's shopper-facing total, tax INCLUSIVE, already resolved to a
+   * number.
+   *
+   * A number and not the raw `totals.lineSubtotal` string it used to be: every
+   * WooCommerce Store API total is tax-exclusive with the tax in a sibling
+   * field, so a caller that hands this component a single raw total has already
+   * lost the tax by the time the component sees it. Passing the resolved figure
+   * forces each call site through {@link lineDisplayTotal}, which owns the
+   * addition and the order pages' fallback chain.
+   */
+  lineTotal: number;
   currency: string;
   giftCard?: GiftCardDisplay | null;
   /**
@@ -29,8 +40,27 @@ export interface LineItemDisplayProps {
    * the one caller that has no line item at all to read from.
    */
   addons?: readonly AddonDisplay[];
-  /** When true, omit the line price (HeadKit Quote mode). */
-  hidePrice?: boolean;
+  /**
+   * Omit the line total.
+   *
+   * Separate from {@link hideAddonPrices} because the two are genuinely
+   * independent: a surface can want one without the other, and a single flag
+   * driving both silently strips the line prices from any caller that only
+   * wanted the add-on suffixes gone.
+   *
+   * REQUIRED, like the provider `source` on `lineDisplayTotal`: an optional
+   * flag defaulting to "show the money" lets a future call site reintroduce a
+   * price leak by omission.
+   */
+  hideLineTotal: boolean;
+  /**
+   * Omit each add-on option's price suffix, keeping the option names and
+   * values. A quote still echoes what the shopper configured (PAO-03); it just
+   * carries no money.
+   *
+   * REQUIRED for the same reason as {@link hideLineTotal}.
+   */
+  hideAddonPrices: boolean;
 }
 
 export function LineItemDisplay({
@@ -38,11 +68,12 @@ export function LineItemDisplay({
   images,
   variation = [],
   quantity,
-  lineSubtotal,
+  lineTotal,
   currency,
   giftCard = null,
   addons = [],
-  hidePrice = false,
+  hideLineTotal,
+  hideAddonPrices,
 }: LineItemDisplayProps) {
   const displayName = decodeHtmlEntities(name);
   const imageSrc = images[0]?.src ?? "/assets/HeadKit-Fallback.png";
@@ -79,9 +110,9 @@ export function LineItemDisplay({
           <p className="text-xs text-gray-400">Qty {quantity}</p>
         </div>
 
-        {!hidePrice && (
+        {!hideLineTotal && (
           <div className="shrink-0 text-sm font-medium text-gray-900">
-            {formatPrice(getFloatVal(lineSubtotal), currency)}
+            {formatPrice(lineTotal, currency)}
           </div>
         )}
       </div>
@@ -92,7 +123,13 @@ export function LineItemDisplay({
           that carries only a gift card. The guard is a length test, not a null
           guard — `addons` is a non-null list with an empty default
           (D-14.1-04). */}
-      {addons.length > 0 && <AddonDetails addons={addons} />}
+      {addons.length > 0 && (
+        <AddonDetails
+          addons={addons}
+          currency={currency}
+          hidePrice={hideAddonPrices}
+        />
+      )}
     </div>
   );
 }

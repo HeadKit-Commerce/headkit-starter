@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Cart } from "@/components/checkout/cart";
 import { OfflinePaymentCheckout } from "@/components/checkout/offline-payment-checkout";
 import { isOfflineOnlyCart } from "@/lib/payment-gateways";
+import { cartItemsDisplayTotal } from "@/lib/cart-prices";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { getFloatVal, formatPrice, cn } from "@/lib/utils";
 import { ChevronDownIcon } from "@/components/icon";
@@ -570,11 +571,7 @@ export function CheckoutPageContent({
                   {itemCount} {itemCount === 1 ? "item" : "items"}
                 </span>
                 <span className="font-medium flex items-center">
-                  {formatPrice(
-                    getFloatVal(cartData.totals.totalItems) +
-                      getFloatVal(cartData.totals.totalItemsTax),
-                    currency,
-                  )}
+                  {formatPrice(cartItemsDisplayTotal(cartData), currency)}
                   <ChevronDownIcon
                     className={cn(
                       "mt-[2px] ml-[10px] h-[24px] w-[12px] transition-transform",

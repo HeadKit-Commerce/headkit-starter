@@ -1,29 +1,54 @@
+import { formatAddonPriceSuffix } from "@/lib/addons";
 import { decodeHtmlEntities } from "@/lib/utils";
 
 /**
  * One add-on selection, as this panel needs it.
  *
- * Deliberately narrower than the SDK's `CartItemAddonSelection`, which also
- * carries `price`, `priceType` and `fieldType`. None of those three is
- * displayable here:
+ * Narrower than the SDK's `CartItemAddonSelection`, which also carries
+ * `fieldType`. That one field is not displayable here: it is populated for a
+ * live cart but always empty for a placed order, because the provider's order
+ * meta records none (14.1-03). No display may branch on it, so the panel cannot
+ * see it.
  *
- *   - `price` / `priceType` — the cart, checkout and confirmation lines are
- *     price-free (see the component doc below);
- *   - `fieldType` — populated for a live cart but always empty for a placed
- *     order, because the provider's order meta records none (14.1-03). No
- *     display may branch on it, so the panel cannot see it.
- *
- * A wider object still satisfies this shape, so every call site passes its
- * line's `addons` array straight through.
+ * `price` and `priceType` are REQUIRED, not optional. Both producers fill them
+ * — the cart from `extensions.headkit.addons_selection[]` and the order from
+ * `_pao_ids[].raw_price` / `.price_type` — and a caller that could omit them
+ * would silently drop the money from the row, which is the defect this shape
+ * exists to make impossible. A wider object still satisfies it, so every call
+ * site passes its line's `addons` array straight through.
  */
 export interface AddonDisplay {
   addonId: string;
   name: string;
   value: string;
+  /** The merchant-configured price, as a decimal string. `""` or `"0"` when free. */
+  price: string;
+  /** `flat_fee`, `quantity_based` or `percentage_based`. */
+  priceType: string;
 }
 
 interface AddonDetailsProps {
   addons: readonly AddonDisplay[];
+  /**
+   * Store currency for the price suffixes. REQUIRED for the same reason
+   * `price` and `priceType` are: omitting it does not fail, it falls through to
+   * the `NEXT_PUBLIC_STORE_CURRENCY` deploy constant, so a call site on a
+   * non-AUD store would silently render `+A$50.00` beside a line priced in
+   * another currency.
+   */
+  currency: string;
+  /**
+   * HeadKit Quote mode: render every selection's name and value exactly as
+   * normal, but no price suffix. A quote must still echo what the shopper
+   * configured (PAO-03) — it just carries no money anywhere on the page.
+   *
+   * REQUIRED, like `price` / `priceType` / `currency`, and for a stronger
+   * reason: an optional flag defaulting to `false` would let a future call site
+   * silently reintroduce the leak this closes, and the surrounding gates
+   * (`hidePrice` on the line total, `isQuoteMode` on the drawer price block)
+   * would not catch it because the panel mounts outside them.
+   */
+  hidePrice: boolean;
 }
 
 /**
@@ -42,13 +67,36 @@ interface AddonDetailsProps {
  * exactly this as a non-blocking flag and asked that the justification travel
  * with the code. `addon-details.test.tsx` asserts the identity class by class.
  *
- * **No money appears on the row.** This is measurement-driven, not taste. The
- * Store API reports a flat fee *divided by line quantity*, so a $50 option on a
- * quantity of two comes back as `25`, and printing that beside an option the
- * shopper chose at $50 is worse than printing nothing. Quantity-based and
- * percentage-based add-ons fold into the unit price and report no per-add-on
- * figure at all. The line total already on the row is the authoritative combined
- * number, and the gift-card panel this mirrors is likewise price-free.
+ * **Each priced option shows its own price, in the format its price type
+ * means** — the same `formatAddonPriceSuffix` and the same right-aligned row the
+ * PDP's "Your selection" panel uses, so the figure a shopper approved on the
+ * product page is the figure they see again in the cart. A free option shows no
+ * suffix at all.
+ *
+ * **This reverses UI-SPEC U-03, which suppressed the money on a measurement
+ * that was attributed to the wrong field.** U-03 held that "the Store API
+ * reports a flat fee divided by line quantity, so a $50 option on a quantity of
+ * two comes back as 25", and that quantity-based and percentage-based add-ons
+ * "report no per-add-on figure at all". Both statements are true of
+ * `prices.price` — the line's UNIT price, which PAO does divide a flat fee into
+ * (`class-wc-product-addons-cart.php:907`, `$addon_price / $quantity`) and does
+ * fold the other two types into. Neither is true of
+ * `extensions.headkit.addons_selection[].price`, which is what this component
+ * actually receives: that loop reads `$addon['price']` and writes only into the
+ * product price, never back into the selection entry.
+ *
+ * Re-measured against the local e2e stack (WooCommerce 10.9.4, Product Add-Ons
+ * 8.4.0, `glam-booth-all-types`, group 1900000103):
+ *
+ * ```
+ * qty 1  prices.price = 61890   selection prices = 20 / 10 / 50
+ * qty 3  prices.price = 58557   selection prices = 20 / 10 / 50
+ * ```
+ *
+ * `prices.price` moves with quantity; the selection prices do not. They are the
+ * merchant's configured figures for all three price types, which is exactly
+ * what {@link formatAddonPriceSuffix} is built to render and why no arithmetic
+ * happens here.
  *
  * **Values are shopper-supplied.** `custom_text` and `custom_textarea` values
  * round-trip through the cart into the order meta and back out entity-encoded
@@ -63,22 +111,37 @@ interface AddonDetailsProps {
  * spacing — so a line without add-ons is unchanged from what shipped before
  * this phase (PAO-04).
  */
-export function AddonDetails({ addons }: AddonDetailsProps) {
+export function AddonDetails({
+  addons,
+  currency,
+  hidePrice,
+}: AddonDetailsProps) {
   if (addons.length === 0) return null;
 
   return (
     <div className="rounded-[3px] bg-primary/5 px-3 py-2 text-xs text-gray-600 space-y-0.5">
       <p className="font-semibold text-primary">Options</p>
-      {addons.map((addon, i) => (
-        // A checkbox group contributes one selection per checked option, all
-        // sharing an addonId, so the id alone is not a key.
-        <p key={`${addon.addonId}-${i}`}>
-          <span className="text-gray-400">
-            {decodeHtmlEntities(addon.name)}:
-          </span>{" "}
-          {decodeHtmlEntities(addon.value)}
-        </p>
-      ))}
+      {addons.map((addon, i) => {
+        const suffix = hidePrice
+          ? ""
+          : formatAddonPriceSuffix(addon.price, addon.priceType, currency);
+        return (
+          // A checkbox group contributes one selection per checked option, all
+          // sharing an addonId, so the id alone is not a key.
+          <p
+            key={`${addon.addonId}-${i}`}
+            className="flex items-start justify-between gap-3"
+          >
+            <span>
+              <span className="text-gray-400">
+                {decodeHtmlEntities(addon.name)}:
+              </span>{" "}
+              {decodeHtmlEntities(addon.value)}
+            </span>
+            {suffix && <span className="shrink-0">{suffix}</span>}
+          </p>
+        );
+      })}
     </div>
   );
 }

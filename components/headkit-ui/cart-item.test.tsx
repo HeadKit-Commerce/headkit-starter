@@ -64,8 +64,12 @@ vi.mock("@/components/headkit-ui/cart-context", () => ({
   }),
 }));
 
+// Switchable rather than hard-coded false: quote mode is a distinct render of
+// this row (no line price, no strikethrough, and — since Part C — no add-on
+// price suffixes either), and it needs its own coverage.
+let quoteMode = false;
 vi.mock("@/components/checkout/checkout-mode-provider", () => ({
-  useIsQuoteMode: () => false,
+  useIsQuoteMode: () => quoteMode,
 }));
 
 const { CartItemRow } = await import("./cart-item");
@@ -134,6 +138,16 @@ function render(item: CartItem): string {
   );
 }
 
+/** The same row as a quote store renders it. */
+function renderQuote(item: CartItem): string {
+  quoteMode = true;
+  try {
+    return render(item);
+  } finally {
+    quoteMode = false;
+  }
+}
+
 describe("cart drawer line — no add-ons means no change", () => {
   it("renders no panel ground, no title and no wrapper", () => {
     const markup = render(line());
@@ -153,6 +167,26 @@ describe("cart drawer line — no add-ons means no change", () => {
   });
 });
 
+describe("cart drawer line — the price includes tax", () => {
+  it("renders subtotal PLUS its tax, not the ex-tax subtotal", () => {
+    // The Pblr figures the defect was reported against: the Store API reports
+    // 1235 ex-tax with 124 of GST beside it, against a PDP-advertised A$1,359.
+    // Reading `lineSubtotal` alone printed A$1,235.00 — ~9.1% under.
+    const markup = render(
+      line({
+        totals: {
+          lineTotal: "1235",
+          lineTotalTax: "124",
+          lineSubtotal: "1235",
+          lineSubtotalTax: "124",
+        },
+      }),
+    );
+    expect(markup).toContain("A$1,359.00");
+    expect(markup).not.toContain("A$1,235.00");
+  });
+});
+
 describe("cart drawer line — add-ons are echoed", () => {
   it("renders each group name with its decoded value", () => {
     const markup = render(line({ addons: ADDONS }));
@@ -163,13 +197,13 @@ describe("cart drawer line — add-ons are echoed", () => {
     expect(markup).not.toContain("&amp;amp;");
   });
 
-  it("shows the line total and no per-add-on price", () => {
+  it("shows the line total AND the priced selection's own price", () => {
     const markup = render(line({ addons: ADDONS }));
     expect(markup).toContain("A$22.00");
-    // One money figure on the row — the line total. The 50-dollar flat fee the
-    // selection carries is deliberately not printed (UI-SPEC U-03).
-    expect(markup.split("A$").length - 1).toBe(1);
-    expect(markup).not.toContain("A$50");
+    expect(markup).toContain("+A$50.00");
+    // Two figures: the line total and the one paid selection. The Event
+    // Message selection is free (price "0") and prints nothing.
+    expect(markup.split("A$").length - 1).toBe(2);
   });
 
   it("renders both panels in a stable order when a line carries both", () => {
@@ -203,5 +237,29 @@ describe("cart drawer line — add-ons are echoed", () => {
       }),
     );
     expect(markup.split("Extras").length - 1).toBe(2);
+  });
+});
+
+describe("cart drawer line — quote mode shows no money anywhere", () => {
+  // The drawer gates only the price block on `isQuoteMode`; the add-on panel
+  // mounts outside it. Before Part C that was harmless because the panel
+  // rendered no money — this pins that it renders none again.
+  it("renders no currency at all on a line carrying a priced add-on", () => {
+    const markup = renderQuote(line({ addons: ADDONS }));
+    expect(markup).not.toContain("A$");
+    expect(markup).not.toContain("$");
+  });
+
+  it("still renders the Options panel and the selections themselves", () => {
+    const markup = renderQuote(line({ addons: ADDONS }));
+    expect(markup).toContain(">Options</p>");
+    expect(markup).toContain("Guest Book Service:");
+    expect(markup).toContain("Hardcover Book");
+  });
+
+  it("shows the priced suffix again once quote mode is off", () => {
+    // Guards the guard: without this the cases above would pass against a
+    // component that never renders a suffix at all.
+    expect(render(line({ addons: ADDONS }))).toContain("+A$50.00");
   });
 });

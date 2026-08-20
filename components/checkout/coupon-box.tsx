@@ -14,6 +14,7 @@ import {
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { useCheckoutActions } from "@/app/checkout/checkout-actions-context";
 import { getFloatVal, formatPrice } from "@/lib/utils";
+import { couponDiscountDisplayTotal } from "@/lib/cart-prices";
 import { isGiftCardFormat, INVALID_CODE_MESSAGE } from "@/lib/gift-card-form";
 
 const couponSchema = z.object({
@@ -151,7 +152,13 @@ export const CouponBox = ({ cart }: CouponBoxProps) => {
           {cart.coupons.map((coupon) => (
             <div key={coupon.code} className="flex text-base font-medium py-1">
               <p className="flex-1">Coupon: {coupon.code}</p>
-              <p>−{formatPrice(getFloatVal(coupon.totalDiscount), currency)}</p>
+              <p>
+                −
+                {formatPrice(
+                  couponDiscountDisplayTotal(coupon, cart),
+                  currency,
+                )}
+              </p>
               <button
                 type="button"
                 className="underline font-medium ml-2 cursor-pointer text-sm"

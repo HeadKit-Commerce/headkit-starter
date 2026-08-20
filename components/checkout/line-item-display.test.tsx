@@ -45,22 +45,38 @@ const BASE = {
   name: "Test Product 12",
   images: [{ src: "/x.png", alt: "" }],
   quantity: 1,
-  lineSubtotal: "22.00",
+  lineTotal: 22,
   currency: "AUD",
+  hideLineTotal: false,
+  hideAddonPrices: false,
 };
 
-/** The real order-230 selections, as the gateway returns them (measured). */
+/**
+ * The real order-230 selections, as the gateway returns them (measured).
+ * Prices are the ones `order_provider_addons_test.go` pins off the same order's
+ * `_pao_ids` meta.
+ */
 const ORDER_230 = [
-  { addonId: "1900000001", name: "Add-ons", value: "Animated Welcome Screen" },
+  {
+    addonId: "1900000001",
+    name: "Add-ons",
+    value: "Animated Welcome Screen",
+    price: "10",
+    priceType: "flat_fee",
+  },
   {
     addonId: "1900000002",
     name: "Guest Book Service",
     value: "Hardcover Book",
+    price: "50",
+    priceType: "flat_fee",
   },
   {
     addonId: "1900000004",
     name: "Event Message",
     value: "Sam &amp; Alex, 12 Dec",
+    price: "0",
+    priceType: "flat_fee",
   },
 ];
 
@@ -140,13 +156,25 @@ describe("LineItemDisplay — a line with add-ons echoes them", () => {
     );
   });
 
-  it("still shows the line total — the only money on the row", () => {
+  it("shows the line total AND each priced selection's own price", () => {
     const markup = renderToStaticMarkup(
       <LineItemDisplay {...BASE} addons={ORDER_230} />,
     );
     expect(markup).toContain("A$22.00");
-    // No per-add-on figure joins it.
-    expect(markup.split("A$").length - 1).toBe(1);
+    expect(markup).toContain("+A$10.00");
+    expect(markup).toContain("+A$50.00");
+    // Three figures: the line total plus the two priced selections. The third
+    // selection (Event Message, price "0") contributes none.
+    expect(markup.split("A$").length - 1).toBe(3);
+  });
+
+  it("passes the line's currency down to the add-on panel", () => {
+    const markup = renderToStaticMarkup(
+      <LineItemDisplay {...BASE} currency="USD" addons={ORDER_230} />,
+    );
+    // USD renders a bare `$`; an AUD-hard-coded suffix would print `A$`.
+    expect(markup).toContain("+$50.00");
+    expect(markup).not.toContain("A$");
   });
 });
 
@@ -180,4 +208,57 @@ describe("LineItemDisplay — the contract with its call sites", () => {
       expect(/addons\s*\|\|/.test(src)).toBe(false);
     },
   );
+});
+
+describe("LineItemDisplay — the two price gates are independent", () => {
+  // They were one flag until an account-history page needed the add-on suffix
+  // hidden while still showing what the shopper was charged. The two
+  // single-flag cases below are the whole reason the split exists.
+  const render = (hideLineTotal: boolean, hideAddonPrices: boolean): string =>
+    renderToStaticMarkup(
+      <LineItemDisplay
+        {...BASE}
+        addons={ORDER_230}
+        hideLineTotal={hideLineTotal}
+        hideAddonPrices={hideAddonPrices}
+      />,
+    );
+
+  it("shows both figures when neither is set", () => {
+    // Guards the guard: without this every negative case below would pass
+    // against a component that renders no money at all.
+    const markup = render(false, false);
+    expect(markup).toContain("A$22.00");
+    expect(markup).toContain("+A$50.00");
+  });
+
+  it("hideLineTotal drops the line total and LEAVES the add-on suffixes", () => {
+    const markup = render(true, false);
+    expect(markup).not.toContain("A$22.00");
+    expect(markup).toContain("+A$50.00");
+  });
+
+  it("hideAddonPrices drops the suffixes and LEAVES the line total", () => {
+    const markup = render(false, true);
+    expect(markup).toContain("A$22.00");
+    expect(markup).not.toContain("+A$50.00");
+  });
+
+  it("both set renders no currency at all", () => {
+    const markup = render(true, true);
+    expect(markup).not.toContain("A$");
+    expect(markup).not.toContain("$");
+  });
+
+  it("echoes every option name and value whatever the gates say", () => {
+    for (const markup of [
+      render(false, false),
+      render(true, false),
+      render(false, true),
+      render(true, true),
+    ]) {
+      expect(markup).toContain(">Options</p>");
+      for (const a of ORDER_230) expect(markup).toContain(a.name);
+    }
+  });
 });
