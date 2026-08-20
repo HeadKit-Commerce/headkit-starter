@@ -28,6 +28,14 @@ const clientSchema = z.object({
   // BOTH — a 3-field form on /contact and a separate 8-field form on
   // /wholesale. Do not cite a store as an example here without opening it.
   NEXT_PUBLIC_WHOLESALE_FORM_ID: z.string().optional(),
+  // Sales-channel handle appended to Shopify cart.checkoutUrl so Online Store
+  // password protection does not intercept Checkout. Defaults to
+  // headless-storefronts in lib/hosted-checkout.ts when unset.
+  NEXT_PUBLIC_SHOPIFY_CHECKOUT_CHANNEL: z.string().min(1).optional(),
+  // Optional custom Shopify checkout hostname (no protocol). When set,
+  // hostedCheckoutUrl rewrites cart.checkoutUrl to this host (Dashboard →
+  // Checkout → custom checkout subdomain).
+  NEXT_PUBLIC_SHOPIFY_CHECKOUT_DOMAIN: z.string().min(1).optional(),
 });
 
 const serverSchema = clientSchema.extend({
