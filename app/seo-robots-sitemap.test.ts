@@ -82,6 +82,7 @@ const stubBranding: Branding = {
   imageRollover: false,
   hideEmptyCollections: true,
   defaultCollectionSort: "CREATED_AT",
+  multiAddEnabled: false,
 };
 
 describe("sitemap enableSitemap gate", () => {

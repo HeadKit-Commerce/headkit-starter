@@ -76,6 +76,8 @@ export interface Branding {
    * Default PLP sort when URL has no ?sort=. Matches SortKey; unset → CREATED_AT.
    */
   defaultCollectionSort: string;
+  /** PDP multi-add companions. Default false. */
+  multiAddEnabled: boolean;
 }
 
 export interface StoreSettings {
@@ -125,6 +127,8 @@ export const DEFAULT_IMAGE_ROLLOVER = false;
 export const DEFAULT_HIDE_EMPTY_COLLECTIONS = true;
 /** Newest first — historical WooCommerce date/DESC default. */
 export const DEFAULT_COLLECTION_SORT = "CREATED_AT";
+/** Multi-add companions on PDP — off until merchant enables. */
+export const DEFAULT_MULTI_ADD_ENABLED = false;
 
 const KNOWN_COLLECTION_SORTS = new Set([
   "FEATURED",
@@ -171,6 +175,7 @@ const DEFAULT_BUNDLE: BrandingBundle = {
     imageRollover: DEFAULT_IMAGE_ROLLOVER,
     hideEmptyCollections: DEFAULT_HIDE_EMPTY_COLLECTIONS,
     defaultCollectionSort: DEFAULT_COLLECTION_SORT,
+    multiAddEnabled: DEFAULT_MULTI_ADD_ENABLED,
   },
   storeSettings: {
     id: null,
@@ -335,6 +340,7 @@ const BRANDING_QUERY = /* GraphQL */ `
       imageRollover
       hideEmptyCollections
       defaultCollectionSort
+      multiAddEnabled
     }
     storeSettings {
       id
@@ -390,6 +396,7 @@ const BRANDING_QUERY_SEO_GATES = /* GraphQL */ `
       imageRollover
       hideEmptyCollections
       defaultCollectionSort
+      multiAddEnabled
     }
     storeSettings {
       id
@@ -459,6 +466,7 @@ interface FlatBranding extends Partial<
     | "imageRollover"
     | "hideEmptyCollections"
     | "defaultCollectionSort"
+    | "multiAddEnabled"
   >
 > {
   headingFontSource?: string | null;
@@ -481,6 +489,7 @@ interface FlatBranding extends Partial<
   imageRollover?: boolean | null;
   hideEmptyCollections?: boolean | null;
   defaultCollectionSort?: string | null;
+  multiAddEnabled?: boolean | null;
 }
 
 interface BrandingResponse {
@@ -557,6 +566,7 @@ function coerce(data: NonNullable<BrandingResponse["data"]>): BrandingBundle {
       imageRollover: b.imageRollover === true,
       hideEmptyCollections: b.hideEmptyCollections !== false,
       defaultCollectionSort: resolveCollectionSort(b.defaultCollectionSort),
+      multiAddEnabled: b.multiAddEnabled === true,
     },
     storeSettings: {
       id: s.id ?? null,

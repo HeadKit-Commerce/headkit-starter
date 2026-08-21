@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import type {
   AddToCartInput,
+  AddToCartMultiInput,
   CartFieldsFragment,
   UpdateCustomerInput,
   GetCartQuery,
@@ -256,6 +257,25 @@ export async function addToCartAction(
       success: false,
       error: message,
       ...(addonError ? { addonError } : {}),
+    };
+  }
+}
+
+export async function addToCartMultiAction(
+  input: AddToCartMultiInput,
+  opts?: CartMutationOptions,
+): Promise<AddToCartResult> {
+  try {
+    const cart = await withCartRetry((sdk) => sdk.cart.addItems(input), opts);
+    return { success: true, cart };
+  } catch (err) {
+    const message = sanitizeCartErrorMessage(
+      err instanceof Error ? err.message : "",
+      "Failed to add to cart",
+    );
+    return {
+      success: false,
+      error: message,
     };
   }
 }

@@ -281,7 +281,7 @@ export async function ProductPageContent({ params, searchParams }: Props) {
     notFound();
   }
 
-  const [product, { storeSettings }, stripeConfig] = await Promise.all([
+  const [product, { branding, storeSettings }, stripeConfig] = await Promise.all([
     getProductForPage(productSlug, { shopifyPreviewKey: previewKey }),
     getBranding(),
     getStripeConfig(),
@@ -344,6 +344,7 @@ export async function ProductPageContent({ params, searchParams }: Props) {
           breadcrumbItems={breadcrumbItems}
           stockSlot={stockSlot}
           stripeConfig={stripeConfig}
+          multiAddEnabled={branding.multiAddEnabled}
         />
       </div>
 

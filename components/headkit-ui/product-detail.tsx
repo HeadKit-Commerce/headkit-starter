@@ -24,9 +24,16 @@ import { VariantSwatch } from "@/components/headkit-ui/variant-swatch";
 import { AvailabilityStatus } from "@/components/headkit-ui/availability-status";
 import { Button } from "@/components/ui/button";
 import { MinusIcon, PlusIcon, HeartIcon } from "@/components/icon";
-import { addToCartAction } from "@/lib/cart-actions";
+import { addToCartAction, addToCartMultiAction } from "@/lib/cart-actions";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { useIsQuoteMode } from "@/components/checkout/checkout-mode-provider";
+import { ProductMultiAdd } from "@/components/headkit-ui/product-multi-add";
+import {
+  resolveCompanionLineId,
+  resolvePinAttributeSlug,
+  resolvePinValue,
+  type MultiAddCompanion,
+} from "@/lib/multi-add";
 import {
   ProductAddons,
   addonControlDomId,
@@ -43,6 +50,7 @@ import {
 import {
   cn,
   decodeHtmlEntities,
+  formatPrice,
   formatWooRichText,
   getFloatVal,
   getStoreCurrency,
@@ -97,6 +105,11 @@ interface Props {
     accountId: string;
     bnplMessagingEnabled: boolean;
   };
+  /**
+   * When true and the product has multiAdd companions, show steppers + batch
+   * add. Default off (branding.multiAddEnabled).
+   */
+  multiAddEnabled?: boolean;
 }
 
 const VARIABLE = "VARIABLE";
@@ -158,6 +171,7 @@ export function ProductDetail({
   productBasePath,
   stockSlot,
   stripeConfig,
+  multiAddEnabled = false,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -199,6 +213,22 @@ export function ProductDetail({
   // once here so every consumer below reads the same list.
   const addons = product.addons ?? [];
   const hasUploadAddon = hasBlockingAddon(addons);
+
+  const multiAddBlock = (
+    product as StorefrontProduct & {
+      multiAdd?: {
+        pinOption?: string | null;
+        products: MultiAddCompanion[];
+      } | null;
+    }
+  ).multiAdd;
+  const multiAddCompanions = multiAddBlock?.products ?? [];
+  const showMultiAdd =
+    multiAddEnabled &&
+    !isGiftCard &&
+    addons.length === 0 &&
+    multiAddCompanions.length > 0;
+  const [companionQty, setCompanionQty] = useState<Record<string, number>>({});
 
   const handleAddonChange = useCallback(
     (next: AddonSelection, changedAddonId: string) => {
@@ -481,6 +511,62 @@ export function ProductDetail({
     (!isGiftCard || (isGiftCardFormValid && giftCardValues !== null)) &&
     !hasUploadAddon;
 
+  const multiAddPinSlug = useMemo(
+    () =>
+      resolvePinAttributeSlug(
+        product.attributes.map((a) => ({
+          name: a.name,
+          slug: a.slug,
+          variation: a.variation,
+        })),
+        multiAddBlock?.pinOption,
+      ),
+    [product.attributes, multiAddBlock?.pinOption],
+  );
+  const multiAddPinValue = resolvePinValue(
+    multiAddPinSlug,
+    selectedAttributes,
+    product.defaultAttributes ?? [],
+  );
+
+  const companionLines = useMemo(() => {
+    if (!showMultiAdd) return [];
+    const lines: Array<{
+      id: string;
+      quantity: number;
+      unitPrice: number;
+    }> = [];
+    for (const companion of multiAddCompanions) {
+      const qty = companionQty[companion.id] ?? 0;
+      if (qty <= 0) continue;
+      const resolved = resolveCompanionLineId(
+        companion,
+        multiAddPinSlug,
+        multiAddPinValue,
+      );
+      if (!resolved) continue;
+      lines.push({
+        id: resolved.id,
+        quantity: qty,
+        unitPrice: resolved.unitPrice,
+      });
+    }
+    return lines;
+  }, [
+    showMultiAdd,
+    multiAddCompanions,
+    companionQty,
+    multiAddPinSlug,
+    multiAddPinValue,
+  ]);
+
+  const hasCompanionLines = companionLines.length > 0;
+  const companionTotal = companionLines.reduce(
+    (sum, line) => sum + line.unitPrice * line.quantity,
+    0,
+  );
+  const setTotal = getFloatVal(displayPrice) * quantity + companionTotal;
+
   // Sticky ATC bar: only after the primary ATC scrolls above the viewport
   // (not when it is still below the fold).
   useEffect(() => {
@@ -513,9 +599,13 @@ export function ProductDetail({
             ? "Max qty reached"
             : isVariable && !selectedVariation
               ? "Select options"
-              : isQuoteMode
-                ? "Add to Quote"
-                : "Add to cart";
+              : hasCompanionLines
+                ? isQuoteMode
+                  ? `Add set to quote · ${formatPrice(setTotal)}`
+                  : `Add set to cart · ${formatPrice(setTotal)}`
+                : isQuoteMode
+                  ? "Add to Quote"
+                  : "Add to cart";
 
   /**
    * Land a rejection against the group it belongs to, or in the banner when it
@@ -558,6 +648,33 @@ export function ProductDetail({
         const variation = Object.entries(selectedAttributes).map(
           ([attribute, value]) => ({ attribute, value }),
         );
+
+        if (hasCompanionLines) {
+          const result = await addToCartMultiAction({
+            lines: [
+              {
+                id,
+                quantity,
+                ...(hasVariation ? { variation } : {}),
+              },
+              ...companionLines.map((line) => ({
+                id: line.id,
+                quantity: line.quantity,
+              })),
+            ],
+          });
+          if (result.success) {
+            setAddonErrors({});
+            setAddonFormError(null);
+            setCartData(result.cart);
+            toggleCart(true);
+            setQuantity(1);
+            setCompanionQty({});
+          }
+          setCartFeedback(result.success ? "success" : "error");
+          setTimeout(() => setCartFeedback("idle"), 2000);
+          return;
+        }
 
         const giftConfig =
           isGiftCard && giftCardValues
@@ -918,6 +1035,20 @@ export function ProductDetail({
           )}
 
           {/* Quantity selector + Add to Cart + Wishlist */}
+          {showMultiAdd && (
+            <ProductMultiAdd
+              companions={multiAddCompanions}
+              pinSlug={multiAddPinSlug}
+              pinValue={multiAddPinValue}
+              quantities={companionQty}
+              onQuantityChange={(productId, next) =>
+                setCompanionQty((prev) => ({ ...prev, [productId]: next }))
+              }
+              companionTotal={companionTotal}
+              showTotal={hasCompanionLines}
+            />
+          )}
+
           <div ref={atcSectionRef} className="mb-6 flex items-center gap-3">
             <div className="flex items-center rounded-md border border-gray-300">
               <button
