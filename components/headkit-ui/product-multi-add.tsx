@@ -4,11 +4,7 @@ import Image from "next/image";
 import type { MultiAddCompanion } from "@/lib/multi-add";
 import { resolveCompanionLineId } from "@/lib/multi-add";
 import { MinusIcon, PlusIcon } from "@/components/icon";
-import {
-  decodeHtmlEntities,
-  formatPrice,
-  getFloatVal,
-} from "@/lib/utils";
+import { decodeHtmlEntities, formatPrice, getFloatVal } from "@/lib/utils";
 
 interface Props {
   companions: MultiAddCompanion[];
@@ -36,11 +32,7 @@ export function ProductMultiAdd({
       <p className="mb-3 font-semibold text-primary">Complete the set</p>
       <ul className="flex flex-col gap-4">
         {companions.map((companion) => {
-          const resolved = resolveCompanionLineId(
-            companion,
-            pinSlug,
-            pinValue,
-          );
+          const resolved = resolveCompanionLineId(companion, pinSlug, pinValue);
           const qty = quantities[companion.id] ?? 0;
           const unavailable = resolved === null;
           const unit = resolved?.unitPrice ?? getFloatVal(companion.price);

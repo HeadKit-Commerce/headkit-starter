@@ -43,10 +43,7 @@ export function resolvePinAttributeSlug(
     const name = a.name.toLowerCase();
     const slug = a.slug.toLowerCase();
     if (name === pin || slug === pin) return true;
-    if (
-      (pin === "colour" || pin === "color") &&
-      isColorAttrSlug(a.slug)
-    ) {
+    if ((pin === "colour" || pin === "color") && isColorAttrSlug(a.slug)) {
       return true;
     }
     return false;

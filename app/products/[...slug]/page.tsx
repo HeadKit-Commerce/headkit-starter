@@ -281,11 +281,12 @@ export async function ProductPageContent({ params, searchParams }: Props) {
     notFound();
   }
 
-  const [product, { branding, storeSettings }, stripeConfig] = await Promise.all([
-    getProductForPage(productSlug, { shopifyPreviewKey: previewKey }),
-    getBranding(),
-    getStripeConfig(),
-  ]);
+  const [product, { branding, storeSettings }, stripeConfig] =
+    await Promise.all([
+      getProductForPage(productSlug, { shopifyPreviewKey: previewKey }),
+      getBranding(),
+      getStripeConfig(),
+    ]);
 
   if (!product) {
     notFound();

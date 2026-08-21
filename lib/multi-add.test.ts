@@ -63,12 +63,10 @@ const companion = (
 
 describe("resolvePinAttributeSlug", () => {
   it("defaults Colour/Color to the colour attribute", () => {
-    expect(
-      resolvePinAttributeSlug(companion().attributes, null),
-    ).toBe("color");
-    expect(
-      resolvePinAttributeSlug(companion().attributes, "Colour"),
-    ).toBe("color");
+    expect(resolvePinAttributeSlug(companion().attributes, null)).toBe("color");
+    expect(resolvePinAttributeSlug(companion().attributes, "Colour")).toBe(
+      "color",
+    );
   });
 });
 
