@@ -20,6 +20,7 @@ import {
   resolveStoreName,
 } from "@/lib/make-metadata";
 import { getBranding, getBrandingAssets } from "@/lib/branding";
+import { resolveSiteUrl } from "@/lib/site-url";
 import { normalizeCheckoutMode } from "@/lib/checkout-mode";
 import { CheckoutModeProvider } from "@/components/checkout/checkout-mode-provider";
 import { CatalogDisplayProvider } from "@/components/headkit-ui/catalog-display-provider";
@@ -76,6 +77,7 @@ export async function generateMetadata(): Promise<Metadata> {
         iconUrl,
         ogImageUrl: seoSettings.ogImageUrl,
         allowIndexing: seoSettings.allowIndexing,
+        siteUrl: storeSettings.domain,
       }),
       // Site-wide favicon (branding icon, or the bundled default). Owned by the
       // layout so page metadata never overrides the per-store tab icon (ENG-572).
@@ -109,6 +111,11 @@ export default async function RootLayout({
   ]);
 
   const siteName = resolveStoreName(storeSettings.name);
+  // One origin for the whole document: the JSON-LD graph's @id/url, the
+  // SearchAction urlTemplate and the Organization logo must name the same host
+  // as the canonical this page emits, which generateMetadata above resolves
+  // from the runtime store domain.
+  const siteUrl = resolveSiteUrl(storeSettings.domain, SITE_URL);
   const gtmId = storeSettings.gtmId ?? ENV_GTM_ID;
   const checkoutMode = normalizeCheckoutMode(storeSettings.checkoutType);
   const emailProvider = emailMarketing.provider.toLowerCase();
@@ -217,12 +224,12 @@ export default async function RootLayout({
 
         <WebsiteJsonLD
           siteName={siteName}
-          siteUrl={SITE_URL}
+          siteUrl={siteUrl}
           description={siteDescription}
         />
         <OrganizationJsonLD
           name={siteName}
-          url={SITE_URL}
+          url={siteUrl}
           {...(orgLogoUrl ? { logoUrl: orgLogoUrl } : {})}
         />
 

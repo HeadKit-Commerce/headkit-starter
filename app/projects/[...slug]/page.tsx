@@ -14,7 +14,11 @@ import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { ArticleJsonLD } from "@/components/seo/article-json-ld";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { Skeleton } from "@/components/ui/skeleton";
-import { makeSeoMetadata, resolveStoreName } from "@/lib/make-metadata";
+import {
+  makeSeoMetadata,
+  resolveStoreName,
+  storefrontUrl,
+} from "@/lib/make-metadata";
 import { getBranding, getBrandingAssets } from "@/lib/branding";
 import { TAG } from "@/lib/cache-tags";
 import { decodeHtmlEntities } from "@/lib/utils";
@@ -112,6 +116,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       dashboardOgImageUrl: seoSettings.ogImageUrl ?? undefined,
       brandingIconUrl: iconUrl ?? undefined,
       allowIndexing: seoSettings.allowIndexing,
+      canonical: storefrontUrl(
+        `/projects/${projectSlug}`,
+        storeSettings.domain,
+      ),
+      siteUrl: storeSettings.domain,
     });
   } catch {
     return {};

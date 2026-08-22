@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { SeoData } from "@headkit/sdk";
 import { decodeHtmlEntities } from "@/lib/utils";
+import { normalizeSiteUrl, resolveSiteUrl } from "@/lib/site-url";
 
 const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 
@@ -38,6 +39,116 @@ function normalizeUrl(url?: OptSeoStr): string | undefined {
   if (!url) return undefined;
   if (url.startsWith("/")) return `${SITE_URL}${url}`;
   return url;
+}
+
+/**
+ * Absolute storefront URL for a site-relative path — the self-referencing
+ * canonical a route emits when neither the CMS nor a more specific rule
+ * supplies one.
+ *
+ * `storeDomain` is the RUNTIME store domain (`storeSettings.domain` from
+ * `getBranding()`), and it wins over the build-time `NEXT_PUBLIC_FRONTEND_URL`
+ * exactly as it does in `app/robots.ts` and `app/sitemap.ts`. That env value is
+ * inlined at build time, so a custom domain attached without a redeploy leaves
+ * it naming the old `*.headkit.app` host — which would put a cross-host
+ * canonical on every page the sitemap advertises under the customer's apex.
+ * Pass it at every call site; omitting it falls back to the baked env.
+ *
+ * Returns the bare path when neither origin is usable, which Next resolves
+ * against `metadataBase`; it can never return a foreign origin.
+ */
+export function storefrontUrl(
+  path: string,
+  storeDomain?: string | null,
+): string {
+  const suffix = path.startsWith("/") ? path : `/${path}`;
+  const site = resolveSiteUrl(storeDomain, SITE_URL);
+  return site ? `${site}${suffix}` : suffix;
+}
+
+/**
+ * Pick the canonical URL for a page from the CMS (Yoast) value and the one the
+ * route computed for itself.
+ *
+ * The rule, and why it is not simply "the caller always wins":
+ *
+ * - A **relative** CMS canonical (`/faq`) is storefront-relative by
+ *   definition — re-root it onto the storefront origin.
+ * - **Absolute on the storefront host** is a deliberate editorial choice (an
+ *   editor canonicalising one page onto another). Honour it.
+ * - **Absolute on any other host** is the headless failure mode: Yoast emits
+ *   the WordPress *backend* permalink, a host the storefront does not own and
+ *   whose path need not match a storefront route at all — WordPress serves a
+ *   post at `/my-post/` where this app serves it at `/news/my-post`. Re-rooting
+ *   the path alone would therefore land on a URL that does not exist, so the
+ *   route's own canonical — self-referential by construction — wins instead.
+ *   Only when the route supplied none do we fall back to re-rooting the
+ *   foreign path, which at least keeps the signal on-domain.
+ * - When the storefront origin is unknown (no runtime store domain and no
+ *   `NEXT_PUBLIC_FRONTEND_URL`) no host judgement is possible, so the CMS value
+ *   passes through unchanged rather than being rewritten on a guess. Callers
+ *   should therefore always supply `siteUrl` from the runtime store domain:
+ *   `NEXT_PUBLIC_FRONTEND_URL` is optional in `lib/env.ts`, and a store running
+ *   without it would otherwise re-open the foreign-canonical bug this rule
+ *   exists to close.
+ *
+ * A canonical pointing off-domain is never correct, so this only ever emits
+ * the storefront origin, a bare path, or nothing.
+ */
+export function resolveCanonical(options: {
+  /** `seo.canonical` as returned by the CMS/Yoast. */
+  seoCanonical?: OptSeoStr;
+  /** The canonical the route computed for itself. */
+  fallbackCanonical?: OptSeoStr;
+  /**
+   * Storefront origin, already resolved (runtime store domain preferred over
+   * the build-time env — see {@link storefrontUrl}). Defaults to
+   * `NEXT_PUBLIC_FRONTEND_URL`; an empty string means "origin unknown".
+   */
+  siteUrl?: string | undefined;
+}): string | undefined {
+  const site = normalizeSiteUrl(options.siteUrl ?? SITE_URL);
+  const rootRelative = (value?: OptSeoStr): string | undefined => {
+    const trimmed = (value ?? "").trim();
+    if (!trimmed) return undefined;
+    if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
+      return site ? `${site}${trimmed}` : trimmed;
+    }
+    return trimmed;
+  };
+
+  const fallback = rootRelative(options.fallbackCanonical);
+  const seo = (options.seoCanonical ?? "").trim();
+  if (!seo) return fallback;
+
+  // Storefront-relative — never ambiguous.
+  if (seo.startsWith("/") && !seo.startsWith("//")) {
+    return site ? `${site}${seo}` : seo;
+  }
+
+  let parsed: URL | null = null;
+  try {
+    // Protocol-relative (`//host/path`) is an absolute URL, not a path.
+    parsed = new URL(seo.startsWith("//") ? `https:${seo}` : seo);
+  } catch {
+    parsed = null;
+  }
+  // Unusable CMS value (`javascript:`, malformed): the route's own URL is the
+  // only safe thing left to emit.
+  if (
+    !parsed ||
+    (parsed.protocol !== "http:" && parsed.protocol !== "https:")
+  ) {
+    return fallback;
+  }
+
+  // No storefront origin to compare against — leave the value alone.
+  if (!site) return seo;
+
+  const seoOrigin = `${parsed.protocol}//${parsed.host}`;
+  if (seoOrigin === site) return seo;
+
+  return fallback ?? `${site}${parsed.pathname}${parsed.search}`;
 }
 
 /** True when a provider CMS title is real SEO (not empty or a generic default). */
@@ -207,6 +318,21 @@ export function makeRootMetadata(options?: {
   ogImageUrl?: OptSeoStr;
   /** Store-level “show on search engines” — default true. */
   allowIndexing?: boolean | undefined;
+  /**
+   * Runtime store domain (`storeSettings.domain`), preferred over the
+   * build-time `NEXT_PUBLIC_FRONTEND_URL` for `metadataBase` and the feed URL
+   * so they agree with the canonical this page emits. See {@link storefrontUrl}.
+   */
+  siteUrl?: string | null | undefined;
+  /**
+   * Self-referencing canonical for the page using this metadata.
+   *
+   * Pass it ONLY from a concrete page (`app/page.tsx`), never from the root
+   * layout: layout `alternates` are inherited by any route whose own metadata
+   * omits the key, so a layout-level canonical would point every such route at
+   * the homepage.
+   */
+  canonical?: string | undefined;
 }): Metadata {
   const siteName = resolveStoreName(options?.siteName);
   const title = seoText(options?.title) || siteName;
@@ -216,9 +342,8 @@ export function makeRootMetadata(options?: {
     brandingIconUrl: options?.iconUrl,
   });
   const allowIndexing = options?.allowIndexing !== false;
-  const feedUrl = SITE_URL
-    ? `${SITE_URL.replace(/\/$/, "")}/feed.xml`
-    : "/feed.xml";
+  const siteUrl = resolveSiteUrl(options?.siteUrl, SITE_URL);
+  const feedUrl = siteUrl ? `${siteUrl}/feed.xml` : "/feed.xml";
 
   // Single-locale storefront: no hreflang alternates. lang="en" is set on <html>.
   // If/when i18n ships, add alternates.languages here (and self + x-default).
@@ -229,10 +354,11 @@ export function makeRootMetadata(options?: {
       template: `%s | ${siteName}`,
     },
     description,
-    metadataBase: new URL(SITE_URL || "http://localhost:3000"),
+    metadataBase: new URL(siteUrl || "http://localhost:3000"),
     applicationName: siteName,
     robots: resolveRobots(allowIndexing),
     alternates: {
+      ...(options?.canonical ? { canonical: options.canonical } : {}),
       types: {
         "application/rss+xml": feedUrl,
       },
@@ -302,7 +428,21 @@ export type MakeSeoMetadataFallback = {
   brandingIconUrl?: string | undefined;
   /** Store name for title templates / openGraph.siteName. */
   storeName?: string | undefined;
-  /** Store-level allow indexing (default true). */
+  /**
+   * Runtime store domain (`storeSettings.domain`). Preferred over the
+   * build-time `NEXT_PUBLIC_FRONTEND_URL` when deciding whether a CMS canonical
+   * is same-host, and for `metadataBase`. See {@link storefrontUrl}.
+   */
+  siteUrl?: string | null | undefined;
+  /**
+   * Store-level “show on search engines”.
+   *
+   * OMITTING this no longer means "index" — the key is then left off the
+   * returned metadata entirely so Next inherits the root layout's `robots`,
+   * which is always built from the store setting. Passing it explicitly is
+   * still preferred; the inherit path exists so a route's degraded/`catch`
+   * branch cannot silently publish a page the store has switched off.
+   */
   allowIndexing?: boolean | undefined;
 };
 
@@ -312,7 +452,6 @@ export function makeSeoMetadata(
   fallback?: MakeSeoMetadataFallback,
 ): Metadata {
   const storeName = resolveStoreName(fallback?.storeName);
-  const allowIndexing = fallback?.allowIndexing !== false;
 
   // Real SEO title that already includes the store brand wins as absolute
   // (Yoast is often "{name} - {site}"). Bare page titles (e.g. "Projects")
@@ -329,8 +468,12 @@ export function makeSeoMetadata(
   const description = stripTags(
     seo?.metaDesc ?? seo?.opengraphDescription ?? fallback?.description,
   );
-  const canonical =
-    normalizeUrl(seo?.canonical) ?? normalizeUrl(fallback?.canonical);
+  const siteUrl = resolveSiteUrl(fallback?.siteUrl, SITE_URL);
+  const canonical = resolveCanonical({
+    seoCanonical: seo?.canonical,
+    fallbackCanonical: fallback?.canonical,
+    siteUrl,
+  });
 
   const entityOg =
     (seo as SeoData & { opengraphImageUrl?: string | null })
@@ -350,9 +493,15 @@ export function makeSeoMetadata(
   return {
     title: titleMeta,
     description,
-    metadataBase: new URL(SITE_URL || "http://localhost:3000"),
+    metadataBase: new URL(siteUrl || "http://localhost:3000"),
     alternates: canonical ? { canonical } : undefined,
-    robots: resolveRobots(allowIndexing),
+    // Key omitted (not `undefined`) when the caller states no preference:
+    // Next's metadata merge only walks keys PRESENT on the object, so an
+    // absent `robots` inherits the layout's store-driven value, while
+    // `robots: undefined` would resolve to null and clobber it.
+    ...(fallback?.allowIndexing === undefined
+      ? {}
+      : { robots: resolveRobots(fallback.allowIndexing) }),
     openGraph: {
       type: "website",
       title: openGraphTitle,

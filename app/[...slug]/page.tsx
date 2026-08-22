@@ -3,7 +3,12 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { Suspense } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
-import { makeSeoMetadata, seoFallbackDescription } from "@/lib/make-metadata";
+import {
+  makeSeoMetadata,
+  seoFallbackDescription,
+  storefrontUrl,
+} from "@/lib/make-metadata";
+import { getBranding } from "@/lib/branding";
 import { TAG } from "@/lib/cache-tags";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { CmsPageBody } from "@/components/headkit-ui/cms-page-body";
@@ -106,7 +111,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) {
     return { robots: { index: false, follow: false } };
   }
-  const page = await getPageData(slug.join("/"));
+  const path = slug.join("/");
+  const [page, { seoSettings, storeSettings }] = await Promise.all([
+    getPageData(path),
+    getBranding(),
+  ]);
   if (!page) {
     return { robots: { index: false, follow: false } };
   }
@@ -116,6 +125,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return makeSeoMetadata(page.seo ?? null, {
     title: page.title,
     description: seoFallbackDescription("page", page.title),
+    // Self-referencing canonical: every CMS page (`/about`, `/legal/*`, …)
+    // shipped none, and Yoast's own value names the WordPress host.
+    canonical: storefrontUrl(`/${path}`, storeSettings.domain),
+    siteUrl: storeSettings.domain,
+    // Without this the page-level `robots` defaulted to index and OVERRODE the
+    // layout's correct value, so the store's indexing switch never reached
+    // any CMS page.
+    allowIndexing: seoSettings.allowIndexing,
   });
 }
 

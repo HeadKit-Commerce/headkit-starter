@@ -9,7 +9,7 @@ import { BrandHeader } from "@/components/headkit-ui/brand/brand-header";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
 import { buildProductListFilter } from "@/components/headkit-ui/collection/utils";
 import { getCachedCatalogPage } from "@/lib/catalog-cache";
-import { makeSeoMetadata } from "@/lib/make-metadata";
+import { makeSeoMetadata, storefrontUrl } from "@/lib/make-metadata";
 import { getBranding } from "@/lib/branding";
 import type { SortKeyType } from "@/components/headkit-ui/collection/utils";
 import {
@@ -122,11 +122,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const brandSlug = slug[slug.length - 1];
   if (!brandSlug) return {};
   try {
-    const { brand } = await getBrandShell(brandSlug);
+    const [{ brand }, { seoSettings, storeSettings }] = await Promise.all([
+      getBrandShell(brandSlug),
+      getBranding(),
+    ]);
     if (!brand) return {};
     return makeSeoMetadata(brand.seo, {
       title: brand.name,
       description: brand.description,
+      canonical: storefrontUrl(`/brand/${brandSlug}`, storeSettings.domain),
+      siteUrl: storeSettings.domain,
+      allowIndexing: seoSettings.allowIndexing,
     });
   } catch {
     return {};

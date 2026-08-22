@@ -7,6 +7,7 @@ import {
 } from "@/lib/make-metadata";
 import { getPostsBasePath, postsIndexPath } from "@/lib/posts-base-path";
 import { resolvePostHref } from "@/lib/posts-path";
+import { resolveSiteUrl } from "@/lib/site-url";
 
 // Cache Components bans `export const dynamic` — caching is via `"use cache"`
 // on getFeedPosts + Cache-Control on the Response.
@@ -35,10 +36,11 @@ function postLink(
   slug: string,
   uri: string | null | undefined,
   postsBase: string,
+  siteUrl: string,
 ): string {
   if (uri?.startsWith("http")) return uri;
   const path = resolvePostHref(uri ?? slug, postsBase);
-  return `${SITE_URL}${path}`;
+  return `${siteUrl}${path}`;
 }
 
 async function getFeedPosts() {
@@ -68,13 +70,17 @@ export async function GET(): Promise<Response> {
   const description =
     resolveFooterDescription(seoSettings.description) ||
     resolveStoreName(storeSettings.name);
-  const channelLink = SITE_URL || "http://localhost:3000";
+  // The runtime store domain wins over the baked env, matching the feed URL
+  // the root layout advertises — a <guid isPermaLink="true"> naming a host the
+  // storefront no longer serves re-delivers every item once it is corrected.
+  const channelLink =
+    resolveSiteUrl(storeSettings.domain, SITE_URL) || "http://localhost:3000";
   const feedSelf = `${channelLink}/feed.xml`;
   const postsIndex = postsIndexPath(postsBase);
 
   const items = postsResult.posts
     .map((post) => {
-      const link = postLink(post.slug, post.uri, postsBase);
+      const link = postLink(post.slug, post.uri, postsBase, channelLink);
       const title = escapeXml(post.title || "Untitled");
       const desc = escapeXml(stripHtml(post.excerpt || ""));
       const pubDate = post.date

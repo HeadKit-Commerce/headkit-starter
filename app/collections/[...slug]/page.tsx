@@ -8,6 +8,7 @@ import { CollectionPage } from "@/components/headkit-ui/collection/collection-pa
 import {
   buildProductListFilter,
   buildBreadcrumbFromCategory,
+  collectionPathFromCategory,
   normalizeFilterKey,
   encodeFilterSlug,
   decodeFilterSlug,
@@ -21,7 +22,9 @@ import {
 import {
   makeSeoMetadata,
   seoFallbackDescription,
+  resolveRobots,
   resolveStoreName,
+  storefrontUrl,
 } from "@/lib/make-metadata";
 import { getBranding } from "@/lib/branding";
 import { TAG } from "@/lib/cache-tags";
@@ -363,16 +366,34 @@ export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) return {};
-  const { categorySlug, filterSlug, categoryBasePath } =
-    parseCollectionSlug(slug);
+  const { categorySlug, filterSlug } = parseCollectionSlug(slug);
   if (!categorySlug) return {};
   try {
-    const [{ category, productFilter }, { storeSettings }] = await Promise.all([
-      getCategoryData(categorySlug),
-      getBranding(),
-    ]);
+    const [{ category, productFilter }, { seoSettings, storeSettings }] =
+      await Promise.all([getCategoryData(categorySlug), getBranding()]);
     if (!category) return {};
     const siteName = resolveStoreName(storeSettings.name);
+    // Derived from the CATEGORY, never from the requested path: the route
+    // resolves a category from the last slug segment, so `/collections/child`
+    // and `/collections/parent/child` serve identical content. Canonicalising
+    // each to itself would declare both duplicates originals; this consolidates
+    // both onto the nested path `app/sitemap.ts` advertises.
+    //
+    // KNOWN DIVERGENCE — do NOT "fix" this by reverting to the requested path.
+    // The two paths come from different ancestry sources and can disagree:
+    //   - here: `category.ancestors`, the TRUE parent chain, walked term by term
+    //     by the WP single-category endpoint with no filtering or paging;
+    //   - `app/sitemap.ts`: `walkCategoryPaths` over the tree commerce assembles
+    //     in `buildCategoryForest` from the FLAT list endpoint, which is called
+    //     with no query params so WordPress applies `per_page=100` and
+    //     `hide_empty=true`. A child whose parent falls outside that page (or is
+    //     hidden) is PROMOTED TO A ROOT, so the sitemap emits the flat path.
+    // On a store with more than ~100 categories the canonical is therefore the
+    // correct URL while the sitemap entry is the defective one. The canonical
+    // target still serves, so this splits signal rather than breaking a URL, and
+    // the real fix belongs at the origin — commerce requesting the full list
+    // (`per_page` / `hide_empty=false`) so orphans stop being promoted.
+    const canonicalBasePath = collectionPathFromCategory(category);
 
     // Tier-1 branch: a single-color URL (e.g. /collections/<cat>/f/color.red)
     // earns its OWN indexable identity — self-canonical, facet title/desc, and
@@ -418,8 +439,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
             colorAttr?.options?.find((o) => o?.slug === colorSlug)?.name ??
             formatOptionName(colorSlug);
         }
-        const selfCanonical = `${categoryBasePath}/f/${filterSlug}`;
-        const isProduction = process.env.VERCEL_ENV === "production";
+        // Absolute, from the runtime store domain — the same origin rule the
+        // base-category branch below uses. A relative canonical would resolve
+        // against the inherited `metadataBase`, which is built from the
+        // build-time env and so names the stale host on a custom domain.
+        const selfCanonical = storefrontUrl(
+          `${canonicalBasePath}/f/${filterSlug}`,
+          storeSettings.domain,
+        );
         const title = facetTitle(category.name, facetLabel);
         const description = facetDescription(
           category.name,
@@ -430,7 +457,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
           title,
           description,
           alternates: { canonical: selfCanonical },
-          robots: { index: isProduction, follow: isProduction },
+          // Was `{ index: isProduction, follow: isProduction }` — it consulted
+          // VERCEL_ENV but never the store's own switch, so a facet URL stayed
+          // indexable on a store with indexing turned off. resolveRobots keeps
+          // the production gate AND honours the setting.
+          robots: resolveRobots(seoSettings.allowIndexing),
           openGraph: {
             type: "website",
             title,
@@ -456,11 +487,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         category.description ||
         seoFallbackDescription("category", category.name, storeSettings.name),
       ...(storeSettings.name != null ? { storeName: storeSettings.name } : {}),
+      // Base collection pages shipped NO canonical, a straight regression from
+      // the V1 storefronts.
+      canonical: storefrontUrl(canonicalBasePath, storeSettings.domain),
+      siteUrl: storeSettings.domain,
+      allowIndexing: seoSettings.allowIndexing,
     });
     // Tier-2: any other filtered URL points back to the unfiltered collection
     // as canonical (R1: base). Unfiltered category metadata is unchanged.
     if (filterSlug) {
-      metadata.alternates = { canonical: categoryBasePath };
+      metadata.alternates = {
+        canonical: storefrontUrl(canonicalBasePath, storeSettings.domain),
+      };
     }
     return metadata;
   } catch {

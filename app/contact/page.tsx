@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { makeSeoMetadata, seoFallbackDescription } from "@/lib/make-metadata";
+import {
+  makeSeoMetadata,
+  seoFallbackDescription,
+  storefrontUrl,
+} from "@/lib/make-metadata";
+import { getBranding } from "@/lib/branding";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { CmsPageBody } from "@/components/headkit-ui/cms-page-body";
 import { withGuaranteedFormMarker } from "@/lib/gravity-form-content";
@@ -45,7 +50,10 @@ function ContactFormFallback(): React.ReactElement {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const page = await getPageData(CONTACT_SLUG);
+  const [page, { seoSettings, storeSettings }] = await Promise.all([
+    getPageData(CONTACT_SLUG),
+    getBranding(),
+  ]);
   if (!page) {
     return {
       title: "Contact Us",
@@ -55,6 +63,9 @@ export async function generateMetadata(): Promise<Metadata> {
   return makeSeoMetadata(page.seo ?? null, {
     title: page.title,
     description: seoFallbackDescription("page", page.title),
+    canonical: storefrontUrl(`/${CONTACT_SLUG}`, storeSettings.domain),
+    siteUrl: storeSettings.domain,
+    allowIndexing: seoSettings.allowIndexing,
   });
 }
 

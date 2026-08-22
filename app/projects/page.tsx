@@ -5,11 +5,10 @@ import { headkit as sdk } from "@/lib/sdk";
 import { PostHeader } from "@/components/headkit-ui/post/post-header";
 import { ProjectPage } from "@/components/headkit-ui/project/project-page";
 import { EditorialGridSkeleton } from "@/components/headkit-ui/skeletons/editorial-grid-skeleton";
-import { makeSeoMetadata } from "@/lib/make-metadata";
+import { makeSeoMetadata, storefrontUrl } from "@/lib/make-metadata";
 import { getBranding } from "@/lib/branding";
 import { TAG } from "@/lib/cache-tags";
 
-const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 const FALLBACK_TITLE = "Projects";
 const FALLBACK_DESCRIPTION = "Explore our latest projects and case studies.";
 const PER_PAGE = 24;
@@ -33,17 +32,14 @@ export async function generateMetadata(): Promise<Metadata> {
       description: page?.seo?.metaDesc?.trim() || FALLBACK_DESCRIPTION,
       storeName: storeSettings.name ?? undefined,
       allowIndexing: seoSettings.allowIndexing,
-      canonical: SITE_URL
-        ? `${SITE_URL.replace(/\/$/, "")}/projects`
-        : "/projects",
+      canonical: storefrontUrl("/projects", storeSettings.domain),
+      siteUrl: storeSettings.domain,
     });
   } catch {
     return makeSeoMetadata(null, {
       title: FALLBACK_TITLE,
       description: FALLBACK_DESCRIPTION,
-      canonical: SITE_URL
-        ? `${SITE_URL.replace(/\/$/, "")}/projects`
-        : "/projects",
+      canonical: storefrontUrl("/projects"),
     });
   }
 }
