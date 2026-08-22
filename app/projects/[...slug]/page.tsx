@@ -77,6 +77,7 @@ function mapRelatedToProduct(r: RelatedProduct): Product {
     brands: [],
     crossSells: [],
     upsells: [],
+    includedInBundles: [],
     projects: [],
     isGiftCard: false,
     // A related-product summary carries no add-on definitions; the empty list is

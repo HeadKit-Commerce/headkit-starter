@@ -295,6 +295,9 @@ export async function ProductPageContent({ params, searchParams }: Props) {
   const brandName = resolveStoreName(storeSettings.name);
   const relatedAsProducts = product.related.map(mapRelatedToProduct);
   const upsellsAsProducts = product.upsells.map(mapRelatedToProduct);
+  const bundlesAsProducts = (product.includedInBundles ?? []).map(
+    mapRelatedToProduct,
+  );
   const featuredProjects = (product.projects ??
     []) as ProjectSummaryFieldsFragment[];
 
@@ -375,6 +378,22 @@ export async function ProductPageContent({ params, searchParams }: Props) {
             <ProductCarousel
               products={upsellsAsProducts}
               id="upsell-products"
+            />
+          </div>
+        </section>
+      )}
+
+      {bundlesAsProducts.length > 0 && (
+        <section className="overflow-x-clip py-10">
+          <SectionHeader
+            title="Available in bundles"
+            description=""
+            className="px-5 md:px-10"
+          />
+          <div className="mt-5">
+            <ProductCarousel
+              products={bundlesAsProducts}
+              id="bundle-products"
             />
           </div>
         </section>
