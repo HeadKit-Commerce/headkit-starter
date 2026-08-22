@@ -149,6 +149,46 @@ describe("expandCatalogProducts", () => {
     expect(result[1]?.hoverImage).toBeNull();
   });
 
+  it("does not use the next colourway primary as hover", () => {
+    const products = [
+      makeProduct({
+        id: "1",
+        slug: "tee",
+        name: "Tee",
+        attributes: [colourAttr],
+        variations: [
+          {
+            id: "v1",
+            price: "10",
+            regularPrice: "10",
+            salePrice: "",
+            onSale: false,
+            stockStatus: "IN_STOCK",
+            image: { src: "/red.jpg" },
+            images: [{ src: "/red.jpg" }, { src: "/blue.jpg" }],
+            attributes: [{ key: "pa_colour", value: "red" }],
+          },
+          {
+            id: "v2",
+            price: "10",
+            regularPrice: "10",
+            salePrice: "",
+            onSale: false,
+            stockStatus: "IN_STOCK",
+            image: { src: "/blue.jpg" },
+            images: [{ src: "/blue.jpg" }, { src: "/blue-hover.jpg" }],
+            attributes: [{ key: "pa_colour", value: "blue" }],
+          },
+        ],
+      }),
+    ];
+
+    const result = expandCatalogProducts(products, true);
+    expect(result[0]?.image?.src).toBe("/red.jpg");
+    expect(result[0]?.hoverImage).toBeNull();
+    expect(result[1]?.hoverImage?.src).toBe("/blue-hover.jpg");
+  });
+
   it("does not expand size-only attributes", () => {
     const products = [
       makeProduct({

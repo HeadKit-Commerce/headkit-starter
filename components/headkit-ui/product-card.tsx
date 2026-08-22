@@ -32,23 +32,6 @@ interface Props {
   isNew?: boolean;
   /** Eager-load the card image (first-row cards where it may be the LCP). */
   priority?: boolean;
-  /**
-   * Heading level for the product name. The correct level depends on where the
-   * card sits, and this component is used at two different depths:
-   *
-   *   - PLP / search results: the card follows the page `h1` directly, so the
-   *     name must be `h2` — `h3` there skips a level (WCAG heading-order).
-   *   - Homepage carousels: the card sits under a section `h2`, so `h3` is
-   *     correct and `h2` would duplicate the section heading's level.
-   *
-   * Hardcoding either one is wrong on the other surface — that is exactly how
-   * this regressed twice (#58 set h2 for PLP, #102 set h3 for carousels, each
-   * breaking the other). The caller knows its own depth, so it decides.
-   *
-   * Defaults to `h3`, the nested case, so a caller that has not thought about
-   * it cannot silently claim top-level significance.
-   */
-  titleAs?: "h2" | "h3";
 }
 
 export const ProductCard = ({
@@ -58,7 +41,6 @@ export const ProductCard = ({
   mobileCol = false,
   isNew = false,
   priority = false,
-  titleAs: TitleTag = "h3",
 }: Props) => {
   const { showSwatches, imageRollover } = useCatalogDisplay();
   const lockedColour = product.colorwaySlug ?? null;
@@ -93,10 +75,15 @@ export const ProductCard = ({
   // Prefer the second variation gallery image; parent hoverImage applies to
   // simple cards and non-exploded swatch cards (exploded cards set hoverImage
   // per colourway in catalog-display — no parent fallback there).
+  // Exploded colourway cards already resolved hoverImage in catalog-display
+  // (and dropped another colourway's primary). Do not re-scan variations —
+  // that reintroduces the first-card stolen-hover bug.
   const hoverSrc = imageRollover
-    ? (selectedVariationForHover?.images?.[1]?.src ??
-      product.hoverImage?.src ??
-      null)
+    ? lockedColour
+      ? (product.hoverImage?.src ?? null)
+      : (selectedVariationForHover?.images?.[1]?.src ??
+        product.hoverImage?.src ??
+        null)
     : null;
 
   useEffect(() => {
@@ -196,16 +183,14 @@ export const ProductCard = ({
         >
           <div className="min-w-0">
             <InstantLink href={href} pendingVariant="text">
-              {/* Level comes from `titleAs` — see the prop docs. Visual size is
-                  class-driven and identical at either level. */}
-              <TitleTag
+              <h3
                 className={cn(
                   "text-[17px] text-primary line-clamp-2 break-words",
                   dark && "text-white",
                 )}
               >
                 {decodeHtmlEntities(product?.name ?? "")}
-              </TitleTag>
+              </h3>
             </InstantLink>
             <div className="flex min-w-0 flex-wrap items-center gap-2 py-1.5">
               {showSwatches &&

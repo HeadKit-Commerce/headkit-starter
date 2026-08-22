@@ -80,8 +80,7 @@ export default function Page() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {products.map((product) => (
           <div key={product.id} className="relative">
-            {/* Follows this page's h1 directly — see ProductCard#titleAs. */}
-            <ProductCard product={product} isNew={product.isNew} titleAs="h2" />
+            <ProductCard product={product} isNew={product.isNew} />
             <button
               type="button"
               onClick={() => handleRemove(product.id)}

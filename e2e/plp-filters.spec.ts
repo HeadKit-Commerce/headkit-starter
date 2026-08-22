@@ -56,11 +56,12 @@ const productHeading = (page: Page, name: string | RegExp) =>
  */
 
 /**
- * Product-card headings inside the PLP grid (one h2 per card).
- * The UI sweep (#57) promoted card names h3 -> h2 (a11y heading order:
- * card names follow the page h1 directly on PLP/search).
+ * Product-card titles inside the PLP grid (one h3 per card).
+ * Bare `h3` also matches subcategory tiles (Accessories, …) and filter
+ * section labels on /shop — scope to the card hook.
  */
-const cards = (page: import("@playwright/test").Page) => page.locator("h2");
+const cards = (page: import("@playwright/test").Page) =>
+  page.locator(".headkit-product-card h3");
 
 test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-13)", () => {
   test.beforeAll(async () => {
@@ -294,7 +295,7 @@ test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-
     // headkit-block-products.php does) → PRICE returns id-ASC and
     // PRICE_DESC returns id-DESC. Un-fixme once the theme endpoint maps it.
     await page.goto(`${BASE_URL}/shop?sort=PRICE`);
-    const prices = page.locator("h2 ~ * >> text=/\\$/");
+    const prices = page.locator(".headkit-product-card h3 ~ * >> text=/\\$/");
     await expect(cards(page).first()).toBeVisible({ timeout: 30_000 });
     const first = await page
       .locator("p", { hasText: /\$/ })

@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
+import { TAG } from "@/lib/cache-tags";
 import { CollectionHeader } from "@/components/headkit-ui/collection/collection-header";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
 import {
@@ -31,7 +32,7 @@ const PER_PAGE = CATALOG_PAGE_SIZE;
 async function getCatalogPage(filterKey: string, page: number) {
   "use cache: remote";
   cacheLife("hours");
-  cacheTag(`catalog:${filterKey}`);
+  cacheTag(TAG.products, TAG.catalog, `catalog:${filterKey}`);
   const filter = JSON.parse(filterKey) as Parameters<
     typeof sdk.collections.list
   >[0];
