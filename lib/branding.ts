@@ -254,6 +254,12 @@ const BRANDING_EXTENDED_SELECTION = /* GraphQL */ `
       bodyFontFileUrl
       cornerStyle
       iconLibrary
+      showVariants
+      showSwatches
+      imageRollover
+      hideEmptyCollections
+      defaultCollectionSort
+      multiAddEnabled
     }
     storeSettings {
       id
@@ -291,6 +297,12 @@ const BRANDING_EXTENDED_NO_WEIGHTS_SELECTION = /* GraphQL */ `
       bodyFontFileUrl
       cornerStyle
       iconLibrary
+      showVariants
+      showSwatches
+      imageRollover
+      hideEmptyCollections
+      defaultCollectionSort
+      multiAddEnabled
     }
     storeSettings {
       id
@@ -454,6 +466,24 @@ const CHECKOUT_TYPE_QUERY = /* GraphQL */ `
   query StorefrontCheckoutType {
     storeSettings {
       checkoutType
+    }
+  }
+`;
+
+/**
+ * Catalog display + multi-add flags. Fetched separately so compat/extended
+ * branding fallbacks (which omit newer fields) do not strand multiAddEnabled
+ * at false when the dashboard toggle is on.
+ */
+const PRODUCT_FEATURES_QUERY = /* GraphQL */ `
+  query StorefrontProductFeatures {
+    branding {
+      showVariants
+      showSwatches
+      imageRollover
+      hideEmptyCollections
+      defaultCollectionSort
+      multiAddEnabled
     }
   }
 `;
@@ -663,16 +693,25 @@ export async function getBranding(): Promise<BrandingBundle> {
   if (!endpoint || !token) return DEFAULT_BUNDLE;
 
   try {
-    const [bundle, checkoutType] = await Promise.all([
+    const [bundle, checkoutType, productFeatures] = await Promise.all([
       fetchBrandingBundle(endpoint, token),
       fetchCheckoutType(endpoint, token),
+      fetchProductFeatures(endpoint, token),
     ]);
 
     if (!bundle) return DEFAULT_BUNDLE;
-    if (checkoutType === null) return bundle;
+
+    const branding = productFeatures
+      ? { ...bundle.branding, ...productFeatures }
+      : bundle.branding;
+
+    if (checkoutType === null) {
+      return { ...bundle, branding };
+    }
 
     return {
       ...bundle,
+      branding,
       storeSettings: {
         ...bundle.storeSettings,
         checkoutType,
@@ -736,6 +775,48 @@ async function fetchCheckoutType(
       data?: { storeSettings?: { checkoutType?: string | null } | null } | null;
     };
     return json.data?.storeSettings?.checkoutType ?? null;
+  } catch {
+    return null;
+  }
+}
+
+type ProductFeaturesBranding = Pick<
+  Branding,
+  | "showVariants"
+  | "showSwatches"
+  | "imageRollover"
+  | "hideEmptyCollections"
+  | "defaultCollectionSort"
+  | "multiAddEnabled"
+>;
+
+/** Overlay catalog + multi-add prefs when the main branding query used a compat path. */
+async function fetchProductFeatures(
+  endpoint: string,
+  token: string,
+): Promise<ProductFeaturesBranding | null> {
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: brandingRequestHeaders(token),
+      body: JSON.stringify({ query: PRODUCT_FEATURES_QUERY }),
+    });
+    if (!res.ok) return null;
+
+    const json = (await res.json()) as {
+      data?: { branding?: FlatBranding | null } | null;
+    };
+    const b = json.data?.branding;
+    if (!b) return null;
+
+    return {
+      showVariants: b.showVariants !== false,
+      showSwatches: b.showSwatches === true,
+      imageRollover: b.imageRollover === true,
+      hideEmptyCollections: b.hideEmptyCollections !== false,
+      defaultCollectionSort: resolveCollectionSort(b.defaultCollectionSort),
+      multiAddEnabled: b.multiAddEnabled === true,
+    };
   } catch {
     return null;
   }
