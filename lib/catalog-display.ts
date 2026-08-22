@@ -145,8 +145,9 @@ function cardForColourway(
   );
 
   const imageSrc = matchingVar?.image?.src || product.image?.src || "";
-  const hoverSrc =
-    matchingVar?.images?.[1]?.src || product.hoverImage?.src || null;
+  // Per-colourway rollover must come from that variation's gallery only —
+  // never the parent product's second image (another colourway's hover).
+  const hoverSrc = matchingVar?.images?.[1]?.src ?? null;
   // Sale badge should match the colourway shown, not "any variation on sale".
   const onSale = matchingVar ? Boolean(matchingVar.onSale) : product.onSale;
 

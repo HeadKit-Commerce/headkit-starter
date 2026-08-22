@@ -145,8 +145,8 @@ describe("expandCatalogProducts", () => {
     expect(result[1]?.image?.src).toBe("/blue.jpg");
     // Red has a second variation gallery image → colourway-specific rollover.
     expect(result[0]?.hoverImage?.src).toBe("/red-hover.jpg");
-    // Blue has no second image → fall back to parent hoverImage.
-    expect(result[1]?.hoverImage?.src).toBe("/hover.jpg");
+    // Blue has no second image → no rollover for that colourway.
+    expect(result[1]?.hoverImage).toBeNull();
   });
 
   it("does not expand size-only attributes", () => {

@@ -90,8 +90,9 @@ export const ProductCard = ({
           variation.attributes.some((attr) => colourSelected === attr.value),
         )
       : undefined;
-  // Prefer the second variation-owned gallery image for rollover; parent
-  // hoverImage is the fallback when the colourway has no gallery.
+  // Prefer the second variation gallery image; parent hoverImage applies to
+  // simple cards and non-exploded swatch cards (exploded cards set hoverImage
+  // per colourway in catalog-display — no parent fallback there).
   const hoverSrc = imageRollover
     ? (selectedVariationForHover?.images?.[1]?.src ??
       product.hoverImage?.src ??
