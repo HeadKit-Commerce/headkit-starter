@@ -1,6 +1,7 @@
 import type { Post } from "@headkit/sdk";
 import type { ItemList, WithContext } from "schema-dts";
 import { safeJsonLdStringify } from "./safe-json-ld";
+import { resolveJsonLdSiteUrl } from "./site-origin";
 
 interface CarouselPostJsonLDProps {
   posts: Array<
@@ -9,13 +10,15 @@ interface CarouselPostJsonLDProps {
       featuredImage?: { src?: string | null } | null;
     }
   >;
+  /** Origin override; omit to resolve the runtime store domain. */
+  siteUrl?: string | null;
 }
 
-export function CarouselPostJsonLD({ posts }: CarouselPostJsonLDProps) {
-  const siteUrl = (process.env.NEXT_PUBLIC_FRONTEND_URL ?? "").replace(
-    /\/$/,
-    "",
-  );
+export async function CarouselPostJsonLD({
+  posts,
+  siteUrl,
+}: CarouselPostJsonLDProps) {
+  const origin = await resolveJsonLdSiteUrl(siteUrl);
 
   const jsonLd: WithContext<ItemList> = {
     "@context": "https://schema.org",
@@ -24,7 +27,7 @@ export function CarouselPostJsonLD({ posts }: CarouselPostJsonLDProps) {
       const path = post.uri?.startsWith("/") ? post.uri : `/news/${post.slug}/`;
       // Prefer absolute `uri` from the API; otherwise join site + path.
       // WordPress ≥0.4.49 emits Posts-page–relative URIs (e.g. /insights/…).
-      const url = post.uri?.startsWith("http") ? post.uri : `${siteUrl}${path}`;
+      const url = post.uri?.startsWith("http") ? post.uri : `${origin}${path}`;
       return {
         "@type": "ListItem",
         position: index + 1,

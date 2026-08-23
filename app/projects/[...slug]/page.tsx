@@ -189,7 +189,7 @@ async function ProjectArticleContent({
           datePublished={project.date ?? undefined}
           dateModified={project.modified ?? undefined}
           image={project.featuredImage?.src}
-          url={`${(process.env.NEXT_PUBLIC_FRONTEND_URL ?? "").replace(/\/$/, "")}/projects/${projectSlug}`}
+          url={storefrontUrl(`/projects/${projectSlug}`, storeSettings.domain)}
         />
         <BreadcrumbJsonLD items={breadcrumbs} />
 

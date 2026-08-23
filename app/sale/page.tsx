@@ -14,11 +14,35 @@ import {
 import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import { CATALOG_PAGE_SIZE } from "@/components/headkit-ui/catalog-grid";
 import { getBranding } from "@/lib/branding";
+import { storefrontUrl } from "@/lib/make-metadata";
 
-export const metadata: Metadata = {
-  title: "Sale",
-  alternates: { canonical: `${process.env.NEXT_PUBLIC_FRONTEND_URL}/sale` },
-};
+/**
+ * Canonical origin comes from the RUNTIME store domain, not the build-time
+ * `NEXT_PUBLIC_FRONTEND_URL` — a custom domain attached without a redeploy
+ * leaves that env naming the old `*.headkit.app` host, which would put a
+ * cross-host canonical on a route `app/sitemap.ts` advertises under the
+ * customer's apex (it emits every `<loc>` from `resolveSiteUrl(store.domain)`).
+ *
+ * `getBranding()` is `"use cache: remote"`, so reading it here costs this route
+ * no static rendering: the metadata read stays cacheable exactly as the sibling
+ * `app/shop/page.tsx` already does.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  try {
+    const { storeSettings } = await getBranding();
+    return {
+      title: "Sale",
+      alternates: {
+        canonical: storefrontUrl("/sale", storeSettings.domain),
+      },
+    };
+  } catch {
+    return {
+      title: "Sale",
+      alternates: { canonical: storefrontUrl("/sale") },
+    };
+  }
+}
 
 interface Props {
   searchParams: Promise<Record<string, string>>;

@@ -115,6 +115,11 @@ export default async function RootLayout({
   // SearchAction urlTemplate and the Organization logo must name the same host
   // as the canonical this page emits, which generateMetadata above resolves
   // from the runtime store domain.
+  //
+  // The invariant holds beyond the two components rendered here: the shared
+  // JSON-LD components in components/seo/ resolve the SAME runtime origin via
+  // `resolveJsonLdSiteUrl()` instead of the build-time NEXT_PUBLIC_FRONTEND_URL,
+  // so a PDP, collection, news, projects or CMS page cannot name a second host.
   const siteUrl = resolveSiteUrl(storeSettings.domain, SITE_URL);
   const gtmId = storeSettings.gtmId ?? ENV_GTM_ID;
   const checkoutMode = normalizeCheckoutMode(storeSettings.checkoutType);
