@@ -6,12 +6,11 @@ import { PostHeader } from "@/components/headkit-ui/post/post-header";
 import { PostPage } from "@/components/headkit-ui/post/post-page";
 import { EditorialGridSkeleton } from "@/components/headkit-ui/skeletons/editorial-grid-skeleton";
 import { CarouselPostJsonLD } from "@/components/seo/carousel-post-json-ld";
-import { makeSeoMetadata } from "@/lib/make-metadata";
+import { makeSeoMetadata, storefrontUrl } from "@/lib/make-metadata";
 import { getBranding } from "@/lib/branding";
 import { TAG } from "@/lib/cache-tags";
 import { getPostsBasePath, postsIndexPath } from "@/lib/posts-base-path";
 
-const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 const FALLBACK_TITLE = "News";
 const FALLBACK_DESCRIPTION =
   "Stay up to date with our latest news and articles.";
@@ -25,9 +24,11 @@ async function getNewsLanding() {
   return sdk.posts.getLanding().catch(() => null);
 }
 
-function canonicalForPostsBase(base: string): string {
-  const path = postsIndexPath(base);
-  return SITE_URL ? `${SITE_URL.replace(/\/$/, "")}${path}` : path;
+function canonicalForPostsBase(
+  base: string,
+  storeDomain?: string | null,
+): string {
+  return storefrontUrl(postsIndexPath(base), storeDomain);
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -40,7 +41,8 @@ export async function generateMetadata(): Promise<Metadata> {
       description: page?.seo?.metaDesc?.trim() || FALLBACK_DESCRIPTION,
       storeName: storeSettings.name ?? undefined,
       allowIndexing: seoSettings.allowIndexing,
-      canonical: canonicalForPostsBase(postsBase),
+      canonical: canonicalForPostsBase(postsBase, storeSettings.domain),
+      siteUrl: storeSettings.domain,
     });
   } catch {
     return makeSeoMetadata(null, {

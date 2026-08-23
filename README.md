@@ -75,10 +75,18 @@ See [`overrides/README.md`](./overrides/README.md) for CSS hook classes. Agents 
 
 ## SEO Features
 
-- **Dynamic sitemap** — Products, collections, brands, and posts in `app/sitemap.ts`
+- **Dynamic sitemap** — Products, collections, brands, posts, projects, and WordPress
+  content pages in `app/sitemap.ts` (pages are discovered from the navigation menus, so a
+  published page linked from no menu is not listed — see the `makePageSitemap` docblock)
 - **robots.txt** — `app/robots.ts` with allow/disallow rules for account, checkout, API, search
+- **Indexing switch** — the dashboard “show on search engines” setting drives both
+  `app/robots.ts` and the `robots` meta tag; the root layout owns that tag and routes
+  inherit it (see `MakeSeoMetadataFallback.allowIndexing` in `lib/make-metadata.ts`)
 - **JSON-LD** — Product, breadcrumb, article, FAQ, website, searchbox (see `components/seo/`)
-- **Metadata** — OpenGraph, Twitter cards, canonical URLs
+- **Metadata** — OpenGraph, Twitter cards, canonical URLs. Every indexable route emits a
+  self-referencing canonical (the robots-disallowed ones — account, checkout, search — do
+  not); the rules for reconciling it with a Yoast canonical live in `resolveCanonical`
+  (`lib/make-metadata.ts`)
 
 ## Standalone vs Monorepo
 
@@ -102,9 +110,17 @@ bun run dev --filter=starter
 | `NEXT_PUBLIC_HEADKIT_PUBLIC_KEY` | Yes      | Public API key (safe for browser)                             |
 | `HEADKIT_PRIVATE_KEY`            | Yes      | Secret key (server-side only)                                 |
 | `NEXT_PUBLIC_GRAPHQL_URL`        | No       | Gateway URL (default: `http://localhost:4000/graphql`)        |
-| `NEXT_PUBLIC_FRONTEND_URL`       | No       | Public frontend URL for SEO                                   |
+| `NEXT_PUBLIC_FRONTEND_URL`       | No       | Fallback public frontend origin for SEO                       |
 | `NEXT_PUBLIC_GTM_ID`             | No       | Google Tag Manager container ID                               |
 | `IMAGE_DOMAIN`                   | No       | Domain for Next.js remote images (e.g. WooCommerce media URL) |
+
+`NEXT_PUBLIC_FRONTEND_URL` is inlined at build time and is only the **fallback** origin
+for canonicals, `metadataBase`, the sitemap, robots.txt and the RSS feed — the dashboard
+store domain wins at runtime. `lib/site-url.ts` owns that precedence and why.
+
+The exception is a route that exports a static `metadata` object instead of
+`generateMetadata` (`/brand`, `/sale`, `/new`, `/featured`): a static export cannot read
+the runtime store domain, so its canonical stays pinned to the baked env.
 
 ## Routes
 

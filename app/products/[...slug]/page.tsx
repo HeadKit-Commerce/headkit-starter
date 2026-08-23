@@ -15,14 +15,16 @@ import { ProjectCarousel } from "@/components/headkit-ui/project/project-carouse
 import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { ProductJsonLD } from "@/components/seo/product-json-ld";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
-import { makeSeoMetadata, resolveStoreName } from "@/lib/make-metadata";
+import {
+  makeSeoMetadata,
+  resolveStoreName,
+  storefrontUrl,
+} from "@/lib/make-metadata";
 import { getBranding, getBrandingAssets } from "@/lib/branding";
 import { getStripeConfig } from "@/lib/stripe-config";
 import { isColorAttrSlug } from "@/components/headkit-ui/collection/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductPageShell } from "./product-page-shell";
-
-const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 
 // Cache Components requires generateStaticParams to return ≥1 param. When the
 // catalog API is unreachable at build we emit this single placeholder (which
@@ -172,12 +174,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     }
 
     const desc = product.shortDescription || product.description;
-    const baseCanonical = `${SITE_URL}/products/${productSlug}`;
+    const baseCanonical = storefrontUrl(
+      `/products/${productSlug}`,
+      storeSettings.domain,
+    );
     const brandingOpts = {
       storeName: storeSettings.name ?? undefined,
       dashboardOgImageUrl: seoSettings.ogImageUrl ?? undefined,
       brandingIconUrl: iconUrl ?? undefined,
       allowIndexing: seoSettings.allowIndexing,
+      siteUrl: storeSettings.domain,
     } as const;
 
     // Base product URL (no color in path): self-canonical, index in prod (S2).

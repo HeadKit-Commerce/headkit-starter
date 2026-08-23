@@ -386,6 +386,29 @@ export function decodeFilterSlug(slug: string): DecodedFilterSlug {
   return { attributes, brands };
 }
 
+/**
+ * The single `/collections/...` path a category is canonically served at:
+ * its ancestors root-first, then its own slug.
+ *
+ * The route resolves a category from the LAST slug segment, so
+ * `/collections/child` and `/collections/parent/child` both serve the same
+ * category. Deriving the path from the category itself rather than from the
+ * requested URL is what lets every one of those shapes agree, and it
+ * reproduces exactly the path `app/sitemap.ts` advertises.
+ *
+ * Ancestors arrive root → immediate parent (Woo HeadKit REST already
+ * `array_reverse`s the walk-up); do not reverse them.
+ */
+export function collectionPathFromCategory(
+  category: ProductCategoryDetail,
+): string {
+  const segments = [
+    ...(category.ancestors ?? []).map((ancestor) => ancestor.slug),
+    category.slug,
+  ].filter((segment) => segment.length > 0);
+  return `/collections/${segments.join("/")}`;
+}
+
 /** Build breadcrumb URIs to match the Next.js route /collections/[...slug] (same as URL path). */
 export function buildBreadcrumbFromCategory(
   category: ProductCategoryDetail,
@@ -410,10 +433,9 @@ export function buildBreadcrumbFromCategory(
     });
   }
 
-  pathSegments.push(category.slug);
   crumbs.push({
     name: category.name,
-    uri: `/collections/${pathSegments.join("/")}`,
+    uri: collectionPathFromCategory(category),
     current: true,
   });
 

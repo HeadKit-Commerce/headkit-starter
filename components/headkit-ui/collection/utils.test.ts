@@ -10,6 +10,7 @@ import {
   buildProductListFilter,
   DEFAULT_FILTER_VALUES,
   type FilterValues,
+  collectionPathFromCategory,
 } from "./utils";
 
 /**
@@ -283,6 +284,56 @@ describe("encodeFilterSlug / decodeFilterSlug (delimiter-safe values)", () => {
   it("does not escape ordinary slugs (readable scheme preserved)", () => {
     expect(encodeFilterSlug(fv({ attributes: { pa_color: ["black"] } }))).toBe(
       "color.black",
+    );
+  });
+});
+
+describe("collectionPathFromCategory", () => {
+  function category(
+    slug: string,
+    ancestorSlugs: string[],
+  ): Parameters<typeof collectionPathFromCategory>[0] {
+    return {
+      id: slug,
+      name: slug,
+      slug,
+      description: "",
+      thumbnail: "",
+      uri: "",
+      children: [],
+      ancestors: ancestorSlugs.map((s) => ({
+        id: s,
+        name: s,
+        slug: s,
+        description: "",
+        thumbnail: "",
+        uri: "",
+        children: [],
+        ancestors: [],
+      })),
+    };
+  }
+
+  it("joins ancestors root-first ahead of the category's own slug", () => {
+    expect(
+      collectionPathFromCategory(
+        category("outdoor-benches", ["outdoor-furniture", "outdoor-seating"]),
+      ),
+    ).toBe("/collections/outdoor-furniture/outdoor-seating/outdoor-benches");
+  });
+
+  it("returns the bare path for a root category", () => {
+    expect(collectionPathFromCategory(category("hoodies", []))).toBe(
+      "/collections/hoodies",
+    );
+  });
+
+  it("is independent of how the category was requested", () => {
+    // The route resolves the category from the LAST slug segment, so several
+    // request shapes serve one category; the canonical must not vary with them.
+    const nested = category("child", ["parent"]);
+    expect(collectionPathFromCategory(nested)).toBe(
+      "/collections/parent/child",
     );
   });
 });

@@ -9,7 +9,7 @@ import { ProjectGrid } from "@/components/headkit-ui/project/project-grid";
 import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { Skeleton } from "@/components/ui/skeleton";
-import { makeSeoMetadata } from "@/lib/make-metadata";
+import { makeSeoMetadata, storefrontUrl } from "@/lib/make-metadata";
 import { getBranding, getBrandingAssets } from "@/lib/branding";
 import { TAG } from "@/lib/cache-tags";
 import { decodeHtmlEntities } from "@/lib/utils";
@@ -71,6 +71,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       storeName: storeSettings.name ?? undefined,
       brandingIconUrl: iconUrl ?? undefined,
       allowIndexing: seoSettings.allowIndexing,
+      canonical: storefrontUrl(`/client/${clientSlug}`, storeSettings.domain),
+      siteUrl: storeSettings.domain,
     });
   } catch {
     return {};

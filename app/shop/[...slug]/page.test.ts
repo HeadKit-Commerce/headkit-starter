@@ -22,6 +22,7 @@ const productsList = vi.fn();
 const getCategories = vi.fn();
 const getCategory = vi.fn();
 const cachedProduct = vi.fn();
+const storeDomain = vi.fn<() => string | null>(() => null);
 
 vi.mock("server-only", () => ({}));
 
@@ -48,7 +49,7 @@ vi.mock("@/lib/branding", () => ({
   getBranding: (): Promise<unknown> =>
     Promise.resolve({
       seoSettings: { ogImageUrl: null, allowIndexing: true },
-      storeSettings: { name: "Acme" },
+      storeSettings: { name: "Acme", domain: storeDomain() },
     }),
   getBrandingAssets: (): Promise<unknown> => Promise.resolve({ iconUrl: null }),
 }));
@@ -64,6 +65,10 @@ vi.mock("@/lib/make-metadata", () => ({
     alternates: { canonical: fallback?.canonical },
   }),
   resolveStoreName: (): string => "Acme",
+  // Mirrors the real helper: the runtime store domain wins over the
+  // build-time NEXT_PUBLIC_FRONTEND_URL.
+  storefrontUrl: (path: string, domain?: string | null): string =>
+    `${domain ? `https://${domain}` : SITE_URL}${path}`,
 }));
 
 // The route delegates rendering to the flat PDP and the collection view; the
@@ -94,6 +99,8 @@ beforeEach(() => {
   getCategories.mockReset();
   getCategory.mockReset();
   cachedProduct.mockReset();
+  storeDomain.mockReset();
+  storeDomain.mockReturnValue(null);
   getCategories.mockResolvedValue(TREE);
 });
 
@@ -203,6 +210,29 @@ describe("generateMetadata", () => {
       (meta.alternates as { canonical?: string } | undefined)?.canonical,
       "the canonical must be self-referential to the nested URL — pointing it at the flat /products path re-creates the very consolidation D-15-04 refuses",
     ).toBe(`${SITE_URL}/shop/clothing/hoodies/blue-hoodie`);
+  });
+
+  it("builds the canonical from the runtime store domain, not the baked env", async () => {
+    // app/sitemap.ts already emits every <loc> from resolveSiteUrl(store
+    // domain), so a canonical still resolved from the build-time env points
+    // the storefront's largest URL class at a host the sitemap never
+    // advertises whenever a custom domain is attached without a redeploy.
+    storeDomain.mockReturnValue("customer.com");
+    cachedProduct.mockResolvedValue({
+      name: "Blue Hoodie",
+      slug: "blue-hoodie",
+      shortDescription: "",
+      description: "",
+      seo: null,
+    });
+
+    const meta = await generateMetadata({
+      params: Promise.resolve({ slug: ["clothing", "hoodies", "blue-hoodie"] }),
+    });
+
+    expect(
+      (meta.alternates as { canonical?: string } | undefined)?.canonical,
+    ).toBe("https://customer.com/shop/clothing/hoodies/blue-hoodie");
   });
 
   it("canonicalises a category URL to its own nested path and never to a product", async () => {

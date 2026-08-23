@@ -11,7 +11,7 @@ import {
   parseSearchParams,
   type SortKeyType,
 } from "@/components/headkit-ui/collection/utils";
-import { makeSeoMetadata } from "@/lib/make-metadata";
+import { makeSeoMetadata, storefrontUrl } from "@/lib/make-metadata";
 import { getBranding } from "@/lib/branding";
 import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import { CATALOG_PAGE_SIZE } from "@/components/headkit-ui/catalog-grid";
@@ -21,8 +21,6 @@ import {
   getNonEmptyCollectionSlugs,
 } from "@/lib/hide-empty-collections";
 
-const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
-
 export async function generateMetadata(): Promise<Metadata> {
   try {
     const { seoSettings, storeSettings } = await getBranding();
@@ -31,12 +29,13 @@ export async function generateMetadata(): Promise<Metadata> {
       description: "Browse our full product catalog.",
       storeName: storeSettings.name ?? undefined,
       allowIndexing: seoSettings.allowIndexing,
-      canonical: SITE_URL ? `${SITE_URL.replace(/\/$/, "")}/shop` : "/shop",
+      canonical: storefrontUrl("/shop", storeSettings.domain),
+      siteUrl: storeSettings.domain,
     });
   } catch {
     return makeSeoMetadata(null, {
       title: "Shop",
-      canonical: SITE_URL ? `${SITE_URL.replace(/\/$/, "")}/shop` : "/shop",
+      canonical: storefrontUrl("/shop"),
     });
   }
 }

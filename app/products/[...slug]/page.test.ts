@@ -51,6 +51,8 @@ vi.mock("@/lib/make-metadata", () => ({
   makeSeoMetadata: (): Record<string, unknown> => ({}),
   seoFallbackDescription: (): string => "",
   resolveStoreName: (): Promise<string> => Promise.resolve("Test Store"),
+  storefrontUrl: (path: string, domain?: string | null): string =>
+    `https://${domain ?? "shop.example"}${path}`,
 }));
 
 vi.mock("@/components/headkit-ui/product-detail", () => ({

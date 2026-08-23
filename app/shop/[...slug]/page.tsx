@@ -7,7 +7,7 @@ import type { ProductCategoryDetail } from "@headkit/sdk";
 import { headkit as sdk } from "@/lib/sdk";
 import { getCachedProduct } from "@/lib/product-cache";
 import { getBranding, getBrandingAssets } from "@/lib/branding";
-import { makeSeoMetadata } from "@/lib/make-metadata";
+import { makeSeoMetadata, storefrontUrl } from "@/lib/make-metadata";
 import { TAG } from "@/lib/cache-tags";
 import { ProductPageContent } from "@/app/products/[...slug]/page";
 import { ProductPageShell } from "@/app/products/[...slug]/product-page-shell";
@@ -18,8 +18,6 @@ import {
   uriToRelativePath,
   type ShopCategoryNode,
 } from "../shop-slug";
-
-const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 
 // Cache Components requires generateStaticParams to return ≥1 param. When the
 // catalog API is unreachable at build we emit this single placeholder (which
@@ -131,7 +129,7 @@ export async function generateMetadata({
   const { slug } = await params;
   if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) return NOINDEX;
 
-  const canonical = `${SITE_URL}/shop/${slug.join("/")}`;
+  const path = `/shop/${slug.join("/")}`;
 
   try {
     const categories = await getShopCategoryTree();
@@ -151,12 +149,13 @@ export async function generateMetadata({
         title: product.name,
         // Self-referential to the NESTED path: this URL shape is the one the
         // store has indexed, so it must be the canonical, not /products/…
-        canonical,
+        canonical: storefrontUrl(path, storeSettings.domain),
         ...(desc ? { description: desc } : {}),
         storeName: storeSettings.name ?? undefined,
         dashboardOgImageUrl: seoSettings.ogImageUrl ?? undefined,
         brandingIconUrl: iconUrl ?? undefined,
         allowIndexing: seoSettings.allowIndexing,
+        siteUrl: storeSettings.domain,
       });
     }
 
@@ -169,11 +168,12 @@ export async function generateMetadata({
 
       return makeSeoMetadata(category.seo ?? null, {
         title: category.name,
-        canonical,
+        canonical: storefrontUrl(path, storeSettings.domain),
         ...(category.description ? { description: category.description } : {}),
         storeName: storeSettings.name ?? undefined,
         dashboardOgImageUrl: seoSettings.ogImageUrl ?? undefined,
         allowIndexing: seoSettings.allowIndexing,
+        siteUrl: storeSettings.domain,
       });
     }
 

@@ -36,9 +36,26 @@ vi.mock("@/lib/sdk", () => ({
   },
 }));
 
+const makeSeoMetadata =
+  vi.fn<(seo: unknown, fallback: unknown) => Record<string, unknown>>();
+const allowIndexing = vi.fn<() => boolean>();
+const storeDomain = vi.fn<() => string | null>();
+
 vi.mock("@/lib/make-metadata", () => ({
-  makeSeoMetadata: (): Record<string, unknown> => ({}),
+  makeSeoMetadata: (seo: unknown, fallback: unknown): Record<string, unknown> =>
+    makeSeoMetadata(seo, fallback),
   seoFallbackDescription: (): string => "",
+  storefrontUrl: (path: string, domain?: string | null): string =>
+    `https://${domain ?? "shop.example"}${path}`,
+}));
+// generateMetadata now reads the store's indexing switch; `lib/branding`
+// validates server env at import, so it is stubbed like the SDK above.
+vi.mock("@/lib/branding", () => ({
+  getBranding: (): Promise<unknown> =>
+    Promise.resolve({
+      seoSettings: { allowIndexing: allowIndexing() },
+      storeSettings: { domain: storeDomain() },
+    }),
 }));
 vi.mock("@/components/seo/breadcrumb-json-ld", () => ({
   BreadcrumbJsonLD: (): null => null,
@@ -50,7 +67,7 @@ vi.mock("@/components/headkit-ui/cms-page-body", () => ({
   CmsPageBody: (): null => null,
 }));
 
-import { getPageData } from "./page";
+import { getPageData, generateMetadata } from "./page";
 
 const SLUG = "about/team";
 const EXPECTED_TAGS = ["headkit:page:about/team", "headkit:pages"] as const;
@@ -60,6 +77,12 @@ beforeEach(() => {
   cacheLife.mockClear();
   contentGet.mockReset();
   contentGet.mockResolvedValue({ title: "About", content: "", seo: null });
+  makeSeoMetadata.mockReset();
+  makeSeoMetadata.mockReturnValue({});
+  allowIndexing.mockReset();
+  allowIndexing.mockReturnValue(true);
+  storeDomain.mockReset();
+  storeDomain.mockReturnValue(null);
 });
 
 describe("getPageData — params-safe cached CMS helper", () => {
@@ -81,5 +104,51 @@ describe("getPageData — params-safe cached CMS helper", () => {
   it("keeps .catch(() => null) so a missing page resolves null (notFound-safe)", async () => {
     contentGet.mockRejectedValueOnce(new Error("404"));
     await expect(getPageData(SLUG)).resolves.toBeNull();
+  });
+});
+
+/**
+ * Every WordPress page — `/about`, `/legal/*`, the marketing landing pages —
+ * is served by this route, and it passed NEITHER a canonical NOR the store's
+ * indexing switch. Yoast's own canonical names the WordPress backend host, and
+ * an omitted `allowIndexing` used to default to "index" and override the root
+ * layout, so a store with search engines switched off still published these.
+ */
+describe("generateMetadata — canonical + indexing switch", () => {
+  async function fallbackFor(slug: string[]): Promise<Record<string, unknown>> {
+    await generateMetadata({ params: Promise.resolve({ slug }) });
+    const call = makeSeoMetadata.mock.calls[0];
+    return (call?.[1] ?? {}) as Record<string, unknown>;
+  }
+
+  it("passes a self-referencing canonical built from the served path", async () => {
+    const fallback = await fallbackFor(["legal", "privacy-policy"]);
+    expect(fallback["canonical"]).toBe(
+      "https://shop.example/legal/privacy-policy",
+    );
+  });
+
+  it("forwards the store's allowIndexing rather than defaulting to index", async () => {
+    allowIndexing.mockReturnValue(false);
+    const fallback = await fallbackFor(["about"]);
+    expect(fallback["allowIndexing"]).toBe(false);
+  });
+
+  it("forwards allowIndexing when the store has indexing on", async () => {
+    const fallback = await fallbackFor(["about"]);
+    expect(fallback["allowIndexing"]).toBe(true);
+  });
+
+  it("builds the canonical from the runtime store domain, not the baked env", async () => {
+    // A custom domain attached without a redeploy leaves the inlined
+    // NEXT_PUBLIC_FRONTEND_URL on the old host. robots.txt and the sitemap
+    // already prefer the runtime domain, so a canonical that did not would
+    // point the sitemap's own URLs at a host it never advertises.
+    storeDomain.mockReturnValue("customer.com");
+    const fallback = await fallbackFor(["about"]);
+    expect(fallback["canonical"]).toBe("https://customer.com/about");
+    // Forwarded so the same origin decides whether Yoast's canonical is
+    // same-host, and so metadataBase agrees with the canonical.
+    expect(fallback["siteUrl"]).toBe("customer.com");
   });
 });

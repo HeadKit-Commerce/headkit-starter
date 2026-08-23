@@ -21,6 +21,8 @@ const { SITE_URL } = vi.hoisted(() => {
 });
 
 const productsList = vi.fn();
+const menuGetMenus = vi.fn<(locations: string[]) => Promise<unknown>>();
+const contentGet = vi.fn<(slug: string, type: string) => Promise<unknown>>();
 const cacheLife = vi.fn<(profile: string) => void>();
 const cacheTag = vi.fn<(...tags: string[]) => void>();
 
@@ -56,9 +58,18 @@ vi.mock("@/lib/sdk", () => ({
     projects: {
       list: (): Promise<unknown> => Promise.resolve({ projects: [] }),
     },
+    menu: {
+      getMenus: (locations: string[]): Promise<unknown> =>
+        menuGetMenus(locations),
+    },
+    content: {
+      get: (slug: string, type: string): Promise<unknown> =>
+        contentGet(slug, type),
+    },
   },
 }));
 
+import { KNOWN_MENU_LOCATIONS } from "@/lib/cache-tags";
 import sitemap, { toSitemapPath } from "./sitemap";
 
 function product(
@@ -104,6 +115,12 @@ const STATIC_URLS = new Set(
 
 beforeEach(() => {
   productsList.mockReset();
+  menuGetMenus.mockReset();
+  contentGet.mockReset();
+  // Default: no menus, so the WordPress-page section is empty and the
+  // product assertions below see only product entries.
+  menuGetMenus.mockResolvedValue([]);
+  contentGet.mockResolvedValue(null);
   cacheLife.mockClear();
   cacheTag.mockClear();
 });
@@ -117,12 +134,16 @@ describe("sitemap Cache Components contract", () => {
     // Nested getPostsBasePath also uses cacheLife("hours") — the assembled
     // sitemap entry itself must stay on "days".
     expect(cacheLife).not.toHaveBeenCalledWith("max");
+    // headkit:pages is declared rather than left implicit: the nested
+    // getPostsBasePath entry is tagged with it and Next propagates a nested
+    // entry's tags outward, so the sitemap is subscribed either way.
     expect(cacheTag).toHaveBeenCalledWith(
       "headkit:products",
       "headkit:collections",
       "headkit:brands",
       "headkit:posts",
       "headkit:projects",
+      "headkit:pages",
       "headkit:branding",
     );
   });
@@ -294,6 +315,154 @@ describe("makeProductSitemap", () => {
     await expect(
       productUrls(),
       "a catalogue failure must degrade to an empty product section, never throw and fail the whole sitemap",
+    ).resolves.toEqual([]);
+  });
+});
+
+/**
+ * WordPress pages in the sitemap.
+ *
+ * The sitemap built from products, collections, brands, posts, projects and a
+ * hardcoded static list — there was NO source for CMS pages at all, so `/about`
+ * and the legal pages were absent even with the sitemap switched on. The schema
+ * has no "list pages" query (`content()` resolves one node by slug), so the
+ * navigation menus are the discovery source and `content(type: PAGE)` is the
+ * existence check, preserving the rule that the sitemap only ever advertises
+ * URLs that actually serve.
+ */
+describe("WordPress page sitemap section", () => {
+  function menu(...uris: string[]): Record<string, unknown> {
+    return {
+      name: "m",
+      description: null,
+      items: uris.map((uri) => ({ uri })),
+    };
+  }
+
+  async function pageUrls(): Promise<string[]> {
+    productsList.mockResolvedValue({ products: [], totalPages: 0 });
+    const entries = await sitemap();
+    return entries.map((e) => e.url).filter((u) => !STATIC_URLS.has(u));
+  }
+
+  it("discovers from every menu location WordPress can populate", async () => {
+    // The sitemap and the cache-tag fan-out must agree on the location list:
+    // a location added for one and not the other leaves pages linked only
+    // there undiscovered, with no error to show for it.
+    menuGetMenus.mockResolvedValue([]);
+    productsList.mockResolvedValue({ products: [], totalPages: 0 });
+    await sitemap();
+
+    expect(menuGetMenus).toHaveBeenCalledWith([...KNOWN_MENU_LOCATIONS]);
+  });
+
+  it("emits menu-linked CMS pages that exist, including nested paths", async () => {
+    menuGetMenus.mockResolvedValue([
+      menu("https://wp.example.com/about/", "/legal/privacy-policy"),
+    ]);
+    contentGet.mockResolvedValue({ slug: "x" });
+
+    await expect(pageUrls()).resolves.toEqual([
+      `${SITE_URL}/about`,
+      `${SITE_URL}/legal/privacy-policy`,
+    ]);
+    // The WP host is discarded — only the path survives, re-rooted on the site.
+    expect(contentGet).toHaveBeenCalledWith("about", "PAGE");
+    expect(contentGet).toHaveBeenCalledWith("legal/privacy-policy", "PAGE");
+  });
+
+  it("omits a menu link that is not a published page", async () => {
+    menuGetMenus.mockResolvedValue([menu("/about", "/never-published")]);
+    contentGet.mockImplementation((slug: string) =>
+      Promise.resolve(slug === "about" ? { slug } : null),
+    );
+
+    await expect(
+      pageUrls(),
+      "advertising a URL that answers not-found is a Search Console error",
+    ).resolves.toEqual([`${SITE_URL}/about`]);
+  });
+
+  it("skips links owned by other route trees and other sitemap sections", async () => {
+    menuGetMenus.mockResolvedValue([
+      menu(
+        "/shop",
+        "/shop/clothing/hoodie",
+        "/collections/dish-brushes",
+        "/products/gold-package",
+        "/brand/dishee",
+        "/projects/case-study",
+        "/news/some-post",
+        "/search",
+        "/cart",
+        "/account/orders",
+        "#",
+        "tel:1300883919",
+        "mailto:hi@acme.test",
+      ),
+    ]);
+    contentGet.mockResolvedValue({ slug: "x" });
+
+    await expect(pageUrls()).resolves.toEqual([]);
+    expect(
+      contentGet,
+      "non-page routes must not even be probed",
+    ).not.toHaveBeenCalled();
+  });
+
+  it("drops an external http link, because its path is not a published page", async () => {
+    // `convertToRelativePath` strips the origin of ANY http(s) menu uri — it
+    // exists to turn WordPress permalinks into storefront paths and cannot tell
+    // a backend permalink from a social link. The existence probe is what makes
+    // that safe: only a path this store actually publishes is emitted, and it is
+    // then emitted as a storefront URL, so an off-site <loc> stays impossible.
+    menuGetMenus.mockResolvedValue([menu("https://instagram.com/acme")]);
+    contentGet.mockResolvedValue(null);
+
+    await expect(pageUrls()).resolves.toEqual([]);
+    expect(contentGet).toHaveBeenCalledWith("acme", "PAGE");
+  });
+
+  it("does not restate a page that is already a static entry, and does not probe it", async () => {
+    menuGetMenus.mockResolvedValue([menu("/contact", "/faq")]);
+    contentGet.mockResolvedValue({ slug: "x" });
+
+    productsList.mockResolvedValue({ products: [], totalPages: 0 });
+    const urls = (await sitemap()).map((e) => e.url);
+
+    expect(urls.filter((u) => u === `${SITE_URL}/contact`)).toHaveLength(1);
+    expect(urls.filter((u) => u === `${SITE_URL}/faq`)).toHaveLength(1);
+    // Each probe is a FULL page payload through the SDK's 4-slot read
+    // semaphore on the uncached cold build. Spending one on a path the static
+    // section already emits — and the final dedupe then drops — is pure cost,
+    // and /contact and /faq are exactly what a footer menu links.
+    expect(
+      contentGet,
+      "a menu link to a route the sitemap already emits must not be probed",
+    ).not.toHaveBeenCalled();
+  });
+
+  it("walks child menu items, and deduplicates a page linked twice", async () => {
+    menuGetMenus.mockResolvedValue([
+      {
+        name: "m",
+        description: null,
+        items: [
+          { uri: "#", children: [{ uri: "/weddings/" }, { uri: "/weddings" }] },
+        ],
+      },
+    ]);
+    contentGet.mockResolvedValue({ slug: "x" });
+
+    await expect(pageUrls()).resolves.toEqual([`${SITE_URL}/weddings`]);
+  });
+
+  it("degrades to no page entries when the menu read fails", async () => {
+    menuGetMenus.mockRejectedValue(new Error("gateway unreachable"));
+
+    await expect(
+      pageUrls(),
+      "a menu failure must not throw and fail the whole sitemap",
     ).resolves.toEqual([]);
   });
 });

@@ -13,6 +13,7 @@ import {
   resolveHomeTitle,
   resolveHomeDescription,
   resolveStoreName,
+  storefrontUrl,
 } from "@/lib/make-metadata";
 import { getBranding, getBrandingAssets } from "@/lib/branding";
 import {
@@ -63,6 +64,11 @@ export async function generateMetadata(): Promise<Metadata> {
       iconUrl,
       ogImageUrl: entityOg || seoSettings.ogImageUrl,
       allowIndexing: seoSettings.allowIndexing,
+      siteUrl: storeSettings.domain,
+      // Self-referencing canonical for `/`. The highest-authority URL on the
+      // site had none, leaving it undefended against `?utm_*` / `?gclid` and
+      // trailing-slash duplicates.
+      canonical: storefrontUrl("/", storeSettings.domain),
     });
   } catch {
     return makeRootMetadata({ siteName: "Store" });

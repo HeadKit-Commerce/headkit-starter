@@ -3,12 +3,10 @@ import { Suspense } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
 import { FAQPageJsonLD } from "@/components/seo/faq-page-json-ld";
-import { makeSeoMetadata } from "@/lib/make-metadata";
+import { makeSeoMetadata, storefrontUrl } from "@/lib/make-metadata";
 import { getBranding } from "@/lib/branding";
 import { EditorialContent } from "@/components/headkit-ui/editorial-content";
 import { FaqList } from "@/components/headkit-ui/faq-list";
-
-const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 
 async function getFaqPage() {
   "use cache";
@@ -41,7 +39,8 @@ export async function generateMetadata(): Promise<Metadata> {
         "Frequently asked questions — answers about orders, shipping, and more.",
       storeName: storeSettings.name ?? undefined,
       allowIndexing: seoSettings.allowIndexing,
-      canonical: SITE_URL ? `${SITE_URL.replace(/\/$/, "")}/faq` : "/faq",
+      canonical: storefrontUrl("/faq", storeSettings.domain),
+      siteUrl: storeSettings.domain,
     });
   } catch {
     return makeSeoMetadata(null, {
