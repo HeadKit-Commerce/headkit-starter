@@ -12,6 +12,8 @@ import {
 import { shopSegmentsFromPath, uriToRelativePath } from "./shop/shop-slug";
 import { getPostsBasePath, postsIndexPath } from "@/lib/posts-base-path";
 import { convertToRelativePath, isAppNavigationHref } from "@/lib/convert-uri";
+import { storeSitemapRoutes } from "@/sitemap.config";
+import type { StoreSitemapRoute } from "@/sitemap.config";
 
 type SitemapItem = MetadataRoute.Sitemap[number];
 
@@ -292,6 +294,92 @@ const NON_PAGE_PREFIXES = [
  */
 const MAX_PAGE_CANDIDATES = 40;
 
+type StaticSitemapRoute = {
+  path: string;
+  changeFrequency: NonNullable<SitemapItem["changeFrequency"]>;
+  priority: number;
+};
+
+/** The `<changefreq>` values the sitemap protocol defines. */
+const SITEMAP_CHANGE_FREQUENCIES: readonly StaticSitemapRoute["changeFrequency"][] =
+  ["always", "hourly", "daily", "weekly", "monthly", "yearly", "never"];
+
+/** Whether an arbitrary config value is a sitemap-valid `<changefreq>`. */
+function isSitemapChangeFrequency(
+  value: unknown,
+): value is StaticSitemapRoute["changeFrequency"] {
+  return (
+    typeof value === "string" &&
+    (SITEMAP_CHANGE_FREQUENCIES as readonly string[]).includes(value)
+  );
+}
+
+/**
+ * Vet the store-owned routes from `sitemap.config.ts` before they join the
+ * platform list.
+ *
+ * The store owns WHICH routes it declares; this owns whether a declaration can
+ * corrupt the document. Only SHAPE is checked — an entry that could produce an
+ * off-site or malformed tag is dropped, so the guarantee the product and page
+ * sections make (a `<loc>` is always this store's origin plus a path it chose)
+ * survives an arbitrary config edit. Whether a path RESOLVES is deliberately
+ * not checked at all; a well-formed path that happens to 404 is emitted, and
+ * the resolve-or-do-not-advertise block in `sitemap.config.ts` says why these
+ * are the one section that is never probed.
+ *
+ * Every field AND the container itself is vetted at runtime rather than trusted
+ * to its declared type, because a config is source a store edits: a `number`
+ * field can arrive as `NaN` from `Number(process.env.X)` with the var unset, a
+ * union-typed field can arrive as any string through a cast or plain JS, and
+ * the export itself can be a non-iterable through the same routes. A
+ * non-iterable must degrade to "no store routes" rather than throw, because
+ * {@link staticSitemapRoutes} is called unguarded from `buildCachedSitemap`:
+ * a `TypeError` there escapes the default export and 500s `/sitemap.xml`
+ * entirely — every product, collection, brand, post and page lost, not just the
+ * store's own section.
+ *
+ * A path is rejected unless it starts with a single `/` (which excludes bare
+ * slugs, absolute URLs, protocol-relative `//host/x` — path-like, but it
+ * resolves off-site — and the home path, since the trailing-slash strip
+ * collapses `"/"` to `""`; the platform always emits home itself, so a store
+ * restating it can only be noise). It is also rejected when it carries a query,
+ * a hash, whitespace or a control character (on-site but not a valid URL), or
+ * one of the characters that is illegal as raw XML text. That last class is
+ * load-bearing: Next 16.3 interpolates the url into `<loc>` with NO escaping
+ * (`next/dist/build/webpack/loaders/metadata/resolve-route-data.js`), so this
+ * validator is the only defense, and a single `&` in one store path makes every
+ * crawler reject the WHOLE document, not just that entry. It is rejected rather
+ * than escaped because this is a shape validator, not a transformer — silently
+ * rewriting a store-authored path is a change the store cannot see. The
+ * platform's own routes are literal ASCII slugs, so they are unaffected.
+ *
+ * An entry is rejected outright when `changeFrequency` is not one of the
+ * protocol's values, and when `priority` is not a finite number: a non-finite
+ * priority has no nearest in-range value to clamp toward, so it is dropped
+ * rather than repaired. Trailing slashes are normalised away and a FINITE
+ * `priority` is clamped to 0.0–1.0, because both are typos rather than intent.
+ */
+function normaliseStoreSitemapRoutes(
+  routes: readonly StoreSitemapRoute[],
+): StaticSitemapRoute[] {
+  if (!Array.isArray(routes)) return [];
+  const out: StaticSitemapRoute[] = [];
+  for (const route of routes) {
+    if (typeof route?.path !== "string") continue;
+    const path = route.path.replace(/\/+$/, "");
+    if (!path.startsWith("/") || path.startsWith("//")) continue;
+    if (/[?#&<>\s\u0000-\u001f\u007f]/.test(path)) continue;
+    if (!isSitemapChangeFrequency(route.changeFrequency)) continue;
+    if (!Number.isFinite(route.priority)) continue;
+    out.push({
+      path,
+      changeFrequency: route.changeFrequency,
+      priority: Math.min(1, Math.max(0, route.priority)),
+    });
+  }
+  return out;
+}
+
 /**
  * The storefront routes the sitemap always emits itself, in emitted order.
  *
@@ -300,13 +388,22 @@ const MAX_PAGE_CANDIDATES = 40;
  * that is already covered here only for the final dedupe to drop the duplicate.
  * `/contact` and `/faq` are CMS pages AND hardcoded routes, and they are
  * exactly the links a footer menu carries, so the waste was the common case.
+ *
+ * The store's own landing pages (`sitemap.config.ts`) are appended HERE, to
+ * that same one list, rather than at either call site. That is the whole point
+ * of the extension point: feed only the emitting section and a store route that
+ * is also a CMS page emits twice; feed only the probe-skip set and it never
+ * appears at all. Appending once makes both consumers correct by construction,
+ * and keeps a store from ever needing to edit this file.
+ *
+ * Platform routes win a collision — a store restating `/sale` gets the
+ * platform's entry, not a second one — and duplicates within the store's own
+ * list collapse to the first occurrence.
  */
-function staticSitemapRoutes(postsIndex: string): readonly {
-  path: string;
-  changeFrequency: NonNullable<SitemapItem["changeFrequency"]>;
-  priority: number;
-}[] {
-  return [
+function staticSitemapRoutes(
+  postsIndex: string,
+): readonly StaticSitemapRoute[] {
+  const platform: StaticSitemapRoute[] = [
     { path: "", changeFrequency: "daily", priority: 1 },
     { path: "/shop", changeFrequency: "daily", priority: 0.8 },
     { path: "/brand", changeFrequency: "weekly", priority: 0.7 },
@@ -319,6 +416,15 @@ function staticSitemapRoutes(postsIndex: string): readonly {
     { path: "/featured", changeFrequency: "daily", priority: 0.7 },
     { path: "/search", changeFrequency: "daily", priority: 0.5 },
   ];
+
+  const claimed = new Set(platform.map((route) => route.path));
+  const store: StaticSitemapRoute[] = [];
+  for (const route of normaliseStoreSitemapRoutes(storeSitemapRoutes)) {
+    if (claimed.has(route.path)) continue;
+    claimed.add(route.path);
+    store.push(route);
+  }
+  return store.length > 0 ? [...platform, ...store] : platform;
 }
 
 /** Site-relative path with query, hash and trailing slash removed, or null. */

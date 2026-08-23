@@ -78,6 +78,11 @@ See [`overrides/README.md`](./overrides/README.md) for CSS hook classes. Agents 
 - **Dynamic sitemap** — Products, collections, brands, posts, projects, and WordPress
   content pages in `app/sitemap.ts` (pages are discovered from the navigation menus, so a
   published page linked from no menu is not listed — see the `makePageSitemap` docblock)
+- **Store-owned sitemap routes** — a landing page you add under `app/` is a storefront
+  route, not CMS content, so no section discovers it. Declare it in `sitemap.config.ts`
+  (shipped empty, so a store that adds nothing needs no edit) instead of editing the
+  shared `app/sitemap.ts`; that file documents the entry shape, what is rejected, and why
+  these routes are the one section never existence-probed
 - **robots.txt** — `app/robots.ts` with allow/disallow rules for account, checkout, API, search
 - **Indexing switch** — the dashboard “show on search engines” setting drives both
   `app/robots.ts` and the `robots` meta tag; the root layout owns that tag and routes
