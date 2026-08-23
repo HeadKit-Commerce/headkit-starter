@@ -2,6 +2,7 @@ import type { ProductSummaryFieldsFragment } from "@headkit/sdk";
 import type { ItemList, WithContext } from "schema-dts";
 import { decodeHtmlEntities } from "@/lib/utils";
 import { safeJsonLdStringify } from "./safe-json-ld";
+import { resolveJsonLdSiteUrl } from "./site-origin";
 
 /** Minimal product fields required for ItemList / Product carousel JSON-LD. */
 type CarouselProduct = Pick<
@@ -14,16 +15,16 @@ type CarouselProduct = Pick<
 interface CarouselProductJsonLDProps {
   products: CarouselProduct[];
   currency?: string | null;
+  /** Origin override; omit to resolve the runtime store domain. */
+  siteUrl?: string | null;
 }
 
-export function CarouselProductJsonLD({
+export async function CarouselProductJsonLD({
   products,
   currency = "AUD",
+  siteUrl,
 }: CarouselProductJsonLDProps) {
-  const siteUrl = (process.env.NEXT_PUBLIC_FRONTEND_URL ?? "").replace(
-    /\/$/,
-    "",
-  );
+  const origin = await resolveJsonLdSiteUrl(siteUrl);
 
   const jsonLd: WithContext<ItemList> = {
     "@context": "https://schema.org",
@@ -44,7 +45,7 @@ export function CarouselProductJsonLD({
               : "https://schema.org/InStock",
           priceCurrency: currency ?? "AUD",
         },
-        url: `${siteUrl}/products/${product.slug}`,
+        url: `${origin}/products/${product.slug}`,
       },
     })),
   };

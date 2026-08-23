@@ -1,6 +1,7 @@
 import type { BreadcrumbList, ListItem, WithContext } from "schema-dts";
 import { decodeHtmlEntities } from "@/lib/utils";
 import { safeJsonLdStringify } from "./safe-json-ld";
+import { resolveJsonLdSiteUrl } from "./site-origin";
 
 export interface BreadcrumbItem {
   name: string;
@@ -9,25 +10,28 @@ export interface BreadcrumbItem {
 
 interface BreadcrumbJsonLDProps {
   items: BreadcrumbItem[];
+  /** Origin override; omit to resolve the runtime store domain. */
+  siteUrl?: string | null;
 }
-
-const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 
 /** Prefer absolute URLs for schema.org BreadcrumbList `item` values. */
-function absoluteUrl(href?: string): string | undefined {
+function absoluteUrl(siteUrl: string, href?: string): string | undefined {
   if (!href) return undefined;
   if (href.startsWith("http://") || href.startsWith("https://")) return href;
-  if (!SITE_URL) return href;
-  const base = SITE_URL.replace(/\/$/, "");
-  return href.startsWith("/") ? `${base}${href}` : `${base}/${href}`;
+  if (!siteUrl) return href;
+  return href.startsWith("/") ? `${siteUrl}${href}` : `${siteUrl}/${href}`;
 }
 
-export function BreadcrumbJsonLD({ items }: BreadcrumbJsonLDProps) {
+export async function BreadcrumbJsonLD({
+  items,
+  siteUrl,
+}: BreadcrumbJsonLDProps) {
+  const origin = await resolveJsonLdSiteUrl(siteUrl);
   const jsonLd: WithContext<BreadcrumbList> = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: items.map((item, index) => {
-      const url = absoluteUrl(item.href);
+      const url = absoluteUrl(origin, item.href);
       return {
         "@type": "ListItem",
         position: index + 1,

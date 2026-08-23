@@ -1,6 +1,7 @@
 import type { ProductFieldsFragment } from "@headkit/sdk";
 import { decodeHtmlEntities } from "@/lib/utils";
 import { safeJsonLdStringify } from "./safe-json-ld";
+import { resolveJsonLdSiteUrl } from "./site-origin";
 
 type JsonLdVariation = ProductFieldsFragment["variations"][number];
 
@@ -11,6 +12,8 @@ interface ProductJsonLDProps {
   currency?: string | null;
   url?: string;
   brandName?: string;
+  /** Origin override; omit to resolve the runtime store domain. */
+  siteUrl?: string | null;
 }
 
 const ATTR_SLUG_TO_SCHEMA_URI: Record<string, string> = {
@@ -91,14 +94,15 @@ function buildVariantProduct(
   };
 }
 
-export function ProductJsonLD({
+export async function ProductJsonLD({
   product,
   currency = "AUD",
   url,
   brandName,
+  siteUrl,
 }: ProductJsonLDProps) {
-  const siteUrl = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
-  const productUrl = url ?? `${siteUrl}/products/${product.slug}`;
+  const origin = await resolveJsonLdSiteUrl(siteUrl);
+  const productUrl = url ?? `${origin}/products/${product.slug}`;
   const resolvedCurrency = currency ?? "AUD";
   const description = product.seo?.metaDesc ?? product.shortDescription;
   const images = collectImages(product);

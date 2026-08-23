@@ -118,6 +118,12 @@ bun run dev --filter=starter
 for canonicals, `metadataBase`, the sitemap, robots.txt and the RSS feed — the dashboard
 store domain wins at runtime. `lib/site-url.ts` owns that precedence and why.
 
+This holds for every SEO surface, including the shared JSON-LD components in
+`components/seo/` — they resolve the runtime origin themselves rather than taking it as a
+prop, so no route can emit a second host inside a page. A route whose canonical needs the
+runtime domain must use `generateMetadata`; a static `export const metadata` object cannot
+read it.
+
 ## Routes
 
 | Route                        | Description                                           |
