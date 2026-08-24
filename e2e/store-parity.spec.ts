@@ -594,11 +594,14 @@ function countProductCardLinks(hrefs: readonly string[]): number {
     }
     const segments = pathname.split("/").filter(Boolean);
     const first = segments[0];
-    // Flat shape `/products/{slug}` (what V2's ProductCard emits, via
-    // `productUrl()` in lib/convert-uri.ts) OR the preserved nested shape
-    // `/shop/{cat}[/{sub}]/{slug}` (what the source capture counted). Both are
-    // product-detail links; counting only the source's shape would report zero
-    // cards on every V2 page and fail for a reason that is not a defect.
+    // Either PDP shape: the nested `/shop/{cat}[/{sub}]/{slug}` (what the
+    // source capture counted, and what V2's ProductCard now emits via
+    // `productPath` in lib/canonical-path.ts) or the flat `/products/{slug}`,
+    // which 308s onto it and stays canonical on a store using WooCommerce's
+    // default `/product/` permalink base. Both are product-detail links, and
+    // this count is deliberately shape-agnostic — which URL shape wins is
+    // asserted by `app/canonical-url-shape.test.tsx` and
+    // `e2e/canonical-url-308.spec.ts`, not by a card count.
     if (first === "products" && segments.length >= 2) paths.add(pathname);
     if (first === "shop" && segments.length >= 3) paths.add(pathname);
   }

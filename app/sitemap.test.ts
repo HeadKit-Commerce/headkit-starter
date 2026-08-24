@@ -70,7 +70,8 @@ vi.mock("@/lib/sdk", () => ({
 }));
 
 import { KNOWN_MENU_LOCATIONS } from "@/lib/cache-tags";
-import sitemap, { toSitemapPath } from "./sitemap";
+import sitemap from "./sitemap";
+import { uriToRelativePath } from "./shop/shop-slug";
 
 function product(
   slug: string,
@@ -149,17 +150,22 @@ describe("sitemap Cache Components contract", () => {
   });
 });
 
-describe("toSitemapPath", () => {
+// The sitemap re-roots every product permalink under the storefront origin
+// via `uriToRelativePath`; these cases pin that normalisation, which is what
+// keeps an off-site entry (T-15.1-07-02) impossible by construction.
+describe("product permalink normalisation (uriToRelativePath)", () => {
   it("returns a site-relative permalink unchanged", () => {
     expect(
-      toSitemapPath("/shop/clothing/blue-hoodie/"),
+      uriToRelativePath("/shop/clothing/blue-hoodie/"),
       "a permalink that is already relative needs no normalisation",
     ).toBe("/shop/clothing/blue-hoodie/");
   });
 
   it("strips the origin of an absolute permalink", () => {
     expect(
-      toSitemapPath("https://commerce.example.com/shop/clothing/blue-hoodie/"),
+      uriToRelativePath(
+        "https://commerce.example.com/shop/clothing/blue-hoodie/",
+      ),
       "the WordPress origin must not survive into the sitemap — every entry is re-rooted under the storefront's own site url",
     ).toBe("/shop/clothing/blue-hoodie/");
   });
@@ -170,7 +176,7 @@ describe("toSitemapPath", () => {
     // a URL beneath SITE_URL. An origin-EQUALITY test would instead have
     // rejected every product in every headless store, because WordPress runs
     // on a different host from the storefront by design.
-    const path = toSitemapPath("https://attacker.example/shop/x");
+    const path = uriToRelativePath("https://attacker.example/shop/x");
     expect(
       path,
       "a foreign origin must be discarded, not propagated — an off-site sitemap entry is worse than a missing one",
@@ -183,15 +189,15 @@ describe("toSitemapPath", () => {
 
   it("rejects a protocol-relative permalink outright", () => {
     expect(
-      toSitemapPath("//attacker.example/shop/x"),
+      uriToRelativePath("//attacker.example/shop/x"),
       "a protocol-relative permalink is path-like but resolves off-site when joined to a base url — it must yield null",
     ).toBeNull();
   });
 
   it("returns null for empty or unparseable input", () => {
-    expect(toSitemapPath(""), "empty permalink yields no path").toBeNull();
+    expect(uriToRelativePath(""), "empty permalink yields no path").toBeNull();
     expect(
-      toSitemapPath("javascript:alert(1)"),
+      uriToRelativePath("javascript:alert(1)"),
       "a non-http scheme yields no path",
     ).toBeNull();
   });
@@ -266,7 +272,7 @@ describe("makeProductSitemap", () => {
     ).toEqual([`${SITE_URL}/products/off-base`, `${SITE_URL}/products/no-uri`]);
   });
 
-  it("emits tier-one colourway URLs beneath the served flat product path", async () => {
+  it("emits tier-one colourway URLs beneath the product's canonical path", async () => {
     productsList.mockResolvedValue({
       products: [
         product(
@@ -282,11 +288,11 @@ describe("makeProductSitemap", () => {
 
     expect(
       urls,
-      "colourways stay beneath /products/{slug}, which serves them; the shop catch-all does not classify a colour segment, so nesting them there would advertise 404s. Duplicate colour slugs stay de-duplicated.",
+      "a colourway is one segment on whichever base won, so a nested product's colourways are nested too — advertising /products/{slug}/{colour} would point the sitemap at URLs the storefront redirects. Duplicate colour slugs stay de-duplicated.",
     ).toEqual([
       `${SITE_URL}/shop/clothing/blue-hoodie`,
-      `${SITE_URL}/products/blue-hoodie/red`,
-      `${SITE_URL}/products/blue-hoodie/blue`,
+      `${SITE_URL}/shop/clothing/blue-hoodie/red`,
+      `${SITE_URL}/shop/clothing/blue-hoodie/blue`,
     ]);
   });
 

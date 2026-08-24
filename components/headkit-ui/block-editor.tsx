@@ -16,6 +16,7 @@ import type {
   HeroCarouselItem,
 } from "@headkit/sdk";
 import { getBranding } from "@/lib/branding";
+import { collectionPathResolver } from "@/lib/collection-path";
 import {
   filterCategoriesByNonEmptySlugs,
   getNonEmptyCollectionSlugs,
@@ -161,6 +162,26 @@ const BlockEditor = async ({
   const nonEmptySlugs = branding.hideEmptyCollections
     ? await getNonEmptyCollectionSlugs()
     : null;
+  // Handpicked category blocks carry a slug and no ancestry, so the canonical
+  // nested path is resolved from the category tree (one cached read).
+  //
+  // GATED on a category block actually being present, the same `.some(...)`
+  // shape `needsEditorialCss` uses above, and for a sharper reason than the
+  // round trip it saves. `collectionPathIndex` carries `cacheTag(TAG.collections)`,
+  // and Next propagates a nested entry's tags outward — so resolving
+  // unconditionally would subscribe EVERY surface that renders a `BlockEditor`
+  // (every CMS page, `/contact`, every news post) to the tag WordPress fires on
+  // any product or category change, where those routes previously subscribed
+  // only to `TAG.page(slug)` / `TAG.pages` / `TAG.posts`. Widening a purge's
+  // blast radius that way is a known hazard here — see `lib/cache-tags.ts`
+  // ("NEVER a route/page tag (Bike Society incident)") and `app/sitemap.ts`
+  // ("each extra tag widens the purge blast radius").
+  const hasCategoryBlock = (result ?? []).some((data) =>
+    data.cssClasses.includes("headkit-category-carousel"),
+  );
+  const collectionPath = hasCategoryBlock
+    ? await collectionPathResolver()
+    : null;
 
   return (
     <>
@@ -188,8 +209,11 @@ const BlockEditor = async ({
                     categories={categories.map((c) => ({
                       name: c.name,
                       slug: c.slug,
-                      // Storefront catch-all — never absolute WP permalinks.
-                      uri: `/collections/${c.slug}`,
+                      // Storefront catch-all — never absolute WP permalinks —
+                      // and the category's CANONICAL path, so a handpicked
+                      // subcategory tile does not link the flat shape the
+                      // collection route 308s away from.
+                      uri: collectionPath?.(c.slug) ?? "",
                       thumbnail: c.thumbnail ?? "",
                     }))}
                   />

@@ -113,6 +113,28 @@ export function CartItemRow({
   const displayName = decodeHtmlEntities(item.name);
   const imageSrc = item.images[0]?.src ?? "/assets/HeadKit-Fallback.png";
   const imageAlt = decodeHtmlEntities(item.images[0]?.alt ?? item.name);
+  // The cart fragment selects a slug and no permalink, so this is one of the
+  // two storefront surfaces that cannot build the canonical `/shop/{cat…}/{slug}`
+  // path (`lib/canonical-path.ts`) — it 308s on click instead.
+  //
+  // What keeps that out of the consolidation is NOT robots.txt: there is no
+  // `/cart` route and no `/cart` disallow rule at all (the cart is a drawer
+  // rendered inside the layout on every page), and the sibling surface `/quote`
+  // is a real, crawlable, non-disallowed route.
+  //
+  // Two separate mechanisms actually do it. For BOTH surfaces: an anonymous
+  // crawler carries no cart session, so the cart is empty and no item — and so
+  // no href — is ever emitted. For this DRAWER additionally:
+  // `lazy-cart-drawer.tsx` loads it via `dynamic(..., { ssr: false })`, so it
+  // never server-renders under any circumstances. The quote summary has only
+  // the first mechanism — `app/quote/page.tsx` is a server component that DOES
+  // server-render a populated cart, short-circuiting to `<QuoteEmpty />` only
+  // when the cart is empty.
+  //
+  // So anything that server-renders a POPULATED cart or quote summary puts
+  // `/products/<slug>` links into crawlable HTML and must switch to
+  // `productPath` first. Closing the gap properly means adding `permalink` to
+  // the cart items selection, which is an SDK/schema change.
   const productHref = item.slug ? `/products/${item.slug}` : null;
 
   return (

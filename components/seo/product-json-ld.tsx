@@ -1,5 +1,6 @@
 import type { ProductFieldsFragment } from "@headkit/sdk";
 import { decodeHtmlEntities } from "@/lib/utils";
+import { productPath } from "@/lib/canonical-path";
 import { safeJsonLdStringify } from "./safe-json-ld";
 import { resolveJsonLdSiteUrl } from "./site-origin";
 
@@ -102,7 +103,29 @@ export async function ProductJsonLD({
   siteUrl,
 }: ProductJsonLDProps) {
   const origin = await resolveJsonLdSiteUrl(siteUrl);
-  const productUrl = url ?? `${origin}/products/${product.slug}`;
+  // `url`/`offers.url` must name the SAME string as the canonical tag and the
+  // sitemap entry. Resolved from the product itself rather than synthesised as
+  // `/products/{slug}`, which is the shape that now 308s away — a JSON-LD `url`
+  // pointing at a redirect is the split this consolidation closes.
+  //
+  // The `url` prop MUST be the product's BASE path, never a colourway path.
+  // `buildVariantUrl` derives every `hasVariant[].offers.url` by APPENDING a
+  // colour segment to whatever is passed here, so a colourway path
+  // double-appends: `/shop/{cat…}/{slug}/red` becomes `.../red/blue`.
+  //
+  // Nothing in the classifier rejects that shape. `resolveShopPath` reads a
+  // remainder that long as a product under an unvalidated ancestry chain and
+  // hands the route two candidate slugs — here `blue`, then `red` — so the URL
+  // 404s only because the CATALOGUE has neither. A store that happens to sell a
+  // product whose slug matches a colour would serve 200 on the doubled URL
+  // instead, which is a duplicate rather than a hard error but is not what
+  // anyone intends either. The rule is therefore the guard, not the classifier.
+  // `app/canonical-url-shape.test.tsx` puts every emitted `/shop/…` path
+  // through the same classifier AND the same catalogue check the route uses.
+  //
+  // The colourway's own `<link rel="canonical">` is emitted separately by the
+  // PDP's `generateMetadata` and is unaffected by this.
+  const productUrl = url ?? `${origin}${productPath(product)}`;
   const resolvedCurrency = currency ?? "AUD";
   const description = product.seo?.metaDesc ?? product.shortDescription;
   const images = collectImages(product);

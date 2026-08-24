@@ -124,6 +124,7 @@ export default function Page({ searchParams }: Props) {
           { name: "Home", uri: "/", current: false },
           { name: "Featured Products", uri: "/featured", current: true },
         ]}
+        childBasePath="/collections"
       />
       {/* Dynamic grid — Instant Navigation shell streams results under Suspense. */}
       <Suspense fallback={<CollectionProductsSkeleton />}>

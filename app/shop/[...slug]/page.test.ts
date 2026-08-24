@@ -1,15 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { Metadata } from "next";
 
 /**
  * Nested shop PDP route — D-15-04 / RESEARCH C-6.
  *
- * These cases pin the two properties a green build cannot prove:
+ * These cases pin the properties a green build cannot prove:
  *  - `generateStaticParams` emits REAL nested params derived from each
  *    product's own permalink (asserted by count and by value, never by
  *    "not empty" — the placeholder alone would satisfy non-emptiness), and
  *    still degrades to exactly one placeholder when the catalogue read throws
- *  - the canonical for a nested URL is the NESTED path, and a category URL
- *    under /shop does not acquire a product canonical (C-6)
+ *  - a product's canonical is derived from the PRODUCT, not from the chain the
+ *    request used, so a product filed in two categories has exactly one
+ *  - a category URL under /shop does not acquire a product canonical (C-6);
+ *    since the 2026-08-22 URL decision it canonicalises onto `/collections/…`,
+ *    the one shape `app/sitemap.ts` advertises for a category
  */
 
 const { SITE_URL, bailout } = vi.hoisted(() => {
@@ -80,11 +84,47 @@ vi.mock("@/lib/make-metadata", async () => ({
     `${domain ? `https://${domain}` : SITE_URL}${path}`,
 }));
 
-// The route delegates rendering to the flat PDP and the collection view; the
-// delegation targets are irrelevant to params/metadata and are stubbed out.
-vi.mock("@/app/products/[...slug]/page", () => ({
+// The route delegates BOTH rendering and product metadata to the flat PDP, so
+// only the render half is stubbed. Keeping the real `generateMetadata` is the
+// point: a stub would make these cases assert the stub rather than the
+// canonical the storefront actually emits.
+vi.mock("@/app/products/[...slug]/page", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   ProductPageContent: (): null => null,
 }));
+
+// Pulled in by the flat PDP module: a Zod env parse at module scope that
+// throws under Vitest, plus presentation-only children.
+vi.mock("@/lib/stripe-config", () => ({
+  getStripeConfig: (): Promise<unknown> =>
+    Promise.resolve({
+      publishableKey: "",
+      accountId: "",
+      bnplMessagingEnabled: false,
+    }),
+}));
+vi.mock("@/components/headkit-ui/product-detail", () => ({
+  ProductDetail: (): null => null,
+}));
+vi.mock("@/components/headkit-ui/product-stock", () => ({
+  ProductStock: (): null => null,
+}));
+vi.mock("@/components/headkit-ui/product-carousel", () => ({
+  ProductCarousel: (): null => null,
+}));
+vi.mock("@/components/headkit-ui/project/project-carousel", () => ({
+  ProjectCarousel: (): null => null,
+}));
+vi.mock("@/components/headkit-ui/section-header", () => ({
+  SectionHeader: (): null => null,
+}));
+vi.mock("@/components/seo/product-json-ld", () => ({
+  ProductJsonLD: (): null => null,
+}));
+vi.mock("@/components/seo/breadcrumb-json-ld", () => ({
+  BreadcrumbJsonLD: (): null => null,
+}));
+vi.mock("@/components/ui/skeleton", () => ({ Skeleton: (): null => null }));
 vi.mock("@/app/products/[...slug]/product-page-shell", () => ({
   ProductPageShell: (): null => null,
 }));
@@ -202,15 +242,36 @@ describe("generateStaticParams", () => {
   });
 });
 
+/** A product whose WooCommerce permalink files it under clothing/hoodies. */
+/**
+ * A product whose permalink runs through ancestry the truncated tree does not
+ * contain (`outerwear` is absent, `jackets` promoted to a root).
+ */
+function parkaProduct(): Record<string, unknown> {
+  return {
+    name: "Parka",
+    slug: "parka",
+    uri: "https://commerce.example.com/shop/outerwear/jackets/parka/",
+    shortDescription: "",
+    description: "",
+    seo: null,
+  };
+}
+
+function nestedProduct(): Record<string, unknown> {
+  return {
+    name: "Blue Hoodie",
+    slug: "blue-hoodie",
+    uri: "https://commerce.example.com/shop/clothing/hoodies/blue-hoodie/",
+    shortDescription: "",
+    description: "",
+    seo: null,
+  };
+}
+
 describe("generateMetadata", () => {
   it("canonicalises a nested product URL to the NESTED path", async () => {
-    cachedProduct.mockResolvedValue({
-      name: "Blue Hoodie",
-      slug: "blue-hoodie",
-      shortDescription: "",
-      description: "",
-      seo: null,
-    });
+    cachedProduct.mockResolvedValue(nestedProduct());
 
     const meta = await generateMetadata({
       params: Promise.resolve({ slug: ["clothing", "hoodies", "blue-hoodie"] }),
@@ -218,8 +279,84 @@ describe("generateMetadata", () => {
 
     expect(
       (meta.alternates as { canonical?: string } | undefined)?.canonical,
-      "the canonical must be self-referential to the nested URL — pointing it at the flat /products path re-creates the very consolidation D-15-04 refuses",
+      "the canonical must name the nested URL — pointing it at the flat /products path re-creates the very consolidation D-15-04 refuses",
     ).toBe(`${SITE_URL}/shop/clothing/hoodies/blue-hoodie`);
+  });
+
+  it("gives a product in two categories ONE canonical, whichever chain was entered", async () => {
+    // The product is reachable under both chains; only the chain inside its own
+    // permalink is canonical. Deriving the canonical from the REQUESTED path
+    // would make each reachable chain declare itself an original — the same
+    // duplicate split this consolidation closes, in a new shape.
+    cachedProduct.mockResolvedValue(nestedProduct());
+
+    const viaOwnChain = await generateMetadata({
+      params: Promise.resolve({ slug: ["clothing", "hoodies", "blue-hoodie"] }),
+    });
+    const viaOtherChain = await generateMetadata({
+      params: Promise.resolve({ slug: ["accessories", "blue-hoodie"] }),
+    });
+
+    const canonical = (m: Metadata): string | undefined =>
+      (m.alternates as { canonical?: string } | undefined)?.canonical;
+
+    expect(canonical(viaOwnChain)).toBe(
+      `${SITE_URL}/shop/clothing/hoodies/blue-hoodie`,
+    );
+    expect(
+      canonical(viaOtherChain),
+      "the second entry point must consolidate onto the first, not canonicalise itself",
+    ).toBe(canonical(viaOwnChain));
+  });
+
+  it("canonicalises a colourway URL beneath the product's own nested path", async () => {
+    // A colourway must be a REAL variation option: the delegated metadata
+    // noindexes an unknown colour segment rather than canonicalising a URL the
+    // store has no page for.
+    cachedProduct.mockResolvedValue({
+      ...nestedProduct(),
+      type: "variable",
+      attributes: [
+        {
+          slug: "pa_color",
+          variation: true,
+          fullOptions: [{ name: "Red", slug: "red" }],
+        },
+      ],
+      variations: [
+        { attributes: [{ key: "pa_color", value: "red" }], image: { src: "" } },
+      ],
+      image: { src: "" },
+    });
+
+    const meta = await generateMetadata({
+      params: Promise.resolve({
+        slug: ["clothing", "hoodies", "blue-hoodie", "red"],
+      }),
+    });
+
+    expect(
+      (meta.alternates as { canonical?: string } | undefined)?.canonical,
+      "a colourway is one segment on the canonical base — leaving it on /products would strand it under a path that 308s",
+    ).toBe(`${SITE_URL}/shop/clothing/hoodies/blue-hoodie/red`);
+  });
+
+  it("keeps a product with no shop permalink on the flat path", async () => {
+    // A store on WooCommerce's default `/product/` permalink base has no nested
+    // route here. Its canonical is the flat path, which serves and does not
+    // redirect — the no-ancestry case must stay reachable and self-consistent.
+    cachedProduct.mockResolvedValue({
+      ...nestedProduct(),
+      uri: "https://commerce.example.com/product/blue-hoodie/",
+    });
+
+    const meta = await generateMetadata({
+      params: Promise.resolve({ slug: ["blue-hoodie"] }),
+    });
+
+    expect(
+      (meta.alternates as { canonical?: string } | undefined)?.canonical,
+    ).toBe(`${SITE_URL}/products/blue-hoodie`);
   });
 
   it("builds the canonical from the runtime store domain, not the baked env", async () => {
@@ -228,13 +365,7 @@ describe("generateMetadata", () => {
     // the storefront's largest URL class at a host the sitemap never
     // advertises whenever a custom domain is attached without a redeploy.
     storeDomain.mockReturnValue("customer.com");
-    cachedProduct.mockResolvedValue({
-      name: "Blue Hoodie",
-      slug: "blue-hoodie",
-      shortDescription: "",
-      description: "",
-      seo: null,
-    });
+    cachedProduct.mockResolvedValue(nestedProduct());
 
     const meta = await generateMetadata({
       params: Promise.resolve({ slug: ["clothing", "hoodies", "blue-hoodie"] }),
@@ -245,12 +376,13 @@ describe("generateMetadata", () => {
     ).toBe("https://customer.com/shop/clothing/hoodies/blue-hoodie");
   });
 
-  it("canonicalises a category URL to its own nested path and never to a product", async () => {
+  it("canonicalises a category URL to its COLLECTIONS path and never to a product", async () => {
     getCategory.mockResolvedValue({
       name: "Hoodies",
       slug: "hoodies",
       description: "",
       seo: null,
+      ancestors: [{ name: "Clothing", slug: "clothing" }],
     });
 
     const meta = await generateMetadata({
@@ -262,11 +394,11 @@ describe("generateMetadata", () => {
 
     expect(
       canonical,
-      "RESEARCH C-6: a category URL under /shop must resolve as a category, not be treated as a product slug",
-    ).toBe(`${SITE_URL}/shop/clothing/hoodies`);
+      "a category archive's one canonical is its /collections path — the shape app/sitemap.ts advertises and the collection view links its facets under. Naming this /shop URL instead leaves a category with two self-declared originals",
+    ).toBe(`${SITE_URL}/collections/clothing/hoodies`);
     expect(
       cachedProduct,
-      "a category path must never trigger a product lookup — that lookup returning null is what produced the 308-into-404",
+      "RESEARCH C-6: a category path must never trigger a product lookup — that lookup returning null is what produced the 308-into-404",
     ).not.toHaveBeenCalled();
   });
 
@@ -310,18 +442,222 @@ describe("generateMetadata", () => {
     ).rejects.toThrow();
   });
 
-  it("returns noindex for a path that cannot be resolved", async () => {
+  it("returns noindex for a path that resolves to no product", async () => {
+    // Two segments off an empty chain are read as product + colourway (see
+    // shop-slug.test.ts); the product lookup is what rejects garbage. The
+    // page a crawler gets is the same noindex/not-found either way.
+    cachedProduct.mockResolvedValue(null);
+
     const meta = await generateMetadata({
       params: Promise.resolve({ slug: ["not-a-category", "blue-hoodie"] }),
     });
 
     expect(
       meta.robots,
-      "an undecidable path must be noindex rather than guessed into a product",
+      "a path that names no product must be noindex, never a canonical for a page that does not exist",
+    ).toEqual({ index: false, follow: false });
+  });
+
+  it("canonicalises a product whose ancestry was PROMOTED OUT of the category tree", async () => {
+    // The promoted-orphan shape (`260822-commerce-category-list-orphan-promotion`):
+    // commerce builds the forest from WooCommerce's un-paginated,
+    // `hide_empty=true` category list, so `jackets` here is a ROOT with no
+    // ancestors while WordPress still mints the permalink through `outerwear`.
+    // Every signal names `/shop/outerwear/jackets/parka` — canonical, sitemap,
+    // generateStaticParams, and the 308 from `/products/parka`. Refusing to
+    // resolve it left the product with NO working address at all.
+    getCategories.mockResolvedValue([
+      ...TREE,
+      { slug: "jackets", children: [] },
+    ]);
+    cachedProduct.mockImplementation((slug: string) =>
+      Promise.resolve(slug === "parka" ? parkaProduct() : null),
+    );
+
+    const meta = await generateMetadata({
+      params: Promise.resolve({ slug: ["outerwear", "jackets", "parka"] }),
+    });
+
+    expect(
+      (meta.alternates as { canonical?: string } | undefined)?.canonical,
+      "a permalink whose ancestry is missing from the truncated tree must still resolve — the flat URL now 308s onto this one, so 404ing it leaves the product unreachable",
+    ).toBe(`${SITE_URL}/shop/outerwear/jackets/parka`);
+  });
+
+  it("canonicalises the COLOURWAY of a promoted-orphan product too", async () => {
+    // Same truncated tree, one segment longer. `productPath(product, colour)`
+    // appends the colour to the same unresolvable ancestry, so this shape is
+    // every swatch href, every `hasVariant[].offers.url`, and the 308 target of
+    // `/products/parka/red`. Reading only the LAST segment made `red` the
+    // product slug, the lookup missed, and a URL that used to serve 200 began
+    // redirecting permanently onto a 404 — the identical failure the base-PDP
+    // containment closed, one segment along.
+    getCategories.mockResolvedValue([
+      ...TREE,
+      { slug: "jackets", children: [] },
+    ]);
+    // Only `parka` is a product. `red` is a colour, so the FIRST candidate
+    // misses and the second must be tried — a mock that answered every slug
+    // would hide exactly the bug this pins.
+    cachedProduct.mockImplementation((slug: string) =>
+      Promise.resolve(
+        slug === "parka"
+          ? {
+              ...parkaProduct(),
+              type: "variable",
+              attributes: [
+                {
+                  slug: "pa_color",
+                  variation: true,
+                  fullOptions: [{ name: "Red", slug: "red" }],
+                },
+              ],
+              variations: [
+                {
+                  attributes: [{ key: "pa_color", value: "red" }],
+                  image: { src: "" },
+                },
+              ],
+              image: { src: "" },
+            }
+          : null,
+      ),
+    );
+
+    const meta = await generateMetadata({
+      params: Promise.resolve({
+        slug: ["outerwear", "jackets", "parka", "red"],
+      }),
+    });
+
+    expect(
+      (meta.alternates as { canonical?: string } | undefined)?.canonical,
+      "the colourway of a promoted-orphan product must resolve — the catalogue is what separates the colour segment from the product slug, and without the second candidate every colourway URL on such a store 404s",
+    ).toBe(`${SITE_URL}/shop/outerwear/jackets/parka/red`);
+  });
+
+  it("returns noindex when the slug a long path resolves to is no product", async () => {
+    // The classifier degrades rather than refusing, so the CATALOGUE LOOKUP is
+    // what rejects garbage — the same separation that guards a two-segment
+    // remainder. `c` is not a product, so the page is noindex/not-found.
+    cachedProduct.mockResolvedValue(null);
+
+    const meta = await generateMetadata({
+      params: Promise.resolve({ slug: ["clothing", "a", "b", "c"] }),
+    });
+
+    expect(
+      meta.robots,
+      "a path naming no product must be noindex, never a canonical for a page that does not exist",
     ).toEqual({ index: false, follow: false });
     expect(
+      cachedProduct.mock.calls.flat().slice(0, 2),
+      "the lookup is what separates a real slug from garbage, so BOTH candidate readings must actually be tried — base PDP first, then product + colourway — before the route gives up",
+    ).toEqual(["c", "b"]);
+  });
+
+  it("REFUSES a junk prefix in front of a real product slug", async () => {
+    // Regression, and not confined to truncated-tree stores: this URL space is
+    // unbounded, so serving it 200 is the opposite of what the canonical
+    // decision protects. `blue-hoodie` IS a product, so slug existence alone
+    // accepts it — the permalink comparison is what rejects it.
+    cachedProduct.mockImplementation((slug: string) =>
+      Promise.resolve(slug === "blue-hoodie" ? nestedProduct() : null),
+    );
+
+    const meta = await generateMetadata({
+      params: Promise.resolve({
+        slug: ["anything", "anything", "blue-hoodie"],
+      }),
+    });
+
+    expect(
+      meta.robots,
+      "the product's own permalink is /shop/clothing/hoodies/blue-hoodie, which is not what was requested, so this path names no page and must never render one",
+    ).toEqual({ index: false, follow: false });
+  });
+
+  it("REFUSES a colourway path whose colour segment is itself a product slug", async () => {
+    // A store selling a product slugged `red` used to be served AT the colourway
+    // URL of a different product, because the first candidate reading only had
+    // to exist. The permalink comparison makes the choice exact instead.
+    getCategories.mockResolvedValue([
+      ...TREE,
+      { slug: "jackets", children: [] },
+    ]);
+    cachedProduct.mockImplementation((slug: string) =>
+      Promise.resolve(
+        slug === "red"
+          ? {
+              ...nestedProduct(),
+              name: "Red",
+              slug: "red",
+              uri: "https://commerce.example.com/shop/clothing/tees/red/",
+            }
+          : null,
+      ),
+    );
+
+    const meta = await generateMetadata({
+      params: Promise.resolve({
+        slug: ["outerwear", "jackets", "parka", "red"],
+      }),
+    });
+
+    expect(
+      meta.robots,
+      "`red` exists but its permalink is /shop/clothing/tees/red — serving it here would answer one product's colourway URL with an unrelated product, and canonicalise it somewhere else again",
+    ).toEqual({ index: false, follow: false });
+  });
+
+  it("resolves the TWO-segment truncated-tree shape: parent present, child absent", async () => {
+    // `outerwear` is in the tree, `jackets` fell outside the category page, so
+    // the chain breaks after one segment and the remainder is exactly two. The
+    // validated reading (`jackets` + colourway `parka`) misses the catalogue;
+    // the containment reading resolves and its permalink matches.
+    getCategories.mockResolvedValue([
+      ...TREE,
+      { slug: "outerwear", children: [] },
+    ]);
+    cachedProduct.mockImplementation((slug: string) =>
+      Promise.resolve(slug === "parka" ? parkaProduct() : null),
+    );
+
+    const meta = await generateMetadata({
+      params: Promise.resolve({ slug: ["outerwear", "jackets", "parka"] }),
+    });
+
+    expect(
+      (meta.alternates as { canonical?: string } | undefined)?.canonical,
+      "a two-segment remainder is the same truncated-tree family as the longer ones — 404ing it leaves the product with no working address, because the flat URL 308s onto this path",
+    ).toBe(`${SITE_URL}/shop/outerwear/jackets/parka`);
+  });
+
+  it("returns noindex for a chain that ends on WooCommerce's default category", async () => {
+    // `/shop/uncategorised` validates as ANCESTRY but is not a browsable
+    // archive, so the remainder is empty and there is no slug to look up.
+    // Reading one off the empty remainder produced `undefined`, which reached
+    // the catalogue as a GetProduct query with the variable absent.
+    //
+    // The term must be IN the tree for this: that is what lets the walk consume
+    // the whole path as ancestry while the archive test still refuses it.
+    getCategories.mockResolvedValue([
+      ...TREE,
+      { slug: "uncategorised", children: [] },
+    ]);
+    cachedProduct.mockResolvedValue(null);
+
+    const meta = await generateMetadata({
+      params: Promise.resolve({ slug: ["uncategorised"] }),
+    });
+
+    expect(meta.robots, "an undecidable path must be noindex").toEqual({
+      index: false,
+      follow: false,
+    });
+    expect(
       cachedProduct,
-      "an undecidable path must not reach the catalogue",
+      "there is no product slug on this path, so the catalogue must not be queried at all — least of all with `undefined`",
     ).not.toHaveBeenCalled();
   });
 

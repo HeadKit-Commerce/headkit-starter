@@ -1,5 +1,9 @@
 /**
- * Helpers for Nike-style PDP colourway path URLs (`/products/{slug}/{colour}`).
+ * Helpers for Nike-style PDP colourway path URLs — one colour segment on the
+ * product's canonical base path, so `/shop/{cat…}/{slug}/{colour}` on a store
+ * whose permalinks are nested and `/products/{slug}/{colour}` otherwise. These
+ * helpers never build that base; they take it as `productBasePath`, which the
+ * PDP resolves once through `productPath` (`lib/canonical-path.ts`).
  *
  * Colour switches update the path for SEO/shareability, but the full product
  * payload (all colourway galleries + variations) is already on the client —

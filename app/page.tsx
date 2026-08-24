@@ -21,6 +21,7 @@ import {
   filterCategoriesByNonEmptySlugs,
   getNonEmptyCollectionSlugs,
 } from "@/lib/hide-empty-collections";
+import { collectionPathResolver } from "@/lib/collection-path";
 import { MainCarousel } from "@/components/headkit-ui/main-carousel";
 import { BlockEditor } from "@/components/headkit-ui/block-editor";
 import { EditorialContent } from "@/components/headkit-ui/editorial-content";
@@ -136,9 +137,18 @@ export async function HomeContent() {
     []) as unknown as HeroCarouselItem[];
   const featuredCategoriesRaw = (homepage?.featuredCategories ??
     []) as unknown as FeaturedCategory[];
-  const featuredCategories = nonEmptySlugs
+  const featuredCategoriesFiltered = nonEmptySlugs
     ? filterCategoriesByNonEmptySlugs(featuredCategoriesRaw, nonEmptySlugs)
     : featuredCategoriesRaw;
+  // `FeaturedCategory` carries a slug and the raw WordPress permalink, neither
+  // of which is a storefront path — resolve each tile's CANONICAL collection
+  // path from the category tree so a nested category's tile does not link the
+  // flat shape the collection route 308s away from.
+  const collectionPath = await collectionPathResolver();
+  const featuredCategories = featuredCategoriesFiltered.map((category) => ({
+    ...category,
+    uri: collectionPath(category.slug),
+  }));
   const featuredProducts = (homepage?.featuredProducts ??
     []) as unknown as Product[];
   const { blocks: editorBlocks, segments } = processHomepageContent(

@@ -3,7 +3,7 @@ import { ProductCardSkeleton } from "@/components/headkit-ui/skeletons/product-c
 
 /**
  * Instant Navigation App Shell for `/products/[...slug]`.
- * Used by `loading.tsx` and as the page-level `<Suspense>` fallback so soft
+ * The page-level `<Suspense>` fallback for both routes that render the PDP, so soft
  * navigations paint a shell immediately (params/`'use cache'` stream in after).
  */
 export function ProductPageShell(): React.JSX.Element {

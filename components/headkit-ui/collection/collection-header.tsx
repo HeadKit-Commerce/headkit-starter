@@ -14,12 +14,30 @@ interface CollectionHeaderProps {
   breadcrumbs?: { name: string; uri: string; current: boolean }[];
   thumbnail?: string;
   children?: ProductCategoryDetail[];
+  /**
+   * The path the subcategory cards link BENEATH — this collection's own
+   * canonical path (`collectionPathFromCategory`) when the children are its
+   * subcategories.
+   *
+   * A child category's payload carries no ancestors, so a card that knows only
+   * its own slug can emit only the flat `/collections/{child}` shape, which the
+   * collection route now 308s away from. The parent is where the ancestry is
+   * known, so it hands it down.
+   *
+   * REQUIRED, and required for the same reason `SubcategoryCard.parentPath` is
+   * — this is the prop that feeds it. A default would let a caller that renders
+   * NESTED children omit it and emit the losing shape with no type error and no
+   * test failure. A caller whose children are ROOT categories passes
+   * `"/collections"` explicitly, because that IS the canonical base there.
+   */
+  childBasePath: string;
 }
 
 export function CollectionHeader({
   name,
   description,
   thumbnail,
+  childBasePath,
   children: subcategories,
 }: CollectionHeaderProps) {
   const decodedName = decodeHtmlEntities(name);
@@ -67,7 +85,10 @@ export function CollectionHeader({
         </div>
       )}
       {hasChildren && subcategories ? (
-        <SubcategoryCarousel subcategories={subcategories} />
+        <SubcategoryCarousel
+          subcategories={subcategories}
+          parentPath={childBasePath}
+        />
       ) : null}
     </div>
   );

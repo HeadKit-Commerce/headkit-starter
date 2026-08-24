@@ -160,14 +160,17 @@ here rather than applied silently:
 ## 5. Product-card counting differs between capture and gate — on purpose
 
 The capture counted _distinct hrefs matching `/shop/<seg>/<seg>…`_, because that is
-the PDP link shape V1 emits. V2's product cards link to the **flat** shape:
-`productUrl()` in `lib/convert-uri.ts` returns `/products/{slug}`.
+the PDP link shape V1 emits. V2's product cards used to link the **flat**
+`/products/{slug}` shape; since the 2026-08-22 canonical decision they link the
+nested shape too (`productPath` in `lib/canonical-path.ts`), and the flat one 308s
+onto it — a store still on WooCommerce's default `/product/` permalink base keeps
+the flat shape as its canonical.
 
 The gate therefore counts distinct same-origin PDP links under **either** shape —
 `/products/<slug>` or `/shop/<cat>[/<sub>]/<slug>` — and compares that count against
 the number the capture observed. The **number** is transplanted; the **selector**
-is not, because transplanting the selector unchanged would report zero cards on
-every V2 page and would be a gate that fails for a reason that is not a defect.
+is not: it stays shape-agnostic so the gate measures card COUNT and never becomes a
+second assertion about which URL shape wins.
 
 ---
 

@@ -60,12 +60,10 @@ export function isAppNavigationHref(href: string): boolean {
   return false;
 }
 
-/**
- * Build the canonical frontend URL for a product.
- *
- * Simple products:   /products/shirt
- * Variable products: /products/shirt/red  (colorSlug = the pa_color option slug)
- */
-export function productUrl(slug: string, colorSlug?: string): string {
-  return colorSlug ? `/products/${slug}/${colorSlug}` : `/products/${slug}`;
-}
+// `productUrl(slug, colorSlug)` used to live here and built the FLAT
+// `/products/{slug}` path. It is gone rather than deprecated: since the
+// 2026-08-22 decision the nested `/shop/{cat…}/{slug}` path is canonical and
+// the flat one 308s onto it, so a helper that returns the loser is a trap
+// wearing a helpful name. Use `productPath` in `lib/canonical-path.ts` — the
+// one derivation the canonical tag, the 308 target, every internal link, the
+// JSON-LD `url` and the sitemap all share.

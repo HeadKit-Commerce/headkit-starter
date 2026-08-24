@@ -35,6 +35,19 @@ import {
 
 const TEE = VARIABLE_PRODUCT_SLUG; // classic-tee
 
+/**
+ * The trailing-slash-normalised pathname of a URL.
+ *
+ * Colourway assertions compare paths RELATIVE to whatever base the store's
+ * WooCommerce permalinks produce, never against a hardcoded `/products/` or
+ * `/shop/` prefix: `/products/{slug}` 308s onto `/shop/{cat…}/{slug}` on a
+ * nested-permalink store, so a hardcoded prefix would go red on exactly the
+ * stores the canonical routing targets.
+ */
+function pathOf(url: string): string {
+  return new URL(url, BASE_URL).pathname.replace(/\/+$/, "");
+}
+
 test.describe("PDP: rendering, colorway paths, size persistence, stock, legacy URLs (P1-14..P1-25)", () => {
   test.beforeAll(async () => {
     test.skip(
@@ -94,6 +107,15 @@ test.describe("PDP: rendering, colorway paths, size persistence, stock, legacy U
       page.getByRole("heading", { level: 1, name: "Classic Tee" }),
     ).toBeVisible({ timeout: 30_000 });
 
+    // The path the PDP actually settled on. `page.goto` follows the 308 the flat
+    // shape now serves, so this is `/shop/{cat…}/{slug}` on a store with nested
+    // WooCommerce permalinks and `/products/{slug}` on one using the default
+    // `/product/` base. Asserting the flat prefix would pass here only because
+    // the docker WordPress uses that default base, and go red on exactly the
+    // nested-permalink stores the canonical routing exists for — so the
+    // colourway segment is asserted RELATIVE to whatever base the store has.
+    const basePath = pathOf(page.url());
+
     // Color options render as option buttons (no swatch hex in the seed).
     // .first(): related-products cards also render color option buttons
     // (e.g. #related-products-item-N > "Navy"), so an unscoped strict-mode
@@ -103,9 +125,10 @@ test.describe("PDP: rendering, colorway paths, size persistence, stock, legacy U
       .getByRole("button", { name: /^Navy$/ })
       .first()
       .click();
-    await page.waitForURL(new RegExp(`/products/${TEE}/navy$`), {
-      timeout: 30_000,
-    });
+    await page.waitForURL(
+      (url) => pathOf(url.toString()) === `${basePath}/navy`,
+      { timeout: 30_000 },
+    );
 
     // The new colorway page preselects Navy (label next to the Color name).
     await expect(
@@ -139,8 +162,12 @@ test.describe("PDP: rendering, colorway paths, size persistence, stock, legacy U
         { message: "size selection was not persisted to localStorage" },
       )
       .toBe("l");
-    expect(new URL(page.url()).pathname, "size leaked into the URL").toBe(
-      `/products/${TEE}/navy`,
+    // Shape-agnostic: the colourway path is `/shop/{cat…}/{slug}/navy` on a
+    // nested-permalink store and `/products/{slug}/navy` on the default
+    // `/product/` base. What this pins is that SIZE never entered the URL and
+    // the colourway segment is still the last one — not which base won.
+    expect(new URL(page.url()).pathname, "size leaked into the URL").toMatch(
+      new RegExp(`/${TEE}/navy$`),
     );
 
     // Fresh visit to the BASE product restores the saved size.
@@ -205,17 +232,28 @@ test.describe("PDP: rendering, colorway paths, size persistence, stock, legacy U
       relatedSection,
       "related-products section missing on the variable PDP",
     ).toBeVisible();
+    // BOTH shapes `productPath` can return, and only those two: `/shop/…` on a
+    // nested-permalink store, `/products/…` on the default `/product/` base.
+    // Matching `/products/` alone would find nothing on the nested-permalink
+    // stores this ticket targets; matching every site-relative `/` would stop
+    // proving the related card links a PDP at all.
     const relatedLink = relatedSection
-      .locator('a[href^="/products/"]:visible')
+      .locator('a[href^="/shop/"]:visible, a[href^="/products/"]:visible')
       .first();
     await expect(relatedLink).toBeVisible();
     const href = await relatedLink.getAttribute("href");
+    expect(href, "related card rendered no product link").toBeTruthy();
+    const target = pathOf(href!);
     await relatedLink.click();
-    // Href is derived synchronously from product.slug (+ colour) — no stale
-    // uri state. Colourway PATH suffix is still valid when the card defaults
-    // to the first swatch: /products/{slug} or /products/{slug}/{colour}.
+    // Land on exactly the href the card advertised — or one segment below it,
+    // because a card defaulting to its first swatch links the colourway
+    // (`{base}/{colour}`). Asserted against the card's OWN href, so the
+    // assertion holds under either permalink base.
     await page.waitForURL(
-      (url) => url.pathname === href || url.pathname.startsWith(`${href}/`),
+      (url) => {
+        const landed = pathOf(url.toString());
+        return landed === target || landed.startsWith(`${target}/`);
+      },
       { timeout: 30_000 },
     );
     await expect(

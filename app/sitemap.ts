@@ -9,7 +9,8 @@ import {
   isColorAttrSlug,
   DEFAULT_FILTER_VALUES,
 } from "@/components/headkit-ui/collection/utils";
-import { shopSegmentsFromPath, uriToRelativePath } from "./shop/shop-slug";
+import { walkCategoryPaths } from "./shop/shop-slug";
+import { productPath } from "@/lib/canonical-path";
 import { getPostsBasePath, postsIndexPath } from "@/lib/posts-base-path";
 import { convertToRelativePath, isAppNavigationHref } from "@/lib/convert-uri";
 import { storeSitemapRoutes } from "@/sitemap.config";
@@ -49,72 +50,6 @@ const SITEMAP_TAGS = [
   TAG.branding,
 ] as const;
 
-/**
- * Normalise a raw product permalink into a site-relative path, or null.
- *
- * This exists because the Go product mapper assigns the ABSOLUTE WooCommerce
- * permalink to `Product.uri`, a field the schema and the Go domain type both
- * document as relative. Correcting that upstream is explicitly deferred
- * (15.1-CONTEXT `<deferred>`), so the consumer normalises at this boundary.
- *
- * The permalink's origin is DISCARDED rather than compared with the site url.
- * In a headless store WordPress runs on a different host from the storefront by
- * design (`commerce.example.com` vs `www.example.com`), so an origin-equality
- * test would reject every product in every store and publish an empty product
- * sitemap. Because only the path survives and callers re-root it under
- * the site origin, an off-site entry (T-15.1-07-02) is impossible by construction —
- * a stronger guarantee than the comparison would have given. Protocol-relative
- * and non-http(s) input is rejected outright, since those are path-like but
- * resolve off-site.
- */
-export function toSitemapPath(
-  rawPermalink: string | null | undefined,
-): string | null {
-  return uriToRelativePath(rawPermalink);
-}
-
-/**
- * The path this storefront actually SERVES for a product.
- *
- * Prefers the product's own nested permalink path when it is beneath `/shop`,
- * which `app/shop/[...slug]` now serves (D-15-04). Anything else — a store on
- * WooCommerce's default `/product/` permalink base, an unusable permalink —
- * falls back to the flat `/products/{slug}` route, which always serves. The
- * sitemap must only ever advertise URLs that resolve.
- */
-function servedProductPath(product: {
-  slug: string;
-  uri?: string | null;
-}): string {
-  const path = toSitemapPath(product.uri);
-  if (path) {
-    const segments = shopSegmentsFromPath(path);
-    if (segments.length > 0) return `/shop/${segments.join("/")}`;
-  }
-  return `/products/${product.slug}`;
-}
-
-/**
- * Walk the category tree (any depth) yielding every category with its full
- * path segments — so Tier-1 color URLs are emitted for nested categories too.
- */
-function walkCategoryPaths(
-  categories: { slug: string; children?: { slug: string }[] }[],
-  parentSegments: string[] = [],
-): { slug: string; segments: string[] }[] {
-  const out: { slug: string; segments: string[] }[] = [];
-  for (const cat of categories) {
-    if (!cat?.slug) continue;
-    if (cat.slug === "uncategorised" || cat.slug === "uncategorized") continue;
-    const segments = [...parentSegments, cat.slug];
-    out.push({ slug: cat.slug, segments });
-    if (cat.children?.length) {
-      out.push(...walkCategoryPaths(cat.children, segments));
-    }
-  }
-  return out;
-}
-
 /** Encode a single-color filter slug (`color.<c>`) consistent with the router. */
 function colorFilterSlug(color: string): string {
   if (!color) return "";
@@ -144,11 +79,13 @@ async function makeProductSitemap(siteUrl: string): Promise<SitemapItem[]> {
     while (hasMore) {
       const result = await headkit.products.list({}, page, 100);
       for (const product of result.products) {
-        // Base product URL — the product's own permalink path (D-15-04), so
-        // the sitemap advertises the shape the store has indexed and this app
-        // serves, rather than a synthesised flat guess.
+        // Base product URL — `productPath` is the ONE derivation of a
+        // product's canonical path, shared with the canonical tag, the 308
+        // target and the JSON-LD `url`. A second copy here is exactly how the
+        // sitemap came to advertise the nested shape while every other signal
+        // named the flat one.
         items.push({
-          url: `${siteUrl}${servedProductPath(product)}`,
+          url: `${siteUrl}${productPath(product)}`,
           lastModified: new Date(),
           changeFrequency: "daily",
           priority: 1,
@@ -164,12 +101,12 @@ async function makeProductSitemap(siteUrl: string): Promise<SitemapItem[]> {
           const colorSlug = option?.slug ?? "";
           if (!colorSlug || seen.has(colorSlug)) continue;
           seen.add(colorSlug);
-          // Colourways stay beneath the FLAT product path. `app/shop/[...slug]`
-          // deliberately does not classify a trailing colour segment (a
-          // two-segment remainder is `unknown`), so nesting these under the
-          // shop path would advertise URLs that answer not-found.
+          // Colourways follow the base onto whichever shape won:
+          // `app/shop/[...slug]` now classifies a trailing colour segment, so a
+          // nested product's colourways are nested too and the sitemap never
+          // advertises a URL that redirects.
           items.push({
-            url: `${siteUrl}/products/${product.slug}/${colorSlug}`,
+            url: `${siteUrl}${productPath(product, colorSlug)}`,
             lastModified: new Date(),
             changeFrequency: "daily",
             priority: 0.8,

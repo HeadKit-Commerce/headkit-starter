@@ -26,7 +26,18 @@ vi.mock("next/cache", () => ({
 vi.mock("@/lib/sdk", () => ({
   headkit: {
     homepage: { get: (): Promise<unknown> => homepageGet() },
-    collections: { list: (): Promise<unknown> => collectionsList() },
+    collections: {
+      list: (): Promise<unknown> => collectionsList(),
+      // `HomeContent` resolves each featured-category tile's canonical nested
+      // path through `collectionPathResolver`, which walks this tree. Mocked
+      // here rather than mocking `@/lib/collection-path` so the real resolver
+      // still runs and these cases keep exercising the production path —
+      // including its cache-life propagation, which is what they assert.
+      getCategories: (): Promise<unknown> =>
+        Promise.resolve([
+          { slug: "clothing", children: [{ slug: "hoodies", children: [] }] },
+        ]),
+    },
   },
 }));
 

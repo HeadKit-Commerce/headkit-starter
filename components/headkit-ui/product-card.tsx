@@ -4,7 +4,7 @@ import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { Fragment, useEffect, useState } from "react";
 import type { ProductSummaryFieldsFragment } from "@headkit/sdk";
 import { cn, decodeHtmlEntities } from "@/lib/utils";
-import { productUrl } from "@/lib/convert-uri";
+import { productPath } from "@/lib/canonical-path";
 import { FeaturedImage } from "@/components/headkit-ui/featured-image";
 import { ProductPrice } from "@/components/headkit-ui/product-price";
 import { BadgeList } from "@/components/headkit-ui/badge-list";
@@ -79,10 +79,11 @@ export const ProductCard = ({
   });
   const [isHovering, setIsHovering] = useState(false);
 
-  const href = productUrl(
-    product?.slug ?? "",
-    lockedColour ?? colourSelected ?? undefined,
-  );
+  // The one canonical path, resolved from the product's own permalink — the
+  // same string the canonical tag, the sitemap and the Product JSON-LD emit.
+  // Building `/products/{slug}` here is what pointed every card, on every
+  // surface, at the shape the store did NOT have indexed.
+  const href = productPath(product, lockedColour ?? colourSelected);
 
   const selectedVariationForHover =
     isVariableProduct(product) && colourSelected
@@ -218,8 +219,8 @@ export const ProductCard = ({
                     <Fragment key={attribute.slug}>
                       {visible.map((option) => {
                         const optionSlug = option?.slug ?? "";
-                        const swatchHref = productUrl(
-                          product.slug,
+                        const swatchHref = productPath(
+                          product,
                           optionSlug || undefined,
                         );
                         return (

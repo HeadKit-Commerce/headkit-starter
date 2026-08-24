@@ -41,6 +41,7 @@ import {
   CollectionProductsSkeleton,
 } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import { CATALOG_PAGE_SIZE } from "@/components/headkit-ui/catalog-grid";
+import { walkCategoryPaths } from "@/app/shop/shop-slug";
 
 /** Satisfies Cache Components: `generateStaticParams` must not return []. Never a real category slug. */
 const STATIC_GEN_PLACEHOLDER_SLUG = "__hk_static_placeholder";
@@ -83,9 +84,14 @@ function parseCollectionSlug(slug: string[]): {
 /**
  * Params-keyed category read for the Instant Navigation shell.
  * Cached (`'use cache'`) so runtime prefetch (`prefetch={true}` on category
- * links) can resolve header/breadcrumb/children before click. Must still be
- * awaited inside `<Suspense>` — awaiting `params` in the default export blocks
- * the App Shell under Partial Prefetching (Next.js 16.3 Instant Navigation).
+ * links) can resolve header/breadcrumb/children before click.
+ *
+ * `Page` awaits it once to decide the canonical redirect, which does cost this
+ * route its App Shell (see the note there). Being `'use cache'` is what keeps
+ * that affordable: `CollectionRoute` awaits the same entry, so the shell and
+ * the body share one read, and prerendered params resolve it at build.
+ * `searchParams` is the read that must still never be awaited in the shell —
+ * it opts the whole segment dynamic (see `CollectionProductsServer`).
  */
 async function getCategoryData(categorySlug: string) {
   "use cache";
@@ -257,27 +263,6 @@ async function CollectionProductsServer({
 }
 
 /**
- * Walk the category tree (any depth) yielding every category with its full
- * path segments. Used by both generateStaticParams and the sitemap so Tier-1
- * color URLs are emitted for nested categories too (R2).
- */
-function walkCategoryPaths(
-  categories: { slug: string; children?: { slug: string }[] }[],
-  parentSegments: string[] = [],
-): { slug: string; segments: string[] }[] {
-  const out: { slug: string; segments: string[] }[] = [];
-  for (const cat of categories) {
-    if (!cat?.slug) continue;
-    const segments = [...parentSegments, cat.slug];
-    out.push({ slug: cat.slug, segments });
-    if (cat.children?.length) {
-      out.push(...walkCategoryPaths(cat.children, segments));
-    }
-  }
-  return out;
-}
-
-/**
  * Encode a single-color filter slug (`color.<c>`) consistently with the URL
  * router via encodeFilterSlug. Returns "" for an empty color.
  */
@@ -304,7 +289,18 @@ function brandFilterSlug(brand: string): string {
 export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
   try {
     const categories = await sdk.collections.getCategories();
-    const nodes = walkCategoryPaths(categories);
+    // The SHARED walk (`app/shop/shop-slug.ts`) — the same one `resolveShopPath`
+    // and `app/sitemap.ts` use. A local copy lived here and had already drifted:
+    // it did not skip WooCommerce's default category, so it prerendered
+    // `/collections/uncategorised` while the shared walk excluded it. A second
+    // implementation that can drift is precisely how the sitemap came to
+    // advertise nested while everything else named flat.
+    //
+    // `includeExcluded: true` preserves that param set EXACTLY rather than
+    // silently dropping a prerendered route as part of a de-duplication:
+    // enumerating params to prerender is the one caller that wants the default
+    // category kept, which is what the flag is for.
+    const nodes = walkCategoryPaths(categories, { includeExcluded: true });
     const paths: { slug: string[] }[] = [];
 
     // Base category params (all categories incl. nested).
@@ -525,14 +521,108 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  *
  * @see https://nextjs.org/docs/app/guides/instant-navigation
  */
+/**
+ * Flat collection URLs: 308 onto the category's nested path, or serve.
+ *
+ * The route resolves a category from the LAST slug segment, so
+ * `/collections/child` and `/collections/parent/child` both serve it. The
+ * 2026-08-22 decision makes the nested path canonical, and this is where the
+ * loser is retired.
+ *
+ * ### The redirect must be thrown above EVERY Suspense boundary
+ *
+ * Under Cache Components a redirect thrown inside a Suspense boundary runs
+ * after the response has committed, so the route answers 200 with a skeleton
+ * and redirects only on the client — invisible to the crawler this exists for.
+ * (The `/posts` → `/news` move hit exactly that; see the note on `redirects()`
+ * in `next.config.ts`.) Hence the decision is awaited here rather than in
+ * `CollectionRoute`, and hence this route has **no `loading.tsx`**: a
+ * route-level `loading.tsx` wraps the page component in an IMPLICIT boundary,
+ * which puts even the default export inside one — as does a boundary in an
+ * ANCESTOR layout, which is why `app/layout.tsx` no longer wraps `{children}`
+ * in a `<Suspense>`. Measured on a Next 16.3 build with `cacheComponents: true`,
+ * one variable at a time — see the fuller table in
+ * `app/products/[...slug]/page.tsx`:
+ *
+ *   with a `loading.tsx` present        → 200 + skeleton (client-side redirect)
+ *   with a root-layout `<Suspense>`     → 200 + skeleton (client-side redirect)
+ *   with neither                        → 308, prerendered AND at runtime
+ *
+ * `instant = true` makes no difference either way, so it stays. Nothing is lost
+ * by the file's absence: the `<Suspense>` below renders the identical
+ * `<CollectionPageSkeleton />` that `loading.tsx` did. Re-introducing either
+ * boundary silently turns every flat collection URL back into a 200 duplicate;
+ * `e2e/canonical-url-308.spec.ts` fails on the status code when one does.
+ *
+ * The remaining cost is this route's App Shell — awaiting in the default export
+ * forfeits Partial Prefetching here. The awaited read is `getCategoryData`,
+ * which `CollectionRoute` awaits anyway and which is `'use cache'`, so it is
+ * the same cache entry rather than an extra round trip, and every param in
+ * `generateStaticParams` still prerenders (verified: `◐ Partial Prerender`, not
+ * dynamic).
+ *
+ * ### The 308 carries the path, not the query
+ *
+ * `searchParams` is deliberately NOT awaited: doing so would opt the whole
+ * segment dynamic and seal the skeleton as the shell for every request (see
+ * `CollectionProductsServer`). So path-encoded facets (`/f/…`) survive the
+ * redirect because they are slug segments, while a query string on a flat URL
+ * is dropped. Three cases, named explicitly because they are not equally cheap:
+ *
+ *   - `?page=2` / `?sort=` — the shopper lands on page 1 in the default order.
+ *   - `?q=` / `?price_min=` / `?instock=` — the same, unfiltered.
+ *   - `?pa_color=red`, `?brands=…` — a LEGACY FACET, and the case that carries
+ *     V1 link equity. `CollectionProductsServer` folds those into the `/f/…`
+ *     path form with a second 308, but that fold is now unreachable from a flat
+ *     URL because this redirect fires before `CollectionProductsServer` ever
+ *     runs, so the shopper lands on the unfiltered nested collection.
+ *
+ * Accepted rather than fixed: folding the facet into this redirect target needs
+ * `searchParams` here, which opts the whole segment dynamic — the exact cost the
+ * paragraph above refuses. The flat shape has no internal links left after this
+ * change, so the traffic is external links and crawlers, and the destination is
+ * the collection they asked for.
+ */
 export const instant = true;
 
-export default function Page({ params, searchParams }: Props) {
+export default async function Page({ params, searchParams }: Props) {
+  const { slug } = await params;
+  const redirectTo = await canonicalCollectionRedirect(slug);
+  if (redirectTo) permanentRedirect(redirectTo);
+
   return (
     <Suspense fallback={<CollectionPageSkeleton />}>
       <CollectionRoute params={params} searchParams={searchParams} />
     </Suspense>
   );
+}
+
+/**
+ * The path this collection URL must 308 to, or null when it is already
+ * canonical.
+ *
+ * Null — never a redirect — for the build-time placeholder, an unresolvable
+ * slug, and a category the API cannot supply, so an outage can never turn into
+ * a redirect. Null also when the canonical equals the requested path, which is
+ * what makes a root category (no ancestors, canonical `/collections/{slug}`)
+ * serve rather than redirect to itself.
+ */
+async function canonicalCollectionRedirect(
+  slug: string[],
+): Promise<string | null> {
+  if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) return null;
+  const { categorySlug, filterSlug, categoryBasePath } =
+    parseCollectionSlug(slug);
+  if (!categorySlug) return null;
+
+  const { category } = await getCategoryData(categorySlug);
+  if (!category) return null;
+
+  const canonicalBasePath = collectionPathFromCategory(category);
+  if (canonicalBasePath === categoryBasePath) return null;
+  return filterSlug
+    ? `${canonicalBasePath}/f/${filterSlug}`
+    : canonicalBasePath;
 }
 
 /**
@@ -561,6 +651,10 @@ export async function CollectionRoute({ params, searchParams }: Props) {
   if (!category) return notFound();
 
   const breadcrumbs = buildBreadcrumbFromCategory(category);
+  // The one path this category is canonical at — also the base its child
+  // category tiles link beneath, so they name nested paths instead of the flat
+  // shape this route now redirects.
+  const canonicalBasePath = collectionPathFromCategory(category);
   const { branding } = await getBranding();
   const nonEmptySlugs = branding.hideEmptyCollections
     ? await getNonEmptyCollectionSlugs()
@@ -587,6 +681,7 @@ export async function CollectionRoute({ params, searchParams }: Props) {
         name={category.name}
         description={category.description}
         breadcrumbs={breadcrumbs}
+        childBasePath={canonicalBasePath}
         {...(category.thumbnail ? { thumbnail: category.thumbnail } : {})}
         {...(childCategories.length > 0 ? { children: childCategories } : {})}
       />

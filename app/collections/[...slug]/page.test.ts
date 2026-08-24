@@ -22,6 +22,7 @@ const { SITE_URL, bailout, BailoutSignal } = vi.hoisted(() => {
 
 const getCategory = vi.fn();
 const getFilters = vi.fn();
+const redirectedTo = vi.fn<(path: string) => void>();
 
 vi.mock("next/cache", () => ({
   cacheLife: (): void => {},
@@ -32,8 +33,9 @@ vi.mock("next/navigation", () => ({
   notFound: (): never => {
     throw new Error("notFound");
   },
-  permanentRedirect: (): never => {
-    throw new Error("redirect");
+  permanentRedirect: (path: string): never => {
+    redirectedTo(path);
+    throw new Error(`REDIRECT:${path}`);
   },
   // Mirrors the real one: rethrows Next's own control-flow signals, passes
   // ordinary errors through untouched.
@@ -99,7 +101,7 @@ import {
   encodeFilterSlug,
 } from "@/components/headkit-ui/collection/utils";
 import { setRequestHost } from "@/lib/test-support/request-host";
-import { generateMetadata } from "./page";
+import Page, { generateMetadata } from "./page";
 
 /** A category that lives at /collections/parent/child, whatever URL asked for it. */
 function nestedCategory(): Record<string, unknown> {
@@ -153,6 +155,7 @@ beforeEach(() => {
   setRequestHost(new URL(SITE_URL).host);
   getCategory.mockReset();
   getFilters.mockReset();
+  redirectedTo.mockReset();
   getCategory.mockResolvedValue(nestedCategory());
   getFilters.mockResolvedValue({
     attributes: [{ slug: "pa_color", options: [{ slug: "red", name: "Red" }] }],
@@ -253,5 +256,67 @@ describe("Tier-2 filtered canonical", () => {
     await expect(canonicalFor(["child", "f", combo])).resolves.toBe(
       `${SITE_URL}/collections/parent/child`,
     );
+  });
+});
+
+/** The `Location` the route 308s to, or null when it served instead. */
+async function redirectTargetFor(slug: string[]): Promise<string | null> {
+  redirectedTo.mockClear();
+  try {
+    await Page({
+      params: Promise.resolve({ slug }),
+      searchParams: Promise.resolve({}),
+    });
+  } catch (error) {
+    if (!String(error).startsWith("Error: REDIRECT:")) throw error;
+  }
+  return redirectedTo.mock.calls[0]?.[0] ?? null;
+}
+
+describe("the flat collection shape 308s onto the nested one", () => {
+  it("redirects the flat path and serves the nested one", async () => {
+    expect(
+      await redirectTargetFor(["child"]),
+      "the flat shape must retire onto the canonical path, not merely point a canonical at it — with both serving 200 the duplicate stays live",
+    ).toBe("/collections/parent/child");
+
+    expect(
+      await redirectTargetFor(["parent", "child"]),
+      "the canonical path itself must serve; redirecting it would loop",
+    ).toBeNull();
+  });
+
+  it("carries a path-encoded facet across the redirect", async () => {
+    expect(
+      await redirectTargetFor(["child", "f", COLOR_FACET]),
+      "a Tier-1 facet URL is indexable in its own right — dropping the facet would 308 it onto a different page",
+    ).toBe(`/collections/parent/child/f/${COLOR_FACET}`);
+  });
+
+  it("does not redirect a root category, which has no nested shape", async () => {
+    getCategory.mockResolvedValue({ ...nestedCategory(), ancestors: [] });
+
+    expect(
+      await redirectTargetFor(["child"]),
+      "a root category's canonical IS the flat path — redirecting it to itself is an infinite loop",
+    ).toBeNull();
+  });
+
+  it("does not redirect when the category cannot be resolved", async () => {
+    // A transport failure or a genuinely missing category must never become a
+    // redirect: an outage would otherwise mint permanent, client-cached moves
+    // to a path that was never canonical.
+    getCategory.mockResolvedValue(null);
+
+    expect(await redirectTargetFor(["child"])).toBeNull();
+  });
+
+  it("agrees with the canonical it emits", async () => {
+    // The two are read from different code paths; the whole defect class is
+    // them disagreeing, so pin them against each other rather than separately.
+    const target = await redirectTargetFor(["child"]);
+    const canonical = await canonicalFor(["child"]);
+
+    expect(canonical).toBe(`${SITE_URL}${target}`);
   });
 });
