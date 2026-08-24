@@ -71,6 +71,11 @@ export type CheckoutSessionProp = {
   sessionId: string;
   publishableKey: string;
   stripeAccountId?: string | null;
+  /**
+   * Commerce flag: session was created with platform test keys.
+   * The banner also falls back to a `pk_test_` prefix.
+   */
+  testMode?: boolean;
   /** Maps cart rateId to Stripe shipping rate ID for updateShippingOption. */
   shippingOptionMapping?: ShippingOptionMappingItem[] | null;
 };
@@ -195,6 +200,7 @@ export function CheckoutPageContent({
         sessionId: session.sessionId,
         publishableKey: session.publishableKey,
         stripeAccountId: session.stripeAccountId ?? null,
+        testMode: session.testMode === true,
         shippingOptionMapping: session.shippingOptionMapping ?? null,
       });
       setRestoreStep(nextStep);

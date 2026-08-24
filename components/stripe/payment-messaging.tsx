@@ -54,7 +54,7 @@ export interface PaymentMethodMessagingProps {
   currency: string;
   publishableKey: string;
   /** Connect account id. Required for direct-charge platforms — see below. */
-  stripeAccountId?: string | null;
+  stripeAccountId?: string | null | undefined;
   /** The store's dashboard toggle. */
   enabled: boolean;
   /** True when the product cannot be bought (out of stock). */
@@ -67,9 +67,12 @@ export function shouldRenderMessaging(a: {
   currency: string;
   enabled: boolean;
   disabled?: boolean;
+  /** Required so Shopify / no-Connect stores never download Stripe.js. */
+  stripeAccountId?: string | null | undefined;
 }): boolean {
   if (!a.enabled || a.disabled) return false;
   if (!a.publishableKey) return false;
+  if (!a.stripeAccountId?.startsWith("acct_")) return false;
   return isValidCurrency(a.currency.toUpperCase());
 }
 
@@ -136,6 +139,7 @@ export function PaymentMethodMessaging({
     currency,
     enabled,
     disabled,
+    stripeAccountId,
   });
 
   const hostRef = useRef<HTMLDivElement | null>(null);

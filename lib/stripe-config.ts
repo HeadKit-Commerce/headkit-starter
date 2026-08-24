@@ -1,17 +1,28 @@
 /**
- * Per-store Stripe configuration for the storefront, read from dashboard-api.
+ * Per-store Stripe configuration for the storefront.
  *
- * Mirrors the resilience contract in `branding.ts`: dashboard-api revisions lag
- * the starter, and gqlgen answers a query containing an UNKNOWN field with
- * `data: null` — discarding the fields it does know. So the newer fields are
- * requested first and the query is retried without them on failure, rather than
- * losing the publishable key entirely on an older backend.
+ * Preferred source is commerce `commerce.stripeConfig` — the same
+ * ConfigForStore pair checkout uses, so PDP BNPL honours test/live.
+ * Dashboard-api is the fallback for older commerce revisions that
+ * lack the field (unknown-field gqlgen → executeRequest throws).
+ *
+ * Commerce answering with an empty accountId is authoritative: the
+ * store has no Connect account (Shopify). Do not fall back to
+ * dashboard in that case — leftover dashboard keys would load Stripe.js
+ * on a hosted-checkout store.
+ *
+ * The dashboard fallback still mirrors the resilience contract in
+ * `branding.ts`: dashboard-api revisions lag the starter, and gqlgen
+ * answers a query containing an UNKNOWN field with `data: null`. So
+ * the newer fields are requested first and the query is retried without
+ * them on failure.
  */
 
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import { TAG } from "@/lib/cache-tags";
 import { env } from "@/lib/env";
+import { fetchCommerceStripeConfig } from "./stripe-config-commerce";
 
 const FULL_QUERY = /* GraphQL */ `
   query StorefrontStripeConfig {
@@ -104,17 +115,7 @@ async function post(
   }
 }
 
-/**
- * Un-cached fetch + tiered-fallback (full → compat). Exported so the fallback
- * wiring — the single most consequential path in this module — can be tested
- * directly: `getStripeConfig()`'s `"use cache: remote"` directive requires a
- * live Next.js Cache Components runtime, and calling `cacheLife()` outside one
- * throws ("`cacheLife()` is only available with the `cacheComponents`
- * config"), so `getStripeConfig()` itself cannot run under Vitest. This
- * function has no cache directive and no `cacheLife`/`cacheTag` calls, so it
- * is plain, testable async code.
- */
-export async function fetchStripeConfig(): Promise<StorefrontStripeConfig> {
+async function fetchDashboardStripeConfig(): Promise<StorefrontStripeConfig> {
   const endpoint = env.DASHBOARD_API_URL;
   const token = env.DASHBOARD_API_TOKEN;
   if (!endpoint || !token) return DISABLED_STRIPE_CONFIG;
@@ -127,12 +128,30 @@ export async function fetchStripeConfig(): Promise<StorefrontStripeConfig> {
 }
 
 /**
+ * Un-cached fetch: commerce first, then dashboard-api full → compat.
+ * Exported so the fallback wiring can be tested directly —
+ * `getStripeConfig()`'s `"use cache: remote"` directive requires a live
+ * Next.js Cache Components runtime.
+ */
+export async function fetchStripeConfig(): Promise<StorefrontStripeConfig> {
+  const commerce = await fetchCommerceStripeConfig();
+  if (commerce !== null) {
+    if (commerce.accountId === "") {
+      return DISABLED_STRIPE_CONFIG;
+    }
+    return commerce;
+  }
+
+  return fetchDashboardStripeConfig();
+}
+
+/**
  * Cached per-store Stripe config. `cacheLife("hours")` because a publishable key
  * and a connect account id change only when a merchant reconnects Stripe, and
  * the toggle is not latency-sensitive. `'use cache: remote'` (not plain `'use
  * cache'`) so the read is durable across Vercel Fluid Compute invocations
  * instead of re-evaluating per request. Tagged `TAG.settings` so a dashboard
- * BNPL-toggle change can invalidate it via `/api/revalidate`.
+ * payment-mode or BNPL toggle can invalidate it via `/api/revalidate`.
  *
  * Thin wrapper by design — see {@link fetchStripeConfig} for why the actual
  * fetch/fallback logic lives there instead of here.

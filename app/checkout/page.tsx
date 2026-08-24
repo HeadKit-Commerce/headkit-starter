@@ -13,6 +13,7 @@ import { getFloatVal } from "@/lib/utils";
 import { createServerHeadkit } from "@/lib/sdk.server";
 import { PaymentFailedBanner } from "@/components/checkout/payment-failed-banner";
 import { CartChangedBanner } from "@/components/checkout/cart-changed-banner";
+import { CheckoutTestModeBanner } from "@/components/checkout/test-mode-banner";
 import { getBranding } from "@/lib/branding";
 import { normalizeCheckoutMode } from "@/lib/checkout-mode";
 import { isOfflineOnlyCart } from "@/lib/payment-gateways";
@@ -118,6 +119,7 @@ export default async function CheckoutPage({
     sessionId: string;
     publishableKey: string;
     stripeAccountId?: string | null;
+    testMode?: boolean;
     shippingOptionMapping?: Array<{
       rateId: string;
       stripeShippingRateId: string;
@@ -171,6 +173,7 @@ export default async function CheckoutPage({
         sessionId: session.sessionId,
         publishableKey: session.publishableKey,
         stripeAccountId: session.stripeAccountId ?? null,
+        testMode: session.testMode === true,
         shippingOptionMapping: session.shippingOptionMapping ?? null,
       };
     } catch (error) {
@@ -214,6 +217,14 @@ export default async function CheckoutPage({
 
   return (
     <div className="min-h-screen bg-brand-bg">
+      {checkoutSession ? (
+        <CheckoutTestModeBanner
+          publishableKey={checkoutSession.publishableKey}
+          {...(checkoutSession.testMode !== undefined
+            ? { testMode: checkoutSession.testMode }
+            : {})}
+        />
+      ) : null}
       {/* Payment failed banner (ENG-789: retry after Afterpay/BNPL decline) */}
       {paymentFailed && <PaymentFailedBanner />}
       {/* Cart changed banner (ENG-784: session expired mid-redirect because
