@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 import "./globals.css";
 // Customer-owned UI/styling layer — prefer overrides/ over editing core components.
@@ -13,6 +14,7 @@ import { Footer } from "@/components/headkit-ui/footer";
 import { LazyCartDrawer } from "@/components/headkit-ui/lazy-cart-drawer";
 import { WebsiteJsonLD } from "@/components/seo/website-json-ld";
 import { OrganizationJsonLD } from "@/components/seo/organization-json-ld";
+import { DynamicMetadataMarker } from "@/components/seo/dynamic-metadata-marker";
 import {
   makeRootMetadata,
   brandingIcons,
@@ -70,7 +72,7 @@ export async function generateMetadata(): Promise<Metadata> {
     ]);
     const siteName = resolveStoreName(storeSettings.name);
     return {
-      ...makeRootMetadata({
+      ...(await makeRootMetadata({
         title: seoSettings.title?.trim() || siteName,
         description: seoSettings.description?.trim() || "",
         siteName,
@@ -78,14 +80,21 @@ export async function generateMetadata(): Promise<Metadata> {
         ogImageUrl: seoSettings.ogImageUrl,
         allowIndexing: seoSettings.allowIndexing,
         siteUrl: storeSettings.domain,
-      }),
+      })),
       // Site-wide favicon (branding icon, or the bundled default). Owned by the
       // layout so page metadata never overrides the per-store tab icon (ENG-572).
       icons: brandingIcons(iconUrl),
     };
-  } catch {
+  } catch (error) {
+    unstable_rethrow(error);
+    // Branding unreadable ⇒ the store's indexing switch is UNKNOWN, so this
+    // must close indexing exactly as app/robots.ts does (`Disallow: /` on the
+    // same failure). Defaulting to index here would judge the host against the
+    // baked NEXT_PUBLIC_FRONTEND_URL and publish `index, follow` beside that
+    // `Disallow` — the desynchronisation ENG-868 exists to remove, surviving in
+    // the one branch where the store state cannot be read.
     return {
-      ...makeRootMetadata({ siteName: "Store" }),
+      ...(await makeRootMetadata({ siteName: "Store", allowIndexing: false })),
       icons: brandingIcons(null),
     };
   }
@@ -237,6 +246,11 @@ export default async function RootLayout({
           url={siteUrl}
           {...(orgLogoUrl ? { logoUrl: orgLogoUrl } : {})}
         />
+
+        {/* Request-time metadata opt-in — see the component's doc comment. */}
+        <Suspense fallback={null}>
+          <DynamicMetadataMarker />
+        </Suspense>
 
         <Suspense fallback={null}>
           <BrandingIconsProvider library={branding.iconLibrary}>

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { unstable_rethrow } from "next/navigation";
 import type { Metadata } from "next";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
@@ -24,7 +25,7 @@ import {
 export async function generateMetadata(): Promise<Metadata> {
   try {
     const { seoSettings, storeSettings } = await getBranding();
-    return makeSeoMetadata(null, {
+    return await makeSeoMetadata(null, {
       title: "Shop",
       description: "Browse our full product catalog.",
       storeName: storeSettings.name ?? undefined,
@@ -32,8 +33,9 @@ export async function generateMetadata(): Promise<Metadata> {
       canonical: storefrontUrl("/shop", storeSettings.domain),
       siteUrl: storeSettings.domain,
     });
-  } catch {
-    return makeSeoMetadata(null, {
+  } catch (error) {
+    unstable_rethrow(error);
+    return await makeSeoMetadata(null, {
       title: "Shop",
       canonical: storefrontUrl("/shop"),
     });

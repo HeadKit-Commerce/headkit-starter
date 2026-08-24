@@ -1,8 +1,7 @@
 import type { MetadataRoute } from "next";
-import { headers } from "next/headers";
 import { getBranding } from "@/lib/branding";
 import { env } from "@/lib/env";
-import { isIndexableHost } from "@/lib/host-indexing";
+import { isIndexableCurrentHost } from "@/lib/indexing-decision";
 import { getPostsBasePath, postsIndexPath } from "@/lib/posts-base-path";
 import { resolveSiteUrl } from "@/lib/site-url";
 
@@ -27,12 +26,16 @@ function disallowEverything(host: string | undefined): MetadataRoute.Robots {
 /**
  * robots.txt, decided by HOSTNAME first (MIG-03, T-15.1-08-01).
  *
- * Order matters. The host predicate is consulted BEFORE — and independently of
- * — the branding read, because every failure mode of that read currently opens
- * indexing: `getBranding()` returns DEFAULT_BUNDLE (both SEO gates enabled)
- * when the dashboard env is unset AND from a bare catch on any thrown read. A
- * temporary migration host must serve `Disallow: /` and advertise no sitemap
- * whatever branding says, so the decision cannot depend on branding at all.
+ * Order matters. The host predicate is consulted on EVERY path — and
+ * independently of whether the branding read succeeded — because every failure
+ * mode of that read currently opens indexing: `getBranding()` returns
+ * DEFAULT_BUNDLE (both SEO gates enabled) when the dashboard env is unset AND
+ * from a bare catch on any thrown read. A temporary migration host must serve
+ * `Disallow: /` and advertise no sitemap whatever branding says, so the
+ * decision cannot depend on branding at all. A thrown branding read must not
+ * short-circuit past the host read either: a path that consults no runtime
+ * input is one Next can statically prerender, which would freeze a blanket
+ * `Disallow: /` onto the store's own live domain until the next deploy.
  *
  * Deliberately NOT keyed on the Vercel deployment-environment variable: it
  * reads "production" for a production deployment served at ANY host, including
@@ -50,35 +53,34 @@ function disallowEverything(host: string | undefined): MetadataRoute.Robots {
  * cache directive by design.
  */
 export default async function robots(): Promise<MetadataRoute.Robots> {
-  const requestHeaders = await headers();
-  const currentHost =
-    requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
-
   let storeDomain: string | null | undefined;
-  let seoSettings: Awaited<ReturnType<typeof getBranding>>["seoSettings"];
+  // `null` = the branding read threw, so the store switch is UNKNOWN. It is not
+  // an early return: the host read below has to happen on this path too.
+  let seoSettings:
+    | Awaited<ReturnType<typeof getBranding>>["seoSettings"]
+    | null = null;
   try {
     ({
       storeSettings: { domain: storeDomain },
       seoSettings,
     } = await getBranding());
   } catch {
-    // A thrown branding read CLOSES indexing. Prefer the env fallback only for
-    // the Host hint so operators still see which origin was configured.
-    const fallbackHost = resolveSiteUrl(null, env.NEXT_PUBLIC_FRONTEND_URL);
-    return disallowEverything(fallbackHost || undefined);
+    seoSettings = null;
   }
 
   // Prefer runtime store domain over baked NEXT_PUBLIC_FRONTEND_URL so custom
-  // domains stay authoritative for Host / Sitemap even before a redeploy.
+  // domains stay authoritative for Host / Sitemap even before a redeploy. On the
+  // degraded path `storeDomain` is unset, so this is the env fallback — still a
+  // Host HINT only, never a permission.
   const host = resolveSiteUrl(storeDomain, env.NEXT_PUBLIC_FRONTEND_URL);
 
-  // Fail closed: an unknown or non-production host is a temporary host.
-  if (!isIndexableHost(host, currentHost)) {
-    return disallowEverything(host || undefined);
-  }
+  // Awaited unconditionally, and before the `||`, so this render always consumes
+  // request data and can never be prerendered — whatever branding did.
+  const indexableHost = await isIndexableCurrentHost(host);
 
-  // Search engines off: Disallow everything.
-  if (!seoSettings.allowIndexing) {
+  // Fail closed on either input: an unknown or non-production host is a
+  // temporary host, and an unreadable store switch is not an open one.
+  if (!indexableHost || !seoSettings?.allowIndexing) {
     return disallowEverything(host || undefined);
   }
 

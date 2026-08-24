@@ -84,9 +84,13 @@ See [`overrides/README.md`](./overrides/README.md) for CSS hook classes. Agents 
   shared `app/sitemap.ts`; that file documents the entry shape, what is rejected, and why
   these routes are the one section never existence-probed
 - **robots.txt** — `app/robots.ts` with allow/disallow rules for account, checkout, API, search
-- **Indexing switch** — the dashboard “show on search engines” setting drives both
-  `app/robots.ts` and the `robots` meta tag; the root layout owns that tag and routes
-  inherit it (see `MakeSeoMetadataFallback.allowIndexing` in `lib/make-metadata.ts`)
+- **Indexing switch** — `app/robots.ts` and the `robots` meta tag are decided by the same
+  two inputs, so they cannot disagree: the request host (`lib/indexing-decision.ts` — a
+  host that is not the store's declared domain, such as a temporary migration or rehearsal
+  host, is always `noindex`) and the dashboard “show on search engines” setting. Either
+  one alone turns indexing off; only both together turn it on. The root layout owns the
+  meta tag and routes inherit it (see `MakeSeoMetadataFallback.allowIndexing` in
+  `lib/make-metadata.ts`)
 - **JSON-LD** — Product, breadcrumb, article, FAQ, website, searchbox (see `components/seo/`)
 - **Metadata** — OpenGraph, Twitter cards, canonical URLs. Every indexable route emits a
   self-referencing canonical (the robots-disallowed ones — account, checkout, search — do

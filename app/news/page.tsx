@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
@@ -36,7 +37,7 @@ export async function generateMetadata(): Promise<Metadata> {
     const [page, { seoSettings, storeSettings }, postsBase] = await Promise.all(
       [getNewsLanding(), getBranding(), getPostsBasePath()],
     );
-    return makeSeoMetadata(page?.seo ?? null, {
+    return await makeSeoMetadata(page?.seo ?? null, {
       title: page?.title?.trim() || FALLBACK_TITLE,
       description: page?.seo?.metaDesc?.trim() || FALLBACK_DESCRIPTION,
       storeName: storeSettings.name ?? undefined,
@@ -44,8 +45,9 @@ export async function generateMetadata(): Promise<Metadata> {
       canonical: canonicalForPostsBase(postsBase, storeSettings.domain),
       siteUrl: storeSettings.domain,
     });
-  } catch {
-    return makeSeoMetadata(null, {
+  } catch (error) {
+    unstable_rethrow(error);
+    return await makeSeoMetadata(null, {
       title: FALLBACK_TITLE,
       description: FALLBACK_DESCRIPTION,
       canonical: canonicalForPostsBase("news"),

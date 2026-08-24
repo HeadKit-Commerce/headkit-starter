@@ -12,10 +12,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  *    under /shop does not acquire a product canonical (C-6)
  */
 
-const { SITE_URL } = vi.hoisted(() => {
+const { SITE_URL, bailout } = vi.hoisted(() => {
   const url = "https://shop.example.com";
   process.env.NEXT_PUBLIC_FRONTEND_URL = url;
-  return { SITE_URL: url };
+  return { SITE_URL: url, bailout: { armed: false } };
 });
 
 const productsList = vi.fn();
@@ -56,14 +56,23 @@ vi.mock("@/lib/branding", () => ({
 
 // Echo the canonical back through a real Metadata shape so the assertions
 // below read the value the route actually asked for.
-vi.mock("@/lib/make-metadata", () => ({
-  makeSeoMetadata: (
+vi.mock("@/lib/make-metadata", async () => ({
+  makeSeoMetadata: async (
     _seo: unknown,
     fallback: { canonical?: string; title?: string },
-  ): Record<string, unknown> => ({
-    title: fallback?.title,
-    alternates: { canonical: fallback?.canonical },
-  }),
+  ): Promise<Record<string, unknown>> => {
+    // The real one reads the request Host, which throws a Next control-flow
+    // signal during a prerender pass. `notFound()` throws one of the same
+    // family, so the route's catch faces the real thing.
+    if (bailout.armed) {
+      const { notFound } = await import("next/navigation");
+      notFound();
+    }
+    return {
+      title: fallback?.title,
+      alternates: { canonical: fallback?.canonical },
+    };
+  },
   resolveStoreName: (): string => "Acme",
   // Mirrors the real helper: the runtime store domain wins over the
   // build-time NEXT_PUBLIC_FRONTEND_URL.
@@ -95,6 +104,7 @@ function page(products: unknown[], totalPages = 1) {
 }
 
 beforeEach(() => {
+  bailout.armed = false;
   productsList.mockReset();
   getCategories.mockReset();
   getCategory.mockReset();
@@ -258,6 +268,46 @@ describe("generateMetadata", () => {
       cachedProduct,
       "a category path must never trigger a product lookup — that lookup returning null is what produced the 308-into-404",
     ).not.toHaveBeenCalled();
+  });
+
+  it("propagates a Next control-flow signal instead of baking noindex", async () => {
+    // This catch's fallback is an ACTIVE de-index, so swallowing the dynamic
+    // bailout does not merely drop metadata: Next never learns the route is
+    // dynamic and freezes `noindex, nofollow` into every prerendered /shop/*
+    // shell, on the store's own live domain, while robots.txt allows /shop/*.
+    bailout.armed = true;
+    cachedProduct.mockResolvedValue({
+      name: "Blue Hoodie",
+      slug: "blue-hoodie",
+      shortDescription: "",
+      description: "",
+      seo: null,
+    });
+
+    await expect(
+      generateMetadata({
+        params: Promise.resolve({
+          slug: ["clothing", "hoodies", "blue-hoodie"],
+        }),
+      }),
+      "the route catch must not convert the signal into a resolved noindex",
+    ).rejects.toThrow();
+  });
+
+  it("propagates it from the category branch too", async () => {
+    bailout.armed = true;
+    getCategory.mockResolvedValue({
+      name: "Hoodies",
+      slug: "hoodies",
+      description: "",
+      seo: null,
+    });
+
+    await expect(
+      generateMetadata({
+        params: Promise.resolve({ slug: ["clothing", "hoodies"] }),
+      }),
+    ).rejects.toThrow();
   });
 
   it("returns noindex for a path that cannot be resolved", async () => {

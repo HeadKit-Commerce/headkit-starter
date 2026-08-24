@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound, permanentRedirect } from "next/navigation";
+import { notFound, permanentRedirect, unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
@@ -26,6 +26,7 @@ import {
   storefrontUrl,
 } from "@/lib/make-metadata";
 import { getBranding } from "@/lib/branding";
+import { resolveSiteUrl } from "@/lib/site-url";
 import { TAG } from "@/lib/cache-tags";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import type { SortKeyType } from "@/components/headkit-ui/collection/utils";
@@ -435,9 +436,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
           alternates: { canonical: selfCanonical },
           // Was `{ index: isProduction, follow: isProduction }` — it consulted
           // VERCEL_ENV but never the store's own switch, so a facet URL stayed
-          // indexable on a store with indexing turned off. resolveRobots keeps
-          // the production gate AND honours the setting.
-          robots: resolveRobots(seoSettings.allowIndexing),
+          // indexable on a store with indexing turned off. resolveRobots now
+          // gates on the HOST instead of VERCEL_ENV AND honours the setting; a
+          // rehearsal host noindexes whatever the switch says. The origin is the same
+          // runtime store domain the self-canonical above is built from, so a
+          // facet URL is judged against the store's own host like every other
+          // surface — robots.txt allows /collections/*, and this must not
+          // contradict it.
+          robots: await resolveRobots(
+            seoSettings.allowIndexing,
+            resolveSiteUrl(storeSettings.domain),
+          ),
           openGraph: {
             type: "website",
             title,
@@ -455,7 +464,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       }
     }
 
-    const metadata = makeSeoMetadata(category.seo, {
+    const metadata = await makeSeoMetadata(category.seo, {
       title: category.name,
       // Templated per-entity floor when both Yoast SEO and the category's own
       // description are absent (FE-09 / D-04). Real category.seo still wins.
@@ -477,7 +486,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       };
     }
     return metadata;
-  } catch {
+  } catch (error) {
+    unstable_rethrow(error);
     return {};
   }
 }

@@ -60,7 +60,7 @@ export async function generateMetadata(): Promise<Metadata> {
       description: "Get in touch with our team.",
     };
   }
-  return makeSeoMetadata(page.seo ?? null, {
+  return await makeSeoMetadata(page.seo ?? null, {
     title: page.title,
     description: seoFallbackDescription("page", page.title),
     canonical: storefrontUrl(`/${CONTACT_SLUG}`, storeSettings.domain),

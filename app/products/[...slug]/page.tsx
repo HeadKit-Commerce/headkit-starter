@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import type {
@@ -211,7 +211,7 @@ export async function generateMetadata({
 
     // Base product URL (no color in path): self-canonical, index in prod (S2).
     if (!colorSlug) {
-      return makeSeoMetadata(product.seo ?? null, {
+      return await makeSeoMetadata(product.seo ?? null, {
         title: product.name,
         canonical: baseCanonical,
         ...(desc ? { description: desc } : {}),
@@ -237,7 +237,7 @@ export async function generateMetadata({
     );
     const ogImage = variation?.image?.src ?? product.image?.src;
 
-    return makeSeoMetadata(product.seo ?? null, {
+    return await makeSeoMetadata(product.seo ?? null, {
       title: `${product.name} – ${colorOption.name}`,
       canonical: `${baseCanonical}/${colorSlug}`,
       ...(ogImage ? { ogImage } : {}),
@@ -245,7 +245,8 @@ export async function generateMetadata({
       ...brandingOpts,
       ...previewRobots,
     });
-  } catch {
+  } catch (error) {
+    unstable_rethrow(error);
     return { robots: { index: false, follow: false } };
   }
 }

@@ -39,7 +39,7 @@ export async function generateMetadata(): Promise<Metadata> {
       robots: { index: false, follow: false },
     };
   }
-  return makeSeoMetadata(page.seo ?? null, {
+  return await makeSeoMetadata(page.seo ?? null, {
     title: page.title,
     description: seoFallbackDescription("page", page.title),
     canonical: storefrontUrl(`/${WHOLESALE_SLUG}`, storeSettings.domain),

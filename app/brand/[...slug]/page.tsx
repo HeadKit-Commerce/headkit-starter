@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { notFound } from "next/navigation";
+import { notFound, unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
@@ -127,14 +127,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       getBranding(),
     ]);
     if (!brand) return {};
-    return makeSeoMetadata(brand.seo, {
+    return await makeSeoMetadata(brand.seo, {
       title: brand.name,
       description: brand.description,
       canonical: storefrontUrl(`/brand/${brandSlug}`, storeSettings.domain),
       siteUrl: storeSettings.domain,
       allowIndexing: seoSettings.allowIndexing,
     });
-  } catch {
+  } catch (error) {
+    unstable_rethrow(error);
     return {};
   }
 }

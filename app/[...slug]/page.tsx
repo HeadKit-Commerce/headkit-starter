@@ -122,7 +122,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // Real Yoast SEOData wins; when absent, emit a TEMPLATED page default
   // (title + per-entity description) rather than the old noindex-only
   // parent fallback — D-04 mandates a sane SEO floor, not a suppressed page.
-  return makeSeoMetadata(page.seo ?? null, {
+  return await makeSeoMetadata(page.seo ?? null, {
     title: page.title,
     description: seoFallbackDescription("page", page.title),
     // Self-referencing canonical: every CMS page (`/about`, `/legal/*`, …)
