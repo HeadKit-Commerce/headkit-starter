@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
@@ -25,7 +26,8 @@ async function getFaqPage() {
 
 /**
  * Empty Yoast/CMS SEO must not hide FAQ from indexing by default.
- * Robots still respect store allowIndexing + non-production via resolveRobots.
+ * Robots are inherited from the root layout, which gates on the request host +
+ * store allowIndexing.
  */
 export async function generateMetadata(): Promise<Metadata> {
   try {
@@ -33,7 +35,7 @@ export async function generateMetadata(): Promise<Metadata> {
       getFaqPage(),
       getBranding(),
     ]);
-    return makeSeoMetadata(page?.seo ?? null, {
+    return await makeSeoMetadata(page?.seo ?? null, {
       title: page?.title?.trim() || "FAQ",
       description:
         "Frequently asked questions — answers about orders, shipping, and more.",
@@ -42,8 +44,9 @@ export async function generateMetadata(): Promise<Metadata> {
       canonical: storefrontUrl("/faq", storeSettings.domain),
       siteUrl: storeSettings.domain,
     });
-  } catch {
-    return makeSeoMetadata(null, {
+  } catch (error) {
+    unstable_rethrow(error);
+    return await makeSeoMetadata(null, {
       title: "FAQ",
       description:
         "Frequently asked questions — answers about orders, shipping, and more.",

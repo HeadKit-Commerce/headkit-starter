@@ -969,7 +969,7 @@ test.describe("Store V1->V2 route parity gate (MIG-03/MIG-04)", () => {
       if (TEMP_HOST === true) {
         expect(
           blanketDisallow,
-          `${ctx()} this run is flagged as a TEMPORARY host but /robots.txt does not disallow everything. Both SEO gates default OPEN (branding.ts DEFAULT_BUNDLE ships enableSitemap/allowIndexing true, and returns that bundle on any thrown error), and page-level noindex keys on VERCEL_ENV rather than on hostname — so an untouched rehearsal host is fully crawlable with the customer's real catalogue. robots.txt was:\n${body}`,
+          `${ctx()} this run is flagged as a TEMPORARY host but /robots.txt does not disallow everything. Both SEO gates default OPEN (branding.ts DEFAULT_BUNDLE ships enableSitemap/allowIndexing true, and returns that bundle on any thrown error), so an untouched rehearsal host is fully crawlable with the customer's real catalogue. The page-level noindex derives from the SAME host decision this file is checking (isIndexableCurrentHost in lib/indexing-decision.ts), so the two cannot disagree — a robots.txt open here means every page of this deployment also says index, follow. robots.txt was:\n${body}`,
         ).toBe(true);
         expect(
           advertisesSitemap,

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Suspense } from "react";
-import { notFound } from "next/navigation";
+import { notFound, unstable_rethrow } from "next/navigation";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
 import { FeaturedImageHeader } from "@/components/headkit-ui/post/featured-image-header";
@@ -68,7 +68,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       ]);
     if (!post) return {};
     const path = postsArticlePath(postsBase, postSlug);
-    return makeSeoMetadata(post.seo, {
+    return await makeSeoMetadata(post.seo, {
       title: post.title,
       ...(post.excerpt ? { description: post.excerpt } : {}),
       storeName: storeSettings.name ?? undefined,
@@ -78,7 +78,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       canonical: storefrontUrl(path, storeSettings.domain),
       siteUrl: storeSettings.domain,
     });
-  } catch {
+  } catch (error) {
+    unstable_rethrow(error);
     return {};
   }
 }

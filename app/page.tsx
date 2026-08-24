@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { unstable_rethrow } from "next/navigation";
 import { cacheLife, cacheTag } from "next/cache";
 import { TAG } from "@/lib/cache-tags";
 import { headkit } from "@/lib/sdk";
@@ -50,7 +51,7 @@ export async function generateMetadata(): Promise<Metadata> {
       (yoastSeo as { opengraphImageUrl?: string | null } | null | undefined)
         ?.opengraphImageUrl ?? null;
 
-    return makeRootMetadata({
+    return await makeRootMetadata({
       title: resolveHomeTitle({
         yoastTitle: yoastSeo?.title,
         dashboardTitle: seoSettings.title,
@@ -70,8 +71,12 @@ export async function generateMetadata(): Promise<Metadata> {
       // trailing-slash duplicates.
       canonical: storefrontUrl("/", storeSettings.domain),
     });
-  } catch {
-    return makeRootMetadata({ siteName: "Store" });
+  } catch (error) {
+    unstable_rethrow(error);
+    // Same fail-closed rule as the root layout: an unreadable branding read
+    // leaves the store's indexing switch unknown, and app/robots.ts answers
+    // that failure with `Disallow: /`.
+    return await makeRootMetadata({ siteName: "Store", allowIndexing: false });
   }
 }
 

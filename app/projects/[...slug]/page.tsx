@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Image from "next/image";
 import { Suspense } from "react";
-import { notFound } from "next/navigation";
+import { notFound, unstable_rethrow } from "next/navigation";
 import { cacheLife, cacheTag } from "next/cache";
 import type { Product, RelatedProduct } from "@headkit/sdk";
 import { headkit as sdk } from "@/lib/sdk";
@@ -108,7 +108,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         getBrandingAssets(),
       ]);
     if (!project) return {};
-    return makeSeoMetadata(project.seo, {
+    return await makeSeoMetadata(project.seo, {
       title: project.title,
       ...(project.excerpt ? { description: project.excerpt } : {}),
       storeName: storeSettings.name ?? undefined,
@@ -121,7 +121,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       ),
       siteUrl: storeSettings.domain,
     });
-  } catch {
+  } catch (error) {
+    unstable_rethrow(error);
     return {};
   }
 }

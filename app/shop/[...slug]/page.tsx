@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Suspense } from "react";
-import { notFound } from "next/navigation";
+import { notFound, unstable_rethrow } from "next/navigation";
 import { cacheLife, cacheTag } from "next/cache";
 import type { ProductCategoryDetail } from "@headkit/sdk";
 import { headkit as sdk } from "@/lib/sdk";
@@ -145,7 +145,7 @@ export async function generateMetadata({
       if (!product) return NOINDEX;
 
       const desc = product.shortDescription || product.description;
-      return makeSeoMetadata(product.seo ?? null, {
+      return await makeSeoMetadata(product.seo ?? null, {
         title: product.name,
         // Self-referential to the NESTED path: this URL shape is the one the
         // store has indexed, so it must be the canonical, not /products/…
@@ -166,7 +166,7 @@ export async function generateMetadata({
       ]);
       if (!category) return NOINDEX;
 
-      return makeSeoMetadata(category.seo ?? null, {
+      return await makeSeoMetadata(category.seo ?? null, {
         title: category.name,
         canonical: storefrontUrl(path, storeSettings.domain),
         ...(category.description ? { description: category.description } : {}),
@@ -179,7 +179,8 @@ export async function generateMetadata({
 
     // index / unknown: not a URL this route represents.
     return NOINDEX;
-  } catch {
+  } catch (error) {
+    unstable_rethrow(error);
     return NOINDEX;
   }
 }

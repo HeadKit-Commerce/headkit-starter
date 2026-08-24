@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Image from "next/image";
 import { Suspense } from "react";
-import { notFound } from "next/navigation";
+import { notFound, unstable_rethrow } from "next/navigation";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
 import { ProjectGrid } from "@/components/headkit-ui/project/project-grid";
@@ -65,7 +65,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         getBrandingAssets(),
       ]);
     if (!client) return {};
-    return makeSeoMetadata(null, {
+    return await makeSeoMetadata(null, {
       title: decodeHtmlEntities(client.name),
       description: `Projects for ${decodeHtmlEntities(client.name)}`,
       storeName: storeSettings.name ?? undefined,
@@ -74,7 +74,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       canonical: storefrontUrl(`/client/${clientSlug}`, storeSettings.domain),
       siteUrl: storeSettings.domain,
     });
-  } catch {
+  } catch (error) {
+    unstable_rethrow(error);
     return {};
   }
 }

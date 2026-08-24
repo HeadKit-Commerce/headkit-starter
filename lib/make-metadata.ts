@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { SeoData } from "@headkit/sdk";
 import { decodeHtmlEntities } from "@/lib/utils";
+import { isIndexableCurrentHost } from "@/lib/indexing-decision";
 import { normalizeSiteUrl, resolveSiteUrl } from "@/lib/site-url";
 
 const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
@@ -242,10 +243,41 @@ export function resolveOgImageUrl(options: {
   );
 }
 
-/** Production + store allowIndexing → index/follow; preview always noindex. */
-export function resolveRobots(allowIndexing = true): Metadata["robots"] {
-  const isProduction = process.env.VERCEL_ENV === "production";
-  const index = isProduction && allowIndexing;
+/**
+ * HTML `robots` meta — the SAME host decision `app/robots.ts` uses (ENG-868).
+ *
+ * Both inputs can only CLOSE indexing, and only both agreeing opens it:
+ *  - the host gate ({@link isIndexableCurrentHost}) — a rehearsal / unknown
+ *    host is `noindex, nofollow` whatever the store says;
+ *  - the store switch (`allowIndexing`) — a store with indexing turned off
+ *    stays off even on its own production host.
+ *
+ * `VERCEL_ENV` is deliberately not read: a rehearsal storefront is a Vercel
+ * *production* deployment on a temporary host, so keying on it waved through
+ * exactly the case `robots.txt` was refusing — the two signals disagreed by
+ * construction.
+ *
+ * Both arguments are REQUIRED, and `configuredUrl` is typed without
+ * `undefined`. A caller that forgot the origin used to still compile and still
+ * return a well-formed answer — the WRONG one, `noindex, nofollow` on the
+ * store's own live host — so the omission was invisible to the type checker and
+ * to every assertion. It now fails loudly instead (see
+ * {@link isIndexableCurrentHost}); `null` / `""` remain the honest "this store
+ * declares no origin" value and still fail closed.
+ *
+ * @param allowIndexing store-level “show on search engines”
+ * @param configuredUrl the store's declared frontend origin, already resolved
+ *   through `resolveSiteUrl` so it matches what `app/robots.ts` compares.
+ */
+export async function resolveRobots(
+  allowIndexing: boolean,
+  configuredUrl: string | null,
+): Promise<Metadata["robots"]> {
+  // Resolved BEFORE the `&&` so a missing origin cannot be short-circuited past
+  // by `allowIndexing === false` — the loud failure must not depend on which
+  // input happens to close indexing first.
+  const indexableHost = await isIndexableCurrentHost(configuredUrl);
+  const index = allowIndexing && indexableHost;
   return { index, follow: index };
 }
 
@@ -289,7 +321,7 @@ export function seoFallbackTitle(
 }
 
 /** Build root (homepage / layout) metadata from optional overrides. */
-export function makeRootMetadata(options?: {
+export async function makeRootMetadata(options?: {
   title?: OptSeoStr;
   description?: OptSeoStr;
   siteName?: OptSeoStr;
@@ -300,7 +332,16 @@ export function makeRootMetadata(options?: {
   iconUrl?: OptSeoStr;
   /** Dashboard SEO OG image (takes precedence over branding icon for shares). */
   ogImageUrl?: OptSeoStr;
-  /** Store-level “show on search engines” — default true. */
+  /**
+   * Store-level “show on search engines”.
+   *
+   * Omitting it means "the store's switch is UNKNOWN", which resolves to
+   * `noindex, nofollow` — not to index. Every degraded/`catch` branch that
+   * builds root metadata without a branding read lands here, and `app/robots.ts`
+   * already answers the same failure with `Disallow: /`; a default of true would
+   * make the two signals disagree in exactly the branch where the store state
+   * is unknowable.
+   */
   allowIndexing?: boolean | undefined;
   /**
    * Runtime store domain (`storeSettings.domain`), preferred over the
@@ -317,7 +358,7 @@ export function makeRootMetadata(options?: {
    * the homepage.
    */
   canonical?: string | undefined;
-}): Metadata {
+}): Promise<Metadata> {
   const siteName = resolveStoreName(options?.siteName);
   const title = seoText(options?.title) || siteName;
   const description = stripTags(options?.description ?? "");
@@ -325,7 +366,7 @@ export function makeRootMetadata(options?: {
     dashboardOgImageUrl: options?.ogImageUrl,
     brandingIconUrl: options?.iconUrl,
   });
-  const allowIndexing = options?.allowIndexing !== false;
+  const allowIndexing = options?.allowIndexing === true;
   const siteUrl = resolveSiteUrl(options?.siteUrl, SITE_URL);
   const feedUrl = siteUrl ? `${siteUrl}/feed.xml` : "/feed.xml";
 
@@ -340,7 +381,7 @@ export function makeRootMetadata(options?: {
     description,
     metadataBase: new URL(siteUrl || "http://localhost:3000"),
     applicationName: siteName,
-    robots: resolveRobots(allowIndexing),
+    robots: await resolveRobots(allowIndexing, siteUrl),
     alternates: {
       ...(options?.canonical ? { canonical: options.canonical } : {}),
       types: {
@@ -431,10 +472,10 @@ export type MakeSeoMetadataFallback = {
 };
 
 /** Build page metadata from a SeoData object returned by the SDK. */
-export function makeSeoMetadata(
+export async function makeSeoMetadata(
   seo?: SeoData | null,
   fallback?: MakeSeoMetadataFallback,
-): Metadata {
+): Promise<Metadata> {
   const storeName = resolveStoreName(fallback?.storeName);
 
   // Real SEO title that already includes the store brand wins as absolute
@@ -485,7 +526,7 @@ export function makeSeoMetadata(
     // `robots: undefined` would resolve to null and clobber it.
     ...(fallback?.allowIndexing === undefined
       ? {}
-      : { robots: resolveRobots(fallback.allowIndexing) }),
+      : { robots: await resolveRobots(fallback.allowIndexing, siteUrl) }),
     openGraph: {
       type: "website",
       title: openGraphTitle,
