@@ -8,8 +8,11 @@ import {
   DEFAULT_MASKS,
   loadPlan,
   masksForPath,
+  normalizeForPath,
 } from "./plan";
 import { isBlockedHost } from "./safety";
+import { applyRules } from "./normalize";
+import { extractAnchorHrefs, htmlToText } from "./html";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const plans = join(here, "..", "plans");
@@ -236,5 +239,142 @@ describe("mask scoping", () => {
       for (const d of DEFAULT_MASKS) expect(selectors).toContain(d.selector);
       expect(plan.masks.every((m) => m.why.trim() !== "")).toBe(true);
     }
+  });
+
+  it("keeps a store's own mask ON TOP of the defaults, never instead of them", () => {
+    // The declaration that made this non-vacuous: both shipped plans now carry
+    // a mask of their own for the related-products carousel. A plan whose
+    // `masks` REPLACED the defaults would still pass a "the carousel is
+    // masked" check while having silently un-masked every iframe on the store,
+    // which is the shape of a real finding on this harness's `blocked_hosts`.
+    for (const name of ["pebblr-rehearsal.json", "dishee-rehearsal.json"]) {
+      const plan = loadPlan(join(plans, name));
+      const selectors = plan.masks.map((m) => m.selector);
+      expect(selectors).toContain('[id^="related-products-item-"]');
+      for (const d of DEFAULT_MASKS) expect(selectors).toContain(d.selector);
+      // ... and the payment list is still whole beside it.
+      for (const host of DEFAULT_BLOCKED_HOSTS) {
+        expect(plan.blockedHosts).toContain(host);
+      }
+    }
+  });
+
+  it("applies an unscoped normalisation rule everywhere", () => {
+    const plan = loadPlan(
+      tempPlan({
+        entries: [{ path: "/a" }],
+        normalize: [
+          {
+            field: "links",
+            pattern: "x",
+            replace: "y",
+            why: "volatile",
+          },
+        ],
+      }),
+    );
+    expect(plan.normalize[0]!.paths).toEqual([]);
+    expect(normalizeForPath("/a", plan.normalize)).toHaveLength(1);
+    expect(normalizeForPath("/anything/else", plan.normalize)).toHaveLength(1);
+  });
+
+  it("confines a path-scoped normalisation rule to the paths it names", () => {
+    const plan = loadPlan(
+      tempPlan({
+        entries: [{ path: "/a" }],
+        normalize: [
+          {
+            field: "links",
+            pattern: "/products/[a-z-]+",
+            replace: "/products/{related}",
+            paths: ["/shop/**"],
+            why: "the related-products carousel picks per render",
+          },
+        ],
+      }),
+    );
+    expect(normalizeForPath("/shop/cat/thing", plan.normalize)).toHaveLength(1);
+    // The grid pages, whose product links are the catalogue itself.
+    expect(normalizeForPath("/shop", plan.normalize)).toHaveLength(0);
+    expect(normalizeForPath("/search", plan.normalize)).toHaveLength(0);
+    expect(normalizeForPath("/collections/x", plan.normalize)).toHaveLength(0);
+  });
+
+  it("scopes dishee's carousel rules to product pages and nowhere else", () => {
+    // The whole reason `paths` exists on a normalisation rule: run store-wide,
+    // this rule would collapse every product grid on the store to one token.
+    const plan = loadPlan(join(plans, "dishee-rehearsal.json"));
+    expect(plan.normalize.length).toBeGreaterThan(0);
+    expect(plan.normalize.every((r) => r.paths.length > 0)).toBe(true);
+    expect(
+      normalizeForPath(
+        "/shop/dish-brushes/dishee-dish-brush-black",
+        plan.normalize,
+      ).length,
+    ).toBe(plan.normalize.length);
+    for (const grid of [
+      "/shop",
+      "/search",
+      "/featured",
+      "/",
+      "/collections/flora",
+    ]) {
+      expect(normalizeForPath(grid, plan.normalize)).toHaveLength(0);
+    }
+  });
+
+  it("collapses a dishee carousel's four picks to one token and nothing else", () => {
+    const plan = loadPlan(join(plans, "dishee-rehearsal.json"));
+    const rules = normalizeForPath(
+      "/shop/dish-brushes/dishee-dish-brush-black",
+      plan.normalize,
+    );
+    const picked = [
+      "/products/dishee-dish-brush-coral",
+      "/products/dishee-dish-brush-ocean",
+      "/products/dishee-dish-brush-sky",
+      "/products/dishee-dish-brush-white",
+    ].map((h) => applyRules("links", h, rules));
+    expect(new Set(picked).size).toBe(1);
+    // Everything else on the same page survives verbatim.
+    for (const href of ["/", "/shop", "/collections/dish-brushes", "/faq"]) {
+      expect(applyRules("links", href, rules)).toBe(href);
+    }
+  });
+
+  it("stabilises a dishee card's title text without dropping its anchors", () => {
+    // The raw prerendered-text metric is the one no mask can reach, so the
+    // rule has to leave the anchor count — the carousel's item count — intact.
+    const card = (slug: string, title: string): string =>
+      `<div id="related-products-item-0"><a href="/products/${slug}"><img alt="${title}"/></a>` +
+      `<a href="/products/${slug}"><h3 class="text-[17px] text-primary line-clamp-2 break-words">${title}</h3></a>` +
+      `<p class="text-base text-black">A$9.99</p></div>`;
+    const plan = loadPlan(join(plans, "dishee-rehearsal.json"));
+    const rules = normalizeForPath(
+      "/shop/swedish-dish-cloths/flora/dishee-swedish-dish-cloths-flora-wild",
+      plan.normalize,
+    );
+    const passA = applyRules("all", card("flora-wild", "Flora Wild"), rules);
+    const passB = applyRules(
+      "all",
+      card("patterns-olives", "Patterns Olives"),
+      rules,
+    );
+    expect(htmlToText(passA).length).toBe(htmlToText(passB).length);
+    expect(extractAnchorHrefs(passA)).toHaveLength(2);
+    expect(extractAnchorHrefs(passB)).toHaveLength(2);
+  });
+
+  it("keeps dishee's href rule off the fields that carry the flat product URL", () => {
+    // A product page's Product JSON-LD url/@id and its last breadcrumb item
+    // point at the flat /products/<slug> URL, and flat -> nested is the
+    // headline signal of the port this harness measures. A rule on `all` would
+    // have rewritten it.
+    const plan = loadPlan(join(plans, "dishee-rehearsal.json"));
+    const hrefRule = plan.normalize.find((r) =>
+      r.pattern.includes("/products/"),
+    );
+    expect(hrefRule).toBeDefined();
+    expect(hrefRule!.field).toBe("links");
   });
 });

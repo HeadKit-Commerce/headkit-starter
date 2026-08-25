@@ -455,7 +455,12 @@ function viewportsText(v: CaptureRunMeta["viewports"]): string {
 function rulesText(rules: CaptureRunMeta["normalize"]): string {
   if (rules.length === 0) return "(none)";
   return rules
-    .map((r) => `${r.field}:/${r.pattern}/${r.flags}->${r.replace}`)
+    .map(
+      (r) =>
+        `${r.field}:/${r.pattern}/${r.flags}->${r.replace}@${
+          (r.paths ?? []).length === 0 ? "*" : [...r.paths].sort().join(",")
+        }`,
+    )
     .sort()
     .join(" | ");
 }

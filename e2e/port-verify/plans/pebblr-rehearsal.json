@@ -1,7 +1,7 @@
 {
   "name": "pebblr — port verification",
   "inventory": "../../fixtures/pebblr-url-inventory.json",
-  "note": "Overlay on the captured V1 url inventory. The inventory is the URL list and is not edited here; this file carries only what belongs to the COMPARISON — which paths are captured signals-only, which regions are masked, and the URLs whose status is itself the thing under test and which a V1 sweep therefore never recorded.",
+  "note": "Overlay on the captured V1 url inventory. The inventory is the URL list and is not edited here; this file carries only what belongs to the COMPARISON — which paths are captured signals-only, which regions are masked, and the URLs whose status is itself the thing under test and which a V1 sweep therefore never recorded. NO NORMALISATION RULE IS DECLARED HERE, DELIBERATELY. Pebblr's carousel showed the same per-render pick as dishee's but produced ZERO signal rows across both captures (260825-port-verify-before-snapshots report §5a/5b): `links` is deduplicated and sorted, and pebblr's carousel renders a set large enough that the union does not move — only the order does, and order is not a thing this field records. Its self-diff damage was pixels only, which the mask above covers. Adding dishee's href rule here would blind a product page's rendered link set for no measured reason, which is the convenience mask this harness refuses.",
   "add": [
     {
       "path": "/products/gold-package",
@@ -34,5 +34,13 @@
     "/collections/photo",
     "/this-page-does-not-exist",
     "/collections/nope-not-a-collection"
-  ]
+  ],
+  "masks": [
+    {
+      "selector": "[id^=\"related-products-item-\"]",
+      "paths": ["/shop/**"],
+      "why": "MEASURED NON-DETERMINISM, NOT A CONVENIENCE MASK. The related-products carousel (\"Something similar\") picks its items at RENDER time, so two ISR cache entries for the same unchanged URL show different products. Evidence: 260825-port-verify-before-snapshots report §5a/5b — two captures of an UNCHANGED host, pass A served x-vercel-cache: PRERENDER and pass B x-vercel-cache: HIT, with a different set of related products in each; three back-to-back curls of one URL returned a byte-stable set, so the choice is per-REGENERATION, not per-request. It is made on the SERVER before the bytes are sent, which is why every determinism control this harness has — the seeded Math.random, --freeze-clock, the settle path, the other masks — acts too late to touch it. WHAT IS STILL ASSERTED: only the item TILES are masked, so the section and its heading are still compared pixel-for-pixel, the item count is still compared as the prerendered link count, and a carousel that the port removes, empties, or resizes still reports. Masking the container wholesale would trade a noisy true positive for a silent false negative."
+    }
+  ],
+  "normalize": []
 }

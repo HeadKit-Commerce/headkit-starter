@@ -101,12 +101,16 @@ function normalizeBlock(run: CaptureRun): string[] {
     ];
   }
   const lines = [
-    "| field | pattern | replaced with | why |",
-    "| --- | --- | --- | --- |",
+    "| field | pattern | replaced with | applies to | why |",
+    "| --- | --- | --- | --- | --- |",
   ];
   for (const n of run.meta.normalize) {
+    // `applies to` is not decoration: a rule scoped to one page family is a far
+    // narrower blind spot than the same rule run store-wide, and a reader of a
+    // green run cannot tell the two apart from the pattern alone.
+    const paths = n.paths ?? [];
     lines.push(
-      `| ${cell(n.field)} | \`${cell(n.pattern)}\`/${cell(n.flags)} | \`${cell(n.replace)}\` | ${cell(n.why)} |`,
+      `| ${cell(n.field)} | \`${cell(n.pattern)}\`/${cell(n.flags)} | \`${cell(n.replace)}\` | ${paths.length === 0 ? "every captured URL" : cell(paths.join(", "))} | ${cell(n.why)} |`,
     );
   }
   lines.push("");

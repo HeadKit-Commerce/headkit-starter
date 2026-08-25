@@ -256,6 +256,63 @@ export function startServer(
       return;
     }
 
+    if (path === "/streamed") {
+      /**
+       * A page whose content arrives the way a Cache Components storefront's
+       * does, so the settle path is proved rather than asserted.
+       *
+       * The document ships a PENDING Suspense boundary — the
+       * `<!--$?--><template id="B:9">` placeholder React emits — alongside the
+       * `<div hidden id="S:9">` staging container it relocates content out of.
+       * A script lands the hole and clears both.
+       *
+       * THE PAYLOAD SITS IN THE TEMPLATE, NOT IN THE HIDDEN DIV, and that is
+       * the whole design of this fixture. A `<div hidden>` IS in the document
+       * tree, so `document.querySelectorAll("a[href]")` finds its links whether
+       * or not the hole ever landed — an assertion against it is satisfied at
+       * t=0 and proves nothing, which is the same vacuous-truth trap `AGENTS.md`
+       * names for the `[hidden]` half of the settled condition. Template
+       * content is not in the tree, so the link below exists in the captured
+       * record if and only if the harness waited. The relocation is deliberately deferred
+       * well past `load`, past both network-idle waits and past the scroll
+       * pass — a page that has gone completely quiet and STILL has not landed
+       * its hole, which is exactly the window the harness used to photograph:
+       * the content exists, but in a container that measures 0px. The delay is
+       * generous on purpose, so that what the gate proves is "the harness
+       * waited for the hole" rather than "the harness happened to be slow".
+       *
+       * GATE 1 cannot catch that on its own — both runs would miss the content
+       * equally and diff to nothing, which is a false green, so `gate.ts`
+       * asserts the landed content POSITIVELY as part of GATE 1.
+       */
+      send(
+        200,
+        layout(
+          origin,
+          path,
+          "Streamed",
+          path,
+          "index, follow",
+          `<h1>Streamed</h1>
+<div id="hole"><!--$?--><template id="B:9"><p class="card">This paragraph arrived in a streamed dynamic hole.
+<a href="/streamed-landed">A link that does not exist until the hole has landed.</a></p></template><!--/$--></div>
+<div hidden id="S:9"><span>Staged content React would relocate.</span></div>
+<script>
+  setTimeout(function () {
+    var tpl = document.getElementById('B:9');
+    var hole = document.getElementById('hole');
+    var staged = document.getElementById('S:9');
+    if (tpl && hole) hole.appendChild(tpl.content.cloneNode(true));
+    if (tpl) tpl.remove();
+    if (staged) staged.remove();
+  }, 4000);
+</script>`,
+          [],
+        ),
+      );
+      return;
+    }
+
     if (path === "/robots.txt") {
       send(
         200,

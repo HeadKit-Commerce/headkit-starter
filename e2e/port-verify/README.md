@@ -157,9 +157,21 @@ plan declares only what is store-specific. The three default masks (`iframe`, `v
 `[data-port-verify-mask]`) and the payment-host list apply to every plan; re-declaring a default
 mask selector adopts the plan's `why` but **merges** its `paths` with the default's — and an empty
 `paths` means everywhere — so a default's coverage can never be narrowed. There is no way to remove
-or narrow a default: a mask is a declared blind spot, so adding is the safe direction. Neither
-shipped store plan declares any mask today — they inherit all three, and the report's blind-spot
-table lists every effective one.
+or narrow a default: a mask is a declared blind spot, so adding is the safe direction. Both shipped
+store plans now declare one mask of their own (the related-products carousel, below) and still
+inherit all three defaults plus the whole payment-host list; `lib/plan.test.ts` asserts exactly
+that, because a plan whose list REPLACED the defaults would pass a "the carousel is masked" check
+while having silently un-masked every iframe on the store. The report's blind-spot table lists every
+effective one.
+
+A `normalize` rule takes an optional `paths` too, with the same empty-means-everywhere default —
+but it travels in the opposite direction. A mask's `paths` can only ADD a blind spot; a
+normalisation's can only SHRINK one, because there are no default rules for it to narrow. It exists
+because a rule wide enough to absorb one page family's volatile value is usually far too wide for
+the rest of the store: the rule that stops a product page's related-products carousel reporting its
+per-render pick would, run store-wide, collapse every product grid on `/shop`, `/search` and each
+collection to a single token, and a port that dropped half the catalogue off those pages would then
+compare clean.
 
 `add` exists because the inventories were captured from the **V1** sites and
 list only the URLs those sites served. The shapes whose _status_ is the thing
@@ -321,8 +333,10 @@ one real finding is skimmed too. What gets it there:
   transition and caret and forces `scroll-behavior: auto`
 - a seeded `Math.random`
 - fixed locale, timezone and colour scheme
-- settle before shooting: `load`, then network idle, then fonts loaded, then a
-  synchronous scroll to the bottom and back to force lazy content
+- settle before shooting: `load`, network idle, **then the streamed dynamic
+  holes having landed**, then fonts loaded, then a synchronous scroll to the
+  bottom and back to force lazy content, then network idle and a second
+  landed-holes check for whatever the scroll opened
 - a per-channel pixel threshold of 2 — Chromium's text rasterisation is not
   bit-identical between processes, and an exact comparison reports thousands of
   one-unit pixels on a page nobody touched
@@ -339,6 +353,40 @@ one real finding is skimmed too. What gets it there:
   still visible anyway, because the no-JS screenshot is pixel-compared
   independently of it
 - masks, applied narrowly and listed in the report
+
+One thing on this list is **not** buyable in the browser at all. The
+related-products carousel on a product page picks its items at RENDER time, on
+the server, before the bytes are sent: two ISR cache entries for the same
+unchanged URL carry different products, while three back-to-back requests for
+one URL are byte-stable. It is per-REGENERATION, not per-request, so the seeded
+`Math.random`, `--freeze-clock`, the settle path and every mask act too late to
+touch it. Both shipped store plans declare it as a blind spot — a mask on the
+item tiles, plus (dishee only) a `links` normalisation for which products were
+picked — with the measurement in each `why`. What stays asserted: the section
+and its heading are still compared pixel-for-pixel, the item count is still
+compared as the prerendered link count, and a carousel the port removes, empties
+or resizes still reports. Masking the container wholesale would have traded a
+noisy true positive for a silent false negative. Evidence:
+`260825-port-verify-before-snapshots` report §5.
+
+**`load` + network idle is not a settled page under Cache Components.** A
+Suspense boundary the server could not resolve ships as
+`<!--$?--><template id="B:n"></template>`; its content arrives later inside
+`<div hidden id="S:n">`, and a script then MOVES it into place — so for a window
+measured in tens of milliseconds the content exists twice, once where it belongs
+and once in a container that measures 0px. The settle path therefore waits for
+both halves of the condition `AGENTS.md` specifies: no `template` placeholder is
+left AND nothing is still sitting in the hidden staging container. Waiting on
+the second alone is vacuously satisfied before the content ever arrives.
+Best-effort like every other wait here — on a non-React target neither selector
+matches and it returns on the first poll.
+
+GATE 1 cannot catch a settle that returns early on its own: both runs miss the
+content equally and the diff is empty, which is a false green. So the synthetic
+storefront serves `/streamed`, whose payload sits in the `<template>` — NOT in
+the `<div hidden>`, which is in the document tree and whose links a capture
+finds whether or not the hole landed — and GATE 1 asserts the landed link
+positively beside the empty diff.
 
 **Nothing in the settle path may depend on an in-page timer.** An earlier
 version installed Playwright's fake clock; fake timers also freeze `setTimeout`,

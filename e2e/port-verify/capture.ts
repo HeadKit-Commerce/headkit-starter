@@ -42,7 +42,7 @@ import { numberOption, parseArgv } from "./lib/args";
 import { prepareOutputDir } from "./lib/outdir";
 import type { OutputDirOutcome } from "./lib/outdir";
 import { slugFor } from "./lib/slug";
-import { loadPlan, masksForPath } from "./lib/plan";
+import { loadPlan, masksForPath, normalizeForPath } from "./lib/plan";
 import type { CapturePlan } from "./lib/plan";
 import { installGetOnlyGuard } from "./lib/safety";
 import { extractJsonLd } from "./lib/jsonld";
@@ -88,7 +88,7 @@ import type {
  * storefront moving — even when the record shape is untouched, because
  * `loadRun`'s schema gate cannot see those.
  */
-export const HARNESS_VERSION = "1.1.0";
+export const HARNESS_VERSION = "1.2.0";
 
 /** Fixed viewports. Never taken from a device preset — presets change between
  * Playwright releases, which would silently repaint every screenshot. */
@@ -362,6 +362,53 @@ async function walkChain(
  * `Math.random`, and masking the regions that are genuinely time-driven — each
  * of which is stated in the report as the blind spot it is.
  */
+/**
+ * Wait for React's streamed dynamic holes to have LANDED, not merely to have
+ * arrived.
+ *
+ * `load` + network idle + fonts is not a settled page under Cache Components.
+ * A Suspense boundary the server could not resolve is shipped as
+ * `<!--$?--><template id="B:n"></template>`, its content arrives later inside
+ * `<div hidden id="S:n">`, and an inline script then MOVES it into place — so
+ * for a window measured in tens of milliseconds the content exists twice, once
+ * where it belongs and once in a container that measures 0px. Screenshot or
+ * read the DOM inside that window and the capture describes a point in the
+ * hydration sequence rather than the page. That showed up as sub-0.15%-of-frame
+ * pixel differences on a breadcrumb across two captures of an UNCHANGED host
+ * (`260825-port-verify-before-snapshots`, report §5c) — small, but noise on an
+ * instrument whose whole value is that a difference means something.
+ *
+ * Both halves of the condition are load-bearing, and they are the same two
+ * `AGENTS.md` states under "Two starter e2e races that read as ordinary
+ * assertion failures": no placeholder is left AND nothing may still be sitting
+ * in the hidden staging container. Waiting on the second alone is vacuously
+ * satisfied before the content ever arrives, which is the t=0 trap that
+ * reintroduces the race.
+ *
+ * BOTH of React's placeholder prefixes count, not just `B:`. `B:` marks a
+ * pending BOUNDARY; `P:` marks a segment that has not arrived inside a boundary
+ * which is ALREADY COMPLETE, and at that moment that boundary's
+ * `<div hidden id="S:n">` does not exist yet — so watching `B:` alone leaves
+ * BOTH halves of the condition vacuously satisfied while a hole is still
+ * outstanding, which is precisely the trap the paragraph above describes.
+ *
+ * Best-effort, exactly like every other wait on this path: a target that is not
+ * React, or a boundary that genuinely never resolves, falls through on the
+ * timeout rather than failing the capture. On a non-React page neither selector
+ * ever matches and this returns on the first poll.
+ */
+async function streamedHolesLanded(page: Page): Promise<void> {
+  await page
+    .waitForFunction(
+      () =>
+        document.querySelector('template[id^="B:"], template[id^="P:"]') ===
+          null && document.querySelector('div[hidden][id^="S:"]') === null,
+      undefined,
+      { timeout: 10000 },
+    )
+    .catch(() => undefined);
+}
+
 async function settle(page: Page): Promise<void> {
   await page
     .waitForLoadState("load", { timeout: 20000 })
@@ -369,6 +416,7 @@ async function settle(page: Page): Promise<void> {
   await page
     .waitForLoadState("networkidle", { timeout: 15000 })
     .catch(() => undefined);
+  await streamedHolesLanded(page);
   await page
     .waitForFunction(() => document.fonts.status === "loaded", undefined, {
       timeout: 8000,
@@ -392,6 +440,9 @@ async function settle(page: Page): Promise<void> {
   await page
     .waitForLoadState("networkidle", { timeout: 10000 })
     .catch(() => undefined);
+  // Again after the scroll: below-the-fold content can open boundaries the
+  // first wait never saw.
+  await streamedHolesLanded(page);
   await page.addStyleTag({ content: FREEZE_CSS }).catch(() => undefined);
 }
 
@@ -550,7 +601,11 @@ async function captureTarget(
   const { args, plan } = shared;
   const errors: string[] = [];
   const blockedAll: BlockedRequest[] = [];
-  const norm = plan.normalize;
+  // Scoped to THIS path. An unscoped rule still applies everywhere — the
+  // filter is what lets a store absorb one page family's volatile value
+  // without blinding the rest of the store to the same string. See
+  // `normalizeForPath`.
+  const norm = normalizeForPath(target.path, plan.normalize);
   const origin = args.baseUrl;
 
   const { chain, final, finalUrl } = await walkChain(

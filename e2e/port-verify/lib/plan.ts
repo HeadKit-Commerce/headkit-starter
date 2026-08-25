@@ -214,6 +214,7 @@ function parseNormalize(value: unknown): NormalizeRule[] {
       flags?: unknown;
       replace?: unknown;
       why?: unknown;
+      paths?: unknown;
     };
     if (
       typeof r.field !== "string" ||
@@ -247,6 +248,7 @@ function parseNormalize(value: unknown): NormalizeRule[] {
       flags,
       replace: r.replace,
       why: r.why,
+      paths: asStringArray(r.paths, `normalize[${i}].paths`),
     };
   });
 }
@@ -430,4 +432,25 @@ export function masksForPath(
   masks: readonly MaskRule[],
 ): readonly MaskRule[] {
   return masks.filter((m) => m.paths.length === 0 || matchesAny(path, m.paths));
+}
+
+/**
+ * The normalisation rules that apply to one path.
+ *
+ * Same empty-means-everywhere rule as {@link masksForPath}, and for the same
+ * reason: an unscoped rule is the historical shape and stays the default, so a
+ * plan written before scoping existed keeps its exact behaviour.
+ *
+ * The direction of travel is the opposite of a mask's, though. A mask's `paths`
+ * can only ADD a blind spot (`unionMasks` refuses to let a plan narrow a
+ * default), whereas a normalisation's `paths` can only SHRINK one — there are
+ * no default rules for it to narrow. Scoping `/products/<slug>` to the product
+ * pages whose carousel actually varies is what keeps the same rule from
+ * flattening every product grid on the store into one token.
+ */
+export function normalizeForPath(
+  path: string,
+  rules: readonly NormalizeRule[],
+): readonly NormalizeRule[] {
+  return rules.filter((r) => r.paths.length === 0 || matchesAny(path, r.paths));
 }

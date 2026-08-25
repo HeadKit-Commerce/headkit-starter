@@ -69,6 +69,21 @@ export interface NormalizeRule {
   readonly flags: string;
   readonly replace: string;
   readonly why: string;
+  /**
+   * Path globs this rule applies to. Empty/absent = every captured URL, which
+   * is the historical behaviour and stays the default.
+   *
+   * Present for the same reason {@link MaskRule.paths} is: a rule wide enough
+   * to absorb one page's volatile value is usually far too wide for the rest of
+   * the store. A rule that rewrites `/products/<slug>` so a product page's
+   * related-products carousel stops reporting its per-render pick would, run
+   * store-wide, also collapse every product grid on `/shop`, `/search` and each
+   * collection to a single token — and a port that dropped half the catalogue
+   * off those pages would then compare clean. Scoping a normalisation NARROWS
+   * the blind spot, which is the safe direction; there is deliberately no way
+   * to widen a mask this way (see {@link MaskRule.paths} and `unionMasks`).
+   */
+  readonly paths: readonly string[];
 }
 
 /**

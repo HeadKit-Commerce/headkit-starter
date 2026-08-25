@@ -544,6 +544,7 @@ describe("a mismatched pair must not read as a clean comparison", () => {
             flags: "g",
             replace: "sid={s}",
             why: "session id",
+            paths: [],
           },
         ],
         masks: [{ selector: "iframe", why: "third-party", paths: [] }],

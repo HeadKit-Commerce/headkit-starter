@@ -97,6 +97,7 @@ describe("plan normalisation rules", () => {
       flags: "g",
       replace: "sid={session}",
       why: "session id",
+      paths: [],
     },
   ];
   it("applies only to the field it names", () => {
