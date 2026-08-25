@@ -1,4 +1,4 @@
-import { notFound, unstable_rethrow } from "next/navigation";
+import { notFound, permanentRedirect, unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import type {
@@ -22,7 +22,15 @@ import {
 } from "@/lib/make-metadata";
 import { getBranding, getBrandingAssets } from "@/lib/branding";
 import { getStripeConfig } from "@/lib/stripe-config";
-import { isColorAttrSlug } from "@/components/headkit-ui/collection/utils";
+import {
+  formatOptionName,
+  isColorAttrSlug,
+} from "@/components/headkit-ui/collection/utils";
+import {
+  collectionPathFromSegments,
+  productCategorySegments,
+  productPath,
+} from "@/lib/canonical-path";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductPageShell } from "./product-page-shell";
 
@@ -66,7 +74,11 @@ function mapRelatedToProduct(
     id: r.id,
     name: r.name,
     slug: r.slug,
-    uri: `/products/${r.slug}`,
+    // Carry WooCommerce's own permalink so a related/upsell card resolves the
+    // SAME canonical path the PDP and the sitemap do. Synthesising a flat
+    // `/products/{slug}` here is what made every related link vote against the
+    // indexed URL.
+    uri: r.permalink,
     isNew: r.isNew,
     price: r.price,
     regularPrice: r.regularPrice,
@@ -197,8 +209,12 @@ export async function generateMetadata({
       : ({} as const);
 
     const desc = product.shortDescription || product.description;
+    // The canonical is the product's OWN path (nested when its permalink has
+    // one), never the requested `/products/...` shape — this route 308s onto
+    // that path, and a self-referential canonical here would declare the
+    // redirect source an original.
     const baseCanonical = storefrontUrl(
-      `/products/${productSlug}`,
+      productPath(product),
       storeSettings.domain,
     );
     const brandingOpts = {
@@ -239,7 +255,10 @@ export async function generateMetadata({
 
     return await makeSeoMetadata(product.seo ?? null, {
       title: `${product.name} – ${colorOption.name}`,
-      canonical: `${baseCanonical}/${colorSlug}`,
+      canonical: storefrontUrl(
+        productPath(product, colorSlug),
+        storeSettings.domain,
+      ),
       ...(ogImage ? { ogImage } : {}),
       ...(desc ? { description: desc } : {}),
       ...brandingOpts,
@@ -252,17 +271,99 @@ export async function generateMetadata({
 }
 
 /**
- * Instant Navigation (Next.js 16.3): keep the route segment sync so Partial
- * Prefetching can ship an App Shell immediately. Awaiting `params` / product
- * data in the default export blocks the shell (and is a known Partial
- * Prefetching footgun). Stream via Suspense; `'use cache'` product reads can
- * still pop in early when links use `prefetch={true}`.
+ * Flat product URLs: 308 onto the product's canonical path, or serve.
  *
- * @see https://nextjs.org/docs/app/guides/instant-navigation
+ * ### The redirect must be thrown above EVERY Suspense boundary
+ *
+ * Under Cache Components a redirect thrown inside a Suspense boundary runs
+ * after the response has already committed, so the route answers 200 with a
+ * shell and redirects only on the client — invisible to a crawler, which is the
+ * only reader this exists for. (Same trap the `/posts` → `/news` move hit; see
+ * the note on `redirects()` in `next.config.ts`.) So the decision is awaited
+ * here, in the default export, above the `<Suspense>` below.
+ *
+ * That is not sufficient on its own, and the part that is easy to miss is that
+ * THREE separate things put this page inside a boundary — an in-page
+ * `<Suspense>`, a route-level `loading.tsx` (an IMPLICIT boundary around the
+ * page component), and a boundary in an ANCESTOR layout — and removing only two
+ * of them still answers 200. Hence this route has **no `loading.tsx`** and
+ * `app/layout.tsx` no longer wraps `{children}` in a `<Suspense>`. Measured on a
+ * Next 16.3 build with `cacheComponents: true`, one variable at a time:
+ *
+ *   redirect below `<Suspense>`            → 200 + shell (client-side redirect)
+ *   redirect in the default export,
+ *     with a `loading.tsx` present         → 200 + shell (client-side redirect)
+ *   redirect in the default export,
+ *     with a root-layout `<Suspense>`      → 200 + shell (client-side redirect)
+ *   redirect in the default export,
+ *     none of the three                    → 308, prerendered AND at runtime
+ *
+ * `instant = true` makes no difference either way. Re-introducing any of the
+ * three silently turns every flat product URL back into a 200 duplicate, which
+ * is the whole defect this closes. No unit test can see it — calling this
+ * function throws `NEXT_REDIRECT` under all of them — so
+ * `e2e/canonical-url-308.spec.ts` is what fails, on the status code itself.
+ *
+ * The deletion is not free, and the cost is worth stating plainly rather than
+ * claiming nothing is lost. The `<Suspense>` below renders the identical
+ * `<ProductPageShell />`, but it sits INSIDE a default export that now awaits
+ * `getCachedProduct` before returning anything, so on a cache miss — a product
+ * past the `HEADKIT_PRERENDER_PRODUCT_LIMIT` seed, or after the `cacheLife`
+ * window — a soft navigation paints nothing until the backend responds, where
+ * `loading.tsx` supplied a route-level skeleton instantly. `instant = true`
+ * stays on this route but can no longer produce a static App Shell for the same
+ * reason (the collections route documents the same forfeit). Both are accepted:
+ * a 200 duplicate on every flat product URL is the larger cost.
+ *
+ * ### No redirect loop
+ *
+ * `productPath` returns THIS path for a product with no category ancestry (no
+ * usable `/shop` permalink), so the comparison is what prevents a loop: such a
+ * product is served here, self-canonical, and never redirected.
+ *
+ * ### `searchParams` is forwarded, never awaited here
+ *
+ * The Shopify Admin preview key lives in the query string, and a 308 drops it —
+ * but awaiting `searchParams` in THIS function to exempt a preview request is a
+ * dynamic read above every boundary, which under Cache Components fails the
+ * build on a route with `generateStaticParams`. Passing the unawaited promise
+ * down is not a read; `ProductPageContent` awaits it inside the boundary below,
+ * where it is legal.
+ *
+ * No exemption is needed anyway, and this is why the gate above is the PUBLIC
+ * `getCachedProduct` rather than `getProductForPage`: a draft is invisible to
+ * the public catalogue, so `product` is null, no redirect is issued, and the
+ * key survives to the render that does consult the Admin API. See the Shopify
+ * preview section in `apps/starter/AGENTS.md`.
  */
 export const instant = true;
 
-export default function ProductPage({ params, searchParams }: Props) {
+export default async function ProductPage({ params, searchParams }: Props) {
+  const { slug } = await params;
+  const productSlug = slug[0]!;
+  const colorSlug = slug[1];
+
+  if (productSlug !== STATIC_GEN_PLACEHOLDER_SLUG) {
+    // This read is the THIRD provider call on the PDP path and the only one
+    // above the Suspense boundary, so a provider auth/scope failure here aborts
+    // the whole tenant static export — the failure `ProductPageContent` and
+    // `generateMetadata` were both hardened against (#332). Degrade the same
+    // way, but to SERVING rather than to notFound: the redirect is a
+    // consolidation, so losing it costs one duplicate URL, while refusing to
+    // render costs the page. Next control-flow still propagates.
+    let product: Awaited<ReturnType<typeof getCachedProduct>> = null;
+    try {
+      product = await getCachedProduct(productSlug);
+    } catch (error) {
+      unstable_rethrow(error);
+    }
+    if (product) {
+      const canonical = productPath(product, colorSlug);
+      const requested = `/products/${slug.join("/")}`;
+      if (canonical !== requested) permanentRedirect(canonical);
+    }
+  }
+
   return (
     <Suspense fallback={<ProductPageShell />}>
       <ProductPageContent params={params} searchParams={searchParams} />
@@ -323,22 +424,111 @@ export async function ProductPageContent({ params, searchParams }: Props) {
   const featuredProjects = (product.projects ??
     []) as ProjectSummaryFieldsFragment[];
 
+  // One canonical path per product, resolved from the product itself — so both
+  // routes that render this component emit the SAME links, JSON-LD `url` and
+  // crumb hrefs regardless of which URL shape was requested.
+  const canonicalBasePath = productPath(product);
+  const canonicalPath = productPath(product, colorSlug);
+
+  // Crumbs follow the product's own category ancestry (the chain inside its
+  // permalink), each linked to the collection path that chain canonicalises to
+  // — not `/collections/{first-category}`, which is the flat shape the
+  // collection route now redirects away from. Names come from the product's
+  // own category list where a slug matches; a chain segment the product does
+  // not carry a name for is humanised rather than dropped, so the crumb trail
+  // never skips a level.
+  const categoryNameBySlug = new Map(
+    (product.categories ?? []).map((category) => [
+      category.slug,
+      category.name,
+    ]),
+  );
+  const categorySegments = productCategorySegments(product);
+  const categoryCrumbs = categorySegments.map((segment, index) => ({
+    name: categoryNameBySlug.get(segment) ?? formatOptionName(segment),
+    href: collectionPathFromSegments(categorySegments.slice(0, index + 1)),
+  }));
+
+  // Fallback trail for a product whose permalink carries NO category ancestry
+  // (a `/shop/{slug}` permalink, or a store on WooCommerce's default
+  // `/product/` base). The product still lists categories, so the crumb is
+  // recoverable — but only two things about it can go wrong, and both did:
+  //
+  //  1. WHICH category. `product.categories[0]` is order-dependent on the
+  //     payload, the exact determinism rule `lib/canonical-path.ts` states for
+  //     the canonical. The rule here is the smallest slug in UTF-16 CODE POINT
+  //     order — deliberately not `localeCompare`, which reads the runtime's
+  //     default ICU locale and so can order non-ASCII slugs differently on the
+  //     build host and the serving host (WordPress permits UTF-8 term slugs and
+  //     this fleet has Thai merchants). A code-point comparison is one value per
+  //     product, identical on every render and in every environment. It is
+  //     arbitrary but stable, which is what matters — and it affects only this
+  //     crumb's LABEL, never the product's canonical URL, which is derived from
+  //     the permalink alone.
+  //  2. WHERE it links. `collectionPathFromSegments([slug])` is the FLAT
+  //     `/collections/{slug}` shape, which the collection route 308s away from
+  //     — so this one crumb costs an extra redirect hop when the category is
+  //     nested. It is deliberately NOT resolved to the nested path here, and
+  //     the reason is a cache-tag one rather than a URL one.
+  //
+  //     The only way to recover a nested path from a bare slug is the category
+  //     tree (`collectionPathResolver`), which is a `"use cache"` entry carrying
+  //     `cacheTag(TAG.collections)`. `ProductPageContent` is not itself inside a
+  //     `"use cache"` scope, so that tag would propagate onto the ROUTE's cache
+  //     entry — and WordPress fires `headkit:collections` on ANY product or
+  //     category change. On a store using WooCommerce's default `/product/`
+  //     permalink base `productCategorySegments` returns [] for EVERY product,
+  //     so every PDP would take this branch and one product save would purge
+  //     every PDP on the store. That is the Bike Society hazard recorded in
+  //     `lib/cache-tags.ts` ("NEVER a route/page tag"), and `block-editor.tsx`
+  //     gates its own read of the same resolver for the same reason.
+  //
+  //     A whole-catalogue purge is far more expensive than one crumb href that
+  //     308s to the canonical anyway, so the flat path wins here.
+  //
+  //     STATE THE SCOPE HONESTLY, because it is not small. This is a DELIBERATE
+  //     exception to invariants 3 and 4 of the canonical decision (every
+  //     internal link, and every Breadcrumb JSON-LD item, names the canonical).
+  //     On a store using WooCommerce's default `/product/` permalink base it is
+  //     not a rare degraded path — it is EVERY PDP BREADCRUMB ON THAT STORE
+  //     CLASS, in the rendered link and in the JSON-LD alike. It costs one
+  //     extra redirect hop per crumb; a crawler following it still reaches the
+  //     canonical by a permanent redirect, which is why the trade was taken.
+  //     The alternatives were a whole-catalogue purge tag on every PDP, or
+  //     failing the whole page when the tree read fails.
+  //
+  //     Do not "fix" this back to `collectionPathResolver`. That is the change
+  //     this comment exists to stop, and it reintroduces exactly the purge the
+  //     trade was made to avoid. `app/products/[...slug]/page.test.ts` and
+  //     `AGENTS.md` both record it.
+  //
+  //     The ROUTINE path on a nested-permalink store is unaffected: a product
+  //     whose permalink carries ancestry gets the nested `categoryCrumbs`
+  //     above, derived from the permalink alone with no tree read and no tag.
+  const fallbackCategory =
+    categoryCrumbs.length === 0 && product.categories?.length
+      ? [...product.categories].sort((a, b) =>
+          a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0,
+        )[0]!
+      : null;
+  const fallbackCrumbs = fallbackCategory
+    ? [
+        {
+          name: fallbackCategory.name,
+          href: collectionPathFromSegments([fallbackCategory.slug]),
+        },
+      ]
+    : [];
+
   const breadcrumbs = [
     { name: "Home", href: "/" },
     SHOP_BREADCRUMB,
-    ...(product.categories?.length
-      ? [
-          {
-            name: product.categories[0]!.name,
-            href: `/collections/${product.categories[0]!.slug}`,
-          },
-        ]
-      : []),
+    // A product with neither ancestry nor categories still gets a coherent
+    // trail (Home / Shop / product) rather than an empty or `undefined` segment.
+    ...(categoryCrumbs.length > 0 ? categoryCrumbs : fallbackCrumbs),
     {
       name: product.name,
-      href: colorSlug
-        ? `/products/${product.slug}/${colorSlug}`
-        : `/products/${product.slug}`,
+      href: canonicalPath,
     },
   ];
 
@@ -359,14 +549,18 @@ export async function ProductPageContent({ params, searchParams }: Props) {
 
   return (
     <div>
-      <ProductJsonLD product={product} brandName={brandName} />
+      <ProductJsonLD
+        product={product}
+        brandName={brandName}
+        url={storefrontUrl(canonicalBasePath, storeSettings.domain)}
+      />
       <BreadcrumbJsonLD items={breadcrumbs} />
 
       <div className="px-5 py-8 md:px-10">
         <ProductDetail
           product={product}
           {...(colorSlug !== undefined ? { initialColor: colorSlug } : {})}
-          productBasePath={`/products/${productSlug}`}
+          productBasePath={canonicalBasePath}
           breadcrumbItems={breadcrumbItems}
           stockSlot={stockSlot}
           stripeConfig={stripeConfig}

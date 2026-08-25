@@ -6,6 +6,16 @@ import { decodeHtmlEntities } from "@/lib/utils";
 
 interface Props {
   subcategory: ProductCategoryDetail;
+  /**
+   * The PARENT collection's canonical path (e.g. `/collections/clothing`).
+   *
+   * Required, and required for a reason: a child category's own payload carries
+   * no ancestors, so a card that only knows its slug can only link
+   * `/collections/{slug}` — the flat shape the collection route now 308s away
+   * from. The parent is the one place the ancestry IS known, so it hands it
+   * down rather than each card re-deriving it.
+   */
+  parentPath: string;
   /** First visible card is the LCP candidate on parent PLPs. */
   priority?: boolean;
 }
@@ -21,11 +31,13 @@ function plainDescription(html: string): string {
  */
 export function SubcategoryCard({
   subcategory,
+  parentPath,
   priority = false,
 }: Props): React.JSX.Element {
-  // Always use the storefront catch-all route — WP `uri` can be an absolute
-  // origin URL that would leave the Next.js app.
-  const href = `/collections/${subcategory.slug}`;
+  // Always built from the storefront catch-all route, never from WP `uri` —
+  // that can be an absolute origin URL that would leave the Next.js app. Nested
+  // under the parent so the link names the category's canonical path.
+  const href = `${parentPath}/${subcategory.slug}`;
   const name = decodeHtmlEntities(subcategory.name);
   const description = subcategory.description
     ? plainDescription(subcategory.description)

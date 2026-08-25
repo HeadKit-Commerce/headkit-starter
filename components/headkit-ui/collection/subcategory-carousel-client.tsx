@@ -7,6 +7,8 @@ import type { ProductCategoryDetail } from "@headkit/sdk";
 
 interface Props {
   subcategories: ProductCategoryDetail[];
+  /** The parent collection's canonical path — see `SubcategoryCard`. */
+  parentPath: string;
   /**
    * Server-rendered first card (with `priority` image). Passed as a slot so the
    * LCP `<img>` is in the initial HTML outside the client carousel bootstrap.
@@ -20,6 +22,7 @@ interface Props {
  */
 export function SubcategoryCarouselClient({
   subcategories,
+  parentPath,
   firstCard,
 }: Props): React.JSX.Element {
   return (
@@ -38,7 +41,11 @@ export function SubcategoryCarouselClient({
         "2xl": "2xl:w-[calc(25%-22.5px)]",
       }}
       renderItem={(child, index) =>
-        index === 0 ? firstCard : <SubcategoryCard subcategory={child} />
+        index === 0 ? (
+          firstCard
+        ) : (
+          <SubcategoryCard subcategory={child} parentPath={parentPath} />
+        )
       }
     />
   );

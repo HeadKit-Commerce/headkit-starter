@@ -162,11 +162,25 @@ test.describe("Gravity Forms: contact, PDP enquiry entry integrity, gift-card va
   test("P1-23: PDP enquiry — hidden product-context fields land on the GF entry (ENG-794)", async ({
     page,
   }) => {
-    const productPath = "/products/test-product-12";
-    await page.goto(`${BASE_URL}${productPath}`);
+    await page.goto(`${BASE_URL}/products/test-product-12`);
     await expect(
       page.getByRole("heading", { level: 1, name: "Test Product 12" }),
     ).toBeVisible({ timeout: 30_000 });
+
+    // Shape-agnostic, and it has to be: the flat `/products/{slug}` URL now
+    // 308s onto the product's canonical path, which is
+    // `/shop/{cat…}/{slug}` on a nested-permalink store (this fixture is filed
+    // under `pagination-test`) and `/products/{slug}` on the default
+    // `/product/` base. `product-detail.tsx` injects
+    // `${window.location.origin}${pathname}` — the URL the page SETTLED on —
+    // so read that back rather than pinning a base this spec cannot know.
+    // Not weakened: the entry must still carry the page's own full URL.
+    const landed = new URL(page.url());
+    const productUrl = `${landed.origin}${landed.pathname}`;
+    expect(
+      landed.pathname,
+      "the PDP did not settle on a URL ending in the product slug — the redirect target is wrong, and the assertion below would then pin the wrong page",
+    ).toMatch(/\/test-product-12$/);
 
     // The Enquire control renders only after the form-availability probe.
     const enquireButton = page.getByRole("button", {
@@ -208,7 +222,7 @@ test.describe("Gravity Forms: contact, PDP enquiry entry integrity, gift-card va
     expect(
       entry["5"],
       "hidden Product URL did not attach to the entry (ENG-794 id-loss regression)",
-    ).toBe(`${BASE_URL}${productPath}`);
+    ).toBe(productUrl);
   });
 
   test("P1-24: gift-card form — invalid recipient email keeps add-to-cart disabled; delivery-date radio reveals the date input", async ({

@@ -149,7 +149,11 @@ test.describe("Wishlist read surface + home smoke (P1-40, P1-32)", () => {
         .locator("section")
         .filter({ has: page.getByRole("heading", { name: section }) });
       await expect(
-        rail.locator('a[href^="/products/"]').first(),
+        // Both shapes `productPath` can return — `/shop/{cat…}/{slug}` on a
+        // nested-permalink store, `/products/{slug}` on the default
+        // `/product/` base. Matching only the flat one found nothing on the
+        // nested store and reported an empty carousel that was fully populated.
+        rail.locator('a[href^="/shop/"], a[href^="/products/"]').first(),
         `${section} carousel has no product cards`,
       ).toBeVisible();
     }

@@ -4,6 +4,8 @@ import type { ProductCategoryDetail } from "@headkit/sdk";
 
 interface Props {
   subcategories: ProductCategoryDetail[];
+  /** The parent collection's canonical path — see `SubcategoryCard`. */
+  parentPath: string;
 }
 
 /**
@@ -15,6 +17,7 @@ interface Props {
  */
 export function SubcategoryCarousel({
   subcategories,
+  parentPath,
 }: Props): React.JSX.Element {
   const first = subcategories[0];
   if (!first) {
@@ -25,7 +28,14 @@ export function SubcategoryCarousel({
     <div className="mt-8 pt-8">
       <SubcategoryCarouselClient
         subcategories={subcategories}
-        firstCard={<SubcategoryCard subcategory={first} priority />}
+        parentPath={parentPath}
+        firstCard={
+          <SubcategoryCard
+            subcategory={first}
+            parentPath={parentPath}
+            priority
+          />
+        }
       />
     </div>
   );

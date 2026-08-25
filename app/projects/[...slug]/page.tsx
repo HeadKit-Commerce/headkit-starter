@@ -51,7 +51,11 @@ function mapRelatedToProduct(r: RelatedProduct): Product {
     id: r.id,
     name: r.name,
     slug: r.slug,
-    uri: `/products/${r.slug}`,
+    // WooCommerce's own permalink, so a project's product card resolves the
+    // same canonical path the PDP, the JSON-LD and the sitemap do (see
+    // `lib/canonical-path.ts`). A synthesised `/products/{slug}` here would
+    // link the shape that 308s.
+    uri: r.permalink,
     isNew: r.isNew,
     description: "",
     shortDescription: "",

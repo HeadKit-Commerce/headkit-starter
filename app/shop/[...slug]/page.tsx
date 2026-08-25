@@ -5,18 +5,23 @@ import { notFound, unstable_rethrow } from "next/navigation";
 import { cacheLife, cacheTag } from "next/cache";
 import type { ProductCategoryDetail } from "@headkit/sdk";
 import { headkit as sdk } from "@/lib/sdk";
-import { getCachedProduct } from "@/lib/product-cache";
-import { getBranding, getBrandingAssets } from "@/lib/branding";
+import { getBranding } from "@/lib/branding";
 import { makeSeoMetadata, storefrontUrl } from "@/lib/make-metadata";
 import { TAG } from "@/lib/cache-tags";
-import { ProductPageContent } from "@/app/products/[...slug]/page";
+import {
+  generateMetadata as productMetadata,
+  ProductPageContent,
+} from "@/app/products/[...slug]/page";
 import { ProductPageShell } from "@/app/products/[...slug]/product-page-shell";
 import { CollectionRoute } from "@/app/collections/[...slug]/page";
+import { collectionPathFromCategory } from "@/components/headkit-ui/collection/utils";
+import { productPath, productShopSegments } from "@/lib/canonical-path";
+import { getCachedProduct } from "@/lib/product-cache";
 import {
   resolveShopPath,
-  shopSegmentsFromPath,
-  uriToRelativePath,
+  SHOP_PATH_PREFIX,
   type ShopCategoryNode,
+  type ShopProductCandidate,
 } from "../shop-slug";
 
 // Cache Components requires generateStaticParams to return ≥1 param. When the
@@ -27,6 +32,58 @@ import {
 const STATIC_GEN_PLACEHOLDER_SLUG = "__hk_static_placeholder";
 
 const NOINDEX: Metadata = { robots: { index: false, follow: false } };
+
+/** The `/products/[...slug]` params a candidate reading delegates to. */
+function candidateParams(candidate: ShopProductCandidate): string[] {
+  return candidate.colourSlug !== undefined
+    ? [candidate.productSlug, candidate.colourSlug]
+    : [candidate.productSlug];
+}
+
+/**
+ * Resolve the requested path to the product it really names, or null.
+ *
+ * `resolveShopPath` is pure and has no catalogue access by design, so it hands
+ * back READINGS in priority order and the choice between them is made here,
+ * where a product can actually be looked up.
+ *
+ * Two acceptance rules, and the difference between them is the whole point:
+ *
+ *  - `ancestryValidated` — every segment ahead of the slug was matched against
+ *    the category tree, so existence is enough. Serving it without comparing
+ *    permalinks is REQUIRED, not lax: a product filed in two categories is
+ *    reachable under either chain and the decision deliberately serves both,
+ *    consolidating them by canonical rather than by a redirect.
+ *  - otherwise — a containment guess about a truncated tree. Existence proves
+ *    nothing there, so the product's OWN permalink must reproduce the requested
+ *    path exactly. That single comparison is what keeps `/shop/junk/junk/{real}`
+ *    answering not-found instead of 200, and what stops `…/{slug}/{colour}`
+ *    resolving to an unrelated product that happens to be slugged like a colour.
+ *    The permalink is the authority precisely where the tree is not — the same
+ *    determinism rule the canonical itself rests on, one level down.
+ *
+ * `getCachedProduct` is the shared `"use cache"` entry both PDP routes read, so
+ * a probe costs a cached lookup and the accepted one is a hit again when the
+ * delegated component reads it.
+ *
+ * Null means no reading survived: the caller answers not-found / noindex.
+ */
+async function resolveProductParams(
+  slug: readonly string[],
+  candidates: readonly ShopProductCandidate[],
+): Promise<string[] | null> {
+  const requestedPath = `/${SHOP_PATH_PREFIX}/${slug.join("/")}`;
+
+  for (const candidate of candidates) {
+    const product = await getCachedProduct(candidate.productSlug);
+    if (!product) continue;
+    if (candidate.ancestryValidated) return candidateParams(candidate);
+    if (productPath(product, candidate.colourSlug) === requestedPath) {
+      return candidateParams(candidate);
+    }
+  }
+  return null;
+}
 
 type Props = {
   params: Promise<{ slug: string[] }>;
@@ -54,10 +111,23 @@ type Props = {
  * This route therefore serves real pages: `resolveShopPath` decides
  * category-vs-product from the category tree, and rendering is delegated to the
  * existing flat-PDP and collection views so the compositions cannot drift.
- * No permanent redirect is issued from this namespace.
  *
- * The flat `/products/{slug}` route is untouched and keeps serving its own URLs;
- * this adds a second valid shape rather than removing one.
+ * Since the 2026-08-22 canonical decision this namespace is also the WINNER for
+ * products: `/products/{slug}` now 308s here, every internal link is built from
+ * the same `productPath`, and colourway URLs moved here too
+ * (`/shop/{cat…}/{slug}/{colour}`).
+ *
+ * This route still issues NO permanent redirect of its own. Two URL shapes it
+ * serves are not canonical, and both consolidate by canonical tag alone:
+ *
+ *  - a product filed in two categories, reached under the chain that is not the
+ *    one in its permalink;
+ *  - a category archive, whose one canonical is its `/collections/…` path.
+ *
+ * Neither was named by the decision, which spent its 308s on the flat
+ * `/products/{slug}` and `/collections/{child}` shapes. A 308 is the single act
+ * a rollback cannot undo (point 1 above), so it is spent only where the
+ * decision asked for it.
  */
 
 /**
@@ -95,6 +165,31 @@ async function getShopCategory(
  * store that uses a different WooCommerce permalink base. Those stores keep
  * exactly today's behaviour (placeholder only) and their flat PDPs are
  * unaffected.
+ *
+ * PRERENDER COVERAGE — the two PDP routes do NOT match, and which of them is
+ * canonical depends on the store's WooCommerce permalink base, so state both
+ * classes rather than one:
+ *
+ *   NESTED-permalink store (`/shop/{cat…}/{slug}`) — THIS route is canonical and
+ *   is UNCAPPED, paginating the catalogue to completion, as it already did
+ *   before the canonical flip. The flat route (`app/products/[...slug]`) is the
+ *   redirect shim there, and it is CAPPED at `HEADKIT_PRERENDER_PRODUCT_LIMIT`
+ *   (default 150), so what the cap bounds is how many 308s get prerendered.
+ *
+ *   DEFAULT-permalink store (`/product/{slug}`) — `productShopSegments` returns
+ *   null for every product, so `generateStaticParams` here emits only the
+ *   placeholder and this route contributes nothing. `productPath` returns the
+ *   FLAT path, making `app/products/[...slug]` the canonical route, and the same
+ *   cap therefore bounds canonical PDP prerendering on that store.
+ *
+ * So `HEADKIT_PRERENDER_PRODUCT_LIMIT` governs whichever route is canonical for
+ * the store's permalink base — EXCEPT on a nested-permalink store, where the
+ * canonical route is the uncapped one. Extending the cap here was considered and
+ * rejected: on a nested-permalink store with N > 150 products it would cut
+ * prerendered canonical PDPs from N to 150, a real reduction in coverage of the
+ * primary URL class rather than a relocation of an existing bound. A cap that
+ * governs the canonical route in both classes is filed as
+ * `260824-prerender-cap-nested-pdp`.
  */
 export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
   const params: { slug: string[] }[] = [];
@@ -103,15 +198,14 @@ export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
     let page = 1;
     let hasMore = true;
 
-    // Paginate to completion, matching the flat PDP, so both routes prerender
-    // the same catalogue rather than silently truncating at page 1.
+    // Paginate to completion — uncapped, see the coverage note above.
     while (hasMore) {
       const result = await sdk.products.list({}, page, 100);
       for (const product of result.products) {
-        const path = uriToRelativePath(product.uri);
-        if (!path) continue;
-        const segments = shopSegmentsFromPath(path);
-        if (segments.length === 0) continue;
+        // The same derivation the canonical, the 308 target and the sitemap
+        // use, so this route can only prerender URLs they name.
+        const segments = productShopSegments(product);
+        if (!segments) continue;
         params.push({ slug: segments });
       }
       hasMore = page < result.totalPages;
@@ -131,33 +225,28 @@ export async function generateMetadata({
   const { slug } = await params;
   if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) return NOINDEX;
 
-  const path = `/shop/${slug.join("/")}`;
-
   try {
     const categories = await getShopCategoryTree();
     const resolved = resolveShopPath(slug, categories);
 
     if (resolved.kind === "product") {
-      const [product, { seoSettings, storeSettings }, { iconUrl }] =
-        await Promise.all([
-          getCachedProduct(resolved.productSlug),
-          getBranding(),
-          getBrandingAssets(),
-        ]);
-      if (!product) return NOINDEX;
+      const productParams = await resolveProductParams(
+        slug,
+        resolved.candidates,
+      );
+      if (!productParams) return NOINDEX;
 
-      const desc = product.shortDescription || product.description;
-      return await makeSeoMetadata(product.seo ?? null, {
-        title: product.name,
-        // Self-referential to the NESTED path: this URL shape is the one the
-        // store has indexed, so it must be the canonical, not /products/…
-        canonical: storefrontUrl(path, storeSettings.domain),
-        ...(desc ? { description: desc } : {}),
-        storeName: storeSettings.name ?? undefined,
-        dashboardOgImageUrl: seoSettings.ogImageUrl ?? undefined,
-        brandingIconUrl: iconUrl ?? undefined,
-        allowIndexing: seoSettings.allowIndexing,
-        siteUrl: storeSettings.domain,
+      // Delegate to the flat PDP's own metadata, exactly as the page delegates
+      // rendering. It resolves the canonical from `productPath(product, …)`,
+      // which is the NESTED path — taken from the PRODUCT, never from the
+      // requested URL. A product filed in two categories is reachable under
+      // either chain; deriving the canonical from the request would make each
+      // reachable chain declare itself an original, the same split under a new
+      // name. Delegating also means a colourway URL keeps the `Name – Colour`
+      // title, the variant OG image and the noindex-an-invalid-colour rule
+      // rather than acquiring a thinner copy here.
+      return productMetadata({
+        params: Promise.resolve({ slug: productParams }),
       });
     }
 
@@ -170,7 +259,19 @@ export async function generateMetadata({
 
       return await makeSeoMetadata(category.seo ?? null, {
         title: category.name,
-        canonical: storefrontUrl(path, storeSettings.domain),
+        // A category archive's canonical is its `/collections/…` path, never
+        // this `/shop/…` one: `app/sitemap.ts` advertises the collections
+        // shape, and the collection view this route delegates to renders its
+        // facet links there too. Naming this URL instead would leave a category
+        // with two self-declared originals — the very split the product side of
+        // this route exists to close. No redirect is issued: the captain's
+        // decision names the flat `/collections/{child}` shape as the one that
+        // 308s, and a 308 is the one act a rollback cannot undo, so a URL shape
+        // the decision did not name is consolidated by canonical alone.
+        canonical: storefrontUrl(
+          collectionPathFromCategory(category),
+          storeSettings.domain,
+        ),
         ...(category.description ? { description: category.description } : {}),
         storeName: storeSettings.name ?? undefined,
         dashboardOgImageUrl: seoSettings.ogImageUrl ?? undefined,
@@ -216,13 +317,23 @@ async function ShopRouteContent({
   const resolved = resolveShopPath(slug, categories);
 
   if (resolved.kind === "product") {
+    const productParams = await resolveProductParams(slug, resolved.candidates);
+    if (!productParams) notFound();
+
     // Delegate to the flat PDP's own content component: identical composition,
-    // and its colourway links point at /products/{slug}/{color}, which IS
-    // served — the shop catch-all deliberately does not classify a two-segment
-    // remainder, so it must not advertise colourway URLs beneath itself.
+    // and identical links — it builds every href from `productPath(product)`,
+    // so the colourway links it renders are the nested ones this catch-all now
+    // classifies, not the `/products/…` shape that 308s here.
+    //
+    // A chain that is reachable but is NOT the product's own permalink chain
+    // (a product filed under two categories) is served here rather than
+    // redirected: the canonical above already names the one original, and the
+    // decision that put a 308 on the flat shapes did not name this one — a 308
+    // is the single act a rollback cannot undo, so it is spent only where the
+    // decision asked for it.
     return (
       <ProductPageContent
-        params={Promise.resolve({ slug: [resolved.productSlug] })}
+        params={Promise.resolve({ slug: productParams })}
         {...(searchParams !== undefined ? { searchParams } : {})}
       />
     );
@@ -231,7 +342,10 @@ async function ShopRouteContent({
   if (resolved.kind === "category") {
     // Delegate to the collection view with the category's own segments, so its
     // facet links stay in the served /collections namespace (see the export
-    // comment there). The canonical above still points at this /shop URL.
+    // comment there). The canonical emitted by `generateMetadata` above points
+    // at that same `/collections/…` path, NOT at this `/shop` URL — a category
+    // archive served here is a duplicate that consolidates by canonical tag,
+    // which is why the two agree on the collections shape.
     return (
       <CollectionRoute
         params={Promise.resolve({ slug: resolved.segments })}

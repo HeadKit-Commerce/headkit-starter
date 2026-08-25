@@ -92,10 +92,19 @@ See [`overrides/README.md`](./overrides/README.md) for CSS hook classes. Agents 
   meta tag and routes inherit it (see `MakeSeoMetadataFallback.allowIndexing` in
   `lib/make-metadata.ts`)
 - **JSON-LD** — Product, breadcrumb, article, FAQ, website, searchbox (see `components/seo/`)
-- **Metadata** — OpenGraph, Twitter cards, canonical URLs. Every indexable route emits a
+- **Metadata** — OpenGraph, Twitter cards, canonical URLs. Most indexable routes emit a
   self-referencing canonical (the robots-disallowed ones — account, checkout, search — do
-  not); the rules for reconciling it with a Yoast canonical live in `resolveCanonical`
+  not; the duplicate product/collection shapes below name their canonical instead); the
+  rules for reconciling it with a Yoast canonical live in `resolveCanonical`
   (`lib/make-metadata.ts`)
+- **One canonical URL shape** — a product is canonical at `/shop/<category…>/<slug>` and a
+  collection at `/collections/<parent>/<child>`; the flat `/products/<slug>` and
+  `/collections/<child>` shapes 308 onto them. The product half follows the store's
+  WooCommerce permalink base: on a store still on the default `/product/` base a product has
+  no nested path, so `/products/<slug>` stays its canonical and issues no redirect. Every
+  signal (canonical, `og:url`, internal links, JSON-LD, sitemap) is built from the one
+  derivation in `lib/canonical-path.ts` — see [`AGENTS.md`](./AGENTS.md) for the rule and the
+  constraints that keep the 308 real
 
 ## Standalone vs Monorepo
 
@@ -135,23 +144,24 @@ read it.
 
 ## Routes
 
-| Route                        | Description                                           |
-| ---------------------------- | ----------------------------------------------------- |
-| `/`                          | Home page                                             |
-| `/shop`                      | All products                                          |
-| `/shop/[...slug]`            | Product detail (supports subcategory paths)           |
-| `/collections/[...slug]`     | Collection / category (supports nested subcategories) |
-| `/brand`, `/brand/[...slug]` | Brand listing and detail                              |
-| `/news`, `/news/[...slug]`   | Blog listing and post detail                          |
-| `/search`                    | Search results                                        |
-| `/sale`, `/new`, `/featured` | Filtered product listings                             |
-| `/checkout`                  | Multi-step checkout                                   |
-| `/checkout/success`          | Order confirmation                                    |
-| `/account`                   | Login / Register                                      |
-| `/account/profile`           | Profile management                                    |
-| `/account/orders`            | Order history                                         |
-| `/account/wishlist`          | Saved products                                        |
-| `/contact`, `/faq`           | Static pages                                          |
+| Route                        | Description                                        |
+| ---------------------------- | -------------------------------------------------- |
+| `/`                          | Home page                                          |
+| `/shop`                      | All products                                       |
+| `/shop/[...slug]`            | Canonical product detail; also category archives   |
+| `/products/[...slug]`        | Flat product URL — 308s to the `/shop/…` canonical |
+| `/collections/[...slug]`     | Collection / category (nested shape is canonical)  |
+| `/brand`, `/brand/[...slug]` | Brand listing and detail                           |
+| `/news`, `/news/[...slug]`   | Blog listing and post detail                       |
+| `/search`                    | Search results                                     |
+| `/sale`, `/new`, `/featured` | Filtered product listings                          |
+| `/checkout`                  | Multi-step checkout                                |
+| `/checkout/success`          | Order confirmation                                 |
+| `/account`                   | Login / Register                                   |
+| `/account/profile`           | Profile management                                 |
+| `/account/orders`            | Order history                                      |
+| `/account/wishlist`          | Saved products                                     |
+| `/contact`, `/faq`           | Static pages                                       |
 
 ## Customization
 

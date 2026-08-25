@@ -3,8 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 /**
  * PDP cache-tag/life guard (09.5-04 / ENG-853).
  *
- * Canonical PDP is `/products/[...slug]`; `/shop/[...slug]` permanently
- * redirects there. `getCachedProduct` owns the single cache entry tagged
+ * Since the 2026-08-22 canonical decision the redirect runs the other way: the
+ * NESTED `/shop/[...slug]` is canonical on a store whose WooCommerce permalink
+ * base carries the category, and this flat route 308s onto it. Both routes read
+ * `getCachedProduct`, which owns the single cache entry tagged
  * `TAG.product(slug)` + `TAG.products` at `cacheLife('days')`.
  */
 
@@ -32,7 +34,12 @@ vi.mock("@/lib/sdk", () => ({
 }));
 
 vi.mock("@/lib/branding", () => ({
-  getBranding: (): Promise<null> => Promise.resolve(null),
+  getBranding: (): Promise<unknown> =>
+    Promise.resolve({
+      branding: { hideEmptyCollections: false, defaultCollectionSort: "" },
+      seoSettings: { allowIndexing: true, ogImageUrl: null },
+      storeSettings: { name: "Test Store", domain: "shop.example" },
+    }),
   getBrandingAssets: (): Promise<Record<string, never>> => Promise.resolve({}),
 }));
 
@@ -81,6 +88,10 @@ vi.mock("@/components/seo/breadcrumb-json-ld", () => ({
 }));
 vi.mock("@/components/headkit-ui/collection/utils", () => ({
   isColorAttrSlug: (): boolean => false,
+  formatOptionName: (slug: string): string => slug,
+}));
+vi.mock("@/components/headkit-ui/project/project-carousel", () => ({
+  ProjectCarousel: (): null => null,
 }));
 vi.mock("@/components/ui/skeleton", () => ({ Skeleton: (): null => null }));
 
@@ -102,8 +113,9 @@ vi.mock("@/components/headkit-ui/project/project-carousel", () => ({
   ProjectCarousel: (): null => null,
 }));
 
-import { getProduct } from "./page";
+import { getProduct, ProductPageContent } from "./page";
 import { getCachedProduct, getProductForPage } from "@/lib/product-cache";
+import { TAG } from "@/lib/cache-tags";
 
 const SLUG = "acme-hoodie";
 const EXPECTED_ENTITY_TAG = "headkit:product:acme-hoodie";
@@ -171,5 +183,71 @@ describe("ProductPageContent provider failure", () => {
         params: Promise.resolve({ slug: [SLUG] }),
       }),
     ).rejects.toThrow(/NEXT_HTTP_ERROR_FALLBACK|NEXT_NOT_FOUND|notFound/i);
+  });
+});
+
+/**
+ * A product on a store using WooCommerce's DEFAULT `/product/` permalink base:
+ * no `/shop` ancestry, so the PDP takes its fallback-crumb branch. On such a
+ * store that is EVERY product, which is what makes any cache tag acquired on
+ * this branch a whole-catalogue liability rather than an edge case.
+ */
+const NO_ANCESTRY_PRODUCT = {
+  id: "p1",
+  name: "Acme Hoodie",
+  slug: SLUG,
+  uri: "https://commerce.example.com/product/acme-hoodie/",
+  shortDescription: "",
+  description: "",
+  seo: null,
+  image: null,
+  attributes: [],
+  defaultAttributes: [],
+  variations: [],
+  categories: [{ id: "c1", name: "Hoodies", slug: "hoodies" }],
+  related: [],
+  upsells: [],
+  projects: [],
+};
+
+/**
+ * DOMAIN OF THIS GUARD, and where it stops.
+ *
+ * It exercises the FLAT `/products/[...slug]` route only — that is the route
+ * `ProductPageContent` is imported from here, and the route that is canonical
+ * on a store using WooCommerce's default `/product/` permalink base.
+ *
+ * IT DOES NOT COVER the nested `/shop/[...slug]` route, which STILL carries
+ * `TAG.collections`: `ShopRouteContent` awaits `getShopCategoryTree()` outside
+ * any enclosing `"use cache"` scope, so the tag lands on that route's entry and
+ * one product save purges every canonical PDP on a nested-permalink store —
+ * which is the class both cutover stores (Pebblr, Dishee) are in. That read is
+ * load-bearing (the tree is what decides category-vs-product) and pre-dates
+ * this branch, so it is not fixed here. Tracked as
+ * `260824-nested-pdp-catalogue-purge-tag` (P1).
+ *
+ * Naming this describe for "the PDP route" would state something false: the
+ * guard would read as a store-wide guarantee while covering one of the two
+ * routes that serve a PDP.
+ */
+describe("the FLAT /products route does not subscribe to the whole-catalogue tag", () => {
+  it("acquires no TAG.collections while rendering a product with no permalink ancestry", async () => {
+    productsGet.mockResolvedValue(NO_ANCESTRY_PRODUCT);
+
+    await ProductPageContent({ params: Promise.resolve({ slug: [SLUG] }) });
+
+    const tags = cacheTag.mock.calls.flat();
+
+    // Positive control: the render really happened and this spy really sees the
+    // tags it acquires, so the ban below is not vacuous.
+    expect(
+      tags,
+      "the PDP must still own its product entry — a render that acquired no tags at all would satisfy the ban below without proving anything",
+    ).toContain(EXPECTED_ENTITY_TAG);
+
+    expect(
+      tags,
+      "WordPress fires headkit:collections on ANY product or category change, so a PDP that subscribes to it turns one product save into a purge of every PDP on the store (the Bike Society hazard in lib/cache-tags.ts)",
+    ).not.toContain(TAG.collections);
   });
 });

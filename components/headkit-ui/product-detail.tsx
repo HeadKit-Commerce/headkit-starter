@@ -95,7 +95,12 @@ interface Props {
   breadcrumbItems?: { name: string; uri: string; current: boolean }[];
   /** Color slug from URL path segment — enables path-based routing mode */
   initialColor?: string;
-  /** Base path for the product, e.g. "/products/shirt" — triggers path-based routing */
+  /**
+   * The product's canonical base path from `productPath` (`lib/canonical-path.ts`),
+   * e.g. "/shop/tops/shirt" — triggers path-based routing. Pass the canonical, never
+   * the requested URL: colourway links are built beneath it, so a flat
+   * "/products/shirt" here would render links onto the shape that 308s away.
+   */
   productBasePath?: string;
   /** Slot for dynamic stock rendering (e.g. PPR Suspense boundary). Replaces inline AvailabilityStatus. */
   stockSlot?: ReactNode;

@@ -11,6 +11,14 @@ type Props = {
     | undefined;
 };
 
+/**
+ * Blocking, never prerendered — see the module doc in `@/lib/shopify-preview`
+ * for why both preview entry points must be. Applies to THIS redirect-only
+ * route; it says nothing about the PDP routes, which render a page and read
+ * only `params` in their default export.
+ */
+export const instant = false;
+
 /** Shopify Admin draft product preview path (`/draft-product?preview_key=…&shpxid=…`). */
 export default async function ShopifyDraftProductPreviewPage({
   searchParams,

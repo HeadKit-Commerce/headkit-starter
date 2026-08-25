@@ -252,45 +252,53 @@ export default async function RootLayout({
           <DynamicMetadataMarker />
         </Suspense>
 
-        <Suspense fallback={null}>
-          <BrandingIconsProvider library={branding.iconLibrary}>
-            <CatalogDisplayProvider
-              prefs={{
-                showVariants: branding.showVariants,
-                showSwatches: branding.showSwatches,
-                imageRollover: branding.imageRollover,
-                defaultCollectionSort: branding.defaultCollectionSort,
-              }}
-            >
-              <CheckoutModeProvider mode={checkoutMode}>
-                <AuthProvider>
-                  <CartProvider>
-                    <LazyCartDrawer />
-                    <NavigationWrapper />
-                    <main className="headkit-main pb-10">{children}</main>
-                    <Footer
-                      siteName={siteName}
-                      description={siteDescription}
-                      menus={footerMenus}
-                      iconUrl={branding.iconUrl}
-                      showSubscribe={showFooterSubscribe}
-                      hidePaymentIcons={checkoutMode === "quote"}
-                      socialLinks={{
-                        instagram: "https://www.instagram.com/headkitcommerce",
-                        discord: "https://discord.gg/bSNe29JtsX",
-                        github: "https://github.com/headkit-commerce",
-                        linkedin:
-                          "https://www.linkedin.com/company/headkit-commerce/",
-                        youtube: "https://www.youtube.com/@headkit-commerce",
-                      }}
-                    />
-                    <Toaster />
-                  </CartProvider>
-                </AuthProvider>
-              </CheckoutModeProvider>
-            </CatalogDisplayProvider>
-          </BrandingIconsProvider>
-        </Suspense>
+        {/*
+          NO <Suspense> may wrap {children} here. Under Cache Components a
+          redirect thrown below a boundary lands after the response has
+          committed, so a route that calls `permanentRedirect()` answers 200 +
+          shell and redirects only on the client — which is what turned the flat
+          /products and /collections URLs back into 200 duplicates. A root
+          boundary also emptied the prerendered shell, leaving no page content
+          at all for a client that runs no JavaScript. `e2e/canonical-url-308.spec.ts`
+          is what observes both.
+        */}
+        <BrandingIconsProvider library={branding.iconLibrary}>
+          <CatalogDisplayProvider
+            prefs={{
+              showVariants: branding.showVariants,
+              showSwatches: branding.showSwatches,
+              imageRollover: branding.imageRollover,
+              defaultCollectionSort: branding.defaultCollectionSort,
+            }}
+          >
+            <CheckoutModeProvider mode={checkoutMode}>
+              <AuthProvider>
+                <CartProvider>
+                  <LazyCartDrawer />
+                  <NavigationWrapper />
+                  <main className="headkit-main pb-10">{children}</main>
+                  <Footer
+                    siteName={siteName}
+                    description={siteDescription}
+                    menus={footerMenus}
+                    iconUrl={branding.iconUrl}
+                    showSubscribe={showFooterSubscribe}
+                    hidePaymentIcons={checkoutMode === "quote"}
+                    socialLinks={{
+                      instagram: "https://www.instagram.com/headkitcommerce",
+                      discord: "https://discord.gg/bSNe29JtsX",
+                      github: "https://github.com/headkit-commerce",
+                      linkedin:
+                        "https://www.linkedin.com/company/headkit-commerce/",
+                      youtube: "https://www.youtube.com/@headkit-commerce",
+                    }}
+                  />
+                  <Toaster />
+                </CartProvider>
+              </AuthProvider>
+            </CheckoutModeProvider>
+          </CatalogDisplayProvider>
+        </BrandingIconsProvider>
       </body>
     </html>
   );

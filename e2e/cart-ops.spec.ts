@@ -183,16 +183,25 @@ test.describe("Cart ops: UI add-to-cart, drawer ops, persistence (Gap 4)", () =>
       `PDP for ${VARIABLE_SLUG} did not render`,
     ).toBeVisible({ timeout: 30_000 });
 
-    // Color click uses PATH-based routing: /products/{slug}/{color}.
+    // Color click uses PATH-based routing: one extra `{color}` segment on the
+    // product's own path. That base is whatever the store's WooCommerce
+    // permalink produces — `/shop/{cat…}/{slug}` on a nested-permalink store,
+    // `/products/{slug}` on the default `/product/` base, which `page.goto`
+    // above has already 308'd onto — so the segment is asserted RELATIVE to it.
+    // Hardcoding `/products/` passes only on the docker seed's default base and
+    // goes red on exactly the stores the canonical routing targets.
+    const basePath = new URL(page.url()).pathname.replace(/\/+$/, "");
+
     // .first(): related-product cards render their own swatch buttons with
     // the same accessible names — the PDP's own swatch group comes first.
     await page
       .getByRole("button", { name: "Navy", exact: true })
       .first()
       .click();
-    await page.waitForURL(new RegExp(`/products/${VARIABLE_SLUG}/navy`), {
-      timeout: 20_000,
-    });
+    await page.waitForURL(
+      (url) => url.pathname.replace(/\/+$/, "") === `${basePath}/navy`,
+      { timeout: 20_000 },
+    );
 
     // Size is client-only state (persisted to localStorage, not the URL).
     await page.getByRole("button", { name: "M", exact: true }).first().click();

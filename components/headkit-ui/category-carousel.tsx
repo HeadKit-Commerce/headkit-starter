@@ -4,6 +4,7 @@ import { Carousel } from "@/components/headkit-ui/carousel";
 import { FeaturedImage } from "@/components/headkit-ui/featured-image";
 import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { decodeHtmlEntities } from "@/lib/utils";
+import { isAppNavigationHref } from "@/lib/convert-uri";
 import type { FeaturedCategory } from "@headkit/sdk";
 
 interface Props {
@@ -20,11 +21,31 @@ const CategoryCarousel = ({ categories }: Props) => {
     <Carousel
       items={categories}
       renderItem={(item) => {
-        // Prefer slug → storefront route. Raw WP `uri` may be absolute and
-        // would navigate off the Next.js app (see e2e wishlist observation).
-        const href = item?.slug
-          ? `/collections/${item.slug}`
-          : (item?.uri ?? "/shop");
+        // `uri` is PREFERRED because a server caller resolves it to the
+        // CANONICAL storefront path via `collectionPathResolver`: a nested
+        // category reaches here as `/collections/parent/child`, and synthesising
+        // `/collections/{slug}` from the slug instead is what pointed every
+        // homepage tile at the shape the collection route now 308s away from.
+        //
+        // But it is preferred ONLY when it is a site-relative path. The prop
+        // type is `Pick<FeaturedCategory, …>` and `FeaturedCategory.uri` from
+        // the SDK is the ABSOLUTE WordPress permalink, so the field's natural
+        // value navigates off the Next.js app entirely. Both live callers
+        // overwrite it (`app/page.tsx`, `block-editor.tsx`), but this is a
+        // shared starter template that customer repos flatten and merge, so a
+        // dropped `.map` must not silently become off-app navigation.
+        //
+        // `isAppNavigationHref` is the repo's ONE in-app-navigation gate
+        // (NavigationBar uses it for the same purpose) and already rejects the
+        // protocol-relative `//host/…` case, which is path-like but resolves
+        // off-site. A second local copy of a security-shaped predicate is how
+        // one copy gets hardened and the other does not.
+        const resolvedUri = item?.uri?.trim() ?? "";
+        const inAppUri = isAppNavigationHref(resolvedUri) ? resolvedUri : "";
+        const href =
+          inAppUri ||
+          (item?.slug ? `/collections/${item.slug}` : undefined) ||
+          "/shop";
         const thumbnail = item?.thumbnail?.trim() || null;
         const name = decodeHtmlEntities(item?.name ?? "");
         return (

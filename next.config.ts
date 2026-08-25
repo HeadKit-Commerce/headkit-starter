@@ -183,11 +183,16 @@ const nextConfig: NextConfig = {
       //   passed no ranking to /news — while both files documented themselves
       //   as "permanent redirect".
       //
-      //   Cache Components requires `params`/`searchParams` to be awaited
-      //   inside Suspense, and a redirect thrown inside a Suspense boundary
-      //   runs AFTER the response has committed. `/posts/<slug>` therefore
-      //   answered 200 with an app shell and redirected only on the client —
-      //   invisible to a crawler, which is the only reader this exists for.
+      //   Both files awaited `params`/`searchParams` inside Suspense, and a
+      //   redirect thrown inside a Suspense boundary runs AFTER the response
+      //   has committed. `/posts/<slug>` therefore answered 200 with an app
+      //   shell and redirected only on the client — invisible to a crawler,
+      //   which is the only reader this exists for. (A rendered page CAN serve
+      //   a real 308 under Cache Components, but only above every boundary —
+      //   in-page, `loading.tsx` and ancestor-layout alike — and it forfeits
+      //   the route's App Shell to do it; `app/collections/[...slug]/page.tsx`
+      //   documents the measurements and pays that price because it has a
+      //   category to look up first.)
       //
       //   The index built its query string by treating `searchParams` as a
       //   plain object; in Next 16 it is a Promise, so every request landed on

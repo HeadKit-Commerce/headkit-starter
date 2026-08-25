@@ -94,6 +94,7 @@ async function SearchResults({ searchParams }: Props): Promise<ReactNode> {
           { name: "Home", uri: "/", current: false },
           { name: "Search", uri: "/search", current: true },
         ]}
+        childBasePath="/collections"
       />
       <CollectionPage
         initialProducts={productsResult.products}
@@ -137,6 +138,7 @@ export default function Page({ searchParams }: Props): ReactNode {
                 { name: "Home", uri: "/", current: false },
                 { name: "Search", uri: "/search", current: true },
               ]}
+              childBasePath="/collections"
             />
             <CollectionProductsSkeleton />
           </>

@@ -88,6 +88,29 @@ function QuoteCartItem({
   const displayName = decodeHtmlEntities(item.name);
   const imageSrc = item.images[0]?.src ?? "/assets/HeadKit-Fallback.png";
   const imageAlt = decodeHtmlEntities(item.images[0]?.alt ?? item.name);
+  // The cart fragment selects a slug and no permalink, so this is one of the
+  // two storefront surfaces that cannot build the canonical `/shop/{cat…}/{slug}`
+  // path (`lib/canonical-path.ts`) — it 308s on click instead.
+  //
+  // What keeps that out of the consolidation is the EMPTY CART, not robots.txt
+  // and not "this is a client component". `/quote` IS a real route and it is NOT
+  // disallowed (see `app/robots.ts`, which lists `/account`, `/checkout`, `/api`
+  // and `/search` and no cart or quote path), and `app/quote/page.tsx` is a
+  // SERVER component that awaits `getFullCartAction()` and hands the cart to
+  // `QuoteCheckout`, which Next server-renders — so a request that DOES carry a
+  // cart cookie puts these hrefs into server-rendered HTML today.
+  //
+  // The actual mechanism is that an anonymous crawler carries no cart session,
+  // so the cart is empty, `app/quote/page.tsx` short-circuits to `<QuoteEmpty />`
+  // and this component never renders an item at all. (Contrast the cart drawer,
+  // which has a second and stronger protection: `lazy-cart-drawer.tsx` loads it
+  // via `dynamic(..., { ssr: false })`, so it never server-renders. The quote
+  // summary has only the empty-cart short-circuit.)
+  //
+  // Anything that server-renders a POPULATED cart or quote summary therefore
+  // puts `/products/<slug>` links into crawlable HTML and must switch to
+  // `productPath` first. Closing the gap properly means adding `permalink` to
+  // the cart items selection, which is an SDK/schema change.
   const productHref = item.slug ? `/products/${item.slug}` : null;
   const variation = item.variation ?? [];
 

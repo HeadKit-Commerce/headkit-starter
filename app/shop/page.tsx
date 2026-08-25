@@ -97,6 +97,11 @@ async function getFilters() {
  */
 async function ShopHeader() {
   const rootCategories = await getRootCategories();
+  // `childBasePath` is stated rather than defaulted: these children are ROOT
+  // categories, whose canonical path IS the flat `/collections/{slug}`, so
+  // `/collections` is the correct base here. The prop is required precisely so
+  // that a caller rendering NESTED children cannot omit it and silently emit
+  // the shape the collection route 308s away from.
   return (
     <CollectionHeader
       name="Shop"
@@ -104,6 +109,7 @@ async function ShopHeader() {
         { name: "Home", uri: "/", current: false },
         { name: "Shop", uri: "/shop", current: true },
       ]}
+      childBasePath="/collections"
       {...(rootCategories.length > 0 ? { children: rootCategories } : {})}
     />
   );
