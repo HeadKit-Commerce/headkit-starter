@@ -138,6 +138,38 @@ const HIDDEN_FIRST_SLUG =
 const HIDDEN_FIRST_GROUP = "1900000401"; // Print Add-Ons (checkbox)
 
 /**
+ * The plan 15.2a-03 fixture: $200 base, three groups that are each a PURCHASE
+ * HAZARD of the pinned PAO 8.4.0 release. Measured end to end and recorded in
+ * `.planning/phases/15.2-pebblr-booth-rehearsal/artifacts/15.2a-03-pao-hazards-measured.md`;
+ * the cases at the foot of this file assert those measurements.
+ *
+ * Group ORDER on this product is load-bearing — see HAZARD_UNKNOWN_GROUP.
+ */
+const HAZARDS_SLUG = process.env.HK_ADDONS_HAZARDS_SLUG ?? "glam-booth-hazards";
+/** `display: radiobutton` — the third multiple-choice mode, and unbuyable. */
+const HAZARD_RADIO_GROUP = "1900000502"; // Print Finish
+/** `display: ""` — outside the three the plugin dispatches on. REQUIRED. */
+const HAZARD_UNKNOWN_GROUP = "1900000503"; // Souvenir Frame
+/** `checkbox` whose two option labels slugify to one key. */
+const HAZARD_COLLISION_GROUP = "1900000504"; // Keepsake Extras
+
+/** `glam-booth-hazards` base price in minor units, with no add-on applied. */
+const HAZARDS_BASE_TOTAL = "20000";
+
+/* ─── glam-booth-real-shapes — plan 15.2a-09's COMPUTED coverage gap ───────────
+   Four groups, one per tuple in the difference between the shapes a real
+   merchant catalogue uses and the shapes this seed already covered. Ids are the
+   fixed literals seed-product-addons.php section 8 writes. */
+const REAL_SHAPES_SLUG =
+  process.env.HK_ADDONS_REAL_SHAPES_SLUG ?? "glam-booth-real-shapes";
+const REAL_SHAPE_CHECKBOX_REQUIRED = "1900000601"; // checkbox, heading title, REQUIRED
+const REAL_SHAPE_TEXT_OPTIONAL = "1900000602"; // custom_text + the admin's empty option row
+const REAL_SHAPE_TEXT_REQUIRED = "1900000603"; // the same, REQUIRED
+const REAL_SHAPE_DATE_REQUIRED = "1900000604"; // datepicker + the empty row, REQUIRED
+/** The product's own price in MINOR units ($150.00), before any add-on. */
+const REAL_SHAPES_BASE_TOTAL = 15000;
+
+/**
  * The configuration the purchase test submits, as `[group name, chosen value]`.
  * One list, asserted on three surfaces, so the cart drawer, the confirmation
  * page and the merchant's order cannot silently disagree about what was bought.
@@ -1628,4 +1660,642 @@ test.describe("product add-ons — hidden option at index 0", () => {
       await api.dispose();
     });
   }
+});
+
+/**
+ * The three PURCHASE HAZARDS of the pinned Product Add-Ons 8.4.0 release
+ * (plan 15.2a-03, RESEARCH 15.2a §Pitfall 1).
+ *
+ * WHY THIS BLOCK EXISTS. Before it, the seed published exactly two of the three
+ * `multiple_choice` display modes, so this file was STRUCTURALLY INCAPABLE of
+ * catching the one hazard the phase had already measured — and had no fixture
+ * at all for the two the research then found. A suite that cannot fail on a
+ * known defect is not covering it.
+ *
+ * EVERY ASSERTION BELOW IS A MEASUREMENT, NOT A PREDICTION. Each was executed
+ * against the local Docker WordPress and recorded, with the observed status,
+ * error code, post-rejection cart state and the plugin file-and-line that
+ * explains it, in
+ * `.planning/phases/15.2-pebblr-booth-rehearsal/artifacts/15.2a-03-pao-hazards-measured.md`.
+ * Two of the research's own claims were corrected by that run; the cases follow
+ * the measurement, not the research.
+ *
+ * THESE CASES ASSERT CURRENTLY-BROKEN BEHAVIOUR. That is deliberate and it is
+ * the point: each one goes RED the day the plugin is fixed upstream, which is
+ * precisely when someone needs to know. On that day INVERT the case into a
+ * passing regression guard — do not delete it. The docblock on each names the
+ * upstream lines to re-read when it fires.
+ *
+ * CODES, NEVER MESSAGES — the convention every other add-on assertion in this
+ * file follows, for the reason `verify-pao-wedge.sh` records: the same rejection
+ * reads with encoded quotes through `GET /cart` and literal quotes through the
+ * direct 400, so any string comparison across the two paths is a false failure
+ * waiting to happen.
+ *
+ * NO FRESH TOKEN MID-SEQUENCE. Every deliberate rejection is followed by a cart
+ * read on the SAME token requiring an empty error list. A 400 followed by a 201
+ * looks fine while the session is quietly poisoned (PAO-05); minting a new token
+ * between the rejection and the read would test nothing, because the whole
+ * defect is that the poison PERSISTS on the session.
+ */
+test.describe("product add-ons — the release's three purchase hazards", () => {
+  test.beforeAll(async () => {
+    test.skip(
+      !(await stackIsUp()),
+      "local stack down — bring up WP :8090 + gateway + starter before running the add-on suite",
+    );
+  });
+
+  /**
+   * Re-assert the fixture's shape before asserting its behaviour.
+   *
+   * RESEARCH Pitfall 6, restated: a case whose trigger has silently left the
+   * seed does not go red, it goes VACUOUS — it keeps passing while covering
+   * nothing. Each hazard case therefore proves its own precondition first, and
+   * every message names `seed-product-addons.php` so the reader is not left
+   * deducing which of the two files regressed.
+   */
+  function hazardGroup(fixture: AddonFixture, id: string): AddonGroup {
+    const group = fixture.addons.find((g) => g.id === id);
+    if (!group) {
+      throw new Error(
+        `hazard group ${id} is not on "${HAZARDS_SLUG}". This case can no longer FAIL, ` +
+          `which is worse than failing: re-run docker/wordpress/seed-product-addons.php ` +
+          `(section 7 carries the three hazard groups).`,
+      );
+    }
+    return group;
+  }
+
+  test("1a: the radiobutton multiple-choice group cannot be bought at ANY index, and the rejection leaves the session clean", async () => {
+    const api = await request.newContext();
+    const fixture = await readFixture(api, HAZARDS_SLUG);
+    const group = hazardGroup(fixture, HAZARD_RADIO_GROUP);
+
+    // PRECONDITION. `radiobutton` is the trigger; without it every assertion
+    // below would pass against an ordinary, working `select` group.
+    expect(
+      group.display,
+      `group ${HAZARD_RADIO_GROUP} is no longer a radiobutton group — the shape that makes it unbuyable has left seed-product-addons.php and this case is vacuous`,
+    ).toBe("radiobutton");
+    expect(group.type).toBe("multiple_choice");
+    expect(
+      group.options.length,
+      "the radiobutton group has fewer than two options",
+    ).toBeGreaterThanOrEqual(2);
+
+    /**
+     * THE DEFECT — two lines of the same plugin that disagree about the key
+     * format, read from the running 8.4.0 source:
+     *
+     *   class-wc-product-addons-cart.php:112       the Store API add-to-cart DATA
+     *     filter converts a multiple_choice index UNCONDITIONALLY to
+     *     `sanitize_title( label . '-' . (index + 1) )` -> "matte-finish-1".
+     *   class-wc-product-addons-cart.php:260-263   `display: radiobutton` dispatches
+     *     VALIDATION to WC_Product_Addons_Field_List.
+     *   class-wc-product-addons-field-list.php:42  which indexes its options by the
+     *     BARE slug -> keys "matte-finish", "foil-finish";
+     *   class-wc-product-addons-field-list.php:48  and looks the posted value up
+     *     unchanged -> "matte-finish-1", which is not a key;
+     *   class-wc-product-addons-field-list.php:53-56  so it returns
+     *     `"…" does not have a valid value.` for EVERY index.
+     *
+     * `images` and `select` dispatch instead to WC_Product_Addons_Field_Select,
+     * whose key DOES carry the index (class-wc-product-addons-field-select.php:31)
+     * — which is why every other multiple-choice fixture in this file buys fine
+     * and this one cannot. A merchant produces this shape by flipping one
+     * dropdown in the PAO admin screen.
+     *
+     * WHEN THIS GOES GREEN-SIDE-UP (upstream aligns the two key formats), invert
+     * it: assert 201 and a cart line carrying the chosen option.
+     */
+    const token = await mintCartToken(api);
+
+    // EVERY in-range index, not a sample. "Unbuyable" is a claim about the whole
+    // group, and one rejected index would also be consistent with an ordinary
+    // bad-value bug.
+    for (let index = 0; index < group.options.length; index += 1) {
+      const rejected = await storePost(api, token, "cart/add-item", {
+        id: fixture.id,
+        quantity: 1,
+        addons_configuration: { [HAZARD_RADIO_GROUP]: index },
+      });
+      expect(
+        rejected.status,
+        `index ${index} of the radiobutton group was NOT rejected. Either the plugin has been fixed upstream — in which case invert this case into a regression guard rather than deleting it — or the group's display value changed`,
+      ).toBe(400);
+      expect(
+        rejected.body.code,
+        `index ${index} was rejected with a DIFFERENT code, so it is not this defect`,
+      ).toBe("woocommerce_rest_cart_invalid_product_addons");
+
+      // Same token, no re-mint. This code is the one that used to poison the
+      // session (PAO-05), so the no-wedge property has to be re-proved for the
+      // rejection this case provokes, not inherited from another case.
+      const afterRejection = await storeCart(api, token);
+      expect(
+        afterRejection.errors ?? [],
+        `the cart read immediately after index ${index}'s rejection carries a phantom error — the session is wedged`,
+      ).toEqual([]);
+    }
+
+    // Nothing was bought along the way. A rejection that half-succeeded would
+    // otherwise hide here.
+    const finalCart = await storeCart(api, token);
+    expect(
+      (finalCart.items ?? []) as unknown[],
+      "an add-item that was supposed to be rejected still put a line in the cart",
+    ).toEqual([]);
+
+    await api.dispose();
+  });
+
+  test("1b: the unknown-display group is never validated — required is unenforced, a hidden option is accepted, and the selection is dropped from the line", async () => {
+    const api = await request.newContext();
+    const fixture = await readFixture(api, HAZARDS_SLUG);
+    const group = hazardGroup(fixture, HAZARD_UNKNOWN_GROUP);
+
+    // PRECONDITION 1 — the display must be OUTSIDE the three the plugin
+    // dispatches on. Written as a set membership rather than `toBe("")` so a
+    // seed that switches to some other unrecognised token still triggers.
+    expect(
+      ["radiobutton", "images", "select"],
+      `group ${HAZARD_UNKNOWN_GROUP}'s display is now one the plugin dispatches on — the fall-through no longer happens and this case is vacuous. See seed-product-addons.php section 7 group B`,
+    ).not.toContain(group.display);
+    expect(group.type).toBe("multiple_choice");
+
+    // PRECONDITION 2 — REQUIRED. The unenforced-required assertion below is the
+    // primary observable and it is meaningless on an optional group.
+    expect(
+      Number(group.required),
+      "the unknown-display group is no longer required — the unenforced-required observable is gone",
+    ).toBe(1);
+
+    // PRECONDITION 3 — ORDER, and it is not decoration. MEASURED, not inferred:
+    // the identical group definition published as the FIRST resolved group
+    // returns HTTP 500 (`Uncaught Error: Call to a member function
+    // get_cart_item_data() on null` at class-wc-product-addons-cart.php:472),
+    // because there is no earlier iteration to have left a `$field` behind. At
+    // index > 0 it returns 201 and silently drops the value, which is what this
+    // case asserts. Measured on a throwaway product and recorded in
+    // 15.2a-03-pao-hazards-measured.md §2.3; it is not asserted here because
+    // reproducing it needs a fixture whose only group is this one.
+    //
+    // So: if a seed change ever floats this group to the front, the hazard's
+    // whole outcome changes and these assertions would fail confusingly. Fail
+    // clearly instead.
+    const publishedIndex = fixture.addons.findIndex(
+      (g) => g.id === HAZARD_UNKNOWN_GROUP,
+    );
+    expect(
+      publishedIndex,
+      "the unknown-display group is now FIRST among the published groups. In that arrangement the plugin returns a 500, not the 201-with-dropped-value this case asserts. Restore a preceding choice group in seed-product-addons.php section 7",
+    ).toBeGreaterThan(0);
+
+    const hiddenIndex = group.options.findIndex(
+      (o) => Number(o.visibility) === 0,
+    );
+    expect(
+      hiddenIndex,
+      "the unknown-display group no longer has a hidden option — the accepted-hidden-option observable is gone",
+    ).toBeGreaterThanOrEqual(0);
+
+    /**
+     * THE DEFECT — a `switch` with no `default`, in two places, read from the
+     * running 8.4.0 source:
+     *
+     *   class-wc-product-addons-cart.php:259-269   inside validate_cart_item_data(),
+     *     `switch ($addon['display'])` has cases for radiobutton (:260), images
+     *     (:264) and select (:265) and closes at :269 with NO `default` — unlike
+     *     the OUTER switch, which has `default: continue 2;` at :295-297. So
+     *     `$field` is never assigned for this group and `$field->validate()` at
+     *     :301 runs against whatever the PREVIOUS iteration left behind.
+     *   class-wc-product-addons-cart.php:433-443   add_cart_item_data() repeats the
+     *     same inner switch AND has no `default` on its outer one either (:427,
+     *     closing :470), then dereferences at :472. Being called from
+     *     WooCommerce's CartController::filter_request_data(), it is reached
+     *     FIRST — which the 500 in precondition 3 proves.
+     *
+     * The preceding group here is the radiobutton one, whose Field_List is bound
+     * to its own (empty) value, so the stale object returns `false` from
+     * get_cart_item_data() (class-wc-product-addons-field-list.php:79-81) and
+     * `true` from validate() (:31, :37 — both guards short-circuit on empty).
+     * Net effect: this group's value is neither checked nor recorded.
+     */
+    const token = await mintCartToken(api);
+
+    // OBSERVABLE 1 — the required group is OMITTED and the add is accepted.
+    // If this group's own validator had run it would have returned
+    // `"…" is a required field.` (class-wc-product-addons-field-list.php:31-34).
+    const omitted = await storePost(api, token, "cart/add-item", {
+      id: fixture.id,
+      quantity: 1,
+      addons_configuration: { [HAZARD_COLLISION_GROUP]: [0] },
+    });
+    expect(
+      omitted.status,
+      "omitting the REQUIRED unknown-display group was rejected. If the plugin now enforces required through the fall-through, this hazard is fixed — invert this case",
+    ).toBe(201);
+
+    // OBSERVABLE 2 — the HIDDEN option is accepted. Both validators refuse a
+    // visibility:0 option outright (field-list.php:60-63,
+    // field-select.php:46-49), so an acceptance proves neither ran.
+    const hiddenToken = await mintCartToken(api);
+    const hiddenAccepted = await storePost(api, hiddenToken, "cart/add-item", {
+      id: fixture.id,
+      quantity: 1,
+      addons_configuration: { [HAZARD_UNKNOWN_GROUP]: hiddenIndex },
+    });
+    expect(
+      hiddenAccepted.status,
+      `index ${hiddenIndex} is a HIDDEN option and was rejected — the visibility check now runs, so this hazard is fixed`,
+    ).toBe(201);
+
+    // OBSERVABLE 3 — and it is the one a merchant feels: the selection is
+    // DROPPED. The line carries no add-on from this group and costs the bare
+    // base price, so the shopper is fulfilled without the thing they picked and
+    // the merchant never charges for it.
+    const hiddenLine = lastLine(hiddenAccepted.body);
+    expect(
+      hiddenLine.extensions?.headkit?.addons_selection ?? [],
+      "the unknown-display group's selection reached the cart line. If the plugin now records it, the fall-through has been fixed — invert this case",
+    ).toEqual([]);
+    expect(
+      hiddenLine.totals.line_total,
+      "the hidden option was CHARGED. That is a different, worse defect than the measured one (silent drop) and needs its own investigation before this case is edited",
+    ).toBe(HAZARDS_BASE_TOTAL);
+
+    // OBSERVABLE 4 — the same is true of the legitimate, VISIBLE option, which
+    // is what makes this revenue loss rather than a curiosity: a shopper who
+    // chooses correctly is still not sold what they chose.
+    const visibleIndex = group.options.findIndex(
+      (o) => Number(o.visibility) !== 0,
+    );
+    expect(
+      visibleIndex,
+      "the group has no visible option",
+    ).toBeGreaterThanOrEqual(0);
+    const visibleToken = await mintCartToken(api);
+    const visibleAccepted = await storePost(
+      api,
+      visibleToken,
+      "cart/add-item",
+      {
+        id: fixture.id,
+        quantity: 1,
+        addons_configuration: { [HAZARD_UNKNOWN_GROUP]: visibleIndex },
+      },
+    );
+    expect(visibleAccepted.status).toBe(201);
+    const visibleLine = lastLine(visibleAccepted.body);
+    expect(
+      visibleLine.extensions?.headkit?.addons_selection ?? [],
+      "the VISIBLE option now reaches the line — the fall-through is fixed",
+    ).toEqual([]);
+    expect(
+      visibleLine.totals.line_total,
+      "the visible option is now charged — the fall-through is fixed",
+    ).toBe(HAZARDS_BASE_TOTAL);
+
+    // WHAT STILL WORKS, asserted so the hazard's boundary is on record rather
+    // than assumed: the RANGE check lives in the data filter
+    // (class-wc-product-addons-cart.php:109-111), upstream of the display
+    // dispatch, so an out-of-range index is still refused — with its own code.
+    const rangeToken = await mintCartToken(api);
+    const outOfRange = await storePost(api, rangeToken, "cart/add-item", {
+      id: fixture.id,
+      quantity: 1,
+      addons_configuration: {
+        [HAZARD_UNKNOWN_GROUP]: group.options.length + 5,
+      },
+    });
+    expect(
+      outOfRange.status,
+      "an out-of-range index on the unknown-display group is no longer refused — the fall-through has swallowed the range check too, which is a WIDENING of this hazard",
+    ).toBe(400);
+    expect(outOfRange.body.code).toBe("woocommerce_pao_invalid_addon_value");
+    expect(
+      (await storeCart(api, rangeToken)).errors ?? [],
+      "the out-of-range rejection wedged the session",
+    ).toEqual([]);
+
+    // THE DISCRIMINATOR, and the reason the acceptances above mean anything.
+    // `glam-booth-hidden-first` group 1900000401 is a CHECKBOX whose index-0
+    // option is likewise hidden. Identical shopper action, identical hidden
+    // shape, ONE display value apart — and it is REJECTED. Without this, the
+    // acceptances could equally be explained by the Store API not checking
+    // visibility at all, by the token, or by the fixture.
+    const controlFixture = await readFixture(api, HIDDEN_FIRST_SLUG);
+    const controlToken = await mintCartToken(api);
+    const controlRejected = await storePost(
+      api,
+      controlToken,
+      "cart/add-item",
+      {
+        id: controlFixture.id,
+        quantity: 1,
+        addons_configuration: { [HIDDEN_FIRST_GROUP]: [0] },
+      },
+    );
+    expect(
+      controlRejected.status,
+      "the CONTROL — a checkbox group's hidden index-0 option — was accepted too. Then the acceptances above are not evidence about the unknown display: the visibility check is broken everywhere, which is a bigger finding than this case",
+    ).toBe(400);
+    expect(controlRejected.body.code).toBe(
+      "woocommerce_rest_cart_invalid_product_addons",
+    );
+    expect(
+      (await storeCart(api, controlToken)).errors ?? [],
+      "the control rejection wedged the session",
+    ).toEqual([]);
+
+    await api.dispose();
+  });
+
+  test("1c: two option labels that slugify alike are indistinguishable on the wire — picking either charges for BOTH", async () => {
+    const api = await request.newContext();
+    const fixture = await readFixture(api, HAZARDS_SLUG);
+    const group = hazardGroup(fixture, HAZARD_COLLISION_GROUP);
+
+    // PRECONDITION — the collision itself, computed rather than hardcoded, so
+    // the case triggers on any labels that collide and goes loudly vacuous the
+    // moment they stop colliding.
+    expect(
+      group.type,
+      "the collision group is no longer a checkbox. Only the Field_List-backed displays (checkbox, radiobutton) key options by the BARE slug; Field_Select carries the index and is immune",
+    ).toBe("checkbox");
+    const slugs = group.options.map((o) =>
+      o.label
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, ""),
+    );
+    expect(
+      new Set(slugs).size,
+      `the option labels no longer collide (${slugs.join(", ")}) — this case is vacuous. See seed-product-addons.php section 7 group C`,
+    ).toBeLessThan(slugs.length);
+    expect(
+      new Set(group.options.map((o) => o.price)).size,
+      "the colliding options now share a price — the mis-buy would be invisible in the total and this case could only see it in the label",
+    ).toBe(group.options.length);
+
+    /**
+     * THE DEFECT — the bare slug is the only thing on the wire, read from the
+     * running 8.4.0 source:
+     *
+     *   class-wc-product-addons-cart.php:106        for `checkbox` the data filter
+     *     emits `sanitize_title( label )` with NO index. "Keepsake Box" and
+     *     "Keepsake-Box" both slugify to "keepsake-box", so both indices go on
+     *     the wire as the IDENTICAL string and nothing downstream can tell them
+     *     apart.
+     *   class-wc-product-addons-field-list.php:42   validation indexes options by
+     *     that same bare slug, so the later option overwrites the earlier.
+     *   class-wc-product-addons-field-list.php:91-102  the cart LINE builder does
+     *     not use the index at all: it appends every option whose bare slug is
+     *     in the posted values. Both match, so BOTH are appended and BOTH priced.
+     *
+     *   class-wc-product-addons-field-select.php:31 is the immunity: its key is
+     *     `sanitize_title(label) . '-' . $loop`, which no collision can merge.
+     *
+     * MEASURED CORRECTION to RESEARCH: the shopper is not "silently sold the
+     * surviving option". They are silently sold BOTH, and charged for both.
+     */
+    const totals: string[] = [];
+    const reportedValues: string[][] = [];
+
+    for (let index = 0; index < group.options.length; index += 1) {
+      const token = await mintCartToken(api);
+      const accepted = await storePost(api, token, "cart/add-item", {
+        id: fixture.id,
+        quantity: 1,
+        addons_configuration: { [HAZARD_COLLISION_GROUP]: [index] },
+      });
+      expect(
+        accepted.status,
+        `selecting only index ${index} ("${group.options[index]!.label}") was rejected — if the plugin now refuses a colliding definition outright, that is a FIX and this case should be inverted`,
+      ).toBe(201);
+      const line = lastLine(accepted.body);
+      totals.push(line.totals.line_total);
+      reportedValues.push(
+        (line.extensions?.headkit?.addons_selection ?? [])
+          .filter((s) => s.addon_id === HAZARD_COLLISION_GROUP)
+          .map((s) => s.value)
+          .sort(),
+      );
+    }
+
+    // THE DEFECT, stated as an equality. Picking option 0 and picking option 1
+    // are DIFFERENT shopper actions with different prices, and they produce
+    // byte-identical carts.
+    expect(
+      new Set(totals).size,
+      `picking each colliding option now produces a DIFFERENT charge (${totals.join(" vs ")}) — the options have become distinguishable on the wire, so this hazard is fixed. Invert this case`,
+    ).toBe(1);
+    expect(
+      reportedValues[0],
+      "the two selections now report different options — the collision is resolved upstream",
+    ).toEqual(reportedValues[1]);
+
+    // AND the charge is for BOTH options, not for the surviving one. Asserted
+    // against the store's own numbers: base + every colliding option's price.
+    const expectedIfBothCharged = String(
+      Number(HAZARDS_BASE_TOTAL) +
+        group.options.reduce(
+          (sum, o) => sum + Math.round(Number(o.price || 0) * 100),
+          0,
+        ),
+    );
+    expect(
+      totals[0],
+      `one colliding selection charges ${totals[0]}, and every option's price summed onto the base is ${expectedIfBothCharged}. If these have diverged the mis-buy has changed SHAPE — re-measure before editing this expectation`,
+    ).toBe(expectedIfBothCharged);
+    expect(
+      reportedValues[0]!.length,
+      "the cart line no longer reports every colliding option — the line builder has changed",
+    ).toBe(group.options.length);
+
+    // Neither honest total is reachable. This is what makes it a mis-buy rather
+    // than a display bug: there is no way for the shopper to be charged what
+    // they chose.
+    for (const option of group.options) {
+      const honest = String(
+        Number(HAZARDS_BASE_TOTAL) +
+          Math.round(Number(option.price || 0) * 100),
+      );
+      expect(
+        totals[0],
+        `the charge now equals the honest price of "${option.label}" — the collision resolves correctly and this hazard is fixed`,
+      ).not.toBe(honest);
+    }
+
+    await api.dispose();
+  });
+});
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * The shapes a REAL merchant catalogue uses that this suite never covered.
+ *
+ * Added by plan 15.2a-09, from a COMPUTED set difference rather than from a
+ * hunch. A real merchant's add-on catalogue was swept read-only off a contained
+ * clone (98 groups, 514 options, 14 products) and reduced to 7 distinct shape
+ * tuples; this seed covered 3 of them; `glam-booth-real-shapes` was seeded with
+ * the other 4. Both enumerated sets and the difference are recorded in
+ * `.planning/phases/15.2-pebblr-booth-rehearsal/artifacts/15.2a-09-addon-replay.md`.
+ *
+ * WHY THESE TWO CASES AND NOT FOUR. The plan's rule is to extend the suite only
+ * where a newly-seeded shape has behaviour the existing cases do not exercise.
+ * Three of the four new tuples differ from a covered one only by `required` or
+ * `title_format`, which nothing here would newly assert. What IS new is the
+ * arrangement itself:
+ *
+ *   1. A NON-CHOICE field carrying exactly ONE option whose label and price are
+ *      both the empty string. That is what the PAO admin screen writes for every
+ *      `custom_text` / `datepicker` field — 46 of the real catalogue's 98 groups
+ *      have it — and every `custom_text` / `datepicker` group in this seed before
+ *      today carried ZERO options. A wire encoder or a cart-line builder that
+ *      trips over the empty option row would have been invisible to this suite.
+ *   2. A REQUIRED text field and a REQUIRED date field. Every `required`
+ *      assertion in this file so far runs against a `multiple_choice` group, and
+ *      `multiple_choice` is validated by a different field class
+ *      (WC_Product_Addons_Field_Select) than the text and date types are.
+ *
+ * These are API-level cases on purpose: the behaviour under test is the Store
+ * API's, and routing it through the PDP would add render coupling that the
+ * existing PDP cases already cover for other shapes.
+ * ──────────────────────────────────────────────────────────────────────────── */
+test.describe("product add-ons — the real-catalogue shapes", () => {
+  test.beforeAll(async () => {
+    test.skip(
+      !(await stackIsUp()),
+      "local stack down — bring up WP :8090 + gateway + starter before running the add-on suite",
+    );
+  });
+
+  /** Re-assert the shape before asserting the behaviour (RESEARCH Pitfall 6). */
+  function shapeGroup(fixture: AddonFixture, id: string): AddonGroup {
+    const group = fixture.addons.find((g) => g.id === id);
+    if (!group) {
+      throw new Error(
+        `real-shape group ${id} is not on "${REAL_SHAPES_SLUG}". This case can no longer FAIL, ` +
+          `which is worse than failing: re-run docker/wordpress/seed-product-addons.php ` +
+          `(section 8 carries the four computed-gap groups).`,
+      );
+    }
+    return group;
+  }
+
+  test("15.2a-09: a REQUIRED text field and a REQUIRED date field are enforced, and the rejection leaves the session clean", async () => {
+    const api = await request.newContext();
+    const fixture = await readFixture(api, REAL_SHAPES_SLUG);
+
+    // PRECONDITIONS. Without `required` on a NON-multiple_choice group there is
+    // nothing here that the existing required case does not already cover.
+    for (const id of [REAL_SHAPE_TEXT_REQUIRED, REAL_SHAPE_DATE_REQUIRED]) {
+      const group = shapeGroup(fixture, id);
+      expect(
+        group.required,
+        `group ${id} is no longer required — the shape this case exists for has left seed-product-addons.php and the case is vacuous`,
+      ).toBeTruthy();
+      expect(
+        group.type === "custom_text" || group.type === "datepicker",
+        `group ${id} is type "${group.type}" — this case is about the NON-choice field classes`,
+      ).toBeTruthy();
+    }
+
+    const token = await mintCartToken(api);
+
+    // Omit every required group. PAO must refuse. Hazard 1b's signature is the
+    // opposite — a 201 here would mean the group's validator never ran.
+    const omitted = await storePost(api, token, "cart/add-item", {
+      id: fixture.id,
+      quantity: 1,
+      addons_configuration: {},
+    });
+    expect(
+      omitted.status,
+      `omitting every required group was ACCEPTED. Either the required check no longer runs for the text/date field classes, or the seeded groups stopped being required.`,
+    ).toBe(400);
+    expect(
+      omitted.body.code,
+      "the rejection carries a different code than the store's add-on validator emits",
+    ).toBe("woocommerce_rest_cart_invalid_product_addons");
+
+    // PAO-05, on the SAME token with no re-mint. A rejection that poisons the
+    // session is the failure a fresh token would hide.
+    const afterReject = await storeCart(api, token);
+    expect(
+      (afterReject.errors ?? []) as unknown[],
+      "the rejected add-item wedged the cart session",
+    ).toEqual([]);
+    expect((afterReject.items ?? []) as unknown[]).toEqual([]);
+
+    await api.dispose();
+  });
+
+  test("15.2a-09: a text/date field whose only option is the admin's empty row buys, and each selection reaches the line exactly once", async () => {
+    const api = await request.newContext();
+    const fixture = await readFixture(api, REAL_SHAPES_SLUG);
+
+    // PRECONDITION — the empty option row IS the shape. A group that lost it
+    // would fall back to this suite's pre-existing optionless arrangement and
+    // this case would cover nothing new.
+    for (const id of [
+      REAL_SHAPE_TEXT_OPTIONAL,
+      REAL_SHAPE_TEXT_REQUIRED,
+      REAL_SHAPE_DATE_REQUIRED,
+    ]) {
+      const group = shapeGroup(fixture, id);
+      expect(
+        group.options.length,
+        `group ${id} no longer carries exactly one option — the merchant-authored empty option row has left the seed and this case is vacuous`,
+      ).toBe(1);
+      expect(
+        group.options[0]!.label,
+        `group ${id}'s single option is no longer the admin's EMPTY row`,
+      ).toBe("");
+    }
+
+    const checkbox = shapeGroup(fixture, REAL_SHAPE_CHECKBOX_REQUIRED);
+    const token = await mintCartToken(api);
+
+    const line = await addWithAddons(api, token, fixture.id, 1, {
+      [REAL_SHAPE_CHECKBOX_REQUIRED]: [0],
+      [REAL_SHAPE_TEXT_OPTIONAL]: "optional text",
+      [REAL_SHAPE_TEXT_REQUIRED]: "required text",
+      [REAL_SHAPE_DATE_REQUIRED]: "2026-12-24",
+    });
+
+    const selections = line.extensions?.headkit?.addons_selection ?? [];
+    // EXACTLY ONCE per selection. A count assertion, not a presence one:
+    // hazard 1c returns 201 with MORE entries than were selected and hazard 1b
+    // returns 201 with FEWER, and a presence check passes both.
+    for (const id of [
+      REAL_SHAPE_CHECKBOX_REQUIRED,
+      REAL_SHAPE_TEXT_OPTIONAL,
+      REAL_SHAPE_TEXT_REQUIRED,
+      REAL_SHAPE_DATE_REQUIRED,
+    ]) {
+      expect(
+        selections.filter((s) => String(s.addon_id) === id).length,
+        `group ${id} appears on the cart line a number of times other than once — 0 is the dropped-selection failure, >1 is the charged-for-both failure`,
+      ).toBe(1);
+    }
+
+    // The checkbox option's flat fee must actually be charged; a text field that
+    // silently swallowed its neighbours' pricing would still pass a count check.
+    const expectedFee = Math.round(
+      Number(checkbox.options[0]!.price || 0) * 100,
+    );
+    expect(
+      expectedFee,
+      "the seeded checkbox option is now free — the price assertion below would be vacuous",
+    ).toBeGreaterThan(0);
+    expect(
+      Number(line.totals.line_total),
+      "the line total does not include the selected checkbox option's flat fee",
+    ).toBe(REAL_SHAPES_BASE_TOTAL + expectedFee);
+
+    await api.dispose();
+  });
 });

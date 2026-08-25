@@ -166,8 +166,8 @@ The evidence for the bar is local and repeated. On the canonical-URL work alone:
 `existsSync` check stood in for "no `loading.tsx` exists" while proving only that a path was
 absent from one directory; a sweep asserting "no route family emits the flat shape" twice
 shipped green without covering the e2e specs at all (and CI's own `E2E_TEST_IGNORE` list —
-`gift-card`, `forms-gravity`, `product-addons` — hides three of those from every run, more
-when no Stripe test key is configured); a wiring proof drove a leaf component with
+`gift-card`, `forms-gravity`, `product-addons`, `store-parity` — hides four of those from every
+run, more when no Stripe test key is configured); a wiring proof drove a leaf component with
 hand-passed props while the prop-threading it existed to cover had none; and a cache-tag
 guard was named for "the PDP route" while exercising one of the two routes that serve a PDP.
 Same failure each time, in five costumes.

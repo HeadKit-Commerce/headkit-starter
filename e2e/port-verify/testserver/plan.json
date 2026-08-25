@@ -1,0 +1,71 @@
+{
+  "name": "port-verify synthetic storefront",
+  "note": "Drives testserver/server.ts. Exists to prove the harness against a target that cannot change under it, and to hold the planted-change gate. Not a store.",
+  "entries": [
+    {
+      "path": "/",
+      "kind": "editorial",
+      "excluded": false
+    },
+    {
+      "path": "/shop",
+      "kind": "listing",
+      "excluded": false
+    },
+    {
+      "path": "/collections/kitchen",
+      "kind": "category",
+      "excluded": false
+    },
+    {
+      "path": "/collections/kitchen/kettles",
+      "kind": "category",
+      "excluded": false
+    },
+    {
+      "path": "/shop/kitchen/kettles/copper-kettle",
+      "kind": "product",
+      "excluded": false
+    },
+    {
+      "path": "/legal/privacy",
+      "kind": "editorial",
+      "excluded": false
+    },
+    {
+      "path": "/checkout",
+      "kind": "functional",
+      "excluded": false
+    },
+    {
+      "path": "/products/copper-kettle",
+      "kind": "product",
+      "excluded": false
+    },
+    {
+      "path": "/legacy/kettle",
+      "kind": "functional",
+      "excluded": false
+    },
+    {
+      "path": "/no-such-page",
+      "kind": "functional",
+      "excluded": false
+    },
+    {
+      "path": "/order-attempt",
+      "kind": "functional",
+      "excluded": false
+    }
+  ],
+  "signals_only": ["/products/**", "/no-such-page"],
+  "normalize": [
+    {
+      "field": "all",
+      "pattern": "request #\\d+",
+      "flags": "g",
+      "replace": "request #{n}",
+      "why": "The synthetic storefront stamps a request counter into every page, standing in for the genuinely volatile text a real store carries (a stock count, a rendered date). It is masked in the screenshots and normalised here for the prerendered-text metrics, which no mask can reach."
+    }
+  ]
+}

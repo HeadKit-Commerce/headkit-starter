@@ -86,6 +86,9 @@ export function ProductGrid({
             key={product.id}
             product={product}
             isNew={product.isNew}
+            // PLP cards follow the collection h1 directly (collection-header.tsx),
+            // so the name is an h2; h3 would skip a level.
+            titleAs="h2"
             priority={!preferHeaderLcp && index === 0}
             {...(index >= 4
               ? {

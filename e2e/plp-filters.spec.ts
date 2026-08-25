@@ -56,12 +56,20 @@ const productHeading = (page: Page, name: string | RegExp) =>
  */
 
 /**
- * Product-card titles inside the PLP grid (one h3 per card).
- * Bare `h3` also matches subcategory tiles (Accessories, …) and filter
- * section labels on /shop — scope to the card hook.
+ * Product-card titles inside the PLP grid (one h2 per card).
+ *
+ * The level is NOT incidental: `ProductCard#titleAs` exists so each surface
+ * declares its own depth, and `product-grid.tsx` passes `titleAs="h2"` because
+ * PLP/search cards follow the page `h1` directly (`h3` there skips a level —
+ * WCAG heading-order). This selector must track that prop; if it is ever
+ * loosened back to a bare tag match the suite stops guarding the level at all,
+ * which is how the prop was dropped unnoticed once already.
+ *
+ * Still scoped to the card hook rather than matching a bare tag: other `h2`s
+ * live on /shop (subcategory tiles, filter section labels).
  */
 const cards = (page: import("@playwright/test").Page) =>
-  page.locator(".headkit-product-card h3");
+  page.locator(".headkit-product-card h2");
 
 test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-13)", () => {
   test.beforeAll(async () => {
@@ -97,8 +105,10 @@ test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-
       firstPageCards % 12 === 0 || firstPageCards < 12,
       `expected full-row quantum (12) or short catalog, got ${firstPageCards}`,
     ).toBe(true);
+    // `.first()` — Instant Navigation / Cache Components can briefly leave a
+    // second matching node in the tree (strict-mode flake on Blacksmith CI).
     await expect(
-      page.getByText(/Viewing \d+ of \d+ products/),
+      page.getByText(/Viewing \d+ of \d+ products/).first(),
       "ProductCount line missing",
     ).toBeVisible();
 
@@ -295,7 +305,7 @@ test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-
     // headkit-block-products.php does) → PRICE returns id-ASC and
     // PRICE_DESC returns id-DESC. Un-fixme once the theme endpoint maps it.
     await page.goto(`${BASE_URL}/shop?sort=PRICE`);
-    const prices = page.locator(".headkit-product-card h3 ~ * >> text=/\\$/");
+    const prices = page.locator(".headkit-product-card h2 ~ * >> text=/\\$/");
     await expect(cards(page).first()).toBeVisible({ timeout: 30_000 });
     const first = await page
       .locator("p", { hasText: /\$/ })
@@ -379,12 +389,13 @@ test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-
     page,
   }) => {
     await page.goto(`${BASE_URL}/shop?price_min=99999`);
+    // `.first()` — same duplicate-node flake as ProductCount (see P1-01/09).
     await expect(
-      page.getByText("No products found"),
+      page.getByText("No products found").first(),
       "zero-result PLP did not render its empty state",
     ).toBeVisible({ timeout: 30_000 });
     await expect(
-      page.getByText(/try adjusting your filters/i),
+      page.getByText(/try adjusting your filters/i).first(),
       "empty state recovery copy missing",
     ).toBeVisible();
   });

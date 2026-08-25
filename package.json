@@ -14,7 +14,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:smoke": "bash scripts/smoke/boundary.sh",
-    "test:smoke:maintenance": "bash scripts/smoke/maintenance-gate.sh"
+    "test:smoke:maintenance": "bash scripts/smoke/maintenance-gate.sh",
+    "port-verify:gate": "bun run e2e/port-verify/gate.ts"
   },
   "dependencies": {
     "@headkit/sdk": "workspace:*",
