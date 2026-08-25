@@ -84,6 +84,24 @@ vi.mock("@/components/headkit-ui/collection/utils", () => ({
 }));
 vi.mock("@/components/ui/skeleton", () => ({ Skeleton: (): null => null }));
 
+vi.mock("next/navigation", () => ({
+  notFound: (): never => {
+    throw new Error("NEXT_HTTP_ERROR_FALLBACK;404");
+  },
+  unstable_rethrow: (error: unknown): void => {
+    if (
+      error instanceof Error &&
+      /NEXT_HTTP_ERROR_FALLBACK|NEXT_NOT_FOUND/.test(error.message)
+    ) {
+      throw error;
+    }
+  },
+}));
+
+vi.mock("@/components/headkit-ui/project/project-carousel", () => ({
+  ProjectCarousel: (): null => null,
+}));
+
 import { getProduct } from "./page";
 import { getCachedProduct, getProductForPage } from "@/lib/product-cache";
 
@@ -133,5 +151,25 @@ describe("getProductForPage preview bypass", () => {
     expect(cacheTag).not.toHaveBeenCalled();
     expect(cacheLife).not.toHaveBeenCalled();
     expect(productsGet).toHaveBeenCalledWith(SLUG);
+  });
+});
+
+describe("ProductPageContent provider failure", () => {
+  it("degrades to notFound instead of throwing (tenant SSG must not abort)", async () => {
+    const { ProductPageContent } = await import("./page");
+    productsGet.mockRejectedValueOnce(
+      Object.assign(
+        new Error("shopify.GetProductBySlug: shopify.Query: status 401"),
+        {
+          code: "GRAPHQL_ERROR",
+        },
+      ),
+    );
+
+    await expect(
+      ProductPageContent({
+        params: Promise.resolve({ slug: [SLUG] }),
+      }),
+    ).rejects.toThrow(/NEXT_HTTP_ERROR_FALLBACK|NEXT_NOT_FOUND|notFound/i);
   });
 });

@@ -288,12 +288,27 @@ export async function ProductPageContent({ params, searchParams }: Props) {
     notFound();
   }
 
-  const [product, { branding, storeSettings }, stripeConfig] =
-    await Promise.all([
+  // Provider auth/scope failures (e.g. Shopify Storefront 401) must not abort
+  // the whole tenant static export. Mirror generateMetadata: rethrow Next
+  // control-flow, otherwise degrade to notFound for this PDP only.
+  let product: Awaited<ReturnType<typeof getProductForPage>>;
+  let branding: Awaited<ReturnType<typeof getBranding>>["branding"];
+  let storeSettings: Awaited<ReturnType<typeof getBranding>>["storeSettings"];
+  let stripeConfig: Awaited<ReturnType<typeof getStripeConfig>>;
+  try {
+    const loaded = await Promise.all([
       getProductForPage(productSlug, { shopifyPreviewKey: previewKey }),
       getBranding(),
       getStripeConfig(),
     ]);
+    product = loaded[0];
+    branding = loaded[1].branding;
+    storeSettings = loaded[1].storeSettings;
+    stripeConfig = loaded[2];
+  } catch (error) {
+    unstable_rethrow(error);
+    notFound();
+  }
 
   if (!product) {
     notFound();
