@@ -163,6 +163,10 @@ read it.
 | `/account/wishlist`          | Saved products                                     |
 | `/contact`, `/faq`           | Static pages                                       |
 
+While the store is in maintenance mode every route above answers `503` with a
+branded page, except a short exemption list. One Edge Config write puts it up
+and one takes it down, with no redeploy — see [MAINTENANCE.md](./MAINTENANCE.md).
+
 ## Customization
 
 ### Theme

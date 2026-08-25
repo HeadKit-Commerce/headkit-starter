@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { INDEXNOW_KEY_FILE, maintenanceGate } from "@/lib/maintenance";
 
 /** Must match `DEFAULT_POSTS_BASE_PATH` in lib/posts-base-path.ts (internal route). */
 const DEFAULT_POSTS_BASE_PATH = "news";
@@ -13,9 +14,6 @@ const PRIVATE_ACCOUNT_PATHS = [
 ];
 /** Exact path for login/register - redirect to profile if already authenticated. */
 const ACCOUNT_LOGIN_PATH = "/account";
-
-/** IndexNow key files live at the host root (`/{key}.txt`, 8–128 chars). */
-const INDEXNOW_KEY_FILE = /^\/([a-zA-Z0-9-]{8,128})\.txt$/;
 
 function isPrivateAccountPath(pathname: string): boolean {
   if (pathname === ACCOUNT_LOGIN_PATH) return false;
@@ -124,6 +122,27 @@ async function rewritePostsBasePath(
 }
 
 export async function proxy(request: NextRequest): Promise<NextResponse> {
+  // Maintenance gate (cutover gate G6) runs FIRST — before the routing rules
+  // below, and in particular before `rewritePostsBasePath`'s API fetch, so a
+  // dark store never waits on the systems a cutover window is changing.
+  // Mechanism, key naming, and the lift command: apps/starter/MAINTENANCE.md.
+  const maintenance = await maintenanceGate(request);
+  if (maintenance.response) return maintenance.response;
+
+  const response = await route(request);
+  // Only set when a config store is connected: lets an operator confirm the
+  // exact key this host reads, and that the gate is armed at all, before a
+  // window rather than after.
+  if (maintenance.key) {
+    response.headers.set("x-hk-maintenance-key", maintenance.key);
+  }
+  if (maintenance.state) {
+    response.headers.set("x-hk-maintenance", maintenance.state);
+  }
+  return response;
+}
+
+async function route(request: NextRequest): Promise<NextResponse> {
   const pathname = request.nextUrl.pathname;
 
   const indexNow = rewriteIndexNowKeyFile(request, pathname);

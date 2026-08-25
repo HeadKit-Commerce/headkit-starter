@@ -172,6 +172,34 @@ hand-passed props while the prop-threading it existed to cover had none; and a c
 guard was named for "the PDP route" while exercising one of the two routes that serve a PDP.
 Same failure each time, in five costumes.
 
+### Maintenance mode is a request-time Edge Config read, keyed per host
+
+The storefront can be put dark and lifted in one Edge Config write with no redeploy
+(cutover gate G6). Mechanism, keys, exemptions and the exact lift command live in
+`MAINTENANCE.md`; the gate itself is `lib/maintenance.ts`, called first in `proxy.ts`.
+Three things about it are not derivable from the code and get people into trouble:
+
+- **The connection-string variable is `GLOBAL_CONFIG`, not `EDGE_CONFIG`.** Vercel renamed the
+  product, and reading the old name leaves the gate taking the unarmed branch on every request
+  forever — silently, with the storefront serving normally and nothing reporting it. The gate
+  accepts both and resolves them in one place. The wider lesson, which cost a defect here and a
+  no-op `revalidateTag` the same day: treat "the code says it should work" as unproven until a
+  deployment says otherwise, and check the variable NAMES a platform actually injects rather than
+  the ones its SDK documents.
+- **The Edge Config store is TEAM-level and connected to every storefront project**, so the
+  flag can never be a root boolean — that would be a fleet-wide kill switch. The key is
+  derived from the request host (`maintenance_www_dishee_com_au`). Same reason the fail
+  path is not a flat fail-closed: read failures only darken hosts already known to be dark,
+  or one Edge Config incident takes the whole fleet down.
+- **`consistentRead: true` is load-bearing**, not a default worth tidying away. Without it
+  the SDK prefers a deploy-embedded snapshot of the config, and a gate whose entire purpose
+  is a sharp `T+0` cannot read a snapshot.
+- **It is a sign, not a fence.** It cannot stop checkouts; the fence is the WooCommerce
+  gateway option write. Do not extend this gate into claiming otherwise.
+
+Prove changes to it with `bun run test:smoke:maintenance` — a production build plus a live
+flip. A unit test cannot make the claim that matters ("no redeploy").
+
 ## Maintaining this file
 
 Keep this file for knowledge useful to almost every future agent session in this app.
