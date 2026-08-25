@@ -96,8 +96,10 @@ test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-
       firstPageCards % 12 === 0 || firstPageCards < 12,
       `expected full-row quantum (12) or short catalog, got ${firstPageCards}`,
     ).toBe(true);
+    // `.first()` — Instant Navigation / Cache Components can briefly leave a
+    // second matching node in the tree (strict-mode flake on Blacksmith CI).
     await expect(
-      page.getByText(/Viewing \d+ of \d+ products/),
+      page.getByText(/Viewing \d+ of \d+ products/).first(),
       "ProductCount line missing",
     ).toBeVisible();
 
@@ -378,12 +380,13 @@ test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-
     page,
   }) => {
     await page.goto(`${BASE_URL}/shop?price_min=99999`);
+    // `.first()` — same duplicate-node flake as ProductCount (see P1-01/09).
     await expect(
-      page.getByText("No products found"),
+      page.getByText("No products found").first(),
       "zero-result PLP did not render its empty state",
     ).toBeVisible({ timeout: 30_000 });
     await expect(
-      page.getByText(/try adjusting your filters/i),
+      page.getByText(/try adjusting your filters/i).first(),
       "empty state recovery copy missing",
     ).toBeVisible();
   });
