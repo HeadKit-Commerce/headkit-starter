@@ -173,9 +173,15 @@ export const MainCarousel = ({ carouselItems }: Props) => {
           );
         }}
         className="w-full"
-        loop={true}
-        transition="fade"
-        autoplay={{ enabled: true, delay: 5000, stopOnInteraction: true }}
+        // One slide: no fade blend, no slide autoplay / loop — the video
+        // handles a hard 0-gap wrap. Multi-slide heroes keep fade rotation.
+        loop={items.length > 1}
+        transition={items.length > 1 ? "fade" : "slide"}
+        autoplay={
+          items.length > 1
+            ? { enabled: true, delay: 5000, stopOnInteraction: true }
+            : { enabled: false }
+        }
         showScrollbar={false}
         showPagination={items.length > 1}
         paginationDotClassName="bg-white/50"
