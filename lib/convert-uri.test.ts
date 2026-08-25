@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { convertToRelativePath, isAppNavigationHref } from "./convert-uri";
+import {
+  convertToRelativePath,
+  isAppNavigationHref,
+  normalizeNavigationHref,
+} from "./convert-uri";
 
 describe("convertToRelativePath", () => {
   it("strips the host from absolute http(s) WordPress permalinks", () => {
@@ -44,6 +48,13 @@ describe("convertToRelativePath", () => {
   });
 });
 
+describe("normalizeNavigationHref", () => {
+  it("matches convertToRelativePath", () => {
+    expect(normalizeNavigationHref("https://store.example/shop")).toBe("/shop");
+    expect(normalizeNavigationHref("/collections")).toBe("/collections");
+  });
+});
+
 describe("isAppNavigationHref", () => {
   it("accepts in-app paths only", () => {
     expect(isAppNavigationHref("/about")).toBe(true);
@@ -61,5 +72,10 @@ describe("isAppNavigationHref", () => {
     // as a route would be a bogus navigation.
     expect(isAppNavigationHref("#")).toBe(false);
     expect(isAppNavigationHref("#section")).toBe(false);
+  });
+
+  it("is true for absolute storefront URLs after normalization", () => {
+    const href = normalizeNavigationHref("https://velvet.headkit.app/shop");
+    expect(isAppNavigationHref(href)).toBe(true);
   });
 });

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useLinkStatus } from "next/link";
 import type { ComponentProps, ReactNode } from "react";
-import { isAppNavigationHref } from "@/lib/convert-uri";
+import { convertToRelativePath, isAppNavigationHref } from "@/lib/convert-uri";
 import { cn } from "@/lib/utils";
 
 type PendingVariant = "card" | "text";
@@ -49,6 +49,27 @@ function hrefToString(href: ComponentProps<typeof Link>["href"]): string {
   return "";
 }
 
+function normalizeLinkHref(
+  href: ComponentProps<typeof Link>["href"],
+): ComponentProps<typeof Link>["href"] {
+  if (typeof href === "string") {
+    const normalized = convertToRelativePath(href);
+    return normalized || href;
+  }
+  if (
+    href != null &&
+    typeof href === "object" &&
+    "pathname" in href &&
+    typeof href.pathname === "string"
+  ) {
+    const normalized = convertToRelativePath(href.pathname);
+    if (normalized && normalized !== href.pathname) {
+      return { ...href, pathname: normalized };
+    }
+  }
+  return href;
+}
+
 /**
  * Next.js 16.3 Instant Navigation link.
  *
@@ -56,7 +77,11 @@ function hrefToString(href: ComponentProps<typeof Link>["href"]): string {
  * `prefetch={true}` opts into per-URL runtime prefetch so `'use cache'` content
  * keyed on `params`/`searchParams` can resolve before click.
  *
- * Non-app hrefs (`tel:`, `mailto:`, `#`, absolute http(s), …) render a plain
+ * Absolute http(s) storefront URLs from WooCommerce/Shopify CMS fields are
+ * normalized to relative paths (same as nav menus) so carousel CTAs and block
+ * buttons get Next.js prefetch instead of a full document load.
+ *
+ * Non-app hrefs (`tel:`, `mailto:`, `#`, off-origin http(s), …) render a plain
  * `<a>` so special-scheme Custom Links from WordPress menus keep working.
  *
  * That plain `<a>` MUST still forward every prop it was handed. InstantLink is
@@ -77,7 +102,8 @@ export function InstantLink({
   href,
   ...rest
 }: InstantLinkProps): React.JSX.Element {
-  const hrefStr = hrefToString(href);
+  const normalizedHref = normalizeLinkHref(href);
+  const hrefStr = hrefToString(normalizedHref);
 
   if (hrefStr && !isAppNavigationHref(hrefStr)) {
     // Destructured (not deleted by key) so a future next/link rename fails the
@@ -107,7 +133,7 @@ export function InstantLink({
   return (
     <Link
       {...rest}
-      href={href}
+      href={normalizedHref}
       prefetch={prefetch}
       className={cn("relative cursor-pointer", className)}
     >

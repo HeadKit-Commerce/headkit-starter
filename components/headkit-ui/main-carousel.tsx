@@ -54,9 +54,11 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                       <HeaderTag className="text-[40px] leading-normal text-primary md:text-[48px] md:text-brand-bg!">
                         {decodeHtmlEntities(slide?.header ?? "")}
                       </HeaderTag>
-                      <p className="mt-8 text-base font-semibold text-black md:text-3xl md:text-brand-bg!">
-                        {decodeHtmlEntities(slide?.description ?? "")}
-                      </p>
+                      {slide?.description ? (
+                        <p className="mt-8 text-base font-semibold text-black md:text-3xl md:text-brand-bg!">
+                          {decodeHtmlEntities(slide.description)}
+                        </p>
+                      ) : null}
                       <div className="mt-8">
                         <InstantLink href={slide?.url ?? "#"}>
                           <Button className="text-brand-bg">

@@ -121,4 +121,13 @@ describe("InstantLink as a Radix asChild target", () => {
     expect(html).not.toContain("scroll");
     expect(html).not.toContain("prefetch");
   });
+
+  it("normalizes absolute storefront URLs to in-app Link paths", () => {
+    const html = renderToStaticMarkup(
+      <InstantLink href="https://velvet.headkit.app/shop">Shop</InstantLink>,
+    );
+
+    expect(html).toContain('href="/shop"');
+    expect(html).not.toContain("velvet.headkit.app");
+  });
 });
