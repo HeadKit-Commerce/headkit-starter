@@ -5,14 +5,18 @@ is where the numbers came from, why they cannot be produced again, and what a
 reader must do if the migration is ever restarted from a point before the capture.
 
 It backs `e2e/store-parity.spec.ts`, the MIG-03 route/parity gate for phase 15.1
-(Dishee V1 → V2 migration).
+(Dishee V1 → V2 migration). The same JSON is also the URL list read by the
+`e2e/port-verify/` capture-and-compare harness — one contract, two consumers, so
+neither can drift onto its own idea of what this store's URLs are.
 
 > **NON-LOCAL HOST — OPERATOR WAIVER.** Every other spec in this suite, and
 > `playwright.config.ts:6-7` itself, asserts LOCAL-ONLY. `store-parity.spec.ts`
-> is the single deliberate exception: it is pointed at a remote host by
+> is the deliberate exception among the specs: it is pointed at a remote host by
 > `E2E_BASE_URL`. That waiver is recorded in the spec's own docblock as well, so
 > a later reader finds the reason rather than "fixing" the violation. See
-> **The waiver** below for its exact bounds.
+> **The waiver** below for its exact bounds. The non-spec `e2e/port-verify/`
+> harness carries the same waiver on the same terms — see AGENTS.md
+> § _"Running e2e against a deployed store — GET only, and name the file"_.
 
 ---
 
@@ -245,4 +249,5 @@ bunx playwright test e2e/store-parity.spec.ts --project=chromium
 - `.planning/phases/15.1-dishee-migration/artifacts/10-url-inventory-raw.json` — the capture
 - `.planning/phases/15.1-dishee-migration/15.1-CONTEXT.md` — `<code_context>` "Dishee's shape", traps 10 and 13
 - `.planning/phases/15.1-dishee-migration/15.1-VALIDATION.md` — the six rows this gate is the automated command for
-- `e2e/store-parity.spec.ts` — the consumer
+- `e2e/store-parity.spec.ts` — the gate that consumes this fixture
+- `e2e/port-verify/README.md` — the capture-and-compare harness that reads the same JSON

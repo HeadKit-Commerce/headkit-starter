@@ -5,17 +5,22 @@ where the numbers came from, why they cannot be produced again, and what a reade
 do if the migration is ever restarted from a point before the capture.
 
 It backs `e2e/store-parity.spec.ts`, the store-agnostic MIG-03 route/parity gate, for
-phase **15.2a** (Pebblr Booth rehearsal) and the 15.2b cutover that follows it.
+phase **15.2a** (Pebblr Booth rehearsal) and the 15.2b cutover that follows it. The same
+JSON is also the URL list read by the `e2e/port-verify/` capture-and-compare harness — one
+contract, two consumers, so neither can drift onto its own idea of what this store's URLs
+are.
 
 > **NON-LOCAL HOST — OPERATOR WAIVER.** Every other spec in this suite, and
 > `playwright.config.ts:6-7` itself, asserts LOCAL-ONLY, and the project's
 > `.claude/CLAUDE.md` carries the same rule as a HARD RULE for all build/dev work.
-> `store-parity.spec.ts` is the single deliberate exception: it is pointed at a remote
-> host by `E2E_BASE_URL`, and the capture that produced this fixture read a **live
+> `store-parity.spec.ts` is the deliberate exception among the specs: it is pointed at a
+> remote host by `E2E_BASE_URL`, and the capture that produced this fixture read a **live
 > paying customer's storefront**. That waiver is recorded in the spec's own docblock as
 > well, so a later reader finds the reason rather than "fixing" an apparent violation.
 > See **§ 7 The waiver** below for its exact bounds and where the authorization was
-> granted.
+> granted. The non-spec `e2e/port-verify/` harness carries the same waiver on the same
+> terms — see AGENTS.md § _"Running e2e against a deployed store — GET only, and name the
+> file"_.
 
 ---
 
@@ -439,5 +444,6 @@ bunx playwright test e2e/store-parity.spec.ts --project=chromium
 - `.planning/phases/15.2-pebblr-booth-rehearsal/artifacts/15.2a-06-repo-probe.md` — the approved capture parameters, the repository probe, the measured request footprint
 - `.planning/phases/15.2-pebblr-booth-rehearsal/artifacts/15.2a-01-premise-reverification.md` § A4 — how the apex host was established
 - `.planning/phases/15.2-pebblr-booth-rehearsal/artifacts/15.2a-05-parity-parameterization.md` — how the gate became store-agnostic, and its abort messages
-- `e2e/store-parity.spec.ts` — the consumer
+- `e2e/store-parity.spec.ts` — the gate that consumes this fixture
+- `e2e/port-verify/README.md` — the capture-and-compare harness that reads the same JSON
 - `e2e/fixtures/dishee-url-inventory.md` — the sibling this document's shape follows

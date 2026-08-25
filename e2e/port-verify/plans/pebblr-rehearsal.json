@@ -1,0 +1,38 @@
+{
+  "name": "pebblr — port verification",
+  "inventory": "../../fixtures/pebblr-url-inventory.json",
+  "note": "Overlay on the captured V1 url inventory. The inventory is the URL list and is not edited here; this file carries only what belongs to the COMPARISON — which paths are captured signals-only, which regions are masked, and the URLs whose status is itself the thing under test and which a V1 sweep therefore never recorded.",
+  "add": [
+    {
+      "path": "/products/gold-package",
+      "kind": "product",
+      "note": "The flat product shape. Serves 200 today and must serve 308 after the port, so it has no page to pair pixels against — signals only."
+    },
+    {
+      "path": "/collections/photo",
+      "kind": "category",
+      "note": "The flat collection shape. Cross-canonicals to the nested one today; must 308 after the port."
+    },
+    {
+      "path": "/this-page-does-not-exist",
+      "kind": "functional",
+      "note": "Guaranteed-missing URL. This store answers 200 with a not-found shell today; the port must make it a real 404, and only the status shows it."
+    },
+    {
+      "path": "/products/nope-not-a-product",
+      "kind": "functional",
+      "note": "Guaranteed-missing URL inside the product route family."
+    },
+    {
+      "path": "/collections/nope-not-a-collection",
+      "kind": "functional",
+      "note": "Guaranteed-missing URL inside the collection route family."
+    }
+  ],
+  "signals_only": [
+    "/products/**",
+    "/collections/photo",
+    "/this-page-does-not-exist",
+    "/collections/nope-not-a-collection"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "name": "dishee — port verification",
+  "inventory": "../../fixtures/dishee-url-inventory.json",
+  "note": "Overlay on the captured V1 url inventory. THIS STORE'S STRIPE IS LIVE AGAINST A REAL MERCHANT ACCOUNT. /checkout and /cart are captured as pages and nothing else — the harness issues GET only, refuses every non-GET the page attempts, and blocks every payment-provider host, so no order can be placed from here. Do not run the inherited e2e suite against this host; ten of its specs transact.",
+  "add": [
+    {
+      "path": "/products/dishee-dish-brush-black",
+      "kind": "product",
+      "note": "The flat product shape. Serves 200 today and must serve 308 after the port — signals only."
+    },
+    {
+      "path": "/collections/flora",
+      "kind": "category",
+      "note": "The flat collection shape. Cross-canonicals to the nested one today; must 308 after the port."
+    },
+    {
+      "path": "/this-page-does-not-exist",
+      "kind": "functional",
+      "note": "Guaranteed-missing URL. Correct 404 today — this entry is what proves the port does not regress it."
+    }
+  ],
+  "signals_only": [
+    "/products/**",
+    "/collections/flora",
+    "/this-page-does-not-exist"
+  ]
+}
