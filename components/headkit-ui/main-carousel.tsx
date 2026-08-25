@@ -1,7 +1,8 @@
 "use client";
 
 import { getImageProps } from "next/image";
-import { ElementType } from "react";
+import { ElementType, useState } from "react";
+import { AutoplayVideo } from "@/components/headkit-ui/autoplay-video";
 import { Carousel } from "@/components/headkit-ui/carousel";
 import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ function slideVideo(slide: HeroSlide, mobile: boolean): string {
 export const MainCarousel = ({ carouselItems }: Props) => {
   // Schedule windows are applied in WordPress (headkit_query_active_carousels).
   const items = carouselItems as HeroSlide[];
+  const [activeIndex, setActiveIndex] = useState(0);
 
   if (items.length === 0) return null;
 
@@ -34,12 +36,14 @@ export const MainCarousel = ({ carouselItems }: Props) => {
     <div className="headkit-hero-carousel overflow-hidden mx-5">
       <Carousel
         items={items}
+        onSlideChange={setActiveIndex}
         renderItem={(carousel, index) => {
           const slide = carousel as HeroSlide;
           const HeaderTag: ElementType = index === 0 ? "h1" : "h2";
           const desktopVideo = slideVideo(slide, false);
           const mobileVideo = slideVideo(slide, true);
           const hasVideo = Boolean(desktopVideo || mobileVideo);
+          const isActive = index === activeIndex;
 
           return (
             <div className="basis-full w-full relative">
@@ -71,28 +75,24 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                       {/* Mobile video (or desktop fallback). muted+playsInline
                           required for autoplay; poster keeps LCP image-like. */}
                       {mobileVideo || desktopVideo ? (
-                        <video
+                        <AutoplayVideo
                           className="h-full w-full object-cover md:hidden"
                           src={mobileVideo || desktopVideo}
-                          poster={slide.mobileImage || slide.image || undefined}
-                          autoPlay
-                          muted
-                          loop
-                          playsInline
-                          // Only preload metadata for non-first slides to limit
-                          // bandwidth; first slide preloads enough to autoplay.
+                          {...(slide.mobileImage || slide.image
+                            ? {
+                                poster: slide.mobileImage || slide.image!,
+                              }
+                            : {})}
+                          isActive={isActive}
                           preload={index === 0 ? "auto" : "metadata"}
                         />
                       ) : null}
                       {desktopVideo ? (
-                        <video
+                        <AutoplayVideo
                           className="hidden h-full w-full object-cover md:block"
                           src={desktopVideo}
-                          poster={slide.image || undefined}
-                          autoPlay
-                          muted
-                          loop
-                          playsInline
+                          {...(slide.image ? { poster: slide.image } : {})}
+                          isActive={isActive}
                           preload={index === 0 ? "auto" : "metadata"}
                         />
                       ) : null}
