@@ -10,6 +10,7 @@ Platform template upgrades should leave `overrides/` alone. You still have the f
 | -------------------- | ---------------------------------------------------------------------- |
 | `styles.css`         | CSS beyond dashboard branding (layout, spacing, hide elements, tweaks) |
 | `header-actions.tsx` | Extra header icons (e.g. phone) between Account and Cart               |
+| `maintenance.ts`     | Copy, colours and logo for the maintenance page (`../MAINTENANCE.md`)  |
 
 ## What stays elsewhere
 
