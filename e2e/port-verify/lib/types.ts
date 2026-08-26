@@ -163,6 +163,23 @@ export interface ScreenshotRecord {
    * root-layout Suspense regression visible without reading pixels by eye.
    */
   readonly inkRatio: number;
+  /**
+   * Whether two consecutive frames of this screenshot came out pixel-identical
+   * before it was kept — the capture-side stability gate's verdict, not a
+   * property of the storefront.
+   *
+   * `false` means the gate exhausted its retries and kept a moving frame, so a
+   * pixel difference on this screenshot may be the capture rather than the
+   * page. The comparison prints that as a row of its own.
+   *
+   * OPTIONAL, AND DELIBERATELY WITHOUT A SCHEMA BUMP, for the same reason
+   * `NormalizeRule.paths` was (see `load.ts`): a capture written before the
+   * gate existed is still a valid capture and must still compare. `undefined`
+   * therefore means UNKNOWN — not stable — and every reader must test for
+   * `=== false` rather than falsiness, or every pre-gate screenshot reads as a
+   * give-up that never happened.
+   */
+  readonly frameStable?: boolean;
 }
 
 /** The no-JavaScript pass. */

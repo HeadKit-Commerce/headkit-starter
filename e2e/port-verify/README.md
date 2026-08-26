@@ -199,7 +199,7 @@ Entity keying would have bought nothing and cost complexity.
 | sitemap membership                                                 | a captured signal, never the source of the capture list (both rehearsal hosts currently publish an empty sitemap); recorded for the requested path **and** the final path                                                                                                                                                             |
 | internal links                                                     | every rendered `href`, normalised to site-relative paths, deduplicated and sorted                                                                                                                                                                                                                                                     |
 | cache/prerender headers                                            | `x-nextjs-cache`, `x-vercel-cache`, `x-nextjs-prerender`, `x-matched-path`, `cache-control`, and whether `age` was present                                                                                                                                                                                                            |
-| screenshots                                                        | desktop `1280×900` and mobile `390×844`, full page                                                                                                                                                                                                                                                                                    |
+| screenshots                                                        | desktop `1280×900` and mobile `390×844`, full page, each held back until two consecutive frames came out pixel-identical — and each carrying `frameStable`, the gate's verdict on whether that ever happened                                                                                                                          |
 | **the no-JavaScript pass**                                         | for every full-mode URL: the prerendered shell's text length and link count, whether it carries `<noscript>`, a screenshot taken with scripting disabled, and its **ink ratio**                                                                                                                                                       |
 
 **Ink ratio** is the fraction of pixels differing from the page's dominant
@@ -334,9 +334,17 @@ one real finding is skimmed too. What gets it there:
 - a seeded `Math.random`
 - fixed locale, timezone and colour scheme
 - settle before shooting: `load`, network idle, **then the streamed dynamic
-  holes having landed**, then fonts loaded, then a synchronous scroll to the
-  bottom and back to force lazy content, then network idle and a second
-  landed-holes check for whatever the scroll opened
+  holes having landed**, then fonts loaded, then **every `<img>` painted** — asked
+  for as `complete && naturalWidth > 0`, then as the terminal `complete` a broken
+  image can actually satisfy, then a `decode()` sweep, all on small budgets
+  because `networkidle` has already waited out the requests — then a
+  synchronous scroll to the bottom and back to force lazy content, then network
+  idle, a second landed-holes check for whatever the scroll opened, and a second
+  image check — the one that matters, because the scroll is what STARTED every
+  lazy image below the fold
+- **a two-frame stability gate before every screenshot**: shoot, wait 250ms,
+  shoot again, and keep the frame only once two consecutive frames are
+  pixel-identical (see below)
 - a per-channel pixel threshold of 2 — Chromium's text rasterisation is not
   bit-identical between processes, and an exact comparison reports thousands of
   one-unit pixels on a page nobody touched
@@ -369,6 +377,20 @@ or resizes still reports. Masking the container wholesale would have traded a
 noisy true positive for a silent false negative. Evidence:
 `260825-port-verify-before-snapshots` report §5.
 
+The pebblr plan declares a second blind spot of exactly this shape and for
+exactly this reason: the nine-tile "Gallery image N" grid on
+`/photo-booth-print-template` shows a different nine-image sample of the same
+pool from one render to the next. Measured read-only before it was declared —
+three `curl`s of the page returned byte-identical HTML carrying the same nine
+filenames, and four browser loads rendered that same nine — so this too is
+decided on the server per ISR entry, not in the browser per load. The six NAMED
+"Layout N" template tiles beside it are deterministic and are **not** masked. Its
+`why` also records the trap that made the original diagnosis read as a per-load
+shuffle: `rawTextLength` and `rawLinkCount` are computed with `<script>`
+stripped, so they cannot see a pick that travels in the RSC flight payload, and
+"the served bytes were identical" was really "the two metrics that can see the
+bytes are blind to this field".
+
 **`load` + network idle is not a settled page under Cache Components.** A
 Suspense boundary the server could not resolve ships as
 `<!--$?--><template id="B:n"></template>`; its content arrives later inside
@@ -387,6 +409,30 @@ storefront serves `/streamed`, whose payload sits in the `<template>` — NOT in
 the `<div hidden>`, which is in the document tree and whose links a capture
 finds whether or not the hole landed — and GATE 1 asserts the landed link
 positively beside the empty diff.
+
+**The waits are milestones; the gate is the property.** Two rounds of
+milestone-based waits each missed something new — round 1 missed the streamed
+dynamic holes, and the fix for those still missed lazy images and late client
+renders (`260825-port-verify-before-snapshots` report §5a/§5b/§5d: a footer logo
+and a breadcrumb label PRESENT in one pass and ABSENT in the other at identical
+coordinates, on a different URL each pass). Waiting for "the things we thought
+of" is structurally open-ended, so a stability gate sits after them: shoot, wait
+250ms, shoot again, and proceed only when two consecutive frames are
+pixel-identical. It asserts the property the self-diff is actually testing — the
+frame has stopped moving — rather than a proxy for it, which is why it also
+covers the late render nobody has named yet. On a page that was already still it
+costs exactly one extra frame.
+
+It is **bounded and loud**, never patient. A gate that retried until the frame
+settled would hang on any page carrying an animation `FREEZE_CSS` does not
+reach, and a wedged capture produces no record at all — strictly worse than a
+visible give-up. So it shoots at most four frames, keeps the last one, writes the
+give-up to stderr as it happens, and records `frameStable: false` on the
+screenshot; the comparison then prints a `pixel`-tier row directly above the
+pixel row it qualifies, saying that a difference there may be the capture rather
+than the page. `frameStable` is absent from captures written before the gate
+existed, and absent means UNKNOWN — readers test for `=== false`, never for
+falsiness, or every pre-gate screenshot reads as a give-up that never happened.
 
 **Nothing in the settle path may depend on an in-page timer.** An earlier
 version installed Playwright's fake clock; fake timers also freeze `setTimeout`,
