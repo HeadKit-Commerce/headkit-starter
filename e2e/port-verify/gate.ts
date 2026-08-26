@@ -163,12 +163,41 @@ out(
   "=== GATE 1: two runs against the same unchanged target must diff to nothing ===",
 );
 const selfRows = await compare("run-1", "run-2", "self");
-if (selfRows.length === 0) {
-  out("GATE 1 PASS — empty diff across two captures of an unchanged target.");
+/**
+ * AN EMPTY DIFF IS NOT ENOUGH ON ITS OWN.
+ *
+ * `/streamed` ships a pending Suspense boundary and relocates its content out
+ * of a `<div hidden>` well after `load` and network idle — the Cache
+ * Components shape. A settle path that returns before that lands photographs
+ * and reads the page mid-relocation, and BOTH runs miss the content equally,
+ * so the diff is empty and this gate goes green over an instrument that is
+ * measuring the hydration sequence rather than the page. It cost sub-0.15 %-of-
+ * frame pixel rows on an unchanged host before it was named
+ * (`260825-port-verify-before-snapshots` report §5c). So the landed content is
+ * asserted POSITIVELY here, beside the empty diff.
+ */
+const streamed = entryOf("run-1", "/streamed");
+const landed = streamed.links.includes("/streamed-landed");
+if (selfRows.length === 0 && landed) {
+  out("GATE 1 PASS — empty diff across two captures of an unchanged target,");
+  out(
+    "  and the streamed dynamic hole had LANDED before the capture read the page.",
+  );
 } else {
   failures += 1;
-  out(`GATE 1 FAIL — ${selfRows.length} difference(s) on an unchanged target:`);
-  out(describe(selfRows));
+  if (!landed) {
+    out(
+      "GATE 1 FAIL — the streamed dynamic hole had not landed when /streamed was read: " +
+        "the capture describes a point in the hydration sequence, not the page. " +
+        `Captured links: ${streamed.links.join(", ")}`,
+    );
+  }
+  if (selfRows.length > 0) {
+    out(
+      `GATE 1 FAIL — ${selfRows.length} difference(s) on an unchanged target:`,
+    );
+    out(describe(selfRows));
+  }
 }
 
 out("");

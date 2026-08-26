@@ -101,12 +101,16 @@ function normalizeBlock(run: CaptureRun): string[] {
     ];
   }
   const lines = [
-    "| field | pattern | replaced with | why |",
-    "| --- | --- | --- | --- |",
+    "| field | pattern | replaced with | applies to | why |",
+    "| --- | --- | --- | --- | --- |",
   ];
   for (const n of run.meta.normalize) {
+    // `applies to` is not decoration: a rule scoped to one page family is a far
+    // narrower blind spot than the same rule run store-wide, and a reader of a
+    // green run cannot tell the two apart from the pattern alone.
+    const paths = n.paths ?? [];
     lines.push(
-      `| ${cell(n.field)} | \`${cell(n.pattern)}\`/${cell(n.flags)} | \`${cell(n.replace)}\` | ${cell(n.why)} |`,
+      `| ${cell(n.field)} | \`${cell(n.pattern)}\`/${cell(n.flags)} | \`${cell(n.replace)}\` | ${paths.length === 0 ? "every captured URL" : cell(paths.join(", "))} | ${cell(n.why)} |`,
     );
   }
   lines.push("");
@@ -322,8 +326,10 @@ export function renderReport(
 
   lines.push("### Structural limits of this harness", "");
   lines.push(
-    "- Every request is a GET. Nothing is signed in, submitted, added to a cart, or paid for, so anything reachable only behind an interaction is not captured.",
-    "- Non-GET requests the page attempts are refused and recorded, not performed.",
+    "- Every request this harness ISSUES is a GET, and it never signs in, submits, adds to a cart or pays, so anything reachable only behind an interaction is not captured. That is a statement about what the harness drives, not a guarantee about every byte that left the browser — the next three rows are the limits on it, and they are not footnotes.",
+    "- Non-GET requests the PAGE attempts are refused and recorded, not performed.",
+    "- That refusal does NOT extend to a service worker. The GET-only guard is a `context.route()` handler, which Playwright does not apply to requests a service worker issues, and the capture context does not block service workers. For a target that registers one, a non-GET it issues is neither refused nor recorded, and a blocked host is reachable through it — so on such a target an empty blocked-request list is not proof that nothing mutating was attempted, only that nothing mutating reached the guard. This gap is ACCEPTED and no code fix is coming (`260825-port-verify-service-worker-blind-guard`, closed as declined), so the protection is a per-target measurement: the harness must not be pointed at a store whose service-worker status has not been measured.",
+    "- A GET to a blocked host is aborted WITHOUT being recorded, unlike a non-GET, which is recorded and then aborted. So this report cannot show whether a payment provider was contacted at all, and a difference between the two runs in payment-script loading does NOT appear as a difference — both runs abort identically and both record nothing, so that port defect renders here as a match. Unlike the service-worker gap above, this one is STILL OPEN and undecided (`260825-port-verify-blocked-get-not-recorded`).",
     `- Screenshots compare at a per-channel threshold of ${extra.pixelThreshold}; a change smaller than that on every channel is not reported.`,
     `- The no-JavaScript ink ratio compares at an absolute epsilon of ${NOJS_INK_EPSILON}; a move smaller than that raises no ink row. That is headroom over the MEASUREMENT QUANTUM (\`inkRatio\` rounds to 4 decimal places, so 0.0001), not a multiple of measured jitter — measured jitter across 63 ink comparisons on two real-host self-diff pairs and one synthetic pair was exactly 0.000000. The smallest healthy ink ratio observed was 0.0745, so a blank prerendered shell loses at least that much and clears the epsilon by 74x. A sub-epsilon ink move is still visible: the no-JavaScript screenshot is pixel-compared in the pixel tier independently of this row.`,
     "- A URL that failed to capture in BOTH runs is counted in the verdict and reported as its own row; it is never treated as a matching comparison.",

@@ -8,10 +8,12 @@ import { getFullCartAction } from "@/lib/cart-actions";
 import { getCustomer } from "@/lib/account-actions";
 import { getAuthToken } from "@/lib/auth-cookie";
 import { resolveCheckoutEmail } from "@/lib/checkout-email";
+import { hostedCheckoutUrl } from "@/lib/hosted-checkout";
 import { getFloatVal } from "@/lib/utils";
 import { createServerHeadkit } from "@/lib/sdk.server";
 import { PaymentFailedBanner } from "@/components/checkout/payment-failed-banner";
 import { CartChangedBanner } from "@/components/checkout/cart-changed-banner";
+import { CheckoutTestModeBanner } from "@/components/checkout/test-mode-banner";
 import { getBranding } from "@/lib/branding";
 import { normalizeCheckoutMode } from "@/lib/checkout-mode";
 import { isOfflineOnlyCart } from "@/lib/payment-gateways";
@@ -21,14 +23,6 @@ export default async function CheckoutPage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  // HeadKit Quote stores use /quote instead of the payment checkout.
-  const { storeSettings } = await getBranding();
-  if (normalizeCheckoutMode(storeSettings.checkoutType) === "quote") {
-    const { error: quoteError } = await searchParams;
-    const qs = quoteError ? `?error=${encodeURIComponent(quoteError)}` : "";
-    redirect(`/quote${qs}`);
-  }
-
   // ENG-789: the checkout return page redirects failed/canceled payments
   // (e.g. Afterpay declines) back here with ?error=payment_failed for an
   // in-place retry. Reading searchParams keeps the page dynamic — it already
@@ -40,7 +34,19 @@ export default async function CheckoutPage({
   // session minted below, honest banner on top.
   const cartChanged = error === "cart_changed";
 
-  let cart = await getFullCartAction();
+  // Parallel: quote-mode needs branding; Shopify hosted redirect needs cart.
+  const [{ storeSettings }, cartResult] = await Promise.all([
+    getBranding(),
+    getFullCartAction(),
+  ]);
+
+  // HeadKit Quote stores use /quote instead of the payment checkout.
+  if (normalizeCheckoutMode(storeSettings.checkoutType) === "quote") {
+    const qs = error ? `?error=${encodeURIComponent(error)}` : "";
+    redirect(`/quote${qs}`);
+  }
+
+  let cart = cartResult;
 
   // null  = no cookie, or WooCommerce session expired (stale cookie was cleared)
   // empty = user genuinely has an empty cart
@@ -49,6 +55,14 @@ export default async function CheckoutPage({
   }
   if (cart.itemsCount === 0) {
     redirect("/checkout/error?reason=empty_cart");
+  }
+
+  // Shopify Checkout is authoritative: redirect to Storefront cart.checkoutUrl
+  // instead of creating a Stripe Checkout Session (ADR 004 / ENG-836).
+  // Primary CTA is cart-drawer → checkoutUrl; this remains a deep-link safety net.
+  const shopifyCheckout = hostedCheckoutUrl(cart);
+  if (shopifyCheckout) {
+    redirect(shopifyCheckout);
   }
 
   // Server-side stock validation — auto-correct before showing the page.
@@ -105,6 +119,7 @@ export default async function CheckoutPage({
     sessionId: string;
     publishableKey: string;
     stripeAccountId?: string | null;
+    testMode?: boolean;
     shippingOptionMapping?: Array<{
       rateId: string;
       stripeShippingRateId: string;
@@ -158,6 +173,7 @@ export default async function CheckoutPage({
         sessionId: session.sessionId,
         publishableKey: session.publishableKey,
         stripeAccountId: session.stripeAccountId ?? null,
+        testMode: session.testMode === true,
         shippingOptionMapping: session.shippingOptionMapping ?? null,
       };
     } catch (error) {
@@ -201,6 +217,14 @@ export default async function CheckoutPage({
 
   return (
     <div className="min-h-screen bg-brand-bg">
+      {checkoutSession ? (
+        <CheckoutTestModeBanner
+          publishableKey={checkoutSession.publishableKey}
+          {...(checkoutSession.testMode !== undefined
+            ? { testMode: checkoutSession.testMode }
+            : {})}
+        />
+      ) : null}
       {/* Payment failed banner (ENG-789: retry after Afterpay/BNPL decline) */}
       {paymentFailed && <PaymentFailedBanner />}
       {/* Cart changed banner (ENG-784: session expired mid-redirect because

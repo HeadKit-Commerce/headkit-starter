@@ -24,9 +24,16 @@ import { VariantSwatch } from "@/components/headkit-ui/variant-swatch";
 import { AvailabilityStatus } from "@/components/headkit-ui/availability-status";
 import { Button } from "@/components/ui/button";
 import { MinusIcon, PlusIcon, HeartIcon } from "@/components/icon";
-import { addToCartAction } from "@/lib/cart-actions";
+import { addToCartAction, addToCartMultiAction } from "@/lib/cart-actions";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { useIsQuoteMode } from "@/components/checkout/checkout-mode-provider";
+import { ProductMultiAdd } from "@/components/headkit-ui/product-multi-add";
+import {
+  resolveCompanionLineId,
+  resolvePinAttributeSlug,
+  resolvePinValue,
+  type MultiAddCompanion,
+} from "@/lib/multi-add";
 import {
   ProductAddons,
   addonControlDomId,
@@ -43,6 +50,7 @@ import {
 import {
   cn,
   decodeHtmlEntities,
+  formatPrice,
   formatWooRichText,
   getFloatVal,
   getStoreCurrency,
@@ -59,6 +67,7 @@ import {
   colourSlugFromProductPath,
 } from "@/lib/product-colourway-nav";
 import { findSwatchAttribute } from "@/lib/swatch-attribute";
+import { isSizeAttrSlug, isVariationOutOfStock } from "@/lib/variation-stock";
 import {
   Accordion,
   AccordionContent,
@@ -101,6 +110,11 @@ interface Props {
     accountId: string;
     bnplMessagingEnabled: boolean;
   };
+  /**
+   * When true and the product has multiAdd companions, show steppers + batch
+   * add. Default off (branding.multiAddEnabled).
+   */
+  multiAddEnabled?: boolean;
 }
 
 const VARIABLE = "VARIABLE";
@@ -162,6 +176,7 @@ export function ProductDetail({
   productBasePath,
   stockSlot,
   stripeConfig,
+  multiAddEnabled = false,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -203,6 +218,22 @@ export function ProductDetail({
   // once here so every consumer below reads the same list.
   const addons = product.addons ?? [];
   const hasUploadAddon = hasBlockingAddon(addons);
+
+  const multiAddBlock = (
+    product as StorefrontProduct & {
+      multiAdd?: {
+        pinOption?: string | null;
+        products: MultiAddCompanion[];
+      } | null;
+    }
+  ).multiAdd;
+  const multiAddCompanions = multiAddBlock?.products ?? [];
+  const showMultiAdd =
+    multiAddEnabled &&
+    !isGiftCard &&
+    addons.length === 0 &&
+    multiAddCompanions.length > 0;
+  const [companionQty, setCompanionQty] = useState<Record<string, number>>({});
 
   const handleAddonChange = useCallback(
     (next: AddonSelection, changedAddonId: string) => {
@@ -277,7 +308,9 @@ export function ProductDetail({
   // (deferred to avoid SSR/hydration mismatch).
   useEffect(() => {
     if (!productBasePath || !isVariable) return;
-    const sizeKey = variationAttributes.find((a) => a.slug === "pa_size")?.slug;
+    const sizeKey = variationAttributes.find((a) =>
+      isSizeAttrSlug(a.slug),
+    )?.slug;
     if (!sizeKey) return;
     const saved = localStorage.getItem(`headkit:size:${product.slug}`);
     if (!saved) return;
@@ -345,8 +378,8 @@ export function ProductDetail({
     (next: Record<string, string>) => {
       if (productBasePath) {
         const colorKey = findSwatchAttribute(variationAttributes)?.slug;
-        const sizeKey = variationAttributes.find(
-          (a) => a.slug === "pa_size",
+        const sizeKey = variationAttributes.find((a) =>
+          isSizeAttrSlug(a.slug),
         )?.slug;
 
         // Persist size to localStorage on every change
@@ -448,7 +481,12 @@ export function ProductDetail({
 
   const stockStatus =
     selectedVariation?.stockStatus ?? product.stockStatus ?? "instock";
-  const isOutOfStock = stockStatus?.toLowerCase() === "outofstock";
+  const stockQuantity =
+    selectedVariation?.stockQuantity ?? product.stockQuantity ?? null;
+  const isOutOfStock = isVariationOutOfStock({
+    stockStatus,
+    stockQuantity,
+  });
 
   const targetId = isVariable
     ? (selectedVariation?.id ?? product.id)
@@ -477,6 +515,62 @@ export function ProductDetail({
       : !isOutOfStock && !isAtStockLimit) &&
     (!isGiftCard || (isGiftCardFormValid && giftCardValues !== null)) &&
     !hasUploadAddon;
+
+  const multiAddPinSlug = useMemo(
+    () =>
+      resolvePinAttributeSlug(
+        product.attributes.map((a) => ({
+          name: a.name,
+          slug: a.slug,
+          variation: a.variation,
+        })),
+        multiAddBlock?.pinOption,
+      ),
+    [product.attributes, multiAddBlock?.pinOption],
+  );
+  const multiAddPinValue = resolvePinValue(
+    multiAddPinSlug,
+    selectedAttributes,
+    product.defaultAttributes ?? [],
+  );
+
+  const companionLines = useMemo(() => {
+    if (!showMultiAdd) return [];
+    const lines: Array<{
+      id: string;
+      quantity: number;
+      unitPrice: number;
+    }> = [];
+    for (const companion of multiAddCompanions) {
+      const qty = companionQty[companion.id] ?? 0;
+      if (qty <= 0) continue;
+      const resolved = resolveCompanionLineId(
+        companion,
+        multiAddPinSlug,
+        multiAddPinValue,
+      );
+      if (!resolved) continue;
+      lines.push({
+        id: resolved.id,
+        quantity: qty,
+        unitPrice: resolved.unitPrice,
+      });
+    }
+    return lines;
+  }, [
+    showMultiAdd,
+    multiAddCompanions,
+    companionQty,
+    multiAddPinSlug,
+    multiAddPinValue,
+  ]);
+
+  const hasCompanionLines = companionLines.length > 0;
+  const companionTotal = companionLines.reduce(
+    (sum, line) => sum + line.unitPrice * line.quantity,
+    0,
+  );
+  const setTotal = getFloatVal(displayPrice) * quantity + companionTotal;
 
   // Sticky ATC bar: only after the primary ATC scrolls above the viewport
   // (not when it is still below the fold).
@@ -510,9 +604,13 @@ export function ProductDetail({
             ? "Max qty reached"
             : isVariable && !selectedVariation
               ? "Select options"
-              : isQuoteMode
-                ? "Add to Quote"
-                : "Add to cart";
+              : hasCompanionLines
+                ? isQuoteMode
+                  ? `Add set to quote · ${formatPrice(setTotal)}`
+                  : `Add set to cart · ${formatPrice(setTotal)}`
+                : isQuoteMode
+                  ? "Add to Quote"
+                  : "Add to cart";
 
   /**
    * Land a rejection against the group it belongs to, or in the banner when it
@@ -555,6 +653,33 @@ export function ProductDetail({
         const variation = Object.entries(selectedAttributes).map(
           ([attribute, value]) => ({ attribute, value }),
         );
+
+        if (hasCompanionLines) {
+          const result = await addToCartMultiAction({
+            lines: [
+              {
+                id,
+                quantity,
+                ...(hasVariation ? { variation } : {}),
+              },
+              ...companionLines.map((line) => ({
+                id: line.id,
+                quantity: line.quantity,
+              })),
+            ],
+          });
+          if (result.success) {
+            setAddonErrors({});
+            setAddonFormError(null);
+            setCartData(result.cart);
+            toggleCart(true);
+            setQuantity(1);
+            setCompanionQty({});
+          }
+          setCartFeedback(result.success ? "success" : "error");
+          setTimeout(() => setCartFeedback("idle"), 2000);
+          return;
+        }
 
         const giftConfig =
           isGiftCard && giftCardValues
@@ -721,7 +846,7 @@ export function ProductDetail({
                   </div>
                   <div className="flex flex-wrap gap-3">
                     {attr.fullOptions.map((option) => {
-                      const isUnavailable = !product.variations.some(
+                      const hasAnyVariation = product.variations.some(
                         (v: ProductVariation) =>
                           v.attributes.some(
                             (a) =>
@@ -729,14 +854,14 @@ export function ProductDetail({
                           ),
                       );
 
-                      const isIncompatible =
-                        !isUnavailable &&
-                        !product.variations.some((v: ProductVariation) => {
+                      const matchingWithOthers = product.variations.filter(
+                        (v: ProductVariation) => {
                           const matchesThis = v.attributes.some(
                             (a) =>
                               a.key === attr.slug && a.value === option.slug,
                           );
-                          const matchesOthers = variationAttributes
+                          if (!matchesThis) return false;
+                          return variationAttributes
                             .filter((other) => other.slug !== attr.slug)
                             .every((other) => {
                               const sel = selectedAttributes[other.slug];
@@ -748,8 +873,15 @@ export function ProductDetail({
                                 )
                               );
                             });
-                          return matchesThis && matchesOthers;
-                        });
+                        },
+                      );
+
+                      const isIncompatible =
+                        hasAnyVariation && matchingWithOthers.length === 0;
+                      const isUnavailable =
+                        !hasAnyVariation ||
+                        (matchingWithOthers.length > 0 &&
+                          matchingWithOthers.every(isVariationOutOfStock));
 
                       return (
                         <VariantSwatch
@@ -758,6 +890,7 @@ export function ProductDetail({
                           value={option.slug}
                           color1={option.swatchColor}
                           color2={option.swatchColor2}
+                          imageSrc={option.swatchImage ?? ""}
                           selectedOptionValue={
                             selectedAttributes[attr.slug] ?? ""
                           }
@@ -907,6 +1040,20 @@ export function ProductDetail({
           )}
 
           {/* Quantity selector + Add to Cart + Wishlist */}
+          {showMultiAdd && (
+            <ProductMultiAdd
+              companions={multiAddCompanions}
+              pinSlug={multiAddPinSlug}
+              pinValue={multiAddPinValue}
+              quantities={companionQty}
+              onQuantityChange={(productId, next) =>
+                setCompanionQty((prev) => ({ ...prev, [productId]: next }))
+              }
+              companionTotal={companionTotal}
+              showTotal={hasCompanionLines}
+            />
+          )}
+
           <div ref={atcSectionRef} className="mb-6 flex items-center gap-3">
             <div className="flex items-center rounded-md border border-gray-300">
               <button

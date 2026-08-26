@@ -26,20 +26,36 @@ export async function getCachedCatalogPage(
   const filterKey = normalizeFilterKey(filter ?? {});
   switch (scope.kind) {
     case "shop":
-      cacheTag(TAG.route("shop"), TAG.products, `catalog:${filterKey}`);
+      cacheTag(
+        TAG.route("shop"),
+        TAG.products,
+        TAG.catalog,
+        `catalog:${filterKey}`,
+      );
       break;
     case "category":
       cacheTag(
         TAG.catalogCat(scope.slug),
         TAG.products,
+        TAG.catalog,
         `catalog:${filterKey}`,
       );
       break;
     case "brand":
-      cacheTag(TAG.brand(scope.slug), TAG.products, `catalog:${filterKey}`);
+      cacheTag(
+        TAG.brand(scope.slug),
+        TAG.products,
+        TAG.catalog,
+        `catalog:${filterKey}`,
+      );
       break;
     case "route":
-      cacheTag(TAG.route(scope.route), TAG.products, `catalog:${filterKey}`);
+      cacheTag(
+        TAG.route(scope.route),
+        TAG.products,
+        TAG.catalog,
+        `catalog:${filterKey}`,
+      );
       break;
   }
 

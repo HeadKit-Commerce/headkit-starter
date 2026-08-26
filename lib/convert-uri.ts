@@ -20,6 +20,17 @@
  * convertToRelativePath("tel:1300883919")
  * // → "tel:1300883919"
  */
+/**
+ * Normalize a CMS/menu/carousel href for in-app Next.js navigation.
+ * Same as {@link convertToRelativePath} — alias for call sites that gate on
+ * {@link isAppNavigationHref} before rendering `InstantLink`.
+ */
+export function normalizeNavigationHref(
+  uri: string | null | undefined,
+): string {
+  return convertToRelativePath(uri);
+}
+
 export function convertToRelativePath(uri: string | null | undefined): string {
   if (!uri) return "";
   if (uri.startsWith("/")) return uri;

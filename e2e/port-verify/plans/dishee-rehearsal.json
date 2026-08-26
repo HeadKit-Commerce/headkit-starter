@@ -1,7 +1,7 @@
 {
   "name": "dishee — port verification",
   "inventory": "../../fixtures/dishee-url-inventory.json",
-  "note": "Overlay on the captured V1 url inventory. THIS STORE'S STRIPE IS LIVE AGAINST A REAL MERCHANT ACCOUNT. /checkout and /cart are captured as pages and nothing else — the harness issues GET only, refuses every non-GET the page attempts, and blocks every payment-provider host, so no order can be placed from here. Do not run the inherited e2e suite against this host; ten of its specs transact.",
+  "note": "Overlay on the captured V1 url inventory. THIS STORE'S STRIPE IS LIVE AGAINST A REAL MERCHANT ACCOUNT — a completed order here is a real charge on real money. /checkout and /cart are captured as pages and nothing else. For what the harness does and does NOT guarantee about that, see lib/safety.ts — that is the contract, including its two declared gaps, and this note is not. Do not run the inherited e2e suite against this host; ten of its specs transact.",
   "add": [
     {
       "path": "/products/dishee-dish-brush-black",
@@ -23,5 +23,30 @@
     "/products/**",
     "/collections/flora",
     "/this-page-does-not-exist"
+  ],
+  "masks": [
+    {
+      "selector": "[id^=\"related-products-item-\"]",
+      "paths": ["/shop/**"],
+      "why": "MEASURED NON-DETERMINISM, NOT A CONVENIENCE MASK. The related-products carousel (\"Something similar\") picks its items at RENDER time, so two ISR cache entries for the same unchanged URL show different products. Evidence: 260825-port-verify-before-snapshots report §5a/5b — two captures of an UNCHANGED host, pass A served x-vercel-cache: PRERENDER and pass B x-vercel-cache: HIT, with a different set of related products in each; three back-to-back curls of one URL returned a byte-stable set, so the choice is per-REGENERATION, not per-request. It is made on the SERVER before the bytes are sent, which is why every determinism control this harness has — the seeded Math.random, --freeze-clock, the settle path, the other masks — acts too late to touch it. WHAT IS STILL ASSERTED: only the item TILES are masked, so the section and its heading are still compared pixel-for-pixel, the item count is still compared as the prerendered link count, and a carousel that the port removes, empties, or resizes still reports. Masking the container wholesale would trade a noisy true positive for a silent false negative."
+    }
+  ],
+  "normalize": [
+    {
+      "field": "links",
+      "pattern": "/products/[a-z0-9][a-z0-9-]*",
+      "flags": "g",
+      "replace": "/products/{related-product}",
+      "paths": ["/shop/**"],
+      "why": "Same measured non-determinism as the mask above (260825-port-verify-before-snapshots report §5a): every one of dishee's 140 self-diff signal rows was a related-products href swapping between two captures of an UNCHANGED host — 120 \"href added/removed\" rows over 20 product pages, 3 to 6 per page. On this store a product page's ONLY /products/ hrefs are the carousel's (measured: exactly 4 on every product page in the before capture, and the page never links to its own flat URL), so collapsing them to one token absorbs which products were picked and nothing else. SCOPED TO PRODUCT PAGES ON PURPOSE: unscoped, this same rule would flatten every product grid on /shop, /search, /featured, / and each collection to a single token, and a port that dropped half the catalogue off those pages would compare clean. FIELD `links`, NOT `all`, ALSO ON PURPOSE: a product page's Product JSON-LD url/@id and the last breadcrumb item point at its own FLAT /products/<slug> URL, and that flat-to-nested move is the headline signal of this port. An `all` rule would have rewritten it and hidden exactly what the run exists to measure. Confining the rule to the rendered href set costs nothing: the raw-HTML metrics count anchors and strip attributes, so neither sees href VALUES anyway. WHAT IS STILL ASSERTED: the token's presence still says the carousel rendered links, and the prerendered link count — which counts anchors in the raw HTML and is untouched by this rule — still says how many. PRE-PORT SHAPE ONLY — a KNOWN, DELIBERATE LIMIT, not an oversight. This pattern matches the FLAT /products/<slug> href these V1 storefronts emit today. After the port the carousel links nested: mapRelatedToProduct carries uri: r.permalink (apps/starter/app/products/[...slug]/page.tsx) and productPath (apps/starter/lib/canonical-path.ts) returns /shop/<cat>/<slug> whenever the permalink gives category ancestry, so on the AFTER side this rule matches nothing and each product page will report one href-removed plus its real nested hrefs. That is accepted for now: only the PRE-port absorption is needed to make the BEFORE self-diff empty, which is the one-shot artefact, and a rule naming the nested shape would have to be written against a shape nobody can measure until a store is actually ported. Widening this rule to swallow BOTH shapes was considered and REFUSED: it would state that flat-vs-nested does not matter here, and that blinds a partial link migration — canonical, og:url, JSON-LD and the sitemap going nested while this carousel keeps emitting flat URLs that now 308 — which every other signal misses, because they all describe the page's OWN url and none describes a component's OUTGOING links. The AFTER-side treatment is tracked in 260826-port-verify-after-side-href-shape and must be measured, not predicted."
+    },
+    {
+      "field": "all",
+      "pattern": "(<h3 class=\"text-\\[17px\\] text-primary line-clamp-2 break-words\">)[^<]*(</h3>)",
+      "flags": "g",
+      "replace": "$1{related-product-title}$2",
+      "paths": ["/shop/**"],
+      "why": "The other half of §5a: the 20 \"prerendered text length\" rows (e.g. 1412 -> 1409). No mask reaches the raw no-JS bytes, and the only text that moved between two captures of an unchanged product page is the carousel cards' product titles — the related items are drawn from one category, so their prices do not vary with the pick. This rewrites the card title text to a fixed token so the metric stops tracking which four products were chosen. SCOPED TO PRODUCT PAGES, and the selector class matches EXACTLY the four carousel cards on a product page (measured on the before capture) — the product's own h1, the accordion headings and the price are untouched. It couples to component markup deliberately: if the port renames that class the rule stops matching and the rows come back, which is fail-loud, not fail-quiet."
+    }
   ]
 }

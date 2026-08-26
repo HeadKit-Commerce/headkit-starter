@@ -76,6 +76,8 @@ export interface Branding {
    * Default PLP sort when URL has no ?sort=. Matches SortKey; unset → CREATED_AT.
    */
   defaultCollectionSort: string;
+  /** PDP multi-add companions. Default false. */
+  multiAddEnabled: boolean;
 }
 
 export interface StoreSettings {
@@ -125,6 +127,8 @@ export const DEFAULT_IMAGE_ROLLOVER = false;
 export const DEFAULT_HIDE_EMPTY_COLLECTIONS = true;
 /** Newest first — historical WooCommerce date/DESC default. */
 export const DEFAULT_COLLECTION_SORT = "CREATED_AT";
+/** Multi-add companions on PDP — off until merchant enables. */
+export const DEFAULT_MULTI_ADD_ENABLED = false;
 
 const KNOWN_COLLECTION_SORTS = new Set([
   "FEATURED",
@@ -171,6 +175,7 @@ const DEFAULT_BUNDLE: BrandingBundle = {
     imageRollover: DEFAULT_IMAGE_ROLLOVER,
     hideEmptyCollections: DEFAULT_HIDE_EMPTY_COLLECTIONS,
     defaultCollectionSort: DEFAULT_COLLECTION_SORT,
+    multiAddEnabled: DEFAULT_MULTI_ADD_ENABLED,
   },
   storeSettings: {
     id: null,
@@ -249,6 +254,12 @@ const BRANDING_EXTENDED_SELECTION = /* GraphQL */ `
       bodyFontFileUrl
       cornerStyle
       iconLibrary
+      showVariants
+      showSwatches
+      imageRollover
+      hideEmptyCollections
+      defaultCollectionSort
+      multiAddEnabled
     }
     storeSettings {
       id
@@ -286,6 +297,12 @@ const BRANDING_EXTENDED_NO_WEIGHTS_SELECTION = /* GraphQL */ `
       bodyFontFileUrl
       cornerStyle
       iconLibrary
+      showVariants
+      showSwatches
+      imageRollover
+      hideEmptyCollections
+      defaultCollectionSort
+      multiAddEnabled
     }
     storeSettings {
       id
@@ -335,6 +352,7 @@ const BRANDING_QUERY = /* GraphQL */ `
       imageRollover
       hideEmptyCollections
       defaultCollectionSort
+      multiAddEnabled
     }
     storeSettings {
       id
@@ -390,6 +408,7 @@ const BRANDING_QUERY_SEO_GATES = /* GraphQL */ `
       imageRollover
       hideEmptyCollections
       defaultCollectionSort
+      multiAddEnabled
     }
     storeSettings {
       id
@@ -451,6 +470,24 @@ const CHECKOUT_TYPE_QUERY = /* GraphQL */ `
   }
 `;
 
+/**
+ * Catalog display + multi-add flags. Fetched separately so compat/extended
+ * branding fallbacks (which omit newer fields) do not strand multiAddEnabled
+ * at false when the dashboard toggle is on.
+ */
+const PRODUCT_FEATURES_QUERY = /* GraphQL */ `
+  query StorefrontProductFeatures {
+    branding {
+      showVariants
+      showSwatches
+      imageRollover
+      hideEmptyCollections
+      defaultCollectionSort
+      multiAddEnabled
+    }
+  }
+`;
+
 interface FlatBranding extends Partial<
   Omit<
     Branding,
@@ -459,6 +496,7 @@ interface FlatBranding extends Partial<
     | "imageRollover"
     | "hideEmptyCollections"
     | "defaultCollectionSort"
+    | "multiAddEnabled"
   >
 > {
   headingFontSource?: string | null;
@@ -481,6 +519,7 @@ interface FlatBranding extends Partial<
   imageRollover?: boolean | null;
   hideEmptyCollections?: boolean | null;
   defaultCollectionSort?: string | null;
+  multiAddEnabled?: boolean | null;
 }
 
 interface BrandingResponse {
@@ -557,6 +596,7 @@ function coerce(data: NonNullable<BrandingResponse["data"]>): BrandingBundle {
       imageRollover: b.imageRollover === true,
       hideEmptyCollections: b.hideEmptyCollections !== false,
       defaultCollectionSort: resolveCollectionSort(b.defaultCollectionSort),
+      multiAddEnabled: b.multiAddEnabled === true,
     },
     storeSettings: {
       id: s.id ?? null,
@@ -653,16 +693,25 @@ export async function getBranding(): Promise<BrandingBundle> {
   if (!endpoint || !token) return DEFAULT_BUNDLE;
 
   try {
-    const [bundle, checkoutType] = await Promise.all([
+    const [bundle, checkoutType, productFeatures] = await Promise.all([
       fetchBrandingBundle(endpoint, token),
       fetchCheckoutType(endpoint, token),
+      fetchProductFeatures(endpoint, token),
     ]);
 
     if (!bundle) return DEFAULT_BUNDLE;
-    if (checkoutType === null) return bundle;
+
+    const branding = productFeatures
+      ? { ...bundle.branding, ...productFeatures }
+      : bundle.branding;
+
+    if (checkoutType === null) {
+      return { ...bundle, branding };
+    }
 
     return {
       ...bundle,
+      branding,
       storeSettings: {
         ...bundle.storeSettings,
         checkoutType,
@@ -726,6 +775,48 @@ async function fetchCheckoutType(
       data?: { storeSettings?: { checkoutType?: string | null } | null } | null;
     };
     return json.data?.storeSettings?.checkoutType ?? null;
+  } catch {
+    return null;
+  }
+}
+
+type ProductFeaturesBranding = Pick<
+  Branding,
+  | "showVariants"
+  | "showSwatches"
+  | "imageRollover"
+  | "hideEmptyCollections"
+  | "defaultCollectionSort"
+  | "multiAddEnabled"
+>;
+
+/** Overlay catalog + multi-add prefs when the main branding query used a compat path. */
+async function fetchProductFeatures(
+  endpoint: string,
+  token: string,
+): Promise<ProductFeaturesBranding | null> {
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: brandingRequestHeaders(token),
+      body: JSON.stringify({ query: PRODUCT_FEATURES_QUERY }),
+    });
+    if (!res.ok) return null;
+
+    const json = (await res.json()) as {
+      data?: { branding?: FlatBranding | null } | null;
+    };
+    const b = json.data?.branding;
+    if (!b) return null;
+
+    return {
+      showVariants: b.showVariants !== false,
+      showSwatches: b.showSwatches === true,
+      imageRollover: b.imageRollover === true,
+      hideEmptyCollections: b.hideEmptyCollections !== false,
+      defaultCollectionSort: resolveCollectionSort(b.defaultCollectionSort),
+      multiAddEnabled: b.multiAddEnabled === true,
+    };
   } catch {
     return null;
   }

@@ -47,6 +47,9 @@ vi.mock("@/lib/sdk", () => ({
 
 vi.mock("@/lib/product-cache", () => ({
   getCachedProduct: (s: string): unknown => cachedProduct(s),
+  // Delegates to the same fixture: with no Shopify preview key the real
+  // `getProductForPage` IS `getCachedProduct`, and this route never passes one.
+  getProductForPage: (s: string): unknown => cachedProduct(s),
 }));
 
 vi.mock("@/lib/branding", () => ({

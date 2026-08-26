@@ -73,12 +73,15 @@ export const DEFAULT_MASKS: readonly MaskRule[] = [
 /**
  * Hosts the browser context refuses outright.
  *
- * This is a safety control before it is a determinism control. The harness must
- * make a completed order structurally impossible, and the first line of that is
- * that no payment provider's script is ever loaded on any page this harness
- * opens — not on the checkout page, not anywhere. It is also why the checkout
- * page is captured as a shell rather than as a live payment form, which the
- * report states as a declared blind spot.
+ * This is a safety control before it is a determinism control. It is the first
+ * line of the harness's defence against a completed order: no payment provider's
+ * script is loaded on any page this harness opens by a request the PAGE issues —
+ * not on the checkout page, not anywhere. It is NOT absolute, and `lib/safety.ts`
+ * owns the two declared gaps: a service worker's requests bypass this list
+ * entirely (accepted deliberately, not pending a fix), and a blocked-host GET is
+ * aborted without being recorded. It is also why the checkout page is captured as
+ * a shell rather than as a live payment form, which the report states as a
+ * declared blind spot.
  *
  * A plan's `blocked_hosts` is UNIONED with this list and can never replace it.
  * If an opt-out is ever genuinely wanted it has to arrive as a separate,
@@ -211,6 +214,7 @@ function parseNormalize(value: unknown): NormalizeRule[] {
       flags?: unknown;
       replace?: unknown;
       why?: unknown;
+      paths?: unknown;
     };
     if (
       typeof r.field !== "string" ||
@@ -244,6 +248,7 @@ function parseNormalize(value: unknown): NormalizeRule[] {
       flags,
       replace: r.replace,
       why: r.why,
+      paths: asStringArray(r.paths, `normalize[${i}].paths`),
     };
   });
 }
@@ -427,4 +432,25 @@ export function masksForPath(
   masks: readonly MaskRule[],
 ): readonly MaskRule[] {
   return masks.filter((m) => m.paths.length === 0 || matchesAny(path, m.paths));
+}
+
+/**
+ * The normalisation rules that apply to one path.
+ *
+ * Same empty-means-everywhere rule as {@link masksForPath}, and for the same
+ * reason: an unscoped rule is the historical shape and stays the default, so a
+ * plan written before scoping existed keeps its exact behaviour.
+ *
+ * The direction of travel is the opposite of a mask's, though. A mask's `paths`
+ * can only ADD a blind spot (`unionMasks` refuses to let a plan narrow a
+ * default), whereas a normalisation's `paths` can only SHRINK one — there are
+ * no default rules for it to narrow. Scoping `/products/<slug>` to the product
+ * pages whose carousel actually varies is what keeps the same rule from
+ * flattening every product grid on the store into one token.
+ */
+export function normalizeForPath(
+  path: string,
+  rules: readonly NormalizeRule[],
+): readonly NormalizeRule[] {
+  return rules.filter((r) => r.paths.length === 0 || matchesAny(path, r.paths));
 }

@@ -145,8 +145,22 @@ function cardForColourway(
   );
 
   const imageSrc = matchingVar?.image?.src || product.image?.src || "";
+  // Per-colourway rollover must come from that variation's gallery only —
+  // never the parent product's second image, and never another colourway's
+  // featured shot (Shopify galleries often list colourways back-to-back).
+  const rawHover = matchingVar?.images?.[1]?.src ?? null;
+  const colourAttr = colourAttrSlug(product) ?? "";
+  const otherPrimaries = new Set<string>();
+  for (const variation of (product.variations ?? []) as VariationLike[]) {
+    if (!variation) continue;
+    if (variationColourValue(variation, colourAttr) === colourSlug) continue;
+    const primary = variation.image?.src ?? "";
+    if (primary) otherPrimaries.add(primary);
+  }
   const hoverSrc =
-    matchingVar?.images?.[1]?.src || product.hoverImage?.src || null;
+    rawHover && rawHover !== imageSrc && !otherPrimaries.has(rawHover)
+      ? rawHover
+      : null;
   // Sale badge should match the colourway shown, not "any variation on sale".
   const onSale = matchingVar ? Boolean(matchingVar.onSale) : product.onSale;
 

@@ -143,10 +143,11 @@ const Carousel = <T,>({
   const goToIndex = useCallback(
     (index: number) => {
       const clamped = Math.min(Math.max(index, 0), filteredItems.length - 1);
+      if (clamped === currentIndex) return;
       setCurrentIndex(clamped);
       onSlideChange?.(clamped);
     },
-    [filteredItems.length, onSlideChange],
+    [currentIndex, filteredItems.length, onSlideChange],
   );
 
   const scrollTo = useCallback(
@@ -166,7 +167,9 @@ const Carousel = <T,>({
   );
 
   const scrollNext = useCallback(() => {
-    if (filteredItems.length === 0) return;
+    // Single-item carousels have nowhere to advance; looping back to 0 still
+    // fires onSlideChange and is wasteful (hero video handles its own loop).
+    if (filteredItems.length <= 1) return;
     let nextIndex = currentIndex + 1;
     // Index-based boundary: the previous scrollLeft comparison treated the
     // last slide as out-of-range, so full-width heroes never advanced past
@@ -301,13 +304,17 @@ const Carousel = <T,>({
           <div className="grid w-full [&>*]:col-start-1 [&>*]:row-start-1">
             {filteredItems.map((item, index) => {
               const active = index === currentIndex;
+              const multi = filteredItems.length > 1;
               return (
                 <div
                   key={itemKey ? itemKey(item, index) : index}
                   id={`${id}-item-${index}`}
                   aria-hidden={!active}
                   className={cn(
-                    "w-full transition-opacity duration-1000 ease-in-out",
+                    "w-full",
+                    // Opacity crossfade only when there is another slide to
+                    // blend with — a single slide must stay fully opaque.
+                    multi && "transition-opacity duration-1000 ease-in-out",
                     active
                       ? "z-10 opacity-100"
                       : "pointer-events-none z-0 opacity-0",

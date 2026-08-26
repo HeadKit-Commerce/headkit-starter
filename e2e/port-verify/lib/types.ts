@@ -69,6 +69,21 @@ export interface NormalizeRule {
   readonly flags: string;
   readonly replace: string;
   readonly why: string;
+  /**
+   * Path globs this rule applies to. Empty/absent = every captured URL, which
+   * is the historical behaviour and stays the default.
+   *
+   * Present for the same reason {@link MaskRule.paths} is: a rule wide enough
+   * to absorb one page's volatile value is usually far too wide for the rest of
+   * the store. A rule that rewrites `/products/<slug>` so a product page's
+   * related-products carousel stops reporting its per-render pick would, run
+   * store-wide, also collapse every product grid on `/shop`, `/search` and each
+   * collection to a single token — and a port that dropped half the catalogue
+   * off those pages would then compare clean. Scoping a normalisation NARROWS
+   * the blind spot, which is the safe direction; there is deliberately no way
+   * to widen a mask this way (see {@link MaskRule.paths} and `unionMasks`).
+   */
+  readonly paths: readonly string[];
 }
 
 /**
@@ -148,6 +163,23 @@ export interface ScreenshotRecord {
    * root-layout Suspense regression visible without reading pixels by eye.
    */
   readonly inkRatio: number;
+  /**
+   * Whether two consecutive frames of this screenshot came out pixel-identical
+   * before it was kept — the capture-side stability gate's verdict, not a
+   * property of the storefront.
+   *
+   * `false` means the gate exhausted its retries and kept a moving frame, so a
+   * pixel difference on this screenshot may be the capture rather than the
+   * page. The comparison prints that as a row of its own.
+   *
+   * OPTIONAL, AND DELIBERATELY WITHOUT A SCHEMA BUMP, for the same reason
+   * `NormalizeRule.paths` was (see `load.ts`): a capture written before the
+   * gate existed is still a valid capture and must still compare. `undefined`
+   * therefore means UNKNOWN — not stable — and every reader must test for
+   * `=== false` rather than falsiness, or every pre-gate screenshot reads as a
+   * give-up that never happened.
+   */
+  readonly frameStable?: boolean;
 }
 
 /** The no-JavaScript pass. */

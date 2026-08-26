@@ -9,7 +9,6 @@ import {
   buildProductListFilter,
   buildBreadcrumbFromCategory,
   collectionPathFromCategory,
-  normalizeFilterKey,
   encodeFilterSlug,
   decodeFilterSlug,
   isIndexableFacet,
@@ -41,6 +40,7 @@ import {
   CollectionProductsSkeleton,
 } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import { CATALOG_PAGE_SIZE } from "@/components/headkit-ui/catalog-grid";
+import { getCachedCatalogPage } from "@/lib/catalog-cache";
 import { walkCategoryPaths } from "@/app/shop/shop-slug";
 
 /** Satisfies Cache Components: `generateStaticParams` must not return []. Never a real category slug. */
@@ -111,33 +111,6 @@ async function getCategoryData(categorySlug: string) {
   ]);
 
   return { category, productFilter };
-}
-
-/**
- * Durable, shared catalog page read for the PLP grid. Keyed on a STABLE
- * normalized filter key + page (never raw searchParams — that would explode the
- * key space and re-evaluate per request on Fluid Compute). Catalog reads are
- * public (no PII/auth), so a remote cache is safe (mirrors /shop, plan 03-04).
- */
-async function getCatalogPage(
-  filterKey: string,
-  page: number,
-  categorySlug: string,
-) {
-  "use cache: remote";
-  // Hours backstop — product/category webhooks invalidate catalog tags.
-  cacheLife("hours");
-  // TAG.catalogCat(slug) (= headkit:catalog:cat:<slug>) lets a product/category
-  // edit invalidate exactly this category's PLP grid + its prebuilt Tier-1 color
-  // pages via revalidateTag('headkit:catalog:cat:<slug>') — bounded blast radius,
-  // no whole-catalog wildcard (important for slow WP). The inline
-  // catalog:<filterKey> grid key stays for per-filter granularity (not a contract
-  // tag — internal to the self-healing remote cache).
-  cacheTag(TAG.catalogCat(categorySlug), `catalog:${filterKey}`);
-  const filter = JSON.parse(filterKey) as Parameters<
-    typeof sdk.collections.list
-  >[0];
-  return sdk.collections.list(filter, page, PER_PAGE);
 }
 
 async function CollectionProductsServer({
@@ -224,9 +197,10 @@ async function CollectionProductsServer({
 
   const { branding } = await getBranding();
 
-  // Build the category-scoped filter from the (path- or query-derived) facets,
-  // then derive a STABLE normalized cache key so the durable remote catalog
-  // cache (`getCatalogPage`) is shared across equivalent filter selections.
+  // Shared remote catalog cache (`getCachedCatalogPage`) so load-more and the
+  // initial grid share one entry, and product webhooks (`headkit:products`)
+  // actually drop this PLP — the old local cache only listened to
+  // `headkit:catalog:cat:{slug}`, which Shopify product payloads cannot target.
   const filter = buildProductListFilter(
     {
       ...DEFAULT_FILTER_VALUES,
@@ -242,9 +216,11 @@ async function CollectionProductsServer({
       defaultSort: branding.defaultCollectionSort as SortKeyType,
     },
   );
-  const filterKey = normalizeFilterKey(filter);
 
-  const productsResult = await getCatalogPage(filterKey, page, categorySlug);
+  const productsResult = await getCachedCatalogPage(filter, page, PER_PAGE, {
+    kind: "category",
+    slug: categorySlug,
+  });
 
   return (
     <CollectionPage

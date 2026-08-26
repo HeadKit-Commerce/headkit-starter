@@ -91,12 +91,18 @@ export const ProductCard = ({
           variation.attributes.some((attr) => colourSelected === attr.value),
         )
       : undefined;
-  // Prefer the second variation-owned gallery image for rollover; parent
-  // hoverImage is the fallback when the colourway has no gallery.
+  // Prefer the second variation gallery image; parent hoverImage applies to
+  // simple cards and non-exploded swatch cards (exploded cards set hoverImage
+  // per colourway in catalog-display — no parent fallback there).
+  // Exploded colourway cards already resolved hoverImage in catalog-display
+  // (and dropped another colourway's primary). Do not re-scan variations —
+  // that reintroduces the first-card stolen-hover bug.
   const hoverSrc = imageRollover
-    ? (selectedVariationForHover?.images?.[1]?.src ??
-      product.hoverImage?.src ??
-      null)
+    ? lockedColour
+      ? (product.hoverImage?.src ?? null)
+      : (selectedVariationForHover?.images?.[1]?.src ??
+        product.hoverImage?.src ??
+        null)
     : null;
 
   useEffect(() => {
@@ -242,6 +248,7 @@ export const ProductCard = ({
                               selectedOptionValue={colourSelected ?? ""}
                               color1={option?.swatchColor ?? ""}
                               color2={option?.swatchColor2 ?? ""}
+                              imageSrc={option?.swatchImage ?? ""}
                               size="small"
                             />
                           </InstantLink>

@@ -68,7 +68,18 @@ describe("resolveHomeTitle hierarchy", () => {
     ).toBe("Shop the latest");
   });
 
-  it("never returns HeadKit marketing copy as tenant default", async () => {
+  it("home title prefers providerTitle alias over yoastTitle", () => {
+    expect(
+      resolveHomeTitle({
+        yoastTitle: "Yoast Home",
+        providerTitle: "Shopify Home SEO",
+        dashboardTitle: "Dashboard",
+        storeName: "Velvet",
+      }),
+    ).toBe("Shopify Home SEO");
+  });
+
+  it("never returns HeadKit marketing copy as tenant default", () => {
     const title = resolveHomeTitle({
       yoastTitle: "Home",
       dashboardTitle: null,

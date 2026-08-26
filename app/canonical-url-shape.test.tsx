@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { Metadata } from "next";
 
@@ -230,16 +230,21 @@ vi.mock("@/lib/sdk", () => ({
   },
 }));
 
-vi.mock("@/lib/product-cache", () => ({
-  getCachedProduct: (slug: string): Promise<unknown> =>
+vi.mock("@/lib/product-cache", () => {
+  // Both exports resolve the same fixture: `getProductForPage` delegates to
+  // `getCachedProduct` whenever no Shopify preview key is supplied, which is
+  // every case in this file. The preview branch has its own suite in
+  // `app/products/[...slug]/page.test.ts`.
+  const load = (slug: string): Promise<unknown> =>
     Promise.resolve(
       slug === PRODUCT.slug
         ? PRODUCT
         : slug === VARIABLE_PRODUCT.slug
           ? VARIABLE_PRODUCT
           : null,
-    ),
-}));
+    );
+  return { getCachedProduct: load, getProductForPage: load };
+});
 
 vi.mock("@/lib/branding", () => ({
   getBranding: (): Promise<unknown> =>
@@ -358,11 +363,26 @@ function canonicalOf(meta: Metadata): string | undefined {
   return (meta.alternates as { canonical?: string } | undefined)?.canonical;
 }
 
-/** The `Location` the flat route 308s to, or null when it served instead. */
-async function flatRedirectTarget(slug: string[]): Promise<string | null> {
+/**
+ * The `Location` the flat route 308s to, or null when it served instead.
+ *
+ * `searchParams` is optional and forwarded UNAWAITED, exactly as a request
+ * carries it, so a case can put a real query string on the request without the
+ * helper reading it — the route's own placement of that await is the thing
+ * under test.
+ */
+async function flatRedirectTarget(
+  slug: string[],
+  searchParams?: Record<string, string | string[] | undefined>,
+): Promise<string | null> {
   redirectedTo.mockClear();
   try {
-    await FlatProductPage({ params: Promise.resolve({ slug }) });
+    await FlatProductPage({
+      params: Promise.resolve({ slug }),
+      ...(searchParams
+        ? { searchParams: Promise.resolve(searchParams) }
+        : undefined),
+    });
   } catch (error) {
     if (!String(error).startsWith("Error: REDIRECT:")) throw error;
   }
@@ -505,6 +525,7 @@ describe("a product with no category ancestry", () => {
   it("stays on the flat path, self-canonical, with no redirect loop", async () => {
     vi.doMock("@/lib/product-cache", () => ({
       getCachedProduct: (): Promise<unknown> => Promise.resolve(NO_ANCESTRY),
+      getProductForPage: (): Promise<unknown> => Promise.resolve(NO_ANCESTRY),
     }));
     vi.resetModules();
     const { default: Page } = await import("./products/[...slug]/page");
@@ -559,6 +580,8 @@ describe("a product with no category ancestry", () => {
     vi.doMock("@/lib/product-cache", () => ({
       getCachedProduct: (): Promise<unknown> =>
         Promise.resolve(NO_ANCESTRY_WITH_CATEGORIES),
+      getProductForPage: (): Promise<unknown> =>
+        Promise.resolve(NO_ANCESTRY_WITH_CATEGORIES),
     }));
     vi.resetModules();
     const { ProductPageContent: Content } =
@@ -604,6 +627,8 @@ describe("a product with no category ancestry", () => {
   it("never reads the category tree, so the PDP cannot inherit the whole-catalogue tag", async () => {
     vi.doMock("@/lib/product-cache", () => ({
       getCachedProduct: (): Promise<unknown> =>
+        Promise.resolve(NO_ANCESTRY_WITH_CATEGORIES),
+      getProductForPage: (): Promise<unknown> =>
         Promise.resolve(NO_ANCESTRY_WITH_CATEGORIES),
     }));
     vi.resetModules();
@@ -1105,5 +1130,140 @@ describe("no route family emits the flat shape", () => {
       unresolvable.sort(),
       "`app/shop/[...slug]` serves no page for these — either it classifies them as undecidable, or the slug it resolves is not a product in the catalogue, so the PDP answers notFound(). An emitted URL that 404s is worse than one that 308s, and a JSON-LD `url` is the one signal a crawler cannot recover from",
     ).toEqual([]);
+  });
+});
+
+/**
+ * DOMAIN OF THIS GUARD, and where it stops.
+ *
+ * It covers the interaction between the flat route's 308 and the SHOPIFY ADMIN
+ * PREVIEW request (`?preview_key=…`) — nothing else about preview. It does not
+ * cover the SDK header plumbing (`app/products/[...slug]/page.test.ts` owns
+ * that), the `/draft-product` entry point (`lib/shopify-preview.test.ts`), or
+ * the Admin fallback in commerce.
+ *
+ * WHY THE 308 NEEDS NO PREVIEW EXEMPTION
+ *
+ * A 308 drops the query string, so a preview key cannot survive one. The
+ * exemption that would normally require — reading `searchParams` in the default
+ * export — is unavailable: under Cache Components that is a dynamic read above
+ * every Suspense boundary, which is a build error on a route with
+ * `generateStaticParams`.
+ *
+ * No exemption is needed, because the redirect is gated on
+ * `getCachedProduct` — the PUBLIC catalogue read — while preview exists
+ * precisely for products that read cannot see. `GetProductBySlug` in
+ * `services/commerce/internal/provider/shopify/catalog.go` only consults the
+ * Admin API when the Storefront query returned nothing, and the resolver maps
+ * that miss to a null product rather than an error. So for a draft the guard
+ * falls through and the request reaches `ProductPageContent`, which awaits
+ * `searchParams` INSIDE the boundary, where reading it is legal.
+ *
+ * The two cases below are therefore the whole matrix, and they are opposites by
+ * construction: a draft cannot redirect, and a published product does not need
+ * to preview.
+ */
+describe("the flat route's 308 and Shopify Admin preview", () => {
+  /** A draft product: absent from the public catalogue, visible with a key. */
+  const DRAFT = {
+    ...PRODUCT,
+    slug: "draft-hoodie",
+    name: "Draft Hoodie",
+    uri: "https://commerce.example.com/shop/clothing/hoodies/draft-hoodie/",
+    categories: [{ id: "c1", name: "Hoodies", slug: "hoodies" }],
+  };
+
+  afterEach(() => {
+    vi.doUnmock("@/lib/product-cache");
+    vi.resetModules();
+  });
+
+  it("does not 308 a draft, so the preview key survives to the render", async () => {
+    const previewLoads = vi.fn<(slug: string, opts?: unknown) => unknown>();
+
+    vi.doMock("@/lib/product-cache", () => ({
+      // The public read a draft fails by construction — this IS the gate the
+      // redirect is behind.
+      getCachedProduct: (): Promise<unknown> => Promise.resolve(null),
+      getProductForPage: (slug: string, opts?: unknown): Promise<unknown> => {
+        previewLoads(slug, opts);
+        return Promise.resolve(DRAFT);
+      },
+    }));
+    vi.resetModules();
+    const { default: Page, ProductPageContent: Content } =
+      await import("./products/[...slug]/page");
+
+    const props = {
+      params: Promise.resolve({ slug: [DRAFT.slug] }),
+      searchParams: Promise.resolve({ preview_key: "shpat-preview" }),
+    };
+
+    redirectedTo.mockClear();
+    await Page(props);
+
+    expect(
+      redirectedTo,
+      "a 308 here would strip ?preview_key and the merchant would land on a URL that cannot resolve the draft at all",
+    ).not.toHaveBeenCalled();
+
+    // The default export only returns the boundary, so drive the content
+    // component directly — that is where `searchParams` is awaited and the
+    // product is loaded. Without this the ban above would pass vacuously for a
+    // page that never reaches a product read at all.
+    const rendered = await Content(props);
+
+    expect(previewLoads).toHaveBeenCalledWith(DRAFT.slug, {
+      shopifyPreviewKey: "shpat-preview",
+    });
+    expect(
+      (propsOf(rendered, "ProductJsonLD")?.product as { name?: string })?.name,
+      "the DRAFT is what must render — a page that fell back to the public read would have notFound()ed instead",
+    ).toBe(DRAFT.name);
+  });
+
+  /**
+   * DOMAIN: the redirect gate's own provider read, in the default export.
+   * It is the only PDP provider call above the Suspense boundary, so it is the
+   * only one that can abort a tenant's static export. Says nothing about the
+   * two reads below the boundary — `ProductPageContent` and `generateMetadata`
+   * carry their own guards and their own tests (#332).
+   */
+  it("serves instead of aborting when the provider fails at the redirect gate", async () => {
+    vi.doMock("@/lib/product-cache", () => ({
+      getCachedProduct: (): Promise<unknown> =>
+        Promise.reject(
+          new Error("shopify.GetProductBySlug: shopify.Query: status 401"),
+        ),
+      getProductForPage: (): Promise<unknown> => Promise.resolve(PRODUCT),
+    }));
+    vi.resetModules();
+    const { default: Page } = await import("./products/[...slug]/page");
+
+    redirectedTo.mockClear();
+    await expect(
+      Page({ params: Promise.resolve({ slug: ["blue-hoodie"] }) }),
+      "a provider auth failure here would abort the whole tenant export; the redirect is a consolidation and losing it costs one duplicate URL, not the page",
+    ).resolves.toBeTruthy();
+
+    expect(
+      redirectedTo,
+      "nothing is known about the canonical when the lookup failed, so no 308 may be guessed",
+    ).not.toHaveBeenCalled();
+  });
+
+  it("still 308s a PUBLISHED product, preview key or not", async () => {
+    // Same request shape as above — the key IS on the request — but the public
+    // read resolves, so this is not a product preview can reveal anything extra
+    // about, and the canonical consolidation applies to it exactly as it does
+    // to ordinary traffic. The exemption comes from the public catalogue read
+    // missing and never from the presence of `preview_key`: a redirect anyone
+    // could opt out of with a query parameter would not be a redirect.
+    expect(
+      await flatRedirectTarget(["blue-hoodie"], {
+        preview_key: "shpat-preview",
+      }),
+      "attaching a preview key must not buy an exemption from the 308",
+    ).toBe(CANONICAL_PATH);
   });
 });

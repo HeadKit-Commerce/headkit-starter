@@ -2,17 +2,16 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
-import { TAG } from "@/lib/cache-tags";
 import { CollectionHeader } from "@/components/headkit-ui/collection/collection-header";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
 import {
   buildProductListFilter,
-  normalizeFilterKey,
   parseSearchParams,
   type SortKeyType,
 } from "@/components/headkit-ui/collection/utils";
 import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import { CATALOG_PAGE_SIZE } from "@/components/headkit-ui/catalog-grid";
+import { getCachedCatalogPage } from "@/lib/catalog-cache";
 import { getBranding } from "@/lib/branding";
 import { storefrontUrl } from "@/lib/make-metadata";
 
@@ -50,25 +49,6 @@ interface Props {
 
 const PER_PAGE = CATALOG_PAGE_SIZE;
 
-/**
- * Durable, shared catalog read keyed on a STABLE normalized filter key + page
- * (never raw searchParams). Sale items are a public catalog read (no PII/auth),
- * so a remote cache is safe (mirrors /shop, plan 03-04).
- */
-async function getCatalogPage(filterKey: string, page: number) {
-  "use cache: remote";
-  cacheLife("hours");
-  // route:sale = the {onSale} FILTER landing (no collection entity). Use
-  // route:sale NOT collection:sale — a real category slug named "sale" must not
-  // cross-invalidate this landing (threat T-09.5-13). catalog:${filterKey} keeps
-  // the per-filter self-heal (internal, not a contract tag).
-  cacheTag(TAG.route("sale"), `catalog:${filterKey}`);
-  const filter = JSON.parse(filterKey) as Parameters<
-    typeof sdk.collections.list
-  >[0];
-  return sdk.collections.list(filter, page, PER_PAGE);
-}
-
 /** Aggregated facet options. Shared + durable. */
 async function getFilters() {
   "use cache: remote";
@@ -91,10 +71,12 @@ async function LandingResults({ searchParams }: Props) {
     onSale: true,
     defaultSort: branding.defaultCollectionSort as SortKeyType,
   });
-  const filterKey = normalizeFilterKey(filter);
 
   const [productsResult, productFilter] = await Promise.all([
-    getCatalogPage(filterKey, page),
+    getCachedCatalogPage(filter, page, PER_PAGE, {
+      kind: "route",
+      route: "sale",
+    }),
     getFilters(),
   ]);
 

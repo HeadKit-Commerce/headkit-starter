@@ -20,6 +20,14 @@ import { defineConfig, devices } from "@playwright/test";
  */
 export default defineConfig({
   testDir: "./e2e",
+  // Playwright owns `*.spec.ts` here and NOTHING else. Its default testMatch is
+  // `**/*.@(spec|test).?(c|m)[jt]s?(x)`, which also collects `*.test.ts` — and
+  // e2e/port-verify/lib/ holds 12 VITEST files (run by vitest's own
+  // `include: ["**/*.test.ts", ...]`) that live under this testDir. Without this
+  // narrowing, Playwright loads them and dies at collection with
+  // `Error: Vitest cannot be imported in a CommonJS module using require().`,
+  // failing the whole e2e job before a single spec runs.
+  testMatch: "**/*.spec.ts",
   // CI seam (E2E-01): comma-separated spec filenames to skip — used by the
   // ci.yml playwright job to exclude specs whose fixtures cannot be
   // provisioned in CI (paid plugins; checkout specs when no Stripe TEST key

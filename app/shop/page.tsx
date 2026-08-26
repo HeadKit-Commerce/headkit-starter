@@ -8,7 +8,6 @@ import { CollectionHeader } from "@/components/headkit-ui/collection/collection-
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
 import {
   buildProductListFilter,
-  normalizeFilterKey,
   parseSearchParams,
   type SortKeyType,
 } from "@/components/headkit-ui/collection/utils";
@@ -16,6 +15,7 @@ import { makeSeoMetadata, storefrontUrl } from "@/lib/make-metadata";
 import { getBranding } from "@/lib/branding";
 import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import { CATALOG_PAGE_SIZE } from "@/components/headkit-ui/catalog-grid";
+import { getCachedCatalogPage } from "@/lib/catalog-cache";
 import type { ProductCategoryDetail } from "@headkit/sdk";
 import {
   filterCategoriesByNonEmptySlugs,
@@ -83,24 +83,6 @@ async function getRootCategories(): Promise<ProductCategoryDetail[]> {
   return filterCategoriesByNonEmptySlugs(roots, nonEmptySlugs);
 }
 
-/**
- * Durable, shared catalog read for the PLP. Keyed on a STABLE normalized
- * filter key + page (never raw searchParams — that would explode the cache
- * key and re-evaluate per request on Fluid Compute). Filters are public
- * catalog reads (no PII/auth), so a remote cache is safe.
- */
-async function getCatalogPage(filterKey: string, page: number) {
-  "use cache: remote";
-  cacheLife("hours");
-  // route:shop = WP shop-landing edit invalidation; catalog:${filterKey} keeps
-  // the per-filter self-heal (internal, not a contract tag). NOT collection:shop.
-  cacheTag(TAG.route("shop"), `catalog:${filterKey}`);
-  const filter = JSON.parse(filterKey) as Parameters<
-    typeof sdk.collections.list
-  >[0];
-  return sdk.collections.list(filter, page, PER_PAGE);
-}
-
 /** Aggregated facet options (categories/attributes/price bounds). Shared + durable. */
 async function getFilters() {
   "use cache: remote";
@@ -149,10 +131,9 @@ async function ProductResults({ searchParams }: Props) {
   const filter = buildProductListFilter(parsed, {
     defaultSort: branding.defaultCollectionSort as SortKeyType,
   });
-  const filterKey = normalizeFilterKey(filter);
 
   const [productsResult, productFilter] = await Promise.all([
-    getCatalogPage(filterKey, page),
+    getCachedCatalogPage(filter, page, PER_PAGE, { kind: "shop" }),
     getFilters(),
   ]);
 

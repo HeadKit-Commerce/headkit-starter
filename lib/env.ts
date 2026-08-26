@@ -28,6 +28,13 @@ const clientSchema = z.object({
   // BOTH — a 3-field form on /contact and a separate 8-field form on
   // /wholesale. Do not cite a store as an example here without opening it.
   NEXT_PUBLIC_WHOLESALE_FORM_ID: z.string().optional(),
+  // Shopify Customer Account API (Phase F). When "true", /account shows
+  // "Continue with Shopify"; OAuth uses the fixed platform callback on
+  // dashboard-api (not a per-storefront redirect_uri).
+  NEXT_PUBLIC_SHOPIFY_CAA_ENABLED: z.enum(["true", "false"]).optional(),
+  NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN: z.string().optional(),
+  NEXT_PUBLIC_SHOPIFY_SHOP_ID: z.string().optional(),
+  NEXT_PUBLIC_SHOPIFY_CAA_CLIENT_ID: z.string().optional(),
   // Sales-channel handle appended to Shopify cart.checkoutUrl so Online Store
   // password protection does not intercept Checkout. Defaults to
   // headless-storefronts in lib/hosted-checkout.ts when unset.
@@ -48,6 +55,12 @@ const serverSchema = clientSchema.extend({
   APPLE_PAY_DOMAIN_ASSOCIATION: z.string().optional(),
   DASHBOARD_API_URL: z.string().url().optional(),
   DASHBOARD_API_TOKEN: z.string().min(1).optional(),
+  // Platform dashboard-api origin for CAA start/redeem (optional; also
+  // derived by stripping /graphql/subgraph/headkit from DASHBOARD_API_URL).
+  HEADKIT_PLATFORM_URL: z.string().url().optional(),
+  SHOPIFY_CAA_CLIENT_ID: z.string().optional(),
+  SHOPIFY_STORE_DOMAIN: z.string().optional(),
+  SHOPIFY_SHOP_ID: z.string().optional(),
 });
 
 type ClientEnv = z.infer<typeof clientSchema>;
@@ -73,6 +86,19 @@ function createEnv(): ClientEnv & Partial<ServerEnv> {
       process.env.NEXT_PUBLIC_STORE_CURRENCY || undefined,
     NEXT_PUBLIC_WHOLESALE_FORM_ID:
       process.env.NEXT_PUBLIC_WHOLESALE_FORM_ID || undefined,
+    NEXT_PUBLIC_SHOPIFY_CAA_ENABLED:
+      process.env.NEXT_PUBLIC_SHOPIFY_CAA_ENABLED === "true" ||
+      process.env.NEXT_PUBLIC_SHOPIFY_CAA_ENABLED === "false"
+        ? process.env.NEXT_PUBLIC_SHOPIFY_CAA_ENABLED
+        : undefined,
+    NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN:
+      process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN || undefined,
+    NEXT_PUBLIC_SHOPIFY_SHOP_ID:
+      process.env.NEXT_PUBLIC_SHOPIFY_SHOP_ID || undefined,
+    NEXT_PUBLIC_SHOPIFY_CAA_CLIENT_ID:
+      process.env.NEXT_PUBLIC_SHOPIFY_CAA_CLIENT_ID || undefined,
+    NEXT_PUBLIC_SHOPIFY_CHECKOUT_CHANNEL:
+      process.env.NEXT_PUBLIC_SHOPIFY_CHECKOUT_CHANNEL || undefined,
   });
 }
 

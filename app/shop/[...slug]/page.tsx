@@ -87,7 +87,9 @@ async function resolveProductParams(
 
 type Props = {
   params: Promise<{ slug: string[] }>;
-  searchParams: Promise<Record<string, string>>;
+  searchParams?:
+    | Promise<Record<string, string | string[] | undefined>>
+    | undefined;
 };
 
 /**
@@ -330,7 +332,10 @@ async function ShopRouteContent({
     // is the single act a rollback cannot undo, so it is spent only where the
     // decision asked for it.
     return (
-      <ProductPageContent params={Promise.resolve({ slug: productParams })} />
+      <ProductPageContent
+        params={Promise.resolve({ slug: productParams })}
+        {...(searchParams !== undefined ? { searchParams } : {})}
+      />
     );
   }
 
@@ -344,7 +349,7 @@ async function ShopRouteContent({
     return (
       <CollectionRoute
         params={Promise.resolve({ slug: resolved.segments })}
-        searchParams={searchParams}
+        searchParams={searchParams ?? Promise.resolve({})}
       />
     );
   }

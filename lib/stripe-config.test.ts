@@ -5,14 +5,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // (NEXT_PUBLIC_HEADKIT_PUBLIC_KEY, NEXT_PUBLIC_GRAPHQL_URL, HEADKIT_PRIVATE_KEY)
 // are unset in the test environment — matching the same trap documented for
 // `app/seo-robots-sitemap.test.ts`. Set real DASHBOARD_API_URL/_TOKEN values
-// (not undefined) so `fetchStripeConfig()` below actually reaches `fetch`
+// (not undefined) so the dashboard fallback actually reaches `fetch`
 // instead of short-circuiting to DISABLED_STRIPE_CONFIG.
 vi.mock("@/lib/env", () => ({
   env: {
     DASHBOARD_API_URL:
       "https://dashboard-api.example.test/graphql/subgraph/headkit",
     DASHBOARD_API_TOKEN: "test-token",
+    NEXT_PUBLIC_HEADKIT_PUBLIC_KEY: "pk_store",
+    NEXT_PUBLIC_GRAPHQL_URL: "https://graph.example.test/graphql",
+    HEADKIT_PRIVATE_KEY: "sk_store",
   },
+}));
+
+const fetchCommerceStripeConfig = vi.fn();
+
+vi.mock("./stripe-config-commerce", () => ({
+  fetchCommerceStripeConfig: (...args: unknown[]) =>
+    fetchCommerceStripeConfig(...args),
 }));
 
 import {
@@ -26,6 +36,21 @@ function jsonResponse(body: unknown): {
   json: () => Promise<unknown>;
 } {
   return { ok: true, json: async () => body };
+}
+
+function commerceConfig(config: {
+  publishableKey: string;
+  accountId: string;
+  bnplMessagingEnabled?: boolean;
+}): {
+  publishableKey: string;
+  accountId: string;
+  bnplMessagingEnabled: boolean;
+} {
+  return {
+    bnplMessagingEnabled: false,
+    ...config,
+  };
 }
 
 describe("coerceStripeConfig", () => {
@@ -99,11 +124,74 @@ describe("coerceStripeConfig", () => {
 
 describe("fetchStripeConfig", () => {
   beforeEach(() => {
+    fetchCommerceStripeConfig.mockReset();
+    fetchCommerceStripeConfig.mockResolvedValue(null);
     vi.stubGlobal("fetch", vi.fn());
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("uses commerce live keys and does not call dashboard-api", async () => {
+    fetchCommerceStripeConfig.mockResolvedValue(
+      commerceConfig({
+        publishableKey: "pk_live_commerce",
+        accountId: "acct_commerce",
+        bnplMessagingEnabled: true,
+      }),
+    );
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchStripeConfig()).resolves.toEqual({
+      publishableKey: "pk_live_commerce",
+      accountId: "acct_commerce",
+      bnplMessagingEnabled: true,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("disables BNPL when commerce reports no Connect account (Shopify)", async () => {
+    fetchCommerceStripeConfig.mockResolvedValue(
+      commerceConfig({
+        publishableKey: "",
+        accountId: "",
+        bnplMessagingEnabled: true,
+      }),
+    );
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchStripeConfig()).resolves.toEqual(DISABLED_STRIPE_CONFIG);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("falls back to dashboard-api when commerce is unavailable", async () => {
+    fetchCommerceStripeConfig.mockResolvedValue(null);
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        data: {
+          stripeConfig: {
+            publishableKeyTest: "pk_test_1",
+            publishableKeyLive: "pk_live_1",
+            accountId: "acct_1",
+            mode: "LIVE",
+            bnplMessagingEnabled: true,
+          },
+        },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchStripeConfig();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({
+      publishableKey: "pk_live_1",
+      accountId: "acct_1",
+      bnplMessagingEnabled: true,
+    });
   });
 
   it("does not issue the compat query when the full query succeeds, and honours mode/bnplMessagingEnabled", async () => {

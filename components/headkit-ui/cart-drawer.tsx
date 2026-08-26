@@ -17,6 +17,7 @@ import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { useChromeIcons } from "@/components/branding/branding-icons-provider";
 import { useIsQuoteMode } from "@/components/checkout/checkout-mode-provider";
 import { getCartAction } from "@/lib/cart-actions";
+import { hostedCheckoutUrl, isHostedCheckoutHref } from "@/lib/hosted-checkout";
 import { formatPrice, getStoreCurrency } from "@/lib/utils";
 import { cartItemsDisplayTotal } from "@/lib/cart-prices";
 import { PlusIcon } from "@/components/icon";
@@ -41,7 +42,11 @@ export function CartDrawer() {
     minorUnit: 2,
   };
   const totalPrice = cartItemsDisplayTotal(displayCart);
-  const checkoutHref = isQuoteMode ? "/quote" : "/checkout";
+  // Shopify: leave HeadKit entirely — do not route through /checkout (skeleton
+  // + blank redirect flash). WooCommerce keeps the internal Stripe checkout.
+  const hostedCheckout = isQuoteMode ? null : hostedCheckoutUrl(displayCart);
+  const checkoutHref = isQuoteMode ? "/quote" : (hostedCheckout ?? "/checkout");
+  const checkoutIsExternal = isHostedCheckoutHref(checkoutHref);
 
   return (
     <Sheet open={cartOpen} onOpenChange={(open) => toggleCart(open)}>
@@ -117,17 +122,30 @@ export function CartDrawer() {
                   </p>
                 </div>
               )}
-              <Link href={checkoutHref}>
-                <Button
-                  fullWidth
-                  suppressHydrationWarning
-                  onClick={() => toggleCart(false)}
-                  className="mt-3 shadow-none focus-visible:ring-0"
-                  {...(isQuoteMode ? { rightIcon: "plus" as const } : {})}
-                >
-                  {isQuoteMode ? "Review Quote" : "Checkout"}
-                </Button>
-              </Link>
+              {checkoutIsExternal ? (
+                <a href={checkoutHref} rel="noopener noreferrer">
+                  <Button
+                    fullWidth
+                    suppressHydrationWarning
+                    onClick={() => toggleCart(false)}
+                    className="mt-3 shadow-none focus-visible:ring-0"
+                  >
+                    Checkout
+                  </Button>
+                </a>
+              ) : (
+                <Link href={checkoutHref}>
+                  <Button
+                    fullWidth
+                    suppressHydrationWarning
+                    onClick={() => toggleCart(false)}
+                    className="mt-3 shadow-none focus-visible:ring-0"
+                    {...(isQuoteMode ? { rightIcon: "plus" as const } : {})}
+                  >
+                    {isQuoteMode ? "Review Quote" : "Checkout"}
+                  </Button>
+                </Link>
+              )}
             </div>
           )}
         </SheetFooter>

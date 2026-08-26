@@ -8,7 +8,8 @@ import {
   DIFF_GROUPS,
   NOJS_INK_EPSILON,
 } from "./diff";
-import type { CaptureEntry, CaptureRun } from "./types";
+import type { DiffRow } from "./diff";
+import type { CaptureEntry, CaptureRun, ScreenshotRecord } from "./types";
 import { CAPTURE_SCHEMA_VERSION } from "./types";
 
 function indexingAt(
@@ -544,6 +545,7 @@ describe("a mismatched pair must not read as a clean comparison", () => {
             flags: "g",
             replace: "sid={s}",
             why: "session id",
+            paths: [],
           },
         ],
         masks: [{ selector: "iframe", why: "third-party", paths: [] }],
@@ -977,5 +979,51 @@ describe("what makes the exit code 1", () => {
     expect(clean).toEqual([]);
     expect(exitCodeFor(clean, "any")).toBe(0);
     expect(exitCodeFor(clean, "signal")).toBe(0);
+  });
+});
+
+describe("a screenshot whose stability gate gave up is reported as a caveat", () => {
+  function shot(frameStable?: boolean): ScreenshotRecord {
+    return frameStable === undefined
+      ? { file: "s.png", width: 10, height: 10, inkRatio: 0.5 }
+      : { file: "s.png", width: 10, height: 10, inkRatio: 0.5, frameStable };
+  }
+
+  function withDesktop(shotRecord: ScreenshotRecord): CaptureEntry {
+    return entry({ key: "/p", screens: { desktop: shotRecord, mobile: null } });
+  }
+
+  function stabilityRows(b: ScreenshotRecord, a: ScreenshotRecord): DiffRow[] {
+    return diffSignals(
+      run("b", [withDesktop(b)]),
+      run("a", [withDesktop(a)]),
+    ).rows.filter((r) => r.field.endsWith("frame stability"));
+  }
+
+  it("reports a give-up on either side", () => {
+    expect(stabilityRows(shot(false), shot(true))).toHaveLength(1);
+    expect(stabilityRows(shot(true), shot(false))).toHaveLength(1);
+  });
+
+  it("reports it even when the two screenshots are otherwise identical", () => {
+    const rows = stabilityRows(shot(false), shot(false));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.before).toBe("never held still");
+    expect(rows[0]!.after).toBe("never held still");
+  });
+
+  it("keeps the caveat in the pixel tier, out of the signal tier", () => {
+    const rows = stabilityRows(shot(false), shot(false));
+    expect(rows[0]!.group).toBe("pixel");
+    expect(signalRows(rows)).toEqual([]);
+  });
+
+  // A capture written before the gate existed carries no verdict. Reading the
+  // absent field as falsy would report a give-up on every one of its
+  // screenshots — an instrument accusing itself of a failure that never
+  // happened, on exactly the runs it can least afford to be wrong about.
+  it("treats a missing verdict as unknown rather than as a give-up", () => {
+    expect(stabilityRows(shot(), shot())).toEqual([]);
+    expect(stabilityRows(shot(), shot(true))).toEqual([]);
   });
 });

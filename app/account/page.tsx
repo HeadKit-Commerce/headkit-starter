@@ -12,7 +12,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/components/headkit-ui/auth-context";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -41,10 +41,18 @@ const registerSchema = z
     path: ["confirmPassword"],
   });
 
+const caaEnabled = process.env.NEXT_PUBLIC_SHOPIFY_CAA_ENABLED === "true";
+
 export default function Page() {
   const [error, setError] = useState<string | null>(null);
+  const [caaError, setCaaError] = useState<string | null>(null);
   const { setAuthToken } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    const msg = new URLSearchParams(window.location.search).get("caa_error");
+    if (msg) setCaaError(msg);
+  }, []);
 
   const loginForm = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -107,11 +115,21 @@ export default function Page() {
         {/* Sign In */}
         <div className="bg-white rounded-lg p-6">
           <h2 className="text-3xl text-primary mb-6">Sign In</h2>
-          {error && (
+          {(error || caaError) && (
             <div className="mb-4 p-4 text-red-700 bg-red-50 border border-red-200 rounded-lg">
-              {error}
+              {error ?? `Shopify sign-in failed (${caaError})`}
             </div>
           )}
+          {caaEnabled ? (
+            <div className="mb-6 space-y-3">
+              <Button asChild className="w-full" variant="default">
+                <a href="/api/auth/shopify-caa">Continue with Shopify</a>
+              </Button>
+              <p className="text-sm text-muted-foreground text-center">
+                Or sign in with email and password
+              </p>
+            </div>
+          ) : null}
           <Form {...loginForm}>
             <form
               onSubmit={loginForm.handleSubmit(handleLogin)}

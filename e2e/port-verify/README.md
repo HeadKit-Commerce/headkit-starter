@@ -157,9 +157,21 @@ plan declares only what is store-specific. The three default masks (`iframe`, `v
 `[data-port-verify-mask]`) and the payment-host list apply to every plan; re-declaring a default
 mask selector adopts the plan's `why` but **merges** its `paths` with the default's — and an empty
 `paths` means everywhere — so a default's coverage can never be narrowed. There is no way to remove
-or narrow a default: a mask is a declared blind spot, so adding is the safe direction. Neither
-shipped store plan declares any mask today — they inherit all three, and the report's blind-spot
-table lists every effective one.
+or narrow a default: a mask is a declared blind spot, so adding is the safe direction. Both shipped
+store plans now declare one mask of their own (the related-products carousel, below) and still
+inherit all three defaults plus the whole payment-host list; `lib/plan.test.ts` asserts exactly
+that, because a plan whose list REPLACED the defaults would pass a "the carousel is masked" check
+while having silently un-masked every iframe on the store. The report's blind-spot table lists every
+effective one.
+
+A `normalize` rule takes an optional `paths` too, with the same empty-means-everywhere default —
+but it travels in the opposite direction. A mask's `paths` can only ADD a blind spot; a
+normalisation's can only SHRINK one, because there are no default rules for it to narrow. It exists
+because a rule wide enough to absorb one page family's volatile value is usually far too wide for
+the rest of the store: the rule that stops a product page's related-products carousel reporting its
+per-render pick would, run store-wide, collapse every product grid on `/shop`, `/search` and each
+collection to a single token, and a port that dropped half the catalogue off those pages would then
+compare clean.
 
 `add` exists because the inventories were captured from the **V1** sites and
 list only the URLs those sites served. The shapes whose _status_ is the thing
@@ -187,7 +199,7 @@ Entity keying would have bought nothing and cost complexity.
 | sitemap membership                                                 | a captured signal, never the source of the capture list (both rehearsal hosts currently publish an empty sitemap); recorded for the requested path **and** the final path                                                                                                                                                             |
 | internal links                                                     | every rendered `href`, normalised to site-relative paths, deduplicated and sorted                                                                                                                                                                                                                                                     |
 | cache/prerender headers                                            | `x-nextjs-cache`, `x-vercel-cache`, `x-nextjs-prerender`, `x-matched-path`, `cache-control`, and whether `age` was present                                                                                                                                                                                                            |
-| screenshots                                                        | desktop `1280×900` and mobile `390×844`, full page                                                                                                                                                                                                                                                                                    |
+| screenshots                                                        | desktop `1280×900` and mobile `390×844`, full page, each held back until two consecutive frames came out pixel-identical — and each carrying `frameStable`, the gate's verdict on whether that ever happened                                                                                                                          |
 | **the no-JavaScript pass**                                         | for every full-mode URL: the prerendered shell's text length and link count, whether it carries `<noscript>`, a screenshot taken with scripting disabled, and its **ink ratio**                                                                                                                                                       |
 
 **Ink ratio** is the fraction of pixels differing from the page's dominant
@@ -228,7 +240,7 @@ also surfaces the duplicate as the finding it is.
 One JSON file per URL under `entries/`, so the capture is diffable with ordinary
 tools as well as with `compare.ts`.
 
-## Placing an order is structurally impossible
+## The controls against placing an order — and the two gaps in them
 
 The Dishee rehearsal storefront is armed with **live** Stripe against a real
 merchant account. A completed order there is a real charge on real money. "The
@@ -239,8 +251,50 @@ data. These are the controls, and they are in `lib/safety.ts`:
    through a route interceptor; anything that is not a `GET` is aborted before
    it leaves the process and recorded on the capture record. A form submit, a
    `fetch('POST')` — none of them reach the network.
-2. **Payment hosts are unreachable.** No payment provider script loads on any
-   page this harness opens, so there is no payment element to confirm.
+2. **Payment hosts are refused at the route handler.** No payment provider
+   script loads on any page this harness opens by a request the PAGE issues, so
+   there is no payment element to confirm — but see the two declared gaps below
+   before treating that as absolute.
+
+   **Controls 1 and 2 are blind to a service worker.** Both are enforced by one
+   `context.route()` handler, and Playwright's `context.route()` does not
+   intercept requests issued by a service worker. `capture.ts` does not pass
+   `serviceWorkers: "block"` to `newContext()`, so that option holds its default
+   of `'allow'`. For a target that registers a service worker: a non-GET the
+   worker issues is neither aborted nor recorded, and a blocked payment host is
+   reachable through it. **An empty `blockedRequests` list is not proof that
+   nothing mutating was attempted** — it proves only that nothing mutating
+   reached the route handler. GATE 0 does not cover this, because the test
+   server registers no service worker, so the behavioural proof below passes
+   with the hole standing. **This gap is ACCEPTED, not pending.**
+   `260825-port-verify-service-worker-blind-guard` proposed
+   `serviceWorkers: "block"` plus a GATE 0 service-worker fixture and was CLOSED
+   AS DECLINED — service workers stay enabled, because blocking them changes
+   what a worker-backed page renders into a capture, on an instrument whose
+   whole job is fidelity comparison. No code fix is coming, so the protection is
+   a PER-TARGET MEASUREMENT and the acceptance is conditional on it: **reopen
+   this before pointing the harness at any store whose service-worker status has
+   not been measured.**
+   Measured read-only 2026-08-25: none of `dishee-rehearsal.headkit.app`,
+   `www.dishee.com.au` or `pebblrbooth.com.au` registers a service worker in its
+   served homepage HTML. That check greps the homepage for `serviceWorker` /
+   `sw.js` / `workbox`, so a registration inside a bundled JS chunk or on a
+   non-homepage route would not have appeared — evidence the hole does not bite
+   on today's targets, not proof that it cannot.
+
+   **A blocked-host GET is aborted without being recorded.** The asymmetry is
+   deliberate to state and not deliberate by design: a non-GET is recorded and
+   then aborted, while a `GET` to a host in `DEFAULT_BLOCKED_HOSTS` is aborted
+   and pushed nowhere. So the report cannot show whether a payment provider was
+   contacted at all, and a V1-versus-V2 difference in payment-script loading
+   does NOT appear as a difference — both runs abort identically and both record
+   nothing, so a real port defect of that shape renders as a match. Tracked as
+   `260825-port-verify-blocked-get-not-recorded`, which is **still OPEN and
+   undecided** — unlike the service-worker gap above, which is closed as
+   accepted. Do not read the two as one status. They are also different
+   defects: that one is about requests ESCAPING the guard, this one is about
+   requests the guard CAUGHT and DISCARDED.
+
 3. **The harness has no interaction surface.** It navigates, reads and
    photographs. It never clicks, types, presses, submits, drags or uploads.
 
@@ -279,8 +333,18 @@ one real finding is skimmed too. What gets it there:
   transition and caret and forces `scroll-behavior: auto`
 - a seeded `Math.random`
 - fixed locale, timezone and colour scheme
-- settle before shooting: `load`, then network idle, then fonts loaded, then a
-  synchronous scroll to the bottom and back to force lazy content
+- settle before shooting: `load`, network idle, **then the streamed dynamic
+  holes having landed**, then fonts loaded, then **every `<img>` painted** — asked
+  for as `complete && naturalWidth > 0`, then as the terminal `complete` a broken
+  image can actually satisfy, then a `decode()` sweep, all on small budgets
+  because `networkidle` has already waited out the requests — then a
+  synchronous scroll to the bottom and back to force lazy content, then network
+  idle, a second landed-holes check for whatever the scroll opened, and a second
+  image check — the one that matters, because the scroll is what STARTED every
+  lazy image below the fold
+- **a two-frame stability gate before every screenshot**: shoot, wait 250ms,
+  shoot again, and keep the frame only once two consecutive frames are
+  pixel-identical (see below)
 - a per-channel pixel threshold of 2 — Chromium's text rasterisation is not
   bit-identical between processes, and an exact comparison reports thousands of
   one-unit pixels on a page nobody touched
@@ -297,6 +361,78 @@ one real finding is skimmed too. What gets it there:
   still visible anyway, because the no-JS screenshot is pixel-compared
   independently of it
 - masks, applied narrowly and listed in the report
+
+One thing on this list is **not** buyable in the browser at all. The
+related-products carousel on a product page picks its items at RENDER time, on
+the server, before the bytes are sent: two ISR cache entries for the same
+unchanged URL carry different products, while three back-to-back requests for
+one URL are byte-stable. It is per-REGENERATION, not per-request, so the seeded
+`Math.random`, `--freeze-clock`, the settle path and every mask act too late to
+touch it. Both shipped store plans declare it as a blind spot — a mask on the
+item tiles, plus (dishee only) a `links` normalisation for which products were
+picked — with the measurement in each `why`. What stays asserted: the section
+and its heading are still compared pixel-for-pixel, the item count is still
+compared as the prerendered link count, and a carousel the port removes, empties
+or resizes still reports. Masking the container wholesale would have traded a
+noisy true positive for a silent false negative. Evidence:
+`260825-port-verify-before-snapshots` report §5.
+
+The pebblr plan declares a second blind spot of exactly this shape and for
+exactly this reason: the nine-tile "Gallery image N" grid on
+`/photo-booth-print-template` shows a different nine-image sample of the same
+pool from one render to the next. Measured read-only before it was declared —
+three `curl`s of the page returned byte-identical HTML carrying the same nine
+filenames, and four browser loads rendered that same nine — so this too is
+decided on the server per ISR entry, not in the browser per load. The six NAMED
+"Layout N" template tiles beside it are deterministic and are **not** masked. Its
+`why` also records the trap that made the original diagnosis read as a per-load
+shuffle: `rawTextLength` and `rawLinkCount` are computed with `<script>`
+stripped, so they cannot see a pick that travels in the RSC flight payload, and
+"the served bytes were identical" was really "the two metrics that can see the
+bytes are blind to this field".
+
+**`load` + network idle is not a settled page under Cache Components.** A
+Suspense boundary the server could not resolve ships as
+`<!--$?--><template id="B:n"></template>`; its content arrives later inside
+`<div hidden id="S:n">`, and a script then MOVES it into place — so for a window
+measured in tens of milliseconds the content exists twice, once where it belongs
+and once in a container that measures 0px. The settle path therefore waits for
+both halves of the condition `AGENTS.md` specifies: no `template` placeholder is
+left AND nothing is still sitting in the hidden staging container. Waiting on
+the second alone is vacuously satisfied before the content ever arrives.
+Best-effort like every other wait here — on a non-React target neither selector
+matches and it returns on the first poll.
+
+GATE 1 cannot catch a settle that returns early on its own: both runs miss the
+content equally and the diff is empty, which is a false green. So the synthetic
+storefront serves `/streamed`, whose payload sits in the `<template>` — NOT in
+the `<div hidden>`, which is in the document tree and whose links a capture
+finds whether or not the hole landed — and GATE 1 asserts the landed link
+positively beside the empty diff.
+
+**The waits are milestones; the gate is the property.** Two rounds of
+milestone-based waits each missed something new — round 1 missed the streamed
+dynamic holes, and the fix for those still missed lazy images and late client
+renders (`260825-port-verify-before-snapshots` report §5a/§5b/§5d: a footer logo
+and a breadcrumb label PRESENT in one pass and ABSENT in the other at identical
+coordinates, on a different URL each pass). Waiting for "the things we thought
+of" is structurally open-ended, so a stability gate sits after them: shoot, wait
+250ms, shoot again, and proceed only when two consecutive frames are
+pixel-identical. It asserts the property the self-diff is actually testing — the
+frame has stopped moving — rather than a proxy for it, which is why it also
+covers the late render nobody has named yet. On a page that was already still it
+costs exactly one extra frame.
+
+It is **bounded and loud**, never patient. A gate that retried until the frame
+settled would hang on any page carrying an animation `FREEZE_CSS` does not
+reach, and a wedged capture produces no record at all — strictly worse than a
+visible give-up. So it shoots at most four frames, keeps the last one, writes the
+give-up to stderr as it happens, and records `frameStable: false` on the
+screenshot; the comparison then prints a `pixel`-tier row directly above the
+pixel row it qualifies, saying that a difference there may be the capture rather
+than the page. `frameStable` is absent from captures written before the gate
+existed, and absent means UNKNOWN — readers test for `=== false`, never for
+falsiness, or every pre-gate screenshot reads as a give-up that never happened.
 
 **Nothing in the settle path may depend on an in-page timer.** An earlier
 version installed Playwright's fake clock; fake timers also freeze `setTimeout`,
@@ -510,8 +646,17 @@ unstable field into a finding.
 `store-parity.spec.ts` is the spine this extends: store-agnostic by
 construction, driven by required undefaulted environment variables, and the one
 spec in the suite carrying an explicit operator waiver to run against a remote
-host, GET-only. This harness follows all three of those properties, reads the
-same fixtures, and shares the directory.
+host. This harness follows all three of those properties, reads the same
+fixtures, and shares the directory.
+
+Where the two instruments part company is the request guard, and it matters:
+THIS harness installs one (`installGetOnlyGuard`, with the service-worker and
+blocked-GET limits declared above), and **`store-parity.spec.ts` installs none
+at all** — its `page.goto` passes load the storefront with JavaScript on, and the
+root layout's hydration-time `getCartAction()` is a `"use server"` call
+dispatched as a POST that nothing aborts or records. Do not point that spec at a
+live customer storefront until `260825-store-parity-no-request-guard` lands; its
+docblock has the full account.
 
 It is a pair of CLIs rather than a Playwright spec because it is an _instrument
 that emits artifacts_, not a pass/fail suite — and because a capture invoked

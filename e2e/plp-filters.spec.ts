@@ -56,11 +56,20 @@ const productHeading = (page: Page, name: string | RegExp) =>
  */
 
 /**
- * Product-card headings inside the PLP grid (one h2 per card).
- * The UI sweep (#57) promoted card names h3 -> h2 (a11y heading order:
- * card names follow the page h1 directly on PLP/search).
+ * Product-card titles inside the PLP grid (one h2 per card).
+ *
+ * The level is NOT incidental: `ProductCard#titleAs` exists so each surface
+ * declares its own depth, and `product-grid.tsx` passes `titleAs="h2"` because
+ * PLP/search cards follow the page `h1` directly (`h3` there skips a level —
+ * WCAG heading-order). This selector must track that prop; if it is ever
+ * loosened back to a bare tag match the suite stops guarding the level at all,
+ * which is how the prop was dropped unnoticed once already.
+ *
+ * Still scoped to the card hook rather than matching a bare tag: other `h2`s
+ * live on /shop (subcategory tiles, filter section labels).
  */
-const cards = (page: import("@playwright/test").Page) => page.locator("h2");
+const cards = (page: import("@playwright/test").Page) =>
+  page.locator(".headkit-product-card h2");
 
 test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-13)", () => {
   test.beforeAll(async () => {
@@ -296,7 +305,7 @@ test.describe("PLP: grid, pagination, category scoping, facets, sort (P1-01..P1-
     // headkit-block-products.php does) → PRICE returns id-ASC and
     // PRICE_DESC returns id-DESC. Un-fixme once the theme endpoint maps it.
     await page.goto(`${BASE_URL}/shop?sort=PRICE`);
-    const prices = page.locator("h2 ~ * >> text=/\\$/");
+    const prices = page.locator(".headkit-product-card h2 ~ * >> text=/\\$/");
     await expect(cards(page).first()).toBeVisible({ timeout: 30_000 });
     const first = await page
       .locator("p", { hasText: /\$/ })

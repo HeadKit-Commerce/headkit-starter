@@ -16,7 +16,10 @@ import {
 } from "@/components/icon";
 import { FooterSubscribe } from "@/components/headkit-ui/footer-subscribe";
 import { InstantLink } from "@/components/headkit-ui/instant-link";
-import { isAppNavigationHref } from "@/lib/convert-uri";
+import {
+  normalizeNavigationHref,
+  isAppNavigationHref,
+} from "@/lib/convert-uri";
 import { cn, decodeHtmlEntities } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -165,11 +168,12 @@ function FooterMenuColumn({
         {items.map((item) => {
           const label = decodeHtmlEntities(item.label);
           const className = "w-fit leading-relaxed hover:underline";
-          if (isAppNavigationHref(item.uri)) {
+          const href = normalizeNavigationHref(item.uri);
+          if (isAppNavigationHref(href)) {
             return (
               <InstantLink
                 key={item.id}
-                href={item.uri}
+                href={href}
                 pendingVariant="text"
                 target={item.target ?? "_self"}
                 className={className}
@@ -182,7 +186,7 @@ function FooterMenuColumn({
           return (
             <a
               key={item.id}
-              href={item.uri}
+              href={href || item.uri}
               target={item.target ?? "_self"}
               className={className}
               {...(item.target === "_blank"

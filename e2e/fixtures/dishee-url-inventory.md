@@ -16,7 +16,8 @@ neither can drift onto its own idea of what this store's URLs are.
 > a later reader finds the reason rather than "fixing" the violation. See
 > **The waiver** below for its exact bounds. The non-spec `e2e/port-verify/`
 > harness carries the same waiver on the same terms — see AGENTS.md
-> § _"Running e2e against a deployed store — GET only, and name the file"_.
+> § _"Running e2e against a deployed store — name the file, and know which
+> instrument is guarded"_.
 
 ---
 
@@ -68,7 +69,7 @@ of these numbers no longer exists:
    After the flip the hostname serves V2. There is no host left that answers as
    V1 did.
 
-There is also no rollback artifact to fall back on: `push-theme-pressable.sh:203`
+There is also no rollback artifact to fall back on: `push-theme-pressable.sh:347`
 deletes `theme.old` inside the same `set -e` shell that performs the swap, so
 after a successful push the previous theme does not exist on the host.
 
@@ -206,9 +207,13 @@ waiver, not an oversight, and it is bounded:
 - **No host is hardcoded.** `E2E_BASE_URL` is required and has **no default** in
   this spec; unset makes the spec fail loudly rather than quietly sweep localhost.
   The customer hostname appears nowhere in the spec.
-- **Read-only by construction.** The spec issues `GET` only. It signs nothing in,
-  submits no form, adds nothing to a cart, and performs no checkout action of any
-  kind.
+- **NOT read-only, and NOT bounded by a GET-only guarantee.** The spec installs no
+  request guard: its `request.newContext()` calls are `GET`, but its `page.goto`
+  passes load the storefront with JavaScript on, and the root layout's
+  hydration-time `getCartAction()` is a `"use server"` call dispatched as a POST
+  that nothing aborts or records. **Do not point this spec at a live customer
+  storefront until `260825-store-parity-no-request-guard` lands.** The full account
+  is in the `e2e/store-parity.spec.ts` docblock; read it before running.
 - **The transacting specs must never join this run.** Dishee's Stripe account is
   **LIVE**, not test. The safe invocation names this one file:
   `bunx playwright test e2e/store-parity.spec.ts --project=chromium`.

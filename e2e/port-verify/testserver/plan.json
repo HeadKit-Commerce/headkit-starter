@@ -56,6 +56,11 @@
       "path": "/order-attempt",
       "kind": "functional",
       "excluded": false
+    },
+    {
+      "path": "/streamed",
+      "kind": "editorial",
+      "excluded": false
     }
   ],
   "signals_only": ["/products/**", "/no-such-page"],

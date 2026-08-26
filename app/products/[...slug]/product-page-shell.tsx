@@ -2,9 +2,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ProductCardSkeleton } from "@/components/headkit-ui/skeletons/product-card-skeleton";
 
 /**
- * Instant Navigation App Shell for `/products/[...slug]`.
- * The page-level `<Suspense>` fallback for both routes that render the PDP, so soft
- * navigations paint a shell immediately (params/`'use cache'` stream in after).
+ * The page-level `<Suspense>` fallback for both routes that render the PDP.
+ *
+ * It is still the Instant Navigation App Shell on the canonical
+ * `/shop/[...slug]`, whose default export stays sync and awaits nothing above
+ * this boundary. It is NOT one on the flat `/products/[...slug]` any more: that
+ * route awaits `getCachedProduct` above the boundary so its 308 is a real
+ * redirect, which forfeits Partial Prefetching there — see the altitude note on
+ * `ProductPage` in `./page.tsx`.
  */
 export function ProductPageShell(): React.JSX.Element {
   return (

@@ -44,8 +44,12 @@ async function collectionPathIndex(): Promise<Map<string, string>> {
   const categories = await sdk.collections.getCategories();
   const index = new Map<string, string>();
   for (const node of walkCategoryPaths(categories)) {
-    // First win: the walk is depth-first root-first, so a slug that somehow
-    // appears twice keeps the shallowest path rather than the deepest.
+    // First win in DOCUMENT order — the walk is a pre-order DFS, which emits a
+    // node before its siblings' subtrees, so a slug that somehow appeared twice
+    // would keep whichever occurrence the tree lists first, at whatever depth,
+    // and NOT the shallowest. WordPress term slugs are unique per taxonomy, so
+    // no real store reaches the tie; the rule is only here so the index is
+    // deterministic rather than last-write-wins.
     if (!index.has(node.slug)) {
       index.set(node.slug, collectionPathFromSegments(node.segments));
     }

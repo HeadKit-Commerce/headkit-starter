@@ -13,6 +13,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const cacheTag = vi.fn<(...tags: string[]) => void>();
 const cacheLife = vi.fn<(profile: string) => void>();
 const productsGet = vi.fn<(slug: string) => Promise<unknown>>();
+const withShopifyPreviewKey =
+  vi.fn<(key: string) => { products: { get: typeof productsGet } }>();
 
 vi.mock("server-only", () => ({}));
 
@@ -24,6 +26,10 @@ vi.mock("next/cache", () => ({
 vi.mock("@/lib/sdk", () => ({
   headkit: {
     products: { get: (slug: string): Promise<unknown> => productsGet(slug) },
+    withShopifyPreviewKey: (key: string) => {
+      withShopifyPreviewKey(key);
+      return { products: { get: productsGet } };
+    },
   },
 }));
 
@@ -89,8 +95,26 @@ vi.mock("@/components/headkit-ui/project/project-carousel", () => ({
 }));
 vi.mock("@/components/ui/skeleton", () => ({ Skeleton: (): null => null }));
 
+vi.mock("next/navigation", () => ({
+  notFound: (): never => {
+    throw new Error("NEXT_HTTP_ERROR_FALLBACK;404");
+  },
+  unstable_rethrow: (error: unknown): void => {
+    if (
+      error instanceof Error &&
+      /NEXT_HTTP_ERROR_FALLBACK|NEXT_NOT_FOUND/.test(error.message)
+    ) {
+      throw error;
+    }
+  },
+}));
+
+vi.mock("@/components/headkit-ui/project/project-carousel", () => ({
+  ProjectCarousel: (): null => null,
+}));
+
 import { getProduct, ProductPageContent } from "./page";
-import { getCachedProduct } from "@/lib/product-cache";
+import { getCachedProduct, getProductForPage } from "@/lib/product-cache";
 import { TAG } from "@/lib/cache-tags";
 
 const SLUG = "acme-hoodie";
@@ -101,6 +125,7 @@ beforeEach(() => {
   cacheTag.mockClear();
   cacheLife.mockClear();
   productsGet.mockReset();
+  withShopifyPreviewKey.mockReset();
   productsGet.mockResolvedValue(null);
 });
 
@@ -128,6 +153,36 @@ describe("shared getCachedProduct is the single PDP cache entry", () => {
     expect(pageTags?.[0]).toBe(EXPECTED_ENTITY_TAG);
     expect(libTags?.[0]).toBe(EXPECTED_ENTITY_TAG);
     expect(pageTags?.[0]).toBe(libTags?.[0]);
+  });
+});
+
+describe("getProductForPage preview bypass", () => {
+  it("skips cache and forwards preview_key to the SDK", async () => {
+    await getProductForPage(SLUG, { shopifyPreviewKey: "preview-secret" });
+    expect(withShopifyPreviewKey).toHaveBeenCalledWith("preview-secret");
+    expect(cacheTag).not.toHaveBeenCalled();
+    expect(cacheLife).not.toHaveBeenCalled();
+    expect(productsGet).toHaveBeenCalledWith(SLUG);
+  });
+});
+
+describe("ProductPageContent provider failure", () => {
+  it("degrades to notFound instead of throwing (tenant SSG must not abort)", async () => {
+    const { ProductPageContent } = await import("./page");
+    productsGet.mockRejectedValueOnce(
+      Object.assign(
+        new Error("shopify.GetProductBySlug: shopify.Query: status 401"),
+        {
+          code: "GRAPHQL_ERROR",
+        },
+      ),
+    );
+
+    await expect(
+      ProductPageContent({
+        params: Promise.resolve({ slug: [SLUG] }),
+      }),
+    ).rejects.toThrow(/NEXT_HTTP_ERROR_FALLBACK|NEXT_NOT_FOUND|notFound/i);
   });
 });
 

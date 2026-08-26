@@ -7,7 +7,7 @@ import type {
   ProjectSummaryFieldsFragment,
 } from "@headkit/sdk";
 import { headkit } from "@/lib/sdk";
-import { getCachedProduct } from "@/lib/product-cache";
+import { getCachedProduct, getProductForPage } from "@/lib/product-cache";
 import { ProductDetail } from "@/components/headkit-ui/product-detail";
 import { ProductStock } from "@/components/headkit-ui/product-stock";
 import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
@@ -49,7 +49,20 @@ const SHOP_BREADCRUMB = { name: "Shop", href: "/shop" } as const;
 
 type Props = {
   params: Promise<{ slug: string[] }>;
+  searchParams?:
+    | Promise<Record<string, string | string[] | undefined>>
+    | undefined;
 };
+
+function shopifyPreviewKeyFromSearchParams(
+  searchParams: Record<string, string | string[] | undefined> | undefined,
+): string | undefined {
+  const raw = searchParams?.preview_key;
+  if (typeof raw === "string" && raw.trim() !== "") {
+    return raw;
+  }
+  return undefined;
+}
 
 /** Re-export for PDP tag/life guard tests (ENG-853). */
 export const getProduct = getCachedProduct;
@@ -165,10 +178,16 @@ export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
   return [{ slug: [STATIC_GEN_PLACEHOLDER_SLUG] }];
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+  searchParams,
+}: Props): Promise<Metadata> {
   const { slug } = await params;
   const productSlug = slug[0]!;
   const colorSlug = slug[1]; // undefined for simple/base; a color slug for a colorway URL
+  const previewKey = shopifyPreviewKeyFromSearchParams(
+    searchParams ? await searchParams : undefined,
+  );
 
   // Build-time placeholder param (API was unreachable during SSG): never a real
   // product, so emit empty metadata rather than hitting the backend.
@@ -177,13 +196,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   try {
     const [product, { seoSettings, storeSettings }, { iconUrl }] =
       await Promise.all([
-        getCachedProduct(productSlug),
+        getProductForPage(productSlug, { shopifyPreviewKey: previewKey }),
         getBranding(),
         getBrandingAssets(),
       ]);
     if (!product) {
       return { robots: { index: false, follow: false } };
     }
+
+    const previewRobots = previewKey
+      ? ({ robots: { index: false, follow: false } } as const)
+      : ({} as const);
 
     const desc = product.shortDescription || product.description;
     // The canonical is the product's OWN path (nested when its permalink has
@@ -209,6 +232,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         canonical: baseCanonical,
         ...(desc ? { description: desc } : {}),
         ...brandingOpts,
+        ...previewRobots,
       });
     }
 
@@ -238,6 +262,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       ...(ogImage ? { ogImage } : {}),
       ...(desc ? { description: desc } : {}),
       ...brandingOpts,
+      ...previewRobots,
     });
   } catch (error) {
     unstable_rethrow(error);
@@ -295,16 +320,43 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * `productPath` returns THIS path for a product with no category ancestry (no
  * usable `/shop` permalink), so the comparison is what prevents a loop: such a
  * product is served here, self-canonical, and never redirected.
+ *
+ * ### `searchParams` is forwarded, never awaited here
+ *
+ * The Shopify Admin preview key lives in the query string, and a 308 drops it —
+ * but awaiting `searchParams` in THIS function to exempt a preview request is a
+ * dynamic read above every boundary, which under Cache Components fails the
+ * build on a route with `generateStaticParams`. Passing the unawaited promise
+ * down is not a read; `ProductPageContent` awaits it inside the boundary below,
+ * where it is legal.
+ *
+ * No exemption is needed anyway, and this is why the gate above is the PUBLIC
+ * `getCachedProduct` rather than `getProductForPage`: a draft is invisible to
+ * the public catalogue, so `product` is null, no redirect is issued, and the
+ * key survives to the render that does consult the Admin API. See the Shopify
+ * preview section in `apps/starter/AGENTS.md`.
  */
 export const instant = true;
 
-export default async function ProductPage({ params }: Props) {
+export default async function ProductPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const productSlug = slug[0]!;
   const colorSlug = slug[1];
 
   if (productSlug !== STATIC_GEN_PLACEHOLDER_SLUG) {
-    const product = await getCachedProduct(productSlug);
+    // This read is the THIRD provider call on the PDP path and the only one
+    // above the Suspense boundary, so a provider auth/scope failure here aborts
+    // the whole tenant static export — the failure `ProductPageContent` and
+    // `generateMetadata` were both hardened against (#332). Degrade the same
+    // way, but to SERVING rather than to notFound: the redirect is a
+    // consolidation, so losing it costs one duplicate URL, while refusing to
+    // render costs the page. Next control-flow still propagates.
+    let product: Awaited<ReturnType<typeof getCachedProduct>> = null;
+    try {
+      product = await getCachedProduct(productSlug);
+    } catch (error) {
+      unstable_rethrow(error);
+    }
     if (product) {
       const canonical = productPath(product, colorSlug);
       const requested = `/products/${slug.join("/")}`;
@@ -314,7 +366,7 @@ export default async function ProductPage({ params }: Props) {
 
   return (
     <Suspense fallback={<ProductPageShell />}>
-      <ProductPageContent params={params} />
+      <ProductPageContent params={params} searchParams={searchParams} />
     </Suspense>
   );
 }
@@ -324,21 +376,40 @@ export default async function ProductPage({ params }: Props) {
  * composition rather than duplicating it (D-15-04). The two routes serve two
  * valid URL shapes for one product; only their canonicals differ.
  */
-export async function ProductPageContent({ params }: Props) {
+export async function ProductPageContent({ params, searchParams }: Props) {
   const { slug } = await params;
   const productSlug = slug[0]!;
   const colorSlug = slug[1]; // undefined for simple products or base variable URL
+  const previewKey = shopifyPreviewKeyFromSearchParams(
+    searchParams ? await searchParams : undefined,
+  );
 
   // Build-time placeholder param (see generateStaticParams) is never served.
   if (productSlug === STATIC_GEN_PLACEHOLDER_SLUG) {
     notFound();
   }
 
-  const [product, { storeSettings }, stripeConfig] = await Promise.all([
-    getCachedProduct(productSlug),
-    getBranding(),
-    getStripeConfig(),
-  ]);
+  // Provider auth/scope failures (e.g. Shopify Storefront 401) must not abort
+  // the whole tenant static export. Mirror generateMetadata: rethrow Next
+  // control-flow, otherwise degrade to notFound for this PDP only.
+  let product: Awaited<ReturnType<typeof getProductForPage>>;
+  let branding: Awaited<ReturnType<typeof getBranding>>["branding"];
+  let storeSettings: Awaited<ReturnType<typeof getBranding>>["storeSettings"];
+  let stripeConfig: Awaited<ReturnType<typeof getStripeConfig>>;
+  try {
+    const loaded = await Promise.all([
+      getProductForPage(productSlug, { shopifyPreviewKey: previewKey }),
+      getBranding(),
+      getStripeConfig(),
+    ]);
+    product = loaded[0];
+    branding = loaded[1].branding;
+    storeSettings = loaded[1].storeSettings;
+    stripeConfig = loaded[2];
+  } catch (error) {
+    unstable_rethrow(error);
+    notFound();
+  }
 
   if (!product) {
     notFound();
@@ -347,6 +418,9 @@ export async function ProductPageContent({ params }: Props) {
   const brandName = resolveStoreName(storeSettings.name);
   const relatedAsProducts = product.related.map(mapRelatedToProduct);
   const upsellsAsProducts = product.upsells.map(mapRelatedToProduct);
+  const bundlesAsProducts = (product.includedInBundles ?? []).map(
+    mapRelatedToProduct,
+  );
   const featuredProjects = (product.projects ??
     []) as ProjectSummaryFieldsFragment[];
 
@@ -490,6 +564,7 @@ export async function ProductPageContent({ params }: Props) {
           breadcrumbItems={breadcrumbItems}
           stockSlot={stockSlot}
           stripeConfig={stripeConfig}
+          multiAddEnabled={branding.multiAddEnabled}
         />
       </div>
 
@@ -519,6 +594,22 @@ export async function ProductPageContent({ params }: Props) {
             <ProductCarousel
               products={upsellsAsProducts}
               id="upsell-products"
+            />
+          </div>
+        </section>
+      )}
+
+      {bundlesAsProducts.length > 0 && (
+        <section className="overflow-x-clip py-10">
+          <SectionHeader
+            title="Available in bundles"
+            description=""
+            className="px-5 md:px-10"
+          />
+          <div className="mt-5">
+            <ProductCarousel
+              products={bundlesAsProducts}
+              id="bundle-products"
             />
           </div>
         </section>

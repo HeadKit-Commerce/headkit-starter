@@ -1,7 +1,8 @@
 "use client";
 
 import { getImageProps } from "next/image";
-import { ElementType } from "react";
+import { ElementType, useState } from "react";
+import { AutoplayVideo } from "@/components/headkit-ui/autoplay-video";
 import { Carousel } from "@/components/headkit-ui/carousel";
 import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ function slideVideo(slide: HeroSlide, mobile: boolean): string {
 export const MainCarousel = ({ carouselItems }: Props) => {
   // Schedule windows are applied in WordPress (headkit_query_active_carousels).
   const items = carouselItems as HeroSlide[];
+  const [activeIndex, setActiveIndex] = useState(0);
 
   if (items.length === 0) return null;
 
@@ -34,12 +36,14 @@ export const MainCarousel = ({ carouselItems }: Props) => {
     <div className="headkit-hero-carousel overflow-hidden mx-5">
       <Carousel
         items={items}
+        onSlideChange={setActiveIndex}
         renderItem={(carousel, index) => {
           const slide = carousel as HeroSlide;
           const HeaderTag: ElementType = index === 0 ? "h1" : "h2";
           const desktopVideo = slideVideo(slide, false);
           const mobileVideo = slideVideo(slide, true);
           const hasVideo = Boolean(desktopVideo || mobileVideo);
+          const isActive = index === activeIndex;
 
           return (
             <div className="basis-full w-full relative">
@@ -50,9 +54,11 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                       <HeaderTag className="text-[40px] leading-normal text-primary md:text-[48px] md:text-brand-bg!">
                         {decodeHtmlEntities(slide?.header ?? "")}
                       </HeaderTag>
-                      <p className="mt-8 text-base font-semibold text-black md:text-3xl md:text-brand-bg!">
-                        {decodeHtmlEntities(slide?.description ?? "")}
-                      </p>
+                      {slide?.description ? (
+                        <p className="mt-8 text-base font-semibold text-black md:text-3xl md:text-brand-bg!">
+                          {decodeHtmlEntities(slide.description)}
+                        </p>
+                      ) : null}
                       <div className="mt-8">
                         <InstantLink href={slide?.url ?? "#"}>
                           <Button className="text-brand-bg">
@@ -71,28 +77,24 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                       {/* Mobile video (or desktop fallback). muted+playsInline
                           required for autoplay; poster keeps LCP image-like. */}
                       {mobileVideo || desktopVideo ? (
-                        <video
+                        <AutoplayVideo
                           className="h-full w-full object-cover md:hidden"
                           src={mobileVideo || desktopVideo}
-                          poster={slide.mobileImage || slide.image || undefined}
-                          autoPlay
-                          muted
-                          loop
-                          playsInline
-                          // Only preload metadata for non-first slides to limit
-                          // bandwidth; first slide preloads enough to autoplay.
+                          {...(slide.mobileImage || slide.image
+                            ? {
+                                poster: slide.mobileImage || slide.image!,
+                              }
+                            : {})}
+                          isActive={isActive}
                           preload={index === 0 ? "auto" : "metadata"}
                         />
                       ) : null}
                       {desktopVideo ? (
-                        <video
+                        <AutoplayVideo
                           className="hidden h-full w-full object-cover md:block"
                           src={desktopVideo}
-                          poster={slide.image || undefined}
-                          autoPlay
-                          muted
-                          loop
-                          playsInline
+                          {...(slide.image ? { poster: slide.image } : {})}
+                          isActive={isActive}
                           preload={index === 0 ? "auto" : "metadata"}
                         />
                       ) : null}
@@ -171,9 +173,15 @@ export const MainCarousel = ({ carouselItems }: Props) => {
           );
         }}
         className="w-full"
-        loop={true}
-        transition="fade"
-        autoplay={{ enabled: true, delay: 5000, stopOnInteraction: true }}
+        // One slide: no fade blend, no slide autoplay / loop — the video
+        // handles a hard 0-gap wrap. Multi-slide heroes keep fade rotation.
+        loop={items.length > 1}
+        transition={items.length > 1 ? "fade" : "slide"}
+        autoplay={
+          items.length > 1
+            ? { enabled: true, delay: 5000, stopOnInteraction: true }
+            : { enabled: false }
+        }
         showScrollbar={false}
         showPagination={items.length > 1}
         paginationDotClassName="bg-white/50"

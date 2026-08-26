@@ -124,6 +124,36 @@ solely on the empty-cart short-circuit. Anything that server-renders a POPULATED
 quote summary therefore puts `/products/<slug>` links into crawlable HTML and must switch
 to `productPath` first. Closing the gap properly needs an SDK change.
 
+**Shopify Admin preview needs no exemption from the 308, and must not be given one.** A 308
+drops the query string, so `?preview_key=` cannot survive one — yet the exemption that would
+normally require is unavailable: reading `searchParams` in the default export is a dynamic
+read above every Suspense boundary, which under Cache Components is a BUILD ERROR on a route
+with `generateStaticParams`, and the boundary that would fix it is the one that turns the 308
+back into a 200. Both levers are closed. Nothing is needed, because the redirect is gated on
+`getCachedProduct` — the PUBLIC catalogue read — while preview exists precisely for products
+that read cannot see. `GetProductBySlug`
+(`services/commerce/internal/provider/shopify/catalog.go`) consults the Admin API only when
+the Storefront query returned nothing, and the resolver maps that miss to a null product
+rather than an error, so a draft never reaches the redirect at all and falls through to
+`ProductPageContent`, which awaits `searchParams` INSIDE the boundary where it is legal. A
+published product does still 308 with a key attached, and should: preview reveals nothing
+extra about it. Do not add a `preview_key`-shaped exemption — a redirect anyone can opt out
+of with a query parameter is not a redirect.
+
+The corollary is the part that looks wrong and is not: `resolveShopifyPreviewProductPath`
+(`lib/shopify-preview.ts`) returns the FLAT `/products/{handle}`, the losing shape, and must
+keep doing so. The nested route verifies its candidate against `getCachedProduct` before
+serving (`resolveProductParams`), so a draft sent there answers notFound() — the flat route
+is the only shape that can render one. Both entry points the HeadKit redirect theme rewrites
+to (`integrations/shopify/theme/layout/theme.liquid`) land on it.
+
+`app/products_preview` and `app/draft-product` are `export const instant = false`. They
+render nothing and must read `searchParams` above every boundary, because the decision they
+make IS the response; they previously borrowed the boundary `app/layout.tsx` wrapped
+`{children}` in, and removing that (above) left them with none and failed the build outright.
+Giving them a boundary instead would make them answer 200 + empty shell and redirect on the
+client — the same defect the product and collection routes exist to close.
+
 ### A guard must state the domain it actually exercises — and where it stops
 
 A test name, an assertion message and a "this proves X" comment are documentation, and the
@@ -135,11 +165,12 @@ not — which surfaces, which files, which store class, which layer.
 The evidence for the bar is local and repeated. On the canonical-URL work alone: an
 `existsSync` check stood in for "no `loading.tsx` exists" while proving only that a path was
 absent from one directory; a sweep asserting "no route family emits the flat shape" twice
-shipped green without covering the e2e specs at all (and CI's own IGNORE list hides four of
-those from every run); a wiring proof drove a leaf component with hand-passed props while the
-prop-threading it existed to cover had none; and a cache-tag guard was named for "the PDP
-route" while exercising one of the two routes that serve a PDP. Same failure each time, in
-five costumes.
+shipped green without covering the e2e specs at all (and CI's own `E2E_TEST_IGNORE` list —
+`gift-card`, `forms-gravity`, `product-addons`, `store-parity` — hides four of those from every
+run, more when no Stripe test key is configured); a wiring proof drove a leaf component with
+hand-passed props while the prop-threading it existed to cover had none; and a cache-tag
+guard was named for "the PDP route" while exercising one of the two routes that serve a PDP.
+Same failure each time, in five costumes.
 
 ### Maintenance mode is a request-time Edge Config read, keyed per host
 

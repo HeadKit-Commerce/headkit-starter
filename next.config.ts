@@ -25,6 +25,11 @@ const remotePatterns: NonNullable<NextConfig["images"]>["remotePatterns"] = [
   // portless remotePattern in Next 16, so the optimizer 400s without this entry
   // (gray placeholders for every product/hero/brand image in local dev).
   { protocol: "http", hostname: "localhost", port: "8090" },
+  // Shopify Storefront CDNs. Exact hosts — never a ** wildcard. Shops that
+  // serve /cdn/shop/... from the myshopify domain need the subdomain pattern.
+  { protocol: "https", hostname: "cdn.shopify.com" },
+  { protocol: "https", hostname: "cdn.shopifycdn.net" },
+  { protocol: "https", hostname: "*.myshopify.com" },
 ];
 
 /**

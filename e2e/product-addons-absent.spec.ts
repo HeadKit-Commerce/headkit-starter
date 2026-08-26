@@ -105,6 +105,19 @@ import {
  * measuring nothing.
  *
  * ---------------------------------------------------------------------------
+ * THE ACCOUNT SURFACE IS BEHIND A COOKIE THE APP ITSELF DELETES
+ * ---------------------------------------------------------------------------
+ *
+ * Two order surfaces are asserted, and one of them is route-guarded. The guard
+ * checks only that `hk-auth-token` is PRESENT on the request, while the root
+ * layout's `AuthProvider` deletes that same cookie on every page load because
+ * the value this spec uses is not a real JWT. Any app page loaded first
+ * therefore disarms the guard for the next one, on a timer nothing here
+ * controls — the cause of PAO-04 (8/10) failing CI on PRs that changed nothing.
+ * Reach an `/account/...` URL through `gotoAccountSurface` and nowhere else;
+ * its docblock carries the mechanism and the measurement.
+ *
+ * ---------------------------------------------------------------------------
  * UI-SPEC "Absent-Plugin Contract (PAO-04)" — the five assertions, mapped
  * ---------------------------------------------------------------------------
  *
@@ -408,8 +421,51 @@ interface LineRootMeasurement {
  * `<AddonDetails>` (and `<GiftCardDetails>`) mount. `firstChildHeight` is the
  * content row's own height, so `height === firstChildHeight` states "the root
  * adds no vertical space beyond its one row" without naming a pixel count.
+ *
+ * IT WAITS FOR THE DOM TO SETTLE FIRST, AND THAT IS NOT A GRACE PERIOD. Under
+ * Cache Components the order surfaces stream: React delivers the dynamic hole
+ * inside a `<div hidden>` and then MOVES it into place. Sampled at frame rate on
+ * the account order detail, the sequence is
+ *
+ *     0-185ms   0 roots
+ *     196-212ms 2 roots, both inside `[hidden]`  (delivered, not yet placed)
+ *     244-362ms 4 roots, 2 inside `[hidden]`     (placed, copy not yet dropped)
+ *     372ms+    2 roots, none hidden             (settled)
+ *
+ * Measuring inside that ~120ms window reads the transport rather than the page:
+ * `roots.length` doubles, and a hidden root measures 0px tall, which is also the
+ * signature `expectNoExtraLineContent` looks for. The visibility assertion ahead
+ * of the call does not exclude it — one placed copy being visible is exactly
+ * what the middle row above describes. So `measureLineRoots` waits on the
+ * CONDITION that ends the window (every root placed) rather than on a duration,
+ * and on the cart drawer — which never streams — the condition already holds and
+ * nothing waits.
+ *
+ * The 15s bound below is NOT what removes the race — the condition is. It exists
+ * only because `page.waitForFunction` has no default timeout (and this config
+ * sets no `actionTimeout` and calls no `setDefaultTimeout`), so without it the
+ * `.catch` fall-through is unreachable and a page that never satisfies the
+ * condition — zero roots, or one permanently under `[hidden]` — hangs to the
+ * case's own `test.setTimeout` and reports a bare Playwright timeout instead of
+ * the caller's assertion. 15s is an order of magnitude past the 372ms settle
+ * point above, so it cannot function as a grace period that masks the streaming
+ * window, and far below every case ceiling here (120s/180s/240s), so an expiry
+ * still leaves the caller room to measure and fail with what it found.
  */
 async function measureLineRoots(page: Page): Promise<LineRootMeasurement[]> {
+  await page
+    .waitForFunction(
+      () => {
+        const roots = document.querySelectorAll('div[class="space-y-1.5"]');
+        return (
+          roots.length > 0 && ![...roots].some((el) => el.closest("[hidden]"))
+        );
+      },
+      undefined,
+      { timeout: 15_000 },
+    )
+    .catch(() => undefined);
+
   return page.evaluate(() =>
     [...document.querySelectorAll('div[class="space-y-1.5"]')].map((el) => {
       const first = el.firstElementChild;
@@ -551,6 +607,69 @@ async function contextWith(
   await context.addCookies(
     cookies.map((c) => ({ name: c.name, value: c.value, url: BASE_URL })),
   );
+}
+
+/**
+ * The value the account cookie carries here. Deliberately not a JWT: the route
+ * guard this spec relies on tests for PRESENCE only, and minting a real session
+ * would make an order-surface assertion depend on seeded credentials.
+ */
+const PRESENCE_ONLY_AUTH_TOKEN = "pao-04-presence-only";
+
+/** Where `proxy.ts` sends a request for a private account path with no cookie. */
+const ACCOUNT_LOGIN_PATH = "/account";
+
+/**
+ * Navigate to an `/account/...` surface, re-establishing the presence-only
+ * cookie in the same step, and prove the request LANDED there.
+ *
+ * WHY THIS IS NOT A BARE `page.goto`. Two components read the same cookie and
+ * disagree about what an unverifiable value means:
+ *
+ *   - `proxy.ts` (`isPrivateAccountPath` → `!token` → 307 to `/account`) gates
+ *     `/account/orders/*` on the cookie being PRESENT ON THE REQUEST. It never
+ *     verifies it, which is what lets this spec read an order surface without a
+ *     real sign-in — 14.1-06 established that and the page resolves the order
+ *     from (orderId, orderKey) regardless.
+ *   - `AuthProvider` (`components/headkit-ui/auth-context.tsx`) rehydrates from
+ *     that cookie on EVERY page, because it sits in the ROOT layout. It calls
+ *     `getCustomer(token)`, which for a non-JWT resolves `{ success: false }`
+ *     rather than throwing, and the effect then DELETES the cookie:
+ *     `document.cookie = "hk-auth-token=; Max-Age=0; path=/"`.
+ *
+ * So every app page this spec loads disarms the guard for the next one, on a
+ * timer nobody controls: measured on the local stack, the cookie is gone ~250ms
+ * after the first page settles. Whether the next `/account/orders/...` request
+ * still carries it is a race between that one background call and the next
+ * navigation — which is why this passed here and failed on CI (run 32872345552),
+ * reddening PRs that had changed nothing. When it lost, the guard 307'd to
+ * `/account`, and the case reported "did not render" against the login page.
+ *
+ * This waits on the CONDITION, not on time. `about:blank` discards the live
+ * document first, so no `AuthProvider` is alive to delete the cookie between
+ * re-adding it and the navigation that has to carry it; there is no window left
+ * for the race to occur in. The landing check that follows is what stops a
+ * future regression from being reported as a missing product name again — a
+ * silent 307 makes every later assertion in the case measure `/account`.
+ */
+async function gotoAccountSurface(
+  page: Page,
+  context: BrowserContext,
+  url: string,
+): Promise<void> {
+  await page.goto("about:blank");
+  await contextWith(context, [
+    { name: "hk-auth-token", value: PRESENCE_ONLY_AUTH_TOKEN },
+  ]);
+  await page.goto(url);
+
+  const wanted = new URL(url).pathname;
+  expect(
+    new URL(page.url()).pathname,
+    `${url} did not land on the account surface — it settled at ${page.url()}. ` +
+      `A 307 to ${ACCOUNT_LOGIN_PATH} means the hk-auth-token cookie was absent at ` +
+      `REQUEST time (proxy.ts route guard), so nothing below measured the order detail.`,
+  ).toBe(wanted);
 }
 
 /**
@@ -1115,29 +1234,36 @@ test.describe("PAO-04 — the plugin-ABSENT gate", () => {
     const order = await gateOrder();
 
     // `/account/orders/*` is gated on the PRESENCE of `hk-auth-token` only
-    // (`proxy.ts` lines 64-72 — no verification), and the page resolves the
-    // order from (orderId, orderKey) via `getOrderAction` without ever reading
-    // the token. 14.1-06 established this and corroborated it with the numbers:
-    // the account markup hash for order 222 is byte-identical to the
-    // confirmation page's. Navigate STRAIGHT to the account route — loading `/`
-    // first makes the app drop the unverifiable cookie.
-    await contextWith(context, [
-      { name: "hk-auth-token", value: "pao-04-presence-only" },
-    ]);
-
+    // (`proxy.ts` `isPrivateAccountPath` — no verification), and the page
+    // resolves the order from (orderId, orderKey) via `getOrderAction` without
+    // ever reading the token. 14.1-06 established this and corroborated it with
+    // the numbers: the account markup hash for order 222 is byte-identical to
+    // the confirmation page's.
+    //
+    // The cookie is (re-)established by `gotoAccountSurface` immediately before
+    // the request that needs it, NOT once here: the order-confirmation page
+    // visited first in this loop is itself an app page, and every app page
+    // deletes an unverifiable token — read that function's docblock before
+    // moving this back.
     const perSurface: Array<{ where: string; shape: string }> = [];
 
-    for (const [where, url] of [
+    for (const [where, url, gated] of [
       [
         "order confirmation",
         `${BASE_URL}/checkout/success/${order.id}?key=${order.key}`,
+        false,
       ],
       [
         "account order detail",
         `${BASE_URL}/account/orders/${order.id}?key=${order.key}`,
+        true,
       ],
     ] as const) {
-      await page.goto(url);
+      if (gated) {
+        await gotoAccountSurface(page, context, url);
+      } else {
+        await page.goto(url);
+      }
       for (const name of [order.plainName, order.addonName]) {
         await expect(
           page.getByText(name).first(),
@@ -1287,20 +1413,35 @@ test.describe("PAO-04 — the plugin-ABSENT gate", () => {
     const noise = collectConsole(page);
     const perPage: Array<{ url: string; unexplained: string[] }> = [];
 
+    // Set once, exactly as before, so the FIRST page loaded below still carries
+    // the cookie and still exercises `AuthProvider`'s rehydrate-and-fail path
+    // under this case's console assertion.
     await contextWith(context, [
-      { name: "hk-auth-token", value: "pao-04-presence-only" },
+      { name: "hk-auth-token", value: PRESENCE_ONLY_AUTH_TOKEN },
     ]);
 
     const order = await gateOrder();
+    // The account order detail is the ONLY entry here behind the cookie gate,
+    // and it is reached through `gotoAccountSurface` so the cookie is present on
+    // the request rather than left over from five PDPs ago — by which point the
+    // app has always deleted it. Before that, this case walked into the 307 and
+    // measured the console of the LOGIN page while reporting the order URL: the
+    // same defect as PAO-04 (8/10), silent here because the assertion below
+    // holds on `/account` too.
+    const accountOrderUrl = `${BASE_URL}/account/orders/${order.id}?key=${order.key}`;
     const urls = [
       ...FIXTURES.map((f) => `${BASE_URL}/products/${f.slug}`),
       `${BASE_URL}/checkout/success/${order.id}?key=${order.key}`,
-      `${BASE_URL}/account/orders/${order.id}?key=${order.key}`,
+      accountOrderUrl,
     ];
 
     for (const url of urls) {
       noise.length = 0;
-      await page.goto(url);
+      if (url === accountOrderUrl) {
+        await gotoAccountSurface(page, context, url);
+      } else {
+        await page.goto(url);
+      }
       await page.waitForLoadState("networkidle").catch(() => undefined);
       const unexplained = unexplainedConsole(noise);
       perPage.push({ url, unexplained });

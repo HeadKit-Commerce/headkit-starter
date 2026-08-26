@@ -208,4 +208,58 @@ test.describe("one canonical URL shape @seo", () => {
     ).not.toBeNull();
     expect(pathOf(canonical![1]!)).toBe(root);
   });
+
+  /**
+   * DOMAIN OF THIS TEST, and where it stops.
+   *
+   * It asserts the ONE property the Shopify Admin preview flow needs from this
+   * route family: whether a `?preview_key=` request is redirected. A 308 drops
+   * the query string, so a redirect and a surviving preview key are mutually
+   * exclusive — that is the whole interaction, and it is decided entirely by
+   * the public catalogue lookup the redirect is gated on.
+   *
+   * IT DOES NOT PROVE A DRAFT RENDERS. That needs a Shopify store with an
+   * unpublished product and a live Admin key; this stack is WooCommerce, and
+   * the e2e stack is local-only by hard rule. The render half is covered in
+   * `app/canonical-url-shape.test.tsx`, which models the real contract from
+   * `services/commerce/internal/provider/shopify/catalog.go`: the Admin API is
+   * consulted only when the Storefront query returned nothing.
+   *
+   * What IS store-agnostic — and what this asserts — is the gate itself. A slug
+   * the public catalogue cannot resolve is exactly the position a draft product
+   * occupies, whatever the provider.
+   */
+  test("a preview request is never redirected out of its query string", async ({
+    request,
+  }) => {
+    const paths = await sitemapPaths(request);
+    const nested = nestedProductBase(paths);
+    test.skip(!nested, "no nested product URL in this store's sitemap");
+
+    const slug = nested!.split("/").pop()!;
+
+    // A PUBLISHED product still 308s with a key attached. The exemption below
+    // must come from the lookup missing, never from the mere presence of
+    // `preview_key` — a request-shaped exemption would be a redirect anyone
+    // could opt out of by appending a query parameter.
+    const published = await request.get(
+      `${BASE_URL}/products/${slug}?preview_key=e2e-not-a-real-key`,
+      { maxRedirects: 0 },
+    );
+    expect(
+      published.status(),
+      "a published product must consolidate exactly as it does for ordinary traffic; preview reveals nothing extra about it",
+    ).toBe(308);
+
+    // A slug the PUBLIC catalogue cannot resolve — the position a draft
+    // occupies — is not redirected, so its query string reaches the render.
+    const unresolvable = await request.get(
+      `${BASE_URL}/products/e2e-no-such-product-${Date.now()}?preview_key=e2e-not-a-real-key`,
+      { maxRedirects: 0 },
+    );
+    expect(
+      unresolvable.status(),
+      "a 3xx here would strip ?preview_key before anything could read it, and the Admin lookup that resolves a draft would never run",
+    ).toBeLessThan(300);
+  });
 });

@@ -1,5 +1,5 @@
 /**
- * The controls that make placing an order structurally impossible.
+ * The controls against placing an order, and the two declared gaps in them.
  *
  * The Dishee rehearsal storefront is armed with LIVE Stripe against a real
  * merchant account. A completed order there is a real charge on real money. So
@@ -13,9 +13,50 @@
  *     network. The recording matters as much as the abort: a page that TRIED is
  *     something the operator should see.
  *
- *  2. PAYMENT HOSTS ARE UNREACHABLE. No payment provider script is ever loaded
- *     on any page this harness opens (see `DEFAULT_BLOCKED_HOSTS`), so there is
- *     no payment element to confirm even if something else went wrong.
+ *  2. PAYMENT HOSTS ARE REFUSED AT THE ROUTE HANDLER. No payment provider script
+ *     is loaded on any page this harness opens by a request the PAGE issues (see
+ *     `DEFAULT_BLOCKED_HOSTS`), so there is no payment element to confirm even if
+ *     something else went wrong — subject to the two declared gaps below.
+ *
+ * CONTROLS 1 AND 2 ARE BLIND TO A SERVICE WORKER. Both are enforced by ONE
+ * `context.route()` handler, and Playwright's `context.route()` does not
+ * intercept requests issued by a service worker. `capture.ts` does not pass
+ * `serviceWorkers: "block"` to `newContext()`, so that option holds its default
+ * of `'allow'`. For a target that registers a service worker, therefore: a
+ * non-GET the worker issues is neither aborted nor recorded on `blocked`, and a
+ * host in `DEFAULT_BLOCKED_HOSTS` is reachable through it. AN EMPTY
+ * `blockedRequests` LIST IS NOT PROOF THAT NOTHING MUTATING WAS ATTEMPTED — it
+ * proves only that nothing mutating reached the route handler. GATE 0 does not
+ * cover this: `testserver/server.ts` registers no service worker, so the
+ * behavioural proof below passes with the hole standing. THIS GAP IS ACCEPTED,
+ * NOT PENDING: `260825-port-verify-service-worker-blind-guard` proposed
+ * `serviceWorkers: "block"` plus a GATE 0 service-worker fixture and was CLOSED
+ * AS DECLINED — service workers stay enabled, because blocking them changes what
+ * a worker-backed page renders into a capture, on an instrument whose whole job
+ * is fidelity comparison. No code fix is coming, so the protection is a
+ * PER-TARGET MEASUREMENT and the acceptance is conditional on it: REOPEN THIS
+ * BEFORE POINTING THE HARNESS AT ANY STORE WHOSE SERVICE-WORKER STATUS HAS NOT
+ * BEEN MEASURED. Measured read-only 2026-08-25: none of the
+ * three hosts this harness is pointed at (`dishee-rehearsal.headkit.app`,
+ * `www.dishee.com.au`, `pebblrbooth.com.au`) registers a service worker in its
+ * served homepage HTML. That check greps the homepage for `serviceWorker` /
+ * `sw.js` / `workbox`, so a registration inside a bundled JS chunk or on a
+ * non-homepage route would not have shown up — it is evidence the hole does not
+ * bite on today's targets, not proof that it cannot.
+ *
+ * A BLOCKED-HOST GET IS ABORTED WITHOUT BEING RECORDED. {@link installGetOnlyGuard}
+ * records a non-GET and THEN aborts it, but a `GET` to a host in
+ * `DEFAULT_BLOCKED_HOSTS` is aborted and pushed onto nothing. So the capture
+ * record and the report cannot show whether a payment provider was contacted at
+ * all — and because this harness exists to diff a V1 capture against a V2 one, a
+ * V1-versus-V2 difference in payment-script loading does NOT appear as a
+ * difference: both runs abort identically, both record nothing, and a real port
+ * defect of that shape renders as a MATCH. Tracked as
+ * `260825-port-verify-blocked-get-not-recorded`, which is STILL OPEN AND
+ * UNDECIDED — unlike the service-worker gap above, which is closed as accepted.
+ * Do not read the two as one status. They are also different defects: that one
+ * is about requests ESCAPING the guard, this one is about requests the guard
+ * CAUGHT and DISCARDED.
  *
  *  3. THE HARNESS HAS NO INTERACTION SURFACE. It navigates, reads and
  *     screenshots. It never clicks, types, presses, submits, drags or uploads.

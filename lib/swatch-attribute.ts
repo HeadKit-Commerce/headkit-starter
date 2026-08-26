@@ -4,9 +4,8 @@
  * Signals (in order):
  * 1. WooCommerce attribute `type` when present on ProductAttribute (color,
  *    colour, swatch, wc-visual, visual) — requires commerce + gateway deploy
- * 2. Legacy `pa_color` / `pa_colour` slugs
- * 3. Any option with a configured `swatchColor` (works as soon as the WP theme
- *    emits term colours; does not require ProductAttribute.type in GraphQL)
+ * 2. Legacy `pa_color` / `pa_colour` slugs, plus Shopify `color` / `colour`
+ * 3. Any option with a configured `swatchColor` or `swatchImage`
  */
 
 const SWATCH_ATTRIBUTE_TYPES = new Set([
@@ -22,6 +21,7 @@ export interface SwatchAttributeLike {
   type?: string | null;
   fullOptions?: ReadonlyArray<{
     swatchColor?: string | null;
+    swatchImage?: string | null;
   }> | null;
 }
 
@@ -31,11 +31,18 @@ export function isSwatchAttribute(attr: SwatchAttributeLike): boolean {
   if (SWATCH_ATTRIBUTE_TYPES.has(type)) {
     return true;
   }
-  // Legacy slug names before attribute type was plumbed through.
-  if (attr.slug === "pa_color" || attr.slug === "pa_colour") {
+  // Woo taxonomy slugs and Shopify option slugs (Color → "color").
+  if (
+    attr.slug === "pa_color" ||
+    attr.slug === "pa_colour" ||
+    attr.slug === "color" ||
+    attr.slug === "colour"
+  ) {
     return true;
   }
-  return (attr.fullOptions ?? []).some((o) => Boolean(o.swatchColor));
+  return (attr.fullOptions ?? []).some(
+    (o) => Boolean(o.swatchColor) || Boolean(o.swatchImage),
+  );
 }
 
 /** First variation attribute that should drive path-based / card swatches. */

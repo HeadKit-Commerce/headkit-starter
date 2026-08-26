@@ -5,6 +5,14 @@ import type { APIRequestContext, Page } from "@playwright/test";
 /**
  * Store V1 -> V2 route/parity gate (MIG-03 / MIG-04).
  *
+ * STOP — DO NOT RUN THIS SPEC AGAINST A LIVE CUSTOMER STOREFRONT UNTIL THE
+ * REQUEST GUARD LANDS (`260825-store-parity-no-request-guard`). This spec was
+ * cleared for a remote host on the premise that it is GET-only. That premise is
+ * FALSE for its browser passes, so the clearance was never valid. What is safe
+ * today is a rehearsal or preview host that is not a real merchant's store. The
+ * full account is under "NON-LOCAL HOST" below; read it before pointing this at
+ * anything a customer sells from.
+ *
  * STORE-AGNOSTIC BY CONSTRUCTION, AND THAT IS THE POINT. This file names no
  * store. Which store a run asserts is decided entirely by its three REQUIRED
  * environment variables below — the origin under test, the url inventory swept
@@ -37,11 +45,30 @@ import type { APIRequestContext, Page } from "@playwright/test";
  * serves every url the customer's live store serves — cannot be observed
  * against localhost. The waiver is bounded: `E2E_BASE_URL` is REQUIRED and has
  * no default here (unset fails loudly rather than quietly sweeping localhost),
- * no customer hostname appears anywhere in this file, and the spec issues GET
- * only — it signs nothing in, submits no form, adds nothing to a cart, and
- * performs no checkout action of any kind. Do not "fix" this file back to
- * local-only; read the `.md` provenance document beside the store's inventory
- * fixture, § "The waiver", first.
+ * and no customer hostname appears anywhere in this file. Do not "fix" this
+ * file back to local-only; read the `.md` provenance document beside the
+ * store's inventory fixture, § "The waiver", first.
+ *
+ * THE WAIVER IS NOT BOUNDED BY A GET-ONLY GUARANTEE. IT DOES NOT HAVE ONE.
+ * This spec installs NO request guard of any kind. Unlike `e2e/port-verify/`,
+ * nothing here intercepts, aborts or records what the page issues — there is no
+ * `context.route`, no `installGetOnlyGuard`, no blocked-host list. The
+ * `request.newContext()` calls below do issue GET only, but the browser passes
+ * (`page.goto`) load the full storefront with JavaScript enabled, and the
+ * storefront's own root layout issues at least one NON-GET per page load:
+ * `app/layout.tsx` renders `<LazyCartDrawer />`, which is
+ * `dynamic(..., { ssr: false })` and therefore loads at HYDRATION rather than on
+ * interaction; `cart-drawer.tsx` calls `getCartAction()` from an on-mount
+ * `useEffect`; and `getCartAction` lives in a `"use server"` module, so a client
+ * caller dispatches it as an HTTP POST to the current route carrying the
+ * `Next-Action` header. Nothing aborts that request and nothing records it.
+ *
+ * It does not MUTATE today only because `getCartAction` returns null when there
+ * is no cart-token cookie (`lib/cart-actions.ts`) and a fresh Playwright context
+ * has none. That is the behaviour of one function's body, NOT a control: nothing
+ * enforces it, nothing tests it, and it says nothing about the next on-mount
+ * server action, analytics beacon or error reporter added to the layout. Closing
+ * this needs a real guard, which is `260825-store-parity-no-request-guard`.
  *
  * THE TRANSACTING SPECS MUST NEVER JOIN A RUN AGAINST THIS HOST. A migrating
  * store's Stripe account is LIVE, not test, and its WooCommerce database is the
@@ -49,11 +76,20 @@ import type { APIRequestContext, Page } from "@playwright/test";
  *
  *     bunx playwright test e2e/store-parity.spec.ts --project=chromium
  *
- * `playwright.config.ts:27-31` also offers `E2E_TEST_IGNORE` as a denylist, and
+ * `playwright.config.ts:31-39` also offers `E2E_TEST_IGNORE` as a denylist, and
  * it should be set as defence in depth — but it is a DENYLIST, so it fails open
  * on any spec added after it was written. Naming the single file is therefore
- * the primary control, not the denylist. The specs that must never run against
- * a live merchant, in two groups:
+ * the primary control, not the denylist.
+ *
+ * A LOCAL FULL-SUITE RUN NEEDS THAT DENYLIST TOO. This spec refuses to self-skip
+ * when its three required env vars are unset, so `bun run test:e2e` in
+ * `apps/starter` is red by one failure on a clean tree unless it is invoked as
+ * `E2E_TEST_IGNORE=store-parity.spec.ts bun run test:e2e` — the same exclusion
+ * ci.yml sets. That is the cost of the no-self-skip design, not a defect in it:
+ * a parity gate that skipped itself would report green without having swept
+ * anything, which is the failure it exists to catch.
+ *
+ * The specs that must never run against a live merchant, in two groups:
  *   - place a real order or submit card details:
  *       checkout-purchase.spec.ts, checkout-pickup.spec.ts, free-order.spec.ts
  *   - reach checkout or otherwise mutate store/customer state:

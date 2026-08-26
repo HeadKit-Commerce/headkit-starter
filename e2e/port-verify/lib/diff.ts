@@ -18,6 +18,7 @@ import type {
   CaptureRun,
   CaptureRunMeta,
   JsonLdNode,
+  ScreenshotRecord,
 } from "./types";
 
 /** Difference kinds, most consequential first. */
@@ -137,6 +138,58 @@ function row(
     after: show(after),
     detail,
   };
+}
+
+/**
+ * Report a screenshot whose capture-side stability gate gave up.
+ *
+ * A give-up is not a difference between the two storefronts — it is the
+ * INSTRUMENT declaring that one of these two frames was still moving when it
+ * was kept, so a pixel row on the same screenshot may be the capture rather
+ * than the page. Reported for that reason, and reported whether or not the
+ * pixels then differ: "the gate gave up and the pixels happened to match" is
+ * still a screenshot nobody should read as a verified match.
+ *
+ * It sits in the `pixel` group deliberately. It is a caveat on the pixel tier
+ * and belongs beside the rows it qualifies; promoting it to `capture` would put
+ * a caveat about a screenshot above a canonical that flipped, and `signalRows`
+ * would then carry it into the exit code.
+ *
+ * `undefined` is UNKNOWN, not unstable: a capture written before the gate
+ * existed carries no verdict at all and must not be reported as a give-up.
+ */
+function frameStabilityRows(
+  key: string,
+  b: CaptureEntry,
+  a: CaptureEntry,
+): DiffRow[] {
+  const shots: readonly [
+    string,
+    ScreenshotRecord | null,
+    ScreenshotRecord | null,
+  ][] = [
+    ["desktop", b.screens.desktop, a.screens.desktop],
+    ["mobile", b.screens.mobile, a.screens.mobile],
+    ["no-JavaScript", b.nojs?.screenshot ?? null, a.nojs?.screenshot ?? null],
+  ];
+  const rows: DiffRow[] = [];
+  for (const [name, bs, as] of shots) {
+    if (bs?.frameStable === false || as?.frameStable === false) {
+      rows.push(
+        row(
+          "pixel",
+          key,
+          `${name} screenshot frame stability`,
+          bs?.frameStable === false ? "never held still" : "held still",
+          as?.frameStable === false ? "never held still" : "held still",
+          "the capture's stability gate exhausted its retries and kept a frame that was still " +
+            "changing, so a pixel difference on this screenshot may be the capture rather than " +
+            "the page — re-capture this URL before reading its pixels as a finding",
+        ),
+      );
+    }
+  }
+  return rows;
 }
 
 function chainText(entry: CaptureEntry): string {
@@ -455,7 +508,12 @@ function viewportsText(v: CaptureRunMeta["viewports"]): string {
 function rulesText(rules: CaptureRunMeta["normalize"]): string {
   if (rules.length === 0) return "(none)";
   return rules
-    .map((r) => `${r.field}:/${r.pattern}/${r.flags}->${r.replace}`)
+    .map(
+      (r) =>
+        `${r.field}:/${r.pattern}/${r.flags}->${r.replace}@${
+          (r.paths ?? []).length === 0 ? "*" : [...r.paths].sort().join(",")
+        }`,
+    )
     .sort()
     .join(" | ");
 }
@@ -900,6 +958,9 @@ export function diffSignals(before: CaptureRun, after: CaptureRun): DiffResult {
         ),
       );
     }
+
+    // --- frame stability ----------------------------------------------------
+    rows.push(...frameStabilityRows(key, b, a));
 
     // --- cache --------------------------------------------------------------
     const headerKeys = Object.keys(

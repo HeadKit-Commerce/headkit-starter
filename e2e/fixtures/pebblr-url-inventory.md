@@ -19,8 +19,8 @@ are.
 > well, so a later reader finds the reason rather than "fixing" an apparent violation.
 > See **§ 7 The waiver** below for its exact bounds and where the authorization was
 > granted. The non-spec `e2e/port-verify/` harness carries the same waiver on the same
-> terms — see AGENTS.md § _"Running e2e against a deployed store — GET only, and name the
-> file"_.
+> terms — see AGENTS.md § _"Running e2e against a deployed store — name the file, and know
+> which instrument is guarded"_.
 
 ---
 
@@ -332,9 +332,14 @@ The waiver is bounded:
 - **No host is hardcoded.** `E2E_BASE_URL` is required and has **no default** in this spec;
   unset makes the spec fail loudly rather than quietly sweep localhost. The customer
   hostname appears nowhere in the spec — only in this fixture's data.
-- **Read-only by construction.** The spec issues `GET` only. It signs nothing in, submits no
-  form, adds nothing to a cart, and performs no checkout action of any kind. The capture
-  held the same discipline: 70 requests, all `GET`, none authenticated, none to an admin
+- **NOT read-only, and NOT bounded by a GET-only guarantee.** The spec installs no request
+  guard: its `request.newContext()` calls are `GET`, but its `page.goto` passes load the
+  storefront with JavaScript on, and the root layout's hydration-time `getCartAction()` is a
+  `"use server"` call dispatched as a POST that nothing aborts or records. **Do not point
+  this spec at a live customer storefront until `260825-store-parity-no-request-guard`
+  lands.** The full account is in the `e2e/store-parity.spec.ts` docblock; read it before
+  running. Separately, and still true as a record of what already happened: the CAPTURE
+  below held the discipline — 70 requests, all `GET`, none authenticated, none to an admin
   surface, zero `429`/`503` observed.
 - **The transacting specs must never join this run.** Pebblr's Stripe account is **LIVE**,
   not test, and its WooCommerce database is the live order book. The safe invocation names

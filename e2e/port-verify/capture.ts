@@ -42,7 +42,7 @@ import { numberOption, parseArgv } from "./lib/args";
 import { prepareOutputDir } from "./lib/outdir";
 import type { OutputDirOutcome } from "./lib/outdir";
 import { slugFor } from "./lib/slug";
-import { loadPlan, masksForPath } from "./lib/plan";
+import { loadPlan, masksForPath, normalizeForPath } from "./lib/plan";
 import type { CapturePlan } from "./lib/plan";
 import { installGetOnlyGuard } from "./lib/safety";
 import { extractJsonLd } from "./lib/jsonld";
@@ -88,7 +88,7 @@ import type {
  * storefront moving — even when the record shape is untouched, because
  * `loadRun`'s schema gate cannot see those.
  */
-export const HARNESS_VERSION = "1.1.0";
+export const HARNESS_VERSION = "1.3.0";
 
 /** Fixed viewports. Never taken from a device preset — presets change between
  * Playwright releases, which would silently repaint every screenshot. */
@@ -219,6 +219,11 @@ function out(line: string): void {
 function fail(message: string): never {
   process.stderr.write(`${message}\n`);
   process.exit(2);
+}
+
+/** A capture that continued, but not on the terms it was supposed to. */
+function warn(line: string): void {
+  process.stderr.write(`${line}\n`);
 }
 
 const TOOL = "port-verify capture";
@@ -362,6 +367,126 @@ async function walkChain(
  * `Math.random`, and masking the regions that are genuinely time-driven — each
  * of which is stated in the report as the blind spot it is.
  */
+/**
+ * Wait for React's streamed dynamic holes to have LANDED, not merely to have
+ * arrived.
+ *
+ * `load` + network idle + fonts is not a settled page under Cache Components.
+ * A Suspense boundary the server could not resolve is shipped as
+ * `<!--$?--><template id="B:n"></template>`, its content arrives later inside
+ * `<div hidden id="S:n">`, and an inline script then MOVES it into place — so
+ * for a window measured in tens of milliseconds the content exists twice, once
+ * where it belongs and once in a container that measures 0px. Screenshot or
+ * read the DOM inside that window and the capture describes a point in the
+ * hydration sequence rather than the page. That showed up as sub-0.15%-of-frame
+ * pixel differences on a breadcrumb across two captures of an UNCHANGED host
+ * (`260825-port-verify-before-snapshots`, report §5c) — small, but noise on an
+ * instrument whose whole value is that a difference means something.
+ *
+ * Both halves of the condition are load-bearing, and they are the same two
+ * `AGENTS.md` states under "Two starter e2e races that read as ordinary
+ * assertion failures": no placeholder is left AND nothing may still be sitting
+ * in the hidden staging container. Waiting on the second alone is vacuously
+ * satisfied before the content ever arrives, which is the t=0 trap that
+ * reintroduces the race.
+ *
+ * BOTH of React's placeholder prefixes count, not just `B:`. `B:` marks a
+ * pending BOUNDARY; `P:` marks a segment that has not arrived inside a boundary
+ * which is ALREADY COMPLETE, and at that moment that boundary's
+ * `<div hidden id="S:n">` does not exist yet — so watching `B:` alone leaves
+ * BOTH halves of the condition vacuously satisfied while a hole is still
+ * outstanding, which is precisely the trap the paragraph above describes.
+ *
+ * Best-effort, exactly like every other wait on this path: a target that is not
+ * React, or a boundary that genuinely never resolves, falls through on the
+ * timeout rather than failing the capture. On a non-React page neither selector
+ * ever matches and this returns on the first poll.
+ */
+async function streamedHolesLanded(page: Page): Promise<void> {
+  await page
+    .waitForFunction(
+      () =>
+        document.querySelector('template[id^="B:"], template[id^="P:"]') ===
+          null && document.querySelector('div[hidden][id^="S:"]') === null,
+      undefined,
+      { timeout: 10000 },
+    )
+    .catch(() => undefined);
+}
+
+/**
+ * The three image-wait budgets. Deliberately small.
+ *
+ * By the time either call site is reached, `networkidle` has already waited out
+ * every image REQUEST — these waits exist for the gap between the last byte
+ * arriving and the `<img>` reporting itself painted, which is milliseconds on a
+ * healthy page. They are also paid TWICE per pass inside a settle that already
+ * has ~73s of other best-effort maxima under a 90s fence, so a generous budget
+ * here would not buy a better screenshot; it would buy a new class of capture
+ * error on a page with one broken image.
+ */
+const IMAGE_PAINTED_MS = 4_000;
+const IMAGE_SETTLED_MS = 3_000;
+const IMAGE_DECODE_MS = 4_000;
+
+/**
+ * Wait for every `<img>` on the page to have finished loading.
+ *
+ * EVERY IMAGE ON THESE STOREFRONTS CARRIES `loading="lazy"`, so nothing above
+ * has actually waited for one: `load` fires without them, `networkidle` is
+ * satisfied while they have not been requested yet, and the scroll-through only
+ * TRIGGERS the requests it walks past. The residual pixel rows this closes were
+ * a footer logo painted in one pass and simply absent in the other, at identical
+ * coordinates, on a different URL each pass — present-in-one/absent-in-the-other
+ * rather than different, which is the signature of a screenshot taken a moment
+ * too early (`260825-port-verify-before-snapshots` report §5a and §5d).
+ *
+ * THREE STAGES, BECAUSE THE WANTED CONDITION IS NOT A TERMINAL ONE. A painted
+ * image is `complete && naturalWidth > 0`; both halves are needed, since
+ * `complete` alone is also true of an image that ERRORED. But a broken `<img>`
+ * is `complete` with `naturalWidth === 0` FOREVER, so waiting on the painted
+ * condition alone would burn its whole budget on every settle of any page
+ * carrying one — and one of these storefronts renders a broken-image glyph on
+ * every `/news/*` page. So the painted condition is asked for first and briefly;
+ * `complete` — which a broken image satisfies immediately and an in-flight one
+ * does not — is the terminal condition asked for second; and the `decode()`
+ * sweep mops up anything still not complete, settling either way.
+ *
+ * Best-effort at every stage, exactly like every other wait on this path.
+ */
+async function imagesLoaded(page: Page): Promise<void> {
+  const painted = await page
+    .waitForFunction(
+      () =>
+        Array.from(document.images).every(
+          (img) => img.complete && img.naturalWidth > 0,
+        ),
+      undefined,
+      { timeout: IMAGE_PAINTED_MS },
+    )
+    .then(() => true)
+    .catch(() => false);
+  if (painted) return;
+  await page
+    .waitForFunction(
+      () => Array.from(document.images).every((img) => img.complete),
+      undefined,
+      { timeout: IMAGE_SETTLED_MS },
+    )
+    .catch(() => undefined);
+  await withTimeout(
+    page.evaluate(async () => {
+      await Promise.all(
+        Array.from(document.images)
+          .filter((img) => !img.complete)
+          .map((img) => img.decode().catch(() => undefined)),
+      );
+    }),
+    "image decode",
+    IMAGE_DECODE_MS,
+  ).catch(() => undefined);
+}
+
 async function settle(page: Page): Promise<void> {
   await page
     .waitForLoadState("load", { timeout: 20000 })
@@ -369,11 +494,13 @@ async function settle(page: Page): Promise<void> {
   await page
     .waitForLoadState("networkidle", { timeout: 15000 })
     .catch(() => undefined);
+  await streamedHolesLanded(page);
   await page
     .waitForFunction(() => document.fonts.status === "loaded", undefined, {
       timeout: 8000,
     })
     .catch(() => undefined);
+  await imagesLoaded(page);
   // Force whatever is lazy-loaded below the fold to load, then return to the
   // top so the screenshot starts where the previous run's did. Synchronous:
   // reading `scrollHeight` flushes layout, and no timer is involved.
@@ -392,6 +519,12 @@ async function settle(page: Page): Promise<void> {
   await page
     .waitForLoadState("networkidle", { timeout: 10000 })
     .catch(() => undefined);
+  // Again after the scroll: below-the-fold content can open boundaries the
+  // first wait never saw, and the scroll is what STARTED every lazy image below
+  // the fold — the wait before it could only have seen the ones already in
+  // flight. This second pass is the one that matters.
+  await streamedHolesLanded(page);
+  await imagesLoaded(page);
   await page.addStyleTag({ content: FREEZE_CSS }).catch(() => undefined);
 }
 
@@ -429,14 +562,77 @@ async function readDomSignals(page: Page): Promise<DomSignals> {
   });
 }
 
-/** A screenshot with no locator resolution — safe in a scripting-disabled page. */
-async function shootPlain(page: Page, file: string): Promise<ScreenshotRecord> {
-  const buffer = await page.screenshot({
-    fullPage: true,
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
+/** Gap between the two frames of the stability gate. */
+const STABILITY_INTERVAL_MS = 250;
+
+/**
+ * How many EXTRA frames the gate may shoot before it gives up and keeps the
+ * last one. Total frames per screenshot is this plus one.
+ */
+const STABILITY_MAX_RETRIES = 3;
+
+/**
+ * A NODE-side wait, and it has to stay one. The settle path's rule against
+ * in-page timers is about the page's own `setTimeout`, which `--freeze-clock`
+ * would stop; this one runs in the capture process and is unaffected by
+ * anything the page does to its clock.
+ */
+function pause(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
   });
+}
+
+/**
+ * Shoot until two consecutive frames are pixel-identical.
+ *
+ * WHY A STABILITY GATE RATHER THAN ANOTHER WAIT. Two rounds of milestone-based
+ * waits have each missed something new: round 1 missed React's streamed dynamic
+ * holes, and the fix for those still missed lazy images and late client
+ * renders. Waiting for "the things we thought of" is structurally open-ended,
+ * and every miss costs a capture whose pixel tier cannot be trusted. This gate
+ * asserts the property the self-diff is actually testing — the frame has
+ * STOPPED MOVING — instead of a proxy for it, so a late render nobody has named
+ * yet is caught by the same mechanism as the ones that have been.
+ *
+ * It does not replace the waits above it. Those get the page to the right
+ * state; this one only refuses to photograph it while it is still changing, and
+ * on a page that was already still it costs exactly one extra frame.
+ *
+ * BOUNDED, AND LOUD WHEN IT GIVES UP. A gate that retried until the frame
+ * settled would hang on any page with a genuinely perpetual animation the
+ * `FREEZE_CSS` above does not reach — worse than one that occasionally gives up
+ * visibly, because a wedged capture produces no record at all. So the retries
+ * are capped, the last frame is kept, the give-up is written to stderr as it
+ * happens and recorded on the screenshot record as
+ * {@link ScreenshotRecord.frameStable} for the report to print. Every call is
+ * additionally inside a {@link withTimeout} fence at the call site.
+ */
+async function stableShot(
+  take: () => Promise<Buffer>,
+  file: string,
+): Promise<{ buffer: Buffer; frameStable: boolean }> {
+  let previous = await take();
+  for (let attempt = 1; attempt <= STABILITY_MAX_RETRIES; attempt += 1) {
+    await pause(STABILITY_INTERVAL_MS);
+    const next = await take();
+    if (next.equals(previous)) return { buffer: next, frameStable: true };
+    previous = next;
+  }
+  warn(
+    `port-verify capture: ${file} never held still — ${STABILITY_MAX_RETRIES + 1} frames ` +
+      `${STABILITY_INTERVAL_MS}ms apart all differed. Keeping the last one; it is recorded as ` +
+      `frame-unstable and the comparison will say so, so a pixel difference on this screenshot ` +
+      `may be the capture rather than the page.`,
+  );
+  return { buffer: previous, frameStable: false };
+}
+
+function recordShot(
+  file: string,
+  buffer: Buffer,
+  frameStable: boolean,
+): ScreenshotRecord {
   writeFileSync(file, buffer);
   const image = decodePng(buffer);
   return {
@@ -444,7 +640,23 @@ async function shootPlain(page: Page, file: string): Promise<ScreenshotRecord> {
     width: image.width,
     height: image.height,
     inkRatio: inkRatio(image),
+    frameStable,
   };
+}
+
+/** A screenshot with no locator resolution — safe in a scripting-disabled page. */
+async function shootPlain(page: Page, file: string): Promise<ScreenshotRecord> {
+  const { buffer, frameStable } = await stableShot(
+    () =>
+      page.screenshot({
+        fullPage: true,
+        animations: "disabled",
+        caret: "hide",
+        scale: "css",
+      }),
+    file,
+  );
+  return recordShot(file, buffer, frameStable);
 }
 
 async function shoot(
@@ -452,22 +664,19 @@ async function shoot(
   file: string,
   selectors: readonly string[],
 ): Promise<ScreenshotRecord> {
-  const buffer = await page.screenshot({
-    fullPage: true,
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-    mask: selectors.map((s) => page.locator(s)),
-    maskColor: "#ff00ff",
-  });
-  writeFileSync(file, buffer);
-  const image = decodePng(buffer);
-  return {
+  const { buffer, frameStable } = await stableShot(
+    () =>
+      page.screenshot({
+        fullPage: true,
+        animations: "disabled",
+        caret: "hide",
+        scale: "css",
+        mask: selectors.map((s) => page.locator(s)),
+        maskColor: "#ff00ff",
+      }),
     file,
-    width: image.width,
-    height: image.height,
-    inkRatio: inkRatio(image),
-  };
+  );
+  return recordShot(file, buffer, frameStable);
 }
 
 interface Shared {
@@ -550,7 +759,11 @@ async function captureTarget(
   const { args, plan } = shared;
   const errors: string[] = [];
   const blockedAll: BlockedRequest[] = [];
-  const norm = plan.normalize;
+  // Scoped to THIS path. An unscoped rule still applies everywhere — the
+  // filter is what lets a store absorb one page family's volatile value
+  // without blinding the rest of the store to the same string. See
+  // `normalizeForPath`.
+  const norm = normalizeForPath(target.path, plan.normalize);
   const origin = args.baseUrl;
 
   const { chain, final, finalUrl } = await walkChain(
