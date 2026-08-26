@@ -64,22 +64,21 @@ index equity, and deliberately NOT configurable). The flat `/products/<slug>` an
   already passed.
 - **A route that redirects must sit above EVERY Suspense boundary — including the root
   layout's.** Under Cache Components a redirect thrown inside a boundary commits after the
-  response, so the route answers 200 with a shell and redirects only on the client. THREE
-  separate things put a page inside one, and removing two of them still leaves a 200:
-  an in-page `<Suspense>`, a route-level `loading.tsx` (an IMPLICIT boundary around the
-  page component), and a boundary in an ANCESTOR layout — `app/layout.tsx` wrapping
-  `{children}` did exactly that, which is why nothing there may wrap `{children}` in one
-  again. What decides is ANCESTRY, not presence: the narrow boundary `app/layout.tsx` still
-  carries around `DynamicMetadataMarker` is a SIBLING of `{children}`, so it puts no page
-  inside a boundary and no route's redirect below one. Measured on
-  Next 16.3 with `cacheComponents: true`, one variable at a time: any of the three present
-  → 200; all three absent → a real 308, prerendered and at runtime alike. `instant = true`
+  response, so the route answers 200 with a shell and redirects only on the client.
+  `notFound()` fails the same way, so the sources that commit the response are enumerated
+  once below, under "Setting a status code needs THREE conditions" — one of them was
+  `app/layout.tsx` wrapping `{children}`, which is why nothing there may wrap `{children}`
+  in one again. What decides is ANCESTRY, not presence: the narrow boundary `app/layout.tsx`
+  still carries around `DynamicMetadataMarker` is a SIBLING of `{children}`, so it puts no
+  page inside a boundary and no route's redirect below one. Measured on
+  Next 16.3 with `cacheComponents: true`, one variable at a time: any of them present
+  → 200; all absent → a real 308, prerendered and at runtime alike. `instant = true`
   makes no difference either way. Render the fallback from the page's own `<Suspense>`
   instead. The same trap is why the `/posts` → `/news` move lives in `next.config.ts`
   `redirects()`.
   A unit test cannot see any of this — calling the page function throws `NEXT_REDIRECT`
-  under all three — so `e2e/canonical-url-308.spec.ts` is what holds it, by asserting the
-  status code over real HTTP against a built, running app. A root boundary also empties the
+  under every arrangement — so `e2e/canonical-url-308.spec.ts` is what holds it, by asserting
+  the status code over real HTTP against a built, running app. A root boundary also empties the
   prerendered shell: measured JS-off, the home page carried 0 visible characters with it and
   409 without.
 
@@ -153,6 +152,135 @@ make IS the response; they previously borrowed the boundary `app/layout.tsx` wra
 `{children}` in, and removing that (above) left them with none and failed the build outright.
 Giving them a boundary instead would make them answer 200 + empty shell and redirect on the
 client — the same defect the product and collection routes exist to close.
+
+### A `redirects()` source in `next.config.ts` is also a blog base path
+
+`RESERVED_POSTS_BASE` (`lib/posts-path.ts`) exists so a storefront route can never become the
+WordPress Posts-page base. `next.config.ts` 308s `/posts` → `/news` unconditionally, and
+`proxy.ts` 308s `/news` out to the store's own Posts slug whenever it is not `news` — so on a
+store whose Posts page is literally `posts` the two rules are exact inverses and the whole blog
+namespace answers ERR_TOO_MANY_REDIRECTS. That happened on a live rehearsal storefront.
+`lib/posts-path.test.ts` asserts the whole class against the LIVE config, so adding a redirect
+without reserving its first segment fails CI rather than a store. The second generator was the
+CMS catch-all's own hard-coded `/news` target; it now derives from
+`postsIndexPath(await getPostsBasePath())` and no-ops when the target equals the request.
+
+### Setting a status code needs THREE conditions, and `instant` is not one of them
+
+THIS SECTION IS THE ONE OWNER of the rule. Every gated route's docblock points here rather
+than restating it; do not re-explain it in a route file.
+
+`notFound()` and `permanentRedirect()` signal by THROWING, and a throw can only set the
+status while the status line is unsent. Under Cache Components the response commits as 200 the
+moment anything above the throw can render a fallback, after which Next injects
+`<meta name="robots" content="noindex">` into the already-streaming body instead of sending a
+404 — which is why an affected page carries TWO robots metas. So a route that must answer 404
+or 308 has to satisfy all three of these, and satisfying two still yields 200:
+
+1. **The decision is awaited in the route's own default export**, above every in-page
+   `<Suspense>`. Keep the inner component's checks too: the `"use cache"` reads dedupe and the
+   component stays correct on its own terms.
+2. **No `loading.tsx` at the route OR at any ANCESTOR segment.** A `loading.tsx` is an implicit
+   boundary around its own segment and everything nested below it, so `app/shop/loading.tsx`
+   gated `/shop/[...slug]`. Equally, **`app/layout.tsx` must never wrap `{children}` in a
+   `<Suspense>`** — that one commits the 200 for every route at once and makes an otherwise
+   perfect fix completely inert. That is not hypothetical: a sibling storefront shipped this
+   same route-wide hoist with two tests and still soft-404s in production today, because its
+   root layout carries that boundary and neither test looked at the layout.
+3. **`export async function generateStaticParams`, even with nothing to enumerate.** MEASURED
+   on a Next 16.3 production build: a dynamic segment WITHOUT one is served from a fully
+   postponed prerendered shell (`x-nextjs-prerender: 1`, `x-nextjs-postponed: 1`), so the shell
+   commits the 200 before the page component runs. `/news/{missing}` and `/projects/{missing}`
+   satisfied 1–2 and still answered 200; adding a placeholder-only `generateStaticParams` was
+   the single change that made both 404. `app/client/[...slug]/page.tsx` is the minimal shape.
+
+**`export const instant = false` is NOT a fourth condition, and this file used to say it was.**
+The claim — that an instant route may not read `params` outside `<Suspense>`, which condition 1
+needs — is false, and the correction is a one-variable MEASUREMENT on a Next 16.3 production
+build against the local Docker stack, not a re-reading: with `app/brand/[...slug]/page.tsx`
+flipped to `instant = true` and nothing else touched, `/brand/{missing}` still answered **404**,
+with `x-nextjs-postponed: 1`, no `x-nextjs-prerender` and exactly ONE robots meta — identical
+to the `instant = false` build captured before it, which answered 404 with the same three
+signals. `next build` succeeded both ways, and the control (`/brand/acme`) stayed 200 both
+ways. `app/products/[...slug]` is a second, independent counter-example already in the tree:
+`instant = true`, `params` awaited above the boundary, a real measured 308.
+
+What the export actually controls is NAVIGATION VALIDATION (Next 16.3's own bundled reference,
+`next/dist/docs/01-app/03-api-reference/03-file-conventions/02-route-segment-config/instant.md`):
+`true` opts the segment into
+validation at the globally configured level — framework default `warning`, development only,
+errors in the dev overlay, build unaffected — and `false` opts out, declaring the segment
+"allowed to block when navigating to it" and exempting the route from the non-empty static
+shell check at prerender time. **Keep `instant = false` on every gated route**: blocking on one
+cached read before responding is exactly what these routes do, so the export is an accurate
+declaration of their shape. Just never attribute a status code to it, and never reach for it as
+the fix for a soft 404.
+
+Two more rules follow from the gate rather than from the boundary, and both were shipped
+soft-404s in their own right:
+
+- **The gate's read must tell a MISS from a FAILURE.** `notFound()` is for a null the provider
+  genuinely returned. A read that catches its own transport error into `null` — especially
+  inside a `"use cache"` scope — hands the gate a miss it did not observe, and the gate then
+  bakes a real 404 into the route cache for the whole `cacheLife`. `getPageData`
+  (`app/[...slug]/page.tsx`, shared with `/wholesale`) did exactly that; it no longer catches,
+  and `app/brand`, `app/collections` and `app/shop` state the same rule at their gates. The
+  news/projects/client routes keep it with `unstable_rethrow` as the first statement of every
+  recovering catch.
+- **The build-time placeholder slug 404s AT the gate, not below it.** `generateStaticParams`
+  needs ≥1 param (condition 3), so routes with nothing to enumerate return
+  `__hk_static_placeholder`. It is never served from a prerender, so a runtime request for it
+  is a junk URL: gating it with `if (slug[0] !== PLACEHOLDER) { …check… }` skips the gate and
+  lets the inner component's `notFound()` fire below the boundary — the same soft 404, reachable
+  by URL. Write `if (slug[0] === PLACEHOLDER) notFound();` above the boundary instead.
+
+**EIGHT route families are gated:** `app/[...slug]`, `app/collections/[...slug]`,
+`app/news/[...slug]`, `app/shop/[...slug]`, `app/brand/[...slug]`, `app/projects/[...slug]`,
+`app/client/[...slug]` and the static `app/wholesale/page.tsx`. `app/not-found-status.test.ts`
+holds the same list in executable form.
+
+**`app/products/[...slug]` is deliberately NOT one of them.** The flat PDP still answers 200 for
+a missing product, with the not-found UI and Next's own extra bare `noindex` in the body —
+MEASURED on a local Next 16.3 production build. Gating it breaks the Shopify Admin
+draft-preview flow, which another team owns: above the boundary a draft and a missing product
+are the SAME null `getCachedProduct`, and the preview key that separates them lives in
+`searchParams`, readable only below it. The gap is accepted and recorded in
+`docs/tickets/products-flat-url-soft-404.md`; the exclusion is named in
+`app/not-found-status.test.ts` and `e2e/not-found-status.spec.ts` so it cannot be mistaken for
+an oversight and helpfully "fixed".
+
+`app/not-found-status.test.ts` covers condition 3 by LOADING each route module and calling
+`generateStaticParams` (with the SDK offline, which is the branch that matters), and conditions
+1 and 2 structurally, because neither the gate's position relative to the boundary nor the
+presence of a `loading.tsx`/root-layout boundary has any form observable at module scope. It
+also pins `instant === false` per route — as the DECLARATION above, not as a status-code
+condition. `e2e/not-found-status.spec.ts` asserts the actual status over HTTP, in BOTH
+directions — a gate that 404s a route family's REAL pages is worse than the bug it replaced.
+**No unit test that merely CALLS a page function can observe any of this**: it throws
+`NEXT_HTTP_ERROR_FALLBACK` under every arrangement, so such a test is green under all of them.
+
+**The cost is stated, not hidden.** Each gated route forfeits its static App Shell skeleton:
+TTFB now waits on one `"use cache"` read (warm: memory) instead of painting a skeleton first.
+Everything expensive still streams behind the boundary, so time-to-content is broadly
+unchanged. Accepted — a 200 on every missing URL of every store is the larger cost.
+
+### The footer ships NO social links, and that is the fix
+
+`app/layout.tsx` is a template file: a literal here reaches every merchant's footer, and a
+template sync replaces a store's copy wholesale. It used to hard-code the VENDOR's own
+Instagram/Discord/GitHub/LinkedIn/YouTube, so every storefront advertised them — and when one
+store forked those lines to its own accounts, with a warning comment saying the fork would be
+lost, the next sync silently republished the vendor's five on a live customer storefront.
+`Footer` gates the whole Connect block on `hasSocialLinks`, so passing no prop makes the block
+ABSENT, not empty. `app/layout-social-links.test.tsx` guards it as a chain — it RENDERS
+`Footer` with and without links to prove the block is absent rather than empty, and it invokes
+`RootLayout` to read the props it actually passes, because either half alone passes the bug. A
+store adds its own by forking this one line.
+
+Making that per-store DATA rather than a fork is an OPEN DECISION with no ticket behind it —
+`store-social-links-platform-field` is a name to hold the decision by, not an id. The scope it
+would span, and why leaving it open is safe, are stated once where the prop is absent, in
+`app/layout.tsx`.
 
 ### A guard must state the domain it actually exercises — and where it stops
 

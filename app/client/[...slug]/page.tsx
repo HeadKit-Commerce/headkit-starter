@@ -76,13 +76,36 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     });
   } catch (error) {
     unstable_rethrow(error);
-    return {};
+    // The content component lets the same failure throw, which renders
+    // `app/error.tsx` at HTTP 200 — an indexable status. Returning `{}` here
+    // let that body inherit the store's indexable default, where the late
+    // `notFound()` it replaced got Next's own injected `noindex`. A client
+    // that EXISTS must never be offered to crawlers as an error page.
+    return { robots: { index: false, follow: false } };
   }
 }
 
-export const instant = true;
+/**
+ * Blocking route so `notFound()` can still set a real 404: under Cache
+ * Components the response commits as 200 the moment a `<Suspense>` fallback
+ * renders, and a `notFound()` raised inside the boundary only earns a `noindex`
+ * meta tag. The existence check therefore runs in the default export, above the
+ * boundary, forfeiting this route's App Shell. What that costs, what else can
+ * commit the 200 first, and why `instant` is NOT one of those things live once
+ * in "Setting a status code needs THREE conditions" in `apps/starter/AGENTS.md`.
+ * `instant = false` is that section's declaration rule: this route blocks on a
+ * cached read before it responds.
+ */
+export const instant = false;
 
-export default function Page(props: Props): ReactNode {
+export default async function Page(props: Props): Promise<ReactNode> {
+  // Pre-commit gate — an unknown client slug must answer 404. The `"use cache"`
+  // client read dedupes with `ClientPageContent`'s own read below.
+  const { slug } = await props.params;
+  const clientSlug = slug[slug.length - 1];
+  if (!clientSlug || clientSlug === STATIC_GEN_PLACEHOLDER_SLUG) notFound();
+  if (!(await getClient(clientSlug))) notFound();
+
   return (
     <Suspense fallback={<ClientPageSkeleton />}>
       <ClientPageContent {...props} />
@@ -99,12 +122,17 @@ async function ClientPageContent({
     return notFound();
   }
 
-  let client;
-  try {
-    client = await getClient(clientSlug);
-  } catch {
-    return notFound();
-  }
+  // Deliberately UNCAUGHT, and the reason is NOT the status code. This
+  // component runs BELOW the `<Suspense>` that already committed the 200, so
+  // neither a `notFound()` nor a thrown error can set a status here — both
+  // answer 200. What changes is the BODY and its robots meta: a late
+  // `notFound()` tells a shopper this client does not exist when the gate in
+  // the default export just proved it does, while a throw renders
+  // `app/error.tsx`, is loggable, and commits no wrong content as the page.
+  // `generateMetadata`'s catch marks that render `noindex` so the error body
+  // is never offered to a crawler. The miss case is the null below, owned
+  // jointly with that gate.
+  const client = await getClient(clientSlug);
   if (!client) return notFound();
 
   const name = decodeHtmlEntities(client.name);

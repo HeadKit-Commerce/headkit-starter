@@ -289,14 +289,49 @@ export async function generateMetadata({
 }
 
 /**
- * Instant Navigation (Next.js 16.3): keep the route segment sync so Partial
- * Prefetching can ship an App Shell immediately. Awaiting `params` in the
- * default export blocks the shell. Stream via Suspense.
- * @see https://nextjs.org/docs/app/guides/instant-navigation
+ * Blocking route so `notFound()` can still set a real 404: under Cache
+ * Components the response commits as 200 the moment a `<Suspense>` fallback
+ * renders, and a `notFound()` raised inside the boundary only earns a `noindex`
+ * meta tag. The existence check therefore runs in the default export, above the
+ * boundary, forfeiting this route's App Shell. What that costs, what else can
+ * commit the 200 first, and why `instant` is NOT one of those things live once
+ * in "Setting a status code needs THREE conditions" in `apps/starter/AGENTS.md`.
+ * `instant = false` is that section's declaration rule: this route blocks on a
+ * cached read before it responds.
  */
-export const instant = true;
+export const instant = false;
 
-export default function Page(props: Props): ReactNode {
+export default async function Page(props: Props): Promise<ReactNode> {
+  // Pre-commit gate. This route DELEGATES rendering to the PDP and collection
+  // views, so it must REPRODUCE their existence decision here rather than let
+  // them 404 mid-stream — and reproducing it means the whole decision, not just
+  // the classification: `resolveShopPath` reads `/shop/{slug}` as a PRODUCT
+  // candidate (see `shop-slug.test.ts`), so an unknown one-segment path only
+  // fails once `resolveProductParams` has probed every candidate and found
+  // none. That is the same function `ShopRouteContent` calls below, and every
+  // probe it makes is a `"use cache"` `getCachedProduct` read, so the repeat
+  // costs cache hits rather than round trips.
+  //
+  // The `category` branch needs no lookup: a path only classifies as a category
+  // by already matching the tree that was just read.
+  //
+  // The build-time placeholder param 404s HERE. It is never served from a
+  // prerender, so skipping the gate for it sent a runtime request down into
+  // `ShopRouteContent`, whose `notFound()` fires below the boundary — the soft
+  // 404 this gate exists to close.
+  const { slug } = await props.params;
+  if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) notFound();
+  // Not caught, deliberately — same rule as `getShopCategoryTree`: a thrown
+  // read is transport/infra and must propagate, never become a sticky 404.
+  const resolved = resolveShopPath(slug, await getShopCategoryTree());
+  if (resolved.kind === "index" || resolved.kind === "unknown") notFound();
+  if (
+    resolved.kind === "product" &&
+    !(await resolveProductParams(slug, resolved.candidates))
+  ) {
+    notFound();
+  }
+
   return (
     <Suspense fallback={<ProductPageShell />}>
       <ShopRouteContent {...props} />

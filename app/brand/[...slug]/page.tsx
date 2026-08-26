@@ -141,15 +141,35 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 /**
- * Instant Navigation (Next.js 16.3): keep the route segment sync so Partial
- * Prefetching can ship an App Shell immediately. Awaiting `params` / brand
- * data in the default export blocks client navigations (same as collections).
- *
- * @see https://nextjs.org/docs/app/guides/instant-navigation
+ * Blocking route so `notFound()` can still set a real 404: under Cache
+ * Components the response commits as 200 the moment a `<Suspense>` fallback
+ * renders, and a `notFound()` raised inside the boundary only earns a `noindex`
+ * meta tag. The existence check therefore runs in the default export, above the
+ * boundary, forfeiting this route's App Shell. What that costs, what else can
+ * commit the 200 first, and why `instant` is NOT one of those things live once
+ * in "Setting a status code needs THREE conditions" in `apps/starter/AGENTS.md`.
+ * `instant = false` is that section's declaration rule: this route blocks on a
+ * cached read before it responds.
  */
-export const instant = true;
+export const instant = false;
 
-export default function Page({ params, searchParams }: Props) {
+export default async function Page({ params, searchParams }: Props) {
+  // Pre-commit gate — only existence is hoisted; the product grid keeps
+  // streaming behind the boundary below. `BrandRoute` repeats the checks and
+  // the `"use cache"` shell read dedupes. A THROWN read still propagates (see
+  // the note there): only a null brand is a genuine miss.
+  //
+  // The build-time placeholder is a 404 HERE rather than a skipped gate: it is
+  // never served from a prerender, so skipping the gate let a runtime request
+  // for it fall through to `BrandRoute`, whose `notFound()` fires below the
+  // boundary — the exact soft 404 this route exists to close.
+  const { slug } = await params;
+  if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) notFound();
+  const brandSlug = slug[slug.length - 1];
+  if (!brandSlug) notFound();
+  const { brand } = await getBrandShell(brandSlug);
+  if (!brand) notFound();
+
   return (
     <Suspense fallback={<CollectionPageSkeleton variant="brand" />}>
       <BrandRoute params={params} searchParams={searchParams} />

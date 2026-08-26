@@ -303,12 +303,23 @@ describe("the flat collection shape 308s onto the nested one", () => {
   });
 
   it("does not redirect when the category cannot be resolved", async () => {
-    // A transport failure or a genuinely missing category must never become a
-    // redirect: an outage would otherwise mint permanent, client-cached moves
-    // to a path that was never canonical.
+    // A genuinely missing category must never become a redirect: an outage
+    // would otherwise mint permanent, client-cached moves to a path that was
+    // never canonical. It answers 404 instead, from the same default export and
+    // above the boundary, so the status line is still settable — the soft-404
+    // fix. The distinction that matters is redirect-vs-not: `notFound()` here
+    // is the SAME outcome the route always had, moved to where it can set a
+    // status (see `app/not-found-status.test.ts`).
     getCategory.mockResolvedValue(null);
 
-    expect(await redirectTargetFor(["child"])).toBeNull();
+    redirectedTo.mockClear();
+    await expect(
+      Page({
+        params: Promise.resolve({ slug: ["child"] }),
+        searchParams: Promise.resolve({}),
+      }),
+    ).rejects.toThrow("notFound");
+    expect(redirectedTo).not.toHaveBeenCalled();
   });
 
   it("agrees with the canonical it emits", async () => {

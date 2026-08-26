@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ReactElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 /**
  * PDP cache-tag/life guard (09.5-04 / ENG-853).
@@ -17,6 +19,23 @@ const withShopifyPreviewKey =
   vi.fn<(key: string) => { products: { get: typeof productsGet } }>();
 
 vi.mock("server-only", () => ({}));
+
+/**
+ * Only the SINK is replaced. `errorFields` is the thing under test on the
+ * no-raw-body assertion, so it runs for real.
+ */
+const { loggerError } = vi.hoisted(() => ({
+  loggerError:
+    vi.fn<(event: string, fields?: Record<string, unknown>) => void>(),
+}));
+
+vi.mock("@/lib/logger", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/logger")>();
+  return {
+    ...actual,
+    logger: { ...actual.logger, error: loggerError },
+  };
+});
 
 vi.mock("next/cache", () => ({
   cacheTag: (...tags: string[]): void => cacheTag(...tags),
@@ -126,6 +145,7 @@ beforeEach(() => {
   cacheLife.mockClear();
   productsGet.mockReset();
   withShopifyPreviewKey.mockReset();
+  loggerError.mockClear();
   productsGet.mockResolvedValue(null);
 });
 
@@ -166,23 +186,126 @@ describe("getProductForPage preview bypass", () => {
   });
 });
 
+/**
+ * A provider failure inside `ProductPageContent` DEGRADES, and it must do so
+ * without asking which phase it is in.
+ *
+ * This component renders below the PDP's `<Suspense>` boundary, so `notFound()`
+ * could not set a status here even if the product really were missing — and a
+ * THROWN provider read is not evidence that it is, so answering with the
+ * not-found UI tells a shopper an existing product is gone. The other obvious
+ * alternative is worse: an escaping throw aborts the tenant static export,
+ * because this route's `generateStaticParams` enumerates REAL products (#332).
+ *
+ * So the degrade is unconditional, and these assertions run in ONE arrangement
+ * with no environment set up. That is the design rather than a shortcut: there
+ * is no phase to arrange for, and a test that had to name one to reach this
+ * catch would be asserting a mechanism the route deliberately does not have.
+ *
+ * The degrade also has to be OBSERVABLE — a build that shipped one degraded PDP
+ * must be distinguishable from a clean one by its output alone — and the line
+ * it emits must stay inside the logger's caller contract, which forbids handing
+ * it a raw upstream error body (threat T-09.5-07). Both are asserted below.
+ */
 describe("ProductPageContent provider failure", () => {
-  it("degrades to notFound instead of throwing (tenant SSG must not abort)", async () => {
+  /**
+   * Shaped like the real thing: `@headkit/sdk` builds `NetworkError`'s message
+   * as `HeadKit authentication failed: ${body}` on a 401, so the raw upstream
+   * response text IS the message. That is what must not reach the log line.
+   */
+  const UPSTREAM_BODY = "consumer_key=ck_live_leaked_from_the_gateway";
+  const providerFailure = (): Error =>
+    Object.assign(
+      new Error(`HeadKit authentication failed: ${UPSTREAM_BODY}`),
+      {
+        name: "NetworkError",
+        code: "INVALID_KEY",
+        status: 401,
+      },
+    );
+
+  it("renders a degraded page instead of throwing or 404ing", async () => {
+    const { ProductPageContent } = await import("./page");
+    productsGet.mockRejectedValueOnce(providerFailure());
+
+    const rendered = await ProductPageContent({
+      params: Promise.resolve({ slug: [SLUG] }),
+    });
+
+    const html = renderToStaticMarkup(rendered as ReactElement);
+    expect(
+      html,
+      "the shopper must get an honest, retryable page — not the not-found UI " +
+        "for a product the gate above proved exists.",
+    ).toContain("temporarily unavailable");
+    expect(html, "and not the not-found UI either").not.toContain(
+      "Page not found",
+    );
+  });
+
+  it("logs the degrade with the slug that aims the recovery lever", async () => {
+    const { ProductPageContent } = await import("./page");
+    productsGet.mockRejectedValueOnce(providerFailure());
+
+    await ProductPageContent({ params: Promise.resolve({ slug: [SLUG] }) });
+
+    expect(
+      loggerError,
+      "a degraded PDP that logs nothing makes a build which shipped one " +
+        "indistinguishable from a clean one.",
+    ).toHaveBeenCalledTimes(1);
+    const [event, fields] = loggerError.mock.calls[0]!;
+    expect(event).toBe("pdp.degraded_render");
+    expect(
+      fields?.["productSlug"],
+      "the slug is what aims `revalidateTag(TAG.product(slug))`; an alert " +
+        "without it says only that something degraded somewhere.",
+    ).toBe(SLUG);
+  });
+
+  it("logs a bounded discriminator, never the upstream response body", async () => {
+    const { ProductPageContent } = await import("./page");
+    productsGet.mockRejectedValueOnce(providerFailure());
+
+    await ProductPageContent({ params: Promise.resolve({ slug: [SLUG] }) });
+
+    const fields = loggerError.mock.calls[0]![1];
+    expect(
+      JSON.stringify(fields),
+      "`lib/logger.ts` forbids callers handing it a raw error body " +
+        "(T-09.5-07), and an SDK 401 puts that body in `error.message`.",
+    ).not.toContain(UPSTREAM_BODY);
+    expect(
+      { ...fields, productSlug: undefined, recovery: undefined },
+      "and it still has to tell one failure class from another.",
+    ).toMatchObject({ name: "NetworkError", code: "INVALID_KEY", status: 401 });
+  });
+
+  it("never lets the failure escape, so the static export survives", async () => {
+    const { ProductPageContent } = await import("./page");
+    productsGet.mockRejectedValueOnce(providerFailure());
+
+    await expect(
+      ProductPageContent({ params: Promise.resolve({ slug: [SLUG] }) }),
+      "an escaping error while prerendering ONE product aborts the whole " +
+        "tenant export (#332). No phase check protects this — the degrade is " +
+        "unconditional.",
+    ).resolves.toBeDefined();
+  });
+
+  it("still re-raises Next control flow rather than degrading it", async () => {
     const { ProductPageContent } = await import("./page");
     productsGet.mockRejectedValueOnce(
-      Object.assign(
-        new Error("shopify.GetProductBySlug: shopify.Query: status 401"),
-        {
-          code: "GRAPHQL_ERROR",
-        },
-      ),
+      Object.assign(new Error("NEXT_HTTP_ERROR_FALLBACK;404"), {
+        digest: "NEXT_HTTP_ERROR_FALLBACK;404",
+      }),
     );
 
     await expect(
-      ProductPageContent({
-        params: Promise.resolve({ slug: [SLUG] }),
-      }),
-    ).rejects.toThrow(/NEXT_HTTP_ERROR_FALLBACK|NEXT_NOT_FOUND|notFound/i);
+      ProductPageContent({ params: Promise.resolve({ slug: [SLUG] }) }),
+      "a notFound()/redirect() thrown from a nested read is control flow, not " +
+        "an outage; swallowing it into the degraded page would strip its status.",
+    ).rejects.toThrow(/NEXT_HTTP_ERROR_FALLBACK/);
   });
 });
 

@@ -9,14 +9,16 @@ import { BASE_URL, stackIsUp } from "./fixtures/helpers-2";
  * project memory: radix-navmenu-trigger-link-nav), P1-29 (mobile hamburger),
  * P1-30 (footer), P1-36 (/posts → /news), P1-39 (unknown slug → 404 UI).
  *
- * KNOWN SEO NITS observed while authoring (behavior asserted here is the
- * user-facing contract; these are flagged in the QA report, not failed on):
- *   - /posts responds HTTP 200 with a prerendered shell and redirects to
- *     /news CLIENT-side (Cache Components streams the shell before the
- *     server redirect() can set a 3xx status) — the checklist called for a
- *     301. Crawlers without JS see a 200 soft page. app/posts/page.tsx.
- *   - Unknown slugs render the not-found UI but with HTTP 200 (soft-404),
- *     same streaming cause. app/[...slug]/page.tsx + app/not-found.tsx.
+ * The two SEO nits observed while authoring this spec are both CLOSED, and the
+ * status codes they were about are asserted elsewhere — this spec still covers
+ * only the user-facing behaviour:
+ *   - /posts now 308s to /news from `next.config.ts` `redirects()`, before any
+ *     rendering (the `app/posts/page.tsx` that redirected client-side is gone).
+ *     `lib/posts-path.test.ts` holds the invariant that keeps that redirect from
+ *     inverting a store's own blog base into a loop.
+ *   - An unknown slug now answers a real HTTP 404: `app/[...slug]/page.tsx`
+ *     resolves the existence check above every boundary, where the status line
+ *     is still settable. `e2e/not-found-status.spec.ts` asserts it over HTTP.
  *
  * PREREQUISITES: local Docker stack up (WP :8090, gateway :4000, starter —
  * E2E_BASE_URL) with the standard storefront-parity seeds (Men/Women/Bikes
@@ -215,8 +217,9 @@ test.describe("Search + navigation (P1-26..P1-30, P1-36, P1-39)", () => {
       page.getByRole("link", { name: /back to home/i }),
     ).toBeVisible();
 
-    // Record the raw HTTP status for the QA report (soft-404 observation —
-    // not a user-facing failure, so observed, not asserted-on).
+    // Record the raw HTTP status for the QA report. Still an observation here,
+    // not an assertion: `e2e/not-found-status.spec.ts` is what fails on the
+    // status, across every route family and in both directions.
     const api = await request.newContext();
     const res = await api.get(`${BASE_URL}/definitely-not-a-page-e2e-xyz`);
     test.info().annotations.push({

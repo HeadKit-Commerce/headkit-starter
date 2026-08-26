@@ -284,14 +284,30 @@ export default async function RootLayout({
                     iconUrl={branding.iconUrl}
                     showSubscribe={showFooterSubscribe}
                     hidePaymentIcons={checkoutMode === "quote"}
-                    socialLinks={{
-                      instagram: "https://www.instagram.com/headkitcommerce",
-                      discord: "https://discord.gg/bSNe29JtsX",
-                      github: "https://github.com/headkit-commerce",
-                      linkedin:
-                        "https://www.linkedin.com/company/headkit-commerce/",
-                      youtube: "https://www.youtube.com/@headkit-commerce",
-                    }}
+                    // NO `socialLinks` here. This is a TEMPLATE file, shipped
+                    // to every store, so a literal here publishes HeadKit's own
+                    // Instagram/Discord/GitHub/LinkedIn/YouTube in the merchant's
+                    // footer — which is exactly what happened, and it silently
+                    // overwrote a store that had forked these lines to its own
+                    // accounts. `Footer` gates the whole Connect block on
+                    // `hasSocialLinks`, so with the prop absent the block does
+                    // not render at all: no vendor links, no empty section. The
+                    // `SocialLinks` type and icon map stay as they are, so a
+                    // store can pass its own by forking this one line.
+                    //
+                    // Making that per-store DATA rather than a fork is an OPEN
+                    // DECISION, not scheduled work: `store-social-links-platform-field`
+                    // is a name to hold the decision by, NOT a ticket id — no
+                    // ticket exists. What is undecided is whether to build the
+                    // field at all, which would span the Mongo store document,
+                    // the dashboard-api schema and resolver, the dashboard form,
+                    // `packages/sdk` codegen and finally this file reading it —
+                    // not a one-round change. Leaving it open is safe: with the
+                    // prop gone, the worst a future template sync can do is drop
+                    // a store's own links, never republish the vendor's. If the
+                    // decision is ever taken, the repo convention is a
+                    // `docs/tickets/<slug>.md`.
+                    // Asserted by `app/layout-social-links.test.tsx`.
                   />
                   <Toaster />
                 </CartProvider>

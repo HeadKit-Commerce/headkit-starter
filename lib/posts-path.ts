@@ -4,6 +4,11 @@ export const DEFAULT_POSTS_BASE_PATH = "news";
 /**
  * Storefront route segments that must never become the blog base path.
  * Collisions would steal shop/account/checkout (etc.) from the App Router.
+ *
+ * A `redirects()` source in `next.config.ts` is a storefront route too, and
+ * omitting one is not a cosmetic miss — it is an infinite redirect. The whole
+ * class is asserted in `posts-path.test.ts` against the live config, so a new
+ * redirect source cannot be added without also reserving it here.
  */
 const RESERVED_POSTS_BASE = new Set([
   "account",
@@ -16,6 +21,11 @@ const RESERVED_POSTS_BASE = new Set([
   "faq",
   "featured",
   "new",
+  // `next.config.ts:205-206` 308s `/posts` (and `/posts/:slug*`) to `/news`
+  // unconditionally. A store whose WordPress Posts page slug is `posts` would
+  // therefore have `proxy.ts` 308 `/news` → `/posts` while the config 308s it
+  // straight back — the two are exact inverses and the blog is unreachable.
+  "posts",
   "products",
   "projects",
   "quote",

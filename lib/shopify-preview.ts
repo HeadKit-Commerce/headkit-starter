@@ -9,9 +9,12 @@ import { getProductForPage } from "@/lib/product-cache";
  * and `app/draft-product` are where they land. Both render nothing: they read
  * `preview_key`/`shpxid`, resolve the product here, and redirect.
  *
- * Both therefore set `export const instant = false`, because both MUST read
- * `searchParams` above every Suspense boundary — the decision they make IS the
- * response. They used to borrow the boundary `app/layout.tsx` wrapped
+ * Both MUST read `searchParams` above every Suspense boundary — the decision
+ * they make IS the response — and both set `export const instant = false`.
+ * That export DECLARES the shape (a segment allowed to block when navigated
+ * to); it does not grant the read. See "Setting a status code needs THREE
+ * conditions" in `apps/starter/AGENTS.md`, which measures what `instant` does
+ * and does not do. They used to borrow the boundary `app/layout.tsx` wrapped
  * `{children}` in; the canonical-URL change removed it so the product and
  * collection routes could serve real 308s, which left these two with no
  * boundary and failed the build outright.

@@ -8,6 +8,8 @@ import type {
 } from "@headkit/sdk";
 import { headkit } from "@/lib/sdk";
 import { getCachedProduct, getProductForPage } from "@/lib/product-cache";
+import { TAG } from "@/lib/cache-tags";
+import { errorFields, logger } from "@/lib/logger";
 import { ProductDetail } from "@/components/headkit-ui/product-detail";
 import { ProductStock } from "@/components/headkit-ui/product-stock";
 import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
@@ -283,12 +285,17 @@ export async function generateMetadata({
  * here, in the default export, above the `<Suspense>` below.
  *
  * That is not sufficient on its own, and the part that is easy to miss is that
- * THREE separate things put this page inside a boundary — an in-page
- * `<Suspense>`, a route-level `loading.tsx` (an IMPLICIT boundary around the
- * page component), and a boundary in an ANCESTOR layout — and removing only two
- * of them still answers 200. Hence this route has **no `loading.tsx`** and
- * `app/layout.tsx` no longer wraps `{children}` in a `<Suspense>`. Measured on a
- * Next 16.3 build with `cacheComponents: true`, one variable at a time:
+ * SEVERAL separate things put this page inside a boundary — an in-page
+ * `<Suspense>`, a `loading.tsx` at this route OR at any ANCESTOR segment (an
+ * IMPLICIT boundary around that segment and everything nested below it), and a
+ * boundary in an ANCESTOR layout — and removing only some of them still answers
+ * 200. Hence this route has **no `loading.tsx`** and `app/layout.tsx` no longer
+ * wraps `{children}` in a `<Suspense>`. "Setting a status code needs THREE
+ * conditions" in `apps/starter/AGENTS.md` enumerates the full set, including the
+ * fully postponed prerendered shell that a dynamic segment with NO
+ * `generateStaticParams` is served from — this route declares one, so it never
+ * sat behind that one. Measured on a Next 16.3 build with
+ * `cacheComponents: true`, one variable at a time:
  *
  *   redirect below `<Suspense>`            → 200 + shell (client-side redirect)
  *   redirect in the default export,
@@ -372,6 +379,28 @@ export default async function ProductPage({ params, searchParams }: Props) {
 }
 
 /**
+ * What a PDP renders when the provider reads fail underneath it.
+ *
+ * Not `notFound()` (the product exists — see the catch that returns this) and
+ * not a thrown error (that aborts the static export). The shopper gets an
+ * honest, retryable page instead of either lie.
+ */
+function ProductTemporarilyUnavailable(): React.ReactElement {
+  return (
+    <div className="flex min-h-[50vh] flex-col items-center justify-center px-5 md:px-10">
+      <div className="mx-auto max-w-md text-center">
+        <h1 className="mb-2 text-2xl text-primary">
+          This product is temporarily unavailable
+        </h1>
+        <p className="text-gray-600">
+          We could not load it just now. Please refresh in a moment.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Exported so the nested `/shop/[...slug]` PDP renders the IDENTICAL product
  * composition rather than duplicating it (D-15-04). The two routes serve two
  * valid URL shapes for one product; only their canonicals differ.
@@ -389,9 +418,60 @@ export async function ProductPageContent({ params, searchParams }: Props) {
     notFound();
   }
 
-  // Provider auth/scope failures (e.g. Shopify Storefront 401) must not abort
-  // the whole tenant static export. Mirror generateMetadata: rethrow Next
-  // control-flow, otherwise degrade to notFound for this PDP only.
+  // A provider auth/scope failure here (e.g. Shopify Storefront 401) DEGRADES.
+  // Neither of the two obvious alternatives is available, and the reason each
+  // is closed is worth keeping:
+  //
+  //  - `notFound()` is wrong at runtime. A THROWN provider read is not evidence
+  //    that the product is missing, so reporting it to shoppers and crawlers as
+  //    a missing product is a lie — and one Next cannot back with a status
+  //    anyway, because this component runs BELOW the `<Suspense>` that already
+  //    committed the 200.
+  //  - Rethrowing is wrong at build. This route's `generateStaticParams`
+  //    enumerates REAL products, so an escaping error aborts the whole tenant
+  //    static export (#332) — the same failure `generateMetadata` above is
+  //    hardened against. news/projects/client carry no such exposure; their
+  //    params are placeholder-only, so they simply let the read throw.
+  //
+  // So it degrades, UNCONDITIONALLY. No build-phase discriminator picks between
+  // the two — not `process.env.NEXT_PHASE`, not any other — for two reasons
+  // that each stand on their own:
+  //
+  //  - It would be UNNECESSARY. The degraded body is the right answer in both
+  //    phases; the two paragraphs below state each half. A fork could only buy
+  //    the option to FAIL the build, which is the trade weighed and rejected in
+  //    the asymmetry note further down.
+  //  - It is BANNED. A direct `process.env` read outside `lib/env.ts` is listed
+  //    under "Never" in `AGENTS.md`.
+  //
+  // The build half is the expensive one, so state it rather than let the
+  // runtime half stand for both.
+  //
+  // AT BUILD the degraded body IS the artifact. `generateStaticParams` above
+  // enumerates REAL products up to `HEADKIT_PRERENDER_PRODUCT_LIMIT`; a blip
+  // while prerendering ONE of them makes this read throw, the catch returns the
+  // degraded body, the render SUCCEEDS, and that product's prerendered HTML
+  // permanently reads "temporarily unavailable". The throwing read stores no
+  // cache entry, so nothing guarantees a re-render: recovery is a redeploy, or
+  // `revalidateTag(TAG.product(slug))` (`lib/cache-tags.ts`). That is why the
+  // catch LOGS — a build that shipped one degraded PDP must be distinguishable
+  // from a clean one by its output alone, and the line carries the slug so the
+  // recovery lever can be aimed.
+  //
+  // AT RUNTIME it is simply the least-wrong response: not a false 404, not an
+  // error boundary, and `generateMetadata`'s own catch has already marked the
+  // page `noindex`, so nothing degraded is offered to a crawler.
+  //
+  // THE ASYMMETRY WITH `getPageData` IS DELIBERATE, not a contradiction.
+  // `app/[...slug]/page.tsx` chooses to FAIL the build for `/[...slug]` and
+  // `/wholesale` on this same class of failure (see the accepted-trade block
+  // there). Those routes have NO degraded content to fall back to, so their
+  // only options are fail-loud or bake a WRONG page — a 404 — and fail-loud
+  // wins. A PDP has a degraded body, and one transient blip must not throw away
+  // an export covering every prerendered product. Different options, same
+  // policy: never bake a lie, and never be silent about degrading.
+  //
+  // Next control flow is re-raised first and never absorbed.
   let product: Awaited<ReturnType<typeof getProductForPage>>;
   let branding: Awaited<ReturnType<typeof getBranding>>["branding"];
   let storeSettings: Awaited<ReturnType<typeof getBranding>>["storeSettings"];
@@ -408,7 +488,12 @@ export async function ProductPageContent({ params, searchParams }: Props) {
     stripeConfig = loaded[2];
   } catch (error) {
     unstable_rethrow(error);
-    notFound();
+    logger.error("pdp.degraded_render", {
+      productSlug,
+      recovery: `revalidateTag(${TAG.product(productSlug)})`,
+      ...errorFields(error),
+    });
+    return <ProductTemporarilyUnavailable />;
   }
 
   if (!product) {

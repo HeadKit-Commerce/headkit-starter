@@ -9,6 +9,7 @@ import {
   storefrontUrl,
 } from "@/lib/make-metadata";
 import { getBranding } from "@/lib/branding";
+import { getPostsBasePath, postsIndexPath } from "@/lib/posts-base-path";
 import { TAG } from "@/lib/cache-tags";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { CmsPageBody } from "@/components/headkit-ui/cms-page-body";
@@ -57,9 +58,54 @@ interface Props {
  * page save) and `headkit:pages` (carousel/slide CPT + schedule boundary — WP
  * hydrates hero slides into page editorBlocks, so carousel edits must purge
  * every CMS page that may embed a hero). Finite `days` life so a missed
- * webhook self-heals in ~1 day (threat T-09.5-14). Keeps `.catch(() => null)`
- * so a genuinely missing page still `notFound()`s deterministically from an
- * uncached-safe null.
+ * webhook self-heals in ~1 day (threat T-09.5-14).
+ *
+ * NULL MEANS MISS, AND ONLY MISS. `sdk.content.get` resolves null for a page
+ * that does not exist and THROWS for a transport/GraphQL failure, so this must
+ * not catch: a thrown read caught into null would be written into this
+ * `"use cache"` entry, and the pre-commit gate above turns that null into a
+ * real 404 — so one gateway blip on a cold `/about` would bake a hard 404 into
+ * the route cache for `days`, self-healing only on a tag purge. Propagating
+ * instead surfaces the outage as an error (uncached, self-healing on the next
+ * request), which is the same invariant `app/brand/[...slug]`,
+ * `app/collections/[...slug]` and `app/shop/[...slug]` state at their own
+ * gates and the news/projects/client routes keep with `unstable_rethrow`.
+ * `/wholesale` shares this helper and inherits it.
+ *
+ * ### The build-availability trade, decided deliberately
+ *
+ * Propagating also means a transient CMS/transport failure can FAIL
+ * `next build`: `generateStaticParams` probes and returns `/about`, then a blip
+ * during that page's prerender throws out of `generateMetadata` and the export
+ * stops. `/wholesale` is a prerendered static route on the same helper with the
+ * same exposure. That is ACCEPTED, and the reasoning is the point:
+ *
+ * A failed build is loud and blocks a bad deploy. The alternative — degrading
+ * to `notFound()` at build — bakes a sticky 404 into the prerendered output,
+ * which is EXACTLY the failure removing the blanket catch closed: one blip and
+ * a real page serves 404 for up to `cacheLife("days")`, self-healing only on a
+ * tag purge. A blocked deploy is recoverable in minutes; a store silently
+ * 404ing its own pages is not.
+ *
+ * `/contact` is NOT a counter-example and the two must never be conflated. It
+ * catches at the CONSUMER (`loadContactPage`) because it HAS built-in default
+ * copy to fall back to, so degrading there still serves a working contact form.
+ * `/[...slug]` and `/wholesale` have nothing to degrade TO — tolerating the
+ * error would mean serving a WRONG page, not a degraded one.
+ *
+ * `ProductPageContent` in `app/products/[...slug]/page.tsx` reaches the
+ * OPPOSITE conclusion on the same class of failure, deliberately and under the
+ * same policy: it has a degraded body to fall back to, and its
+ * `generateStaticParams` enumerates every prerendered product, so failing the
+ * build there would discard the whole export over one transient blip. It
+ * degrades and LOGS. The shared rule is: never bake a lie, and never be silent
+ * about degrading. Read that comment beside this one.
+ *
+ * If this trade is ever revisited, the fix is per-consumer tolerance as
+ * `/contact` does it. Never a blanket catch back inside this shared helper, and
+ * never a build-phase discriminator: nothing here needs to know the phase — the
+ * decision above is the same in both — and a direct `process.env` read outside
+ * `lib/env.ts` is listed under "Never" in `AGENTS.md`.
  */
 export async function getPageData(
   contentSlug: string,
@@ -67,7 +113,7 @@ export async function getPageData(
   "use cache";
   cacheLife("days");
   cacheTag(TAG.page(contentSlug), TAG.pages);
-  return sdk.content.get(contentSlug, "PAGE").catch(() => null);
+  return sdk.content.get(contentSlug, "PAGE");
 }
 
 /**
@@ -75,6 +121,10 @@ export async function getPageData(
  * `proxy.ts` rewrites that slug onto the internal `/news` tree; this redirect
  * is a safety net when the proxy rewrite is skipped (base === news, or fetch
  * failure) and someone still hits the CMS catch-all for the Posts page.
+ *
+ * RAW, unnormalised — it is compared against the requested slug, which is also
+ * raw. The redirect TARGET must never be derived from it; see
+ * {@link postsLandingRedirectTarget}.
  */
 async function getPostsLandingSlug(): Promise<string | null> {
   "use cache";
@@ -83,6 +133,31 @@ async function getPostsLandingSlug(): Promise<string | null> {
   const landing = await sdk.posts.getLanding().catch(() => null);
   const slug = landing?.slug?.trim();
   return slug || null;
+}
+
+/**
+ * Where a request for the WordPress Posts page must be sent, or null to serve.
+ *
+ * This used to redirect to a hard-coded `/news`, which made it a second,
+ * independent redirect-loop generator alongside the `/posts` one that
+ * `RESERVED_POSTS_BASE` closes (`lib/posts-path.ts`): `proxy.ts` may be
+ * simultaneously 308ing `/news` back OUT to the store's own base, so the two
+ * flap against each other. Two rules keep that impossible:
+ *
+ *  1. the target comes from the same NORMALISED resolver the proxy's own
+ *     `/api/posts-base-path` endpoint reads (`getPostsBasePath`), so a reserved
+ *     slug — `posts` included — resolves to `/news` and the proxy early-returns
+ *     rather than redirecting away; and
+ *  2. a target equal to the requested path is a no-op, not a redirect, so this
+ *     can never send a URL to itself.
+ */
+async function postsLandingRedirectTarget(
+  contentSlug: string,
+): Promise<string | null> {
+  const postsLandingSlug = await getPostsLandingSlug();
+  if (!postsLandingSlug || contentSlug !== postsLandingSlug) return null;
+  const target = postsIndexPath(await getPostsBasePath());
+  return target === `/${contentSlug}` ? null : target;
 }
 
 /**
@@ -136,7 +211,37 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   });
 }
 
-export default function Page({ params }: Props) {
+/**
+ * Blocking route (Next.js 16.3) — a missing page must answer a real 404.
+ *
+ * The three conditions that let this route SET that status, why `instant` is
+ * not one of them, the list of gated routes and the accepted skeleton cost all
+ * live in ONE place: "Setting a status code needs THREE conditions" in
+ * `apps/starter/AGENTS.md`. Read it before changing the gate below, adding a
+ * `loading.tsx`, or touching `generateStaticParams`.
+ *
+ * `instant = false` here is that section's declaration rule: this route blocks
+ * on one cached read before it responds.
+ *
+ * @see https://nextjs.org/docs/app/guides/streaming (The HTTP contract)
+ */
+export const instant = false;
+
+export default async function Page({ params }: Props) {
+  // Pre-commit gate: every branch that can 404 or redirect resolves HERE, while
+  // the status line is still ours to set. `CmsRoute` repeats the checks because
+  // it must stay correct on its own terms and it narrows `page` for TypeScript;
+  // both reads are `"use cache"`, so the repeat is a cache hit, not a round
+  // trip.
+  const { slug } = await params;
+  if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) notFound();
+  const contentSlug = slug.join("/");
+
+  const redirectTo = await postsLandingRedirectTarget(contentSlug);
+  if (redirectTo) permanentRedirect(redirectTo);
+
+  if (!(await getPageData(contentSlug))) notFound();
+
   return (
     <Suspense
       fallback={
@@ -153,28 +258,20 @@ export default function Page({ params }: Props) {
   );
 }
 
-/**
- * Instant Navigation (Next.js 16.3) — sync App Shell + Suspense streaming.
- * @see https://nextjs.org/docs/app/guides/instant-navigation
- */
-export const instant = true;
-
 async function CmsRoute({ params }: Props) {
   const { slug } = await params;
   if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) return notFound();
   const contentSlug = slug.join("/");
 
   // Posts page may use any WP slug (Insights, Blog, …). That page alone has no
-  // post grid. `proxy.ts` normally rewrites the slug onto `/news` before this
-  // catch-all runs; if that rewrite is skipped, send visitors to /news (ENG-558).
-  const postsLandingSlug = await getPostsLandingSlug();
-  if (
-    postsLandingSlug &&
-    contentSlug === postsLandingSlug &&
-    postsLandingSlug !== "news"
-  ) {
-    permanentRedirect("/news");
-  }
+  // post grid. `proxy.ts` normally rewrites the slug onto the internal `/news`
+  // tree before this catch-all runs; if that rewrite is skipped, send visitors
+  // to the resolved blog index (ENG-558). Unreachable in practice — the gate in
+  // the default export above fires first — but kept so this component is
+  // correct on its own terms, and sharing the resolver is what stops the two
+  // copies drifting into disagreement.
+  const redirectTo = await postsLandingRedirectTarget(contentSlug);
+  if (redirectTo) permanentRedirect(redirectTo);
 
   const page = await getPageData(contentSlug);
 

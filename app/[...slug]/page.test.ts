@@ -11,8 +11,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * tripped. This suite proves:
  *   - the cached fn tags `TAG.page(slug)` + `TAG.pages` at `cacheLife('days')`,
  *   - it takes a plain string arg (no `params`/`searchParams`/`cookies` inside),
- *   - it keeps its `.catch(() => null)` so a missing page still resolves null
- *     (so `Page` can `notFound()` deterministically, uncached-safe).
+ *   - null means MISS and only miss: an absent page resolves null (so `Page`
+ *     can `notFound()` deterministically), while a thrown read PROPAGATES
+ *     rather than being caught into a null that the cache entry would keep.
  *
  * `next/cache` is mocked to capture `cacheTag`/`cacheLife`; the SDK and the UI/
  * SEO components the page imports are stubbed so the module loads in node env.
@@ -101,9 +102,25 @@ describe("getPageData — params-safe cached CMS helper", () => {
     expect(contentGet).toHaveBeenCalledWith(SLUG, "PAGE");
   });
 
-  it("keeps .catch(() => null) so a missing page resolves null (notFound-safe)", async () => {
-    contentGet.mockRejectedValueOnce(new Error("404"));
+  it("resolves null for a genuinely missing page (notFound-safe)", async () => {
+    // `sdk.content.get` resolves null for a page that does not exist. That is
+    // the ONLY null, and it is what the route's pre-commit gate turns into a
+    // 404.
+    contentGet.mockResolvedValueOnce(null);
     await expect(getPageData(SLUG)).resolves.toBeNull();
+  });
+
+  it("propagates a thrown read instead of caching it as a miss", async () => {
+    // The regression this closes: a blanket `.catch(() => null)` sat INSIDE the
+    // `"use cache"` scope, so one gateway blip on a cold `/about` wrote null
+    // into the cache entry and the hoisted gate turned it into a real 404 —
+    // held for `cacheLife("days")`, self-healing only on a tag purge. The
+    // sibling gated routes (`app/brand`, `app/collections`, `app/shop`) state
+    // this invariant at their own gates; this route's shape hid it.
+    // `/wholesale` shares this helper and inherits the fix.
+    const transportFailure = new Error("gateway unreachable");
+    contentGet.mockRejectedValueOnce(transportFailure);
+    await expect(getPageData(SLUG)).rejects.toBe(transportFailure);
   });
 });
 

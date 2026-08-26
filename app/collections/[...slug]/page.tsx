@@ -524,11 +524,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  *   with a root-layout `<Suspense>`     → 200 + skeleton (client-side redirect)
  *   with neither                        → 308, prerendered AND at runtime
  *
- * `instant = true` makes no difference either way, so it stays. Nothing is lost
- * by the file's absence: the `<Suspense>` below renders the identical
- * `<CollectionPageSkeleton />` that `loading.tsx` did. Re-introducing either
- * boundary silently turns every flat collection URL back into a 200 duplicate;
- * `e2e/canonical-url-308.spec.ts` fails on the status code when one does.
+ * Nothing is lost by the file's absence: the `<Suspense>` below renders the
+ * identical `<CollectionPageSkeleton />` that `loading.tsx` did. Re-introducing
+ * either boundary silently turns every flat collection URL back into a 200
+ * duplicate; `e2e/canonical-url-308.spec.ts` fails on the status code when one
+ * does.
  *
  * The remaining cost is this route's App Shell — awaiting in the default export
  * forfeits Partial Prefetching here. The awaited read is `getCategoryData`,
@@ -536,6 +536,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * the same cache entry rather than an extra round trip, and every param in
  * `generateStaticParams` still prerenders (verified: `◐ Partial Prerender`, not
  * dynamic).
+ *
+ * ### The same mechanism governs `notFound()`, and it is gated here too
+ *
+ * A missing category answered 200 with a streamed not-found body for exactly
+ * this reason, so the existence check is resolved here as well. The conditions
+ * that let it set the status — and why `instant` is NOT one of them — live once
+ * in "Setting a status code needs THREE conditions" in `apps/starter/AGENTS.md`;
+ * `instant = false` below is that section's declaration rule. Both
+ * `app/not-found-status.test.ts` and `e2e/not-found-status.spec.ts` guard it.
  *
  * ### The 308 carries the path, not the query
  *
@@ -559,12 +568,32 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * change, so the traffic is external links and crawlers, and the destination is
  * the collection they asked for.
  */
-export const instant = true;
+export const instant = false;
 
 export default async function Page({ params, searchParams }: Props) {
   const { slug } = await params;
+  // The build-time placeholder is never served from a prerender, so a runtime
+  // request for it is a junk URL and must 404 HERE. Skipping the gate for it
+  // instead let it fall through to `CollectionRoute`, whose `notFound()` fires
+  // below the boundary — the soft 404 this gate exists to close.
+  if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) notFound();
+
   const redirectTo = await canonicalCollectionRedirect(slug);
   if (redirectTo) permanentRedirect(redirectTo);
+
+  // Pre-commit 404 gate. Only the EXISTENCE decision is hoisted; the product
+  // grid (and its `searchParams` read) stays inside the boundary below and
+  // still streams. `CollectionRoute` repeats the checks — it is also entered
+  // from `/shop/[...slug]` — and the `"use cache"` category read dedupes, so
+  // the repeat is a cache hit.
+  const { categorySlug } = parseCollectionSlug(slug);
+  if (!categorySlug) notFound();
+  // A THROWN read is transport/infra and must not bake a sticky 404 into the
+  // route cache — `getCategoryData` deliberately does not catch, so it
+  // propagates from here exactly as it does from `CollectionRoute`. Only the
+  // null (genuinely missing) case reaches `notFound()`.
+  const { category } = await getCategoryData(categorySlug);
+  if (!category) notFound();
 
   return (
     <Suspense fallback={<CollectionPageSkeleton />}>

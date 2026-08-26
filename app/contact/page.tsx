@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { unstable_rethrow } from "next/navigation";
 import {
   makeSeoMetadata,
   seoFallbackDescription,
   storefrontUrl,
 } from "@/lib/make-metadata";
 import { getBranding } from "@/lib/branding";
+import { TAG } from "@/lib/cache-tags";
+import { errorFields, logger } from "@/lib/logger";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { CmsPageBody } from "@/components/headkit-ui/cms-page-body";
 import { withGuaranteedFormMarker } from "@/lib/gravity-form-content";
@@ -49,9 +52,54 @@ function ContactFormFallback(): React.ReactElement {
   );
 }
 
+/**
+ * The Contact page read, with this route's own tolerance for a CMS outage.
+ *
+ * `getPageData` returns null ONLY for a page that genuinely does not exist and
+ * PROPAGATES a transport failure, which is what stops `/wholesale` and the CMS
+ * catch-all baking a sticky 404 into their route caches — both of them must
+ * keep 404ing on null, so the helper cannot absorb the difference for them.
+ *
+ * `/contact` is the third consumer and has the opposite contract: null already
+ * means "no WordPress page, use the built-in copy", and a store with no Contact
+ * page still gets a working contact form. An outage is not a better reason to
+ * take that away, and this route is PRERENDERED (`instant = true`), so an
+ * uncaught throw would fail `next build` for every store on the template rather
+ * than ship slightly degraded copy. Next control flow is re-raised first and is
+ * never absorbed.
+ *
+ * AT BUILD the degraded copy IS the artifact, so the tolerance is not free. A
+ * blip while prerendering this route makes the read throw, the fallback copy
+ * renders, the page SUCCEEDS, and that store's `/contact` permanently ships
+ * HeadKit's generic placeholder in place of the merchant's real WordPress page.
+ * The throwing read stores no cache entry, so nothing guarantees a re-render:
+ * recovery is a redeploy, or `revalidateTag(TAG.page(CONTACT_SLUG))`
+ * (`lib/cache-tags.ts`). That is why this catch LOGS — the same rule the PDP
+ * degrade in `app/products/[...slug]/page.tsx` follows, and the same reason:
+ * never bake a lie, and never be silent about degrading. A build that shipped a
+ * placeholder Contact page must be distinguishable from a clean one by its
+ * output alone, and the line carries the slug so the recovery lever can be
+ * aimed.
+ */
+async function loadContactPage(): Promise<Awaited<
+  ReturnType<typeof getPageData>
+> | null> {
+  try {
+    return await getPageData(CONTACT_SLUG);
+  } catch (error) {
+    unstable_rethrow(error);
+    logger.error("contact.degraded_render", {
+      pageSlug: CONTACT_SLUG,
+      recovery: `revalidateTag(${TAG.page(CONTACT_SLUG)})`,
+      ...errorFields(error),
+    });
+    return null;
+  }
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const [page, { seoSettings, storeSettings }] = await Promise.all([
-    getPageData(CONTACT_SLUG),
+    loadContactPage(),
     getBranding(),
   ]);
   if (!page) {
@@ -92,7 +140,7 @@ export default function ContactPage(): React.ReactElement {
 }
 
 async function ContactRoute(): Promise<React.ReactElement> {
-  const page = await getPageData(CONTACT_SLUG);
+  const page = await loadContactPage();
 
   // Prefer the WordPress Contact page for copy, but never let a page without a
   // form produce a contact page without a contact form.

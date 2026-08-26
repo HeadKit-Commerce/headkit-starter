@@ -28,6 +28,19 @@ import { getPageData } from "@/app/[...slug]/page";
  */
 const WHOLESALE_SLUG = "wholesale";
 
+/**
+ * Blocking route so the `notFound()` below sets a real 404 rather than a 200
+ * that streams the not-found UI. This route awaits its page read before
+ * returning any markup and has no `<Suspense>` of its own; a store with no
+ * `wholesale` WordPress page nonetheless advertised a healthy 200 under the
+ * slug-derived title `Wholesale | …`. What decides the status code lives once
+ * in "Setting a status code needs THREE conditions" in `apps/starter/AGENTS.md`
+ * — `instant = false` is that section's declaration rule (this route blocks on
+ * one cached read before responding), not the thing that sets the status. The
+ * invariant is asserted in `app/not-found-status.test.ts`.
+ */
+export const instant = false;
+
 export async function generateMetadata(): Promise<Metadata> {
   const [page, { seoSettings, storeSettings }] = await Promise.all([
     getPageData(WHOLESALE_SLUG),
