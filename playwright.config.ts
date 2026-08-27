@@ -38,6 +38,10 @@ export default defineConfig({
     .filter(Boolean)
     .map((f) => `**/${f}`),
   fullyParallel: true,
+  // One worker in CI: the suite shares a single local Docker stack (WP cart
+  // sessions, Stripe Checkout sessions, seeded pickup locations). Parallel
+  // workers race on that shared state and flake checkout specs.
+  ...(process.env.CI ? { workers: 1 as const } : {}),
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",
