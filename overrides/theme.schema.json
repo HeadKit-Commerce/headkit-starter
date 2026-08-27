@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://headkit.app/schemas/storefront-theme.json",
+  "title": "HeadKit storefront theme",
+  "description": "Customer-owned layout modes in overrides/. Dashboard branding still owns colors, fonts, and corners.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Schema version for forward-compatible upgrades."
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "navLayout": {
+          "type": "string",
+          "enum": ["left-logo", "centered-logo", "split"],
+          "description": "Primary nav logo placement."
+        },
+        "navStyle": {
+          "type": "string",
+          "enum": ["icons", "text-labels"],
+          "description": "Desktop header actions presentation."
+        },
+        "heroLayout": {
+          "type": "string",
+          "enum": ["inset", "full-bleed", "fixed-height"],
+          "description": "Homepage hero carousel shell."
+        },
+        "homepageNav": {
+          "type": "string",
+          "enum": ["solid", "overlay-hero"],
+          "description": "Nav chrome on the homepage."
+        }
+      },
+      "required": ["navLayout", "navStyle", "heroLayout", "homepageNav"]
+    },
+    "figma": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fileKey": { "type": "string" },
+        "referenceFrames": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    }
+  },
+  "required": ["version", "layout"]
+}

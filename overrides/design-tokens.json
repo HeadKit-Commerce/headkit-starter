@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "name": "velvet",
+  "description": "Velvet Muse — extracted from Figma frame Home NEW - Desktop (237:3465). Fonts are dashboard-owned (Romie + FFF Acid Grotesk).",
+  "color": {
+    "page": "#fffdf3",
+    "surfaceSand": "#f3ebe0",
+    "accent": "#9c8867",
+    "ink": "#524a41",
+    "inkStrong": "#3f2a24",
+    "muted": "#9c9791",
+    "mutedLegal": "#6d6d6d",
+    "heroInk": "#fffdf3",
+    "badgeNew": "#09500f"
+  },
+  "space": {
+    "pageGutter": "40px",
+    "preheaderHeight": "36px",
+    "navHeight": "80px",
+    "heroHeightDesktop": "850px"
+  },
+  "type": {
+    "navLabel": {
+      "size": "15px",
+      "transform": "uppercase",
+      "tracking": "0.05em"
+    },
+    "preheader": {
+      "size": "13px",
+      "transform": "uppercase"
+    },
+    "heroTitle": {
+      "size": "36px",
+      "lineHeight": "normal"
+    },
+    "sectionTitle": {
+      "size": "32px",
+      "lineHeight": "normal"
+    },
+    "legal": {
+      "size": "13px"
+    }
+  },
+  "radius": {
+    "heroCta": "9999px"
+  }
+}

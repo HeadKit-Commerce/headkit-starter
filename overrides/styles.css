@@ -1,57 +1,158 @@
 /*
- * Storefront style overrides (customer-owned).
+ * Velvet Muse — Pass 1 overrides (customer-owned).
  *
- * Preferred place for UI/styling customisations. Platform upgrades should not
- * overwrite this file. Dashboard branding still owns primary brand tokens
- * (colors, fonts, corners); use this file for layout, spacing, visibility,
- * and extra CSS beyond branding.
+ * Dashboard branding owns fonts (Romie + FFF Acid Grotesk) and primary tokens.
+ * overrides/theme.json owns layout modes (nav, hero shell).
+ * This file owns colour/spacing/typography tweaks beyond dashboard vars.
  *
- * Loaded after app/globals.css from the root layout.
- *
- * Examples (uncomment / adapt as needed):
- *
- * :root {
- *   --radius: 0.25rem;
- * }
- *
- * Hide product prices site-wide (enquiry / catalog mode):
- * .price,
- * [data-price] {
- *   display: none;
- * }
- *
- * Nav typography (uses platform hook .headkit-nav):
- * .headkit-nav > ul > li > a,
- * .headkit-nav > ul > li > button {
- *   text-transform: uppercase;
- *   letter-spacing: 0.05em;
- * }
- *
- * Homepage section styling (uses platform hook .headkit-home):
- * .headkit-home .headkit-brand-carousel {
- *   background-color: #f5f5f4;
- * }
- *
- * Callout / promo band (uses platform hook .headkit-callout):
- * .headkit-callout {
- *   background-color: hsl(var(--primary));
- *   color: hsl(var(--primary-foreground));
- * }
- *
- * Footer background (uses platform hook .headkit-footer):
- * .headkit-footer {
- *   background-color: var(--brand-bg, #fff);
- * }
- *
- * Hide footer payment icons:
- * .headkit-footer-payment-methods {
- *   display: none;
- * }
- *
- * Tighten product card spacing:
- * .product-card {
- *   gap: 0.75rem;
- * }
+ * Reference: overrides/design-tokens.json · Figma frame 237:3465
  */
 
-/* Add store-specific CSS below this line. */
+:root {
+  --velvet-page: #fffdf3;
+  --velvet-sand: #f3ebe0;
+  --velvet-accent: #9c8867;
+  --velvet-ink: #524a41;
+  --velvet-ink-strong: #3f2a24;
+  --velvet-muted: #9c9791;
+  --velvet-muted-legal: #6d6d6d;
+  --velvet-hero-ink: #fffdf3;
+  --velvet-badge-new: #09500f;
+  --velvet-preheader-height: 36px;
+  --velvet-nav-height: 80px;
+  --velvet-page-gutter: 40px;
+}
+
+/* Page canvas */
+body {
+  background-color: var(--velvet-page);
+  color: var(--velvet-ink);
+}
+
+.headkit-main {
+  background-color: var(--velvet-page);
+}
+
+/* Pre-header — sand bar, centred accent copy */
+.headkit-preheader {
+  height: var(--velvet-preheader-height);
+  justify-content: center;
+  background-color: var(--velvet-sand);
+  color: var(--velvet-accent);
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.headkit-preheader a,
+.headkit-preheader span,
+.headkit-preheader div {
+  color: var(--velvet-accent);
+}
+
+/* Primary nav — uppercase menu labels */
+.headkit-nav > div > ul > li > a,
+.headkit-nav > div > ul > li > button {
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--velvet-ink);
+}
+
+.headkit-nav > div > ul > li > a:hover,
+.headkit-nav > div > ul > li > button:hover {
+  opacity: 0.7;
+}
+
+/* Homepage: nav overlays hero (nav sits outside <main>; :has() targets homepage) */
+html[data-homepage-nav="overlay-hero"]:has(.headkit-home) .headkit-nav {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background-color: transparent;
+  backdrop-filter: none;
+}
+
+html[data-homepage-nav="overlay-hero"]:has(.headkit-home) .headkit-nav:hover,
+html[data-homepage-nav="overlay-hero"]:has(.headkit-home) .headkit-nav[data-state="open"] {
+  background-color: color-mix(in srgb, var(--velvet-page) 90%, transparent);
+}
+
+html[data-homepage-nav="overlay-hero"]:has(.headkit-home):has(.headkit-preheader) .headkit-nav {
+  top: var(--velvet-preheader-height);
+}
+
+html[data-homepage-nav="overlay-hero"]:has(.headkit-home):not(:has(.headkit-preheader))
+  .headkit-nav {
+  top: 0;
+}
+
+html[data-homepage-nav="overlay-hero"]:has(.headkit-home)
+  .headkit-home
+  > .headkit-hero-carousel:first-child {
+  margin-top: calc(-1 * var(--velvet-nav-height));
+  padding-top: var(--velvet-nav-height);
+}
+
+html[data-homepage-nav="overlay-hero"]:has(.headkit-home):has(.headkit-preheader)
+  .headkit-home
+  > .headkit-hero-carousel:first-child {
+  margin-top: calc(-1 * (var(--velvet-nav-height) + var(--velvet-preheader-height)));
+  padding-top: calc(var(--velvet-nav-height) + var(--velvet-preheader-height));
+}
+
+/* Hero — cream type on photography, pill CTA */
+html[data-hero-layout="fixed-height"] .headkit-hero-carousel h1,
+html[data-hero-layout="fixed-height"] .headkit-hero-carousel h2 {
+  font-size: 36px;
+  line-height: normal;
+  color: var(--velvet-hero-ink);
+}
+
+html[data-hero-layout="fixed-height"] .headkit-hero-carousel p {
+  color: var(--velvet-hero-ink);
+}
+
+html[data-hero-layout="fixed-height"] .headkit-hero-carousel button {
+  border-radius: 9999px;
+  border: 1px solid var(--velvet-hero-ink);
+  background-color: transparent;
+  color: var(--velvet-hero-ink);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-inline: 1.5rem;
+}
+
+html[data-hero-layout="fixed-height"] .headkit-hero-carousel button:hover {
+  background-color: color-mix(in srgb, var(--velvet-hero-ink) 12%, transparent);
+}
+
+/* Section headers on homepage */
+.headkit-home .headkit-section-header h2 {
+  font-size: 32px;
+  line-height: normal;
+  color: var(--velvet-ink-strong);
+}
+
+/* Product badges */
+.headkit-badge-new {
+  background-color: var(--velvet-badge-new);
+  color: var(--velvet-page);
+}
+
+/* Footer — sand background, muted legal */
+.headkit-footer {
+  background-color: var(--velvet-sand);
+  color: var(--velvet-ink);
+}
+
+.headkit-footer a {
+  color: var(--velvet-ink);
+}
+
+.headkit-footer .text-neutral-500,
+.headkit-footer .text-muted-foreground {
+  color: var(--velvet-muted-legal);
+}
