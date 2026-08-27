@@ -8,7 +8,8 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import { loadStripe } from "@stripe/stripe-js";
+import type { Stripe } from "@stripe/stripe-js";
+import { getStripePromise } from "@/lib/stripe-js-singleton";
 import {
   CheckoutElementsProvider,
   useCheckout,
@@ -715,6 +716,11 @@ function CheckoutSteps({
             !isStepCompleted(CheckoutFormStepEnum.CONTACT) &&
             currentStep !== CheckoutFormStepEnum.DELIVERY_METHOD
           }
+          keepMountedWhenInactive={
+            needsShipping &&
+            formData.deliveryMethod === DeliveryStepEnum.SHIPPING_TO_HOME &&
+            isStepCompleted(CheckoutFormStepEnum.DELIVERY_METHOD)
+          }
         >
           {needsShipping ? (
             <DeliveryMethodStep
@@ -915,9 +921,8 @@ export function CheckoutForm({
    */
   isAuthenticated?: boolean;
 }) {
-  const [stripePromise, setStripePromise] = useState<ReturnType<
-    typeof loadStripe
-  > | null>(null);
+  const [stripePromise, setStripePromise] =
+    useState<Promise<Stripe | null> | null>(null);
   const [error, setError] = useState<string | null>(null);
   // ENG-801 (quick-260714-n0w): freeze the email prefill PER SESSION.
   // `defaultValues` is an INIT-time Stripe option, but react-stripe-js
@@ -969,14 +974,17 @@ export function CheckoutForm({
 
   useEffect(() => {
     const stripeAccountId = checkoutSession.stripeAccountId ?? undefined;
-    const stripePromise = loadStripe(checkoutSession.publishableKey, {
+    const promise = getStripePromise(checkoutSession.publishableKey, {
       ...(stripeAccountId ? { stripeAccount: stripeAccountId } : {}),
     });
-    setStripePromise(stripePromise);
-    stripePromise.catch(() => {
+    setStripePromise(promise);
+    promise.catch(() => {
       setError("Failed to load payment provider. Please refresh the page.");
     });
   }, [checkoutSession.publishableKey, checkoutSession.stripeAccountId]);
+
+  const { cartData } = useCartContext();
+  const needsShipping = cartData?.needsShipping ?? false;
 
   // Brand tokens from layout :root (--color-primary, --radius, fonts).
   // Built once on the client so Stripe gets concrete CSS values (no var()).
@@ -986,6 +994,19 @@ export function CheckoutForm({
   // actually LOAD it. Passing one without the other is the bug — see
   // buildCheckoutFonts().
   const fonts = useMemo(() => buildCheckoutFonts(), []);
+  // Stripe address sync (native "billing same as shipping" checkbox) is an
+  // INIT-time elementsOptions flag — set once per session. Ship-to-home carts
+  // mount ShippingAddressElement + BillingAddressElement in the same instance.
+  const elementsOptions = useMemo(
+    () => ({
+      appearance,
+      fonts,
+      syncAddressCheckbox: needsShipping
+        ? ("billing" as const)
+        : ("none" as const),
+    }),
+    [appearance, fonts, needsShipping],
+  );
 
   if (error) {
     return (
@@ -1048,10 +1069,7 @@ export function CheckoutForm({
         ...(sessionPrefillEmail && !isAuthenticated
           ? { defaultValues: { email: sessionPrefillEmail } }
           : {}),
-        elementsOptions: {
-          appearance,
-          fonts,
-        },
+        elementsOptions,
       }}
     >
       <CheckoutActionsProvider>

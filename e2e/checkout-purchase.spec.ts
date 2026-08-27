@@ -9,6 +9,7 @@ import {
   fillCard,
   fillContactStep,
   fillShipToHomeStep,
+  expectBillingSameAsShippingControl,
   fillShippingOptionsStep,
   installCartCookie,
   payAndAwaitSuccess,
@@ -36,8 +37,8 @@ import {
  * Covered:
  *   1. P0-01 guest happy path: seeded cart → contact (Stripe
  *      ContactDetailsElement iframe) → Ship to Home (Stripe
- *      ShippingAddressElement iframe + phone) → shipping rate → billing =
- *      shipping (default-checked) → card 4242… in the PaymentElement iframe →
+ *      ShippingAddressElement iframe, including Stripe phone) → shipping rate →
+ *      Stripe native billing = shipping sync checkbox → card 4242… in the
  *      Pay Now → bare success route processes the order → order confirmation
  *      renders order # + line item. Money integrity riders: Stripe TEST API
  *      shows the session paid with amount_total == the Store API cart total at
@@ -96,12 +97,9 @@ test.describe("Paid card checkout (Gap 1 — P0-01/02/03/18)", () => {
     await fillShipToHomeStep(page);
     await fillShippingOptionsStep(page);
 
-    // Payment step: billing-same-as-shipping is default-checked (the ENG-801
-    // billing path); fill the card in the PaymentElement iframe.
-    await expect(
-      page.getByText("Billing is same as shipping"),
-      "payment step did not render the billing-same-as-shipping control",
-    ).toBeVisible({ timeout: 30_000 });
+    // Payment step: Stripe's native billing-same-as-shipping sync checkbox
+    // (syncAddressCheckbox=billing); fill the card in the PaymentElement iframe.
+    await expectBillingSameAsShippingControl(page);
     await fillCard(page, CARD_OK);
 
     // Authoritative payable at pay time (items + selected shipping), BEFORE

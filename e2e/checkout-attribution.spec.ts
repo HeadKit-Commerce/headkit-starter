@@ -108,14 +108,29 @@ async function completeAuthedDeliveryStep(page: Page): Promise<void> {
     cont,
     "delivery step did not render after the contact step",
   ).toBeVisible({ timeout: 30_000 });
-  // Give the saved-address (`contacts`) prefill a moment to validate; the
-  // page-level phone input may still need a value.
-  const phone = page.getByPlaceholder("Enter phone number");
-  if (
-    (await phone.isVisible().catch(() => false)) &&
-    !(await phone.inputValue().catch(() => ""))
-  ) {
-    await phone.fill("0412345678").catch(() => {});
+  // Give the saved-address (`contacts`) prefill a moment to validate; Stripe's
+  // phone field inside ShippingAddressElement may still need a value.
+  try {
+    const frame = await stripeFrameWith(
+      page,
+      'input[name="addressLine1"]',
+      5_000,
+    );
+    const stripePhone = frame.locator('input[name="phone"]');
+    if (
+      (await stripePhone.isVisible().catch(() => false)) &&
+      !(await stripePhone.inputValue().catch(() => ""))
+    ) {
+      await stripePhone.fill("0412345678").catch(() => {});
+    }
+  } catch {
+    const phone = page.getByPlaceholder("Enter phone number");
+    if (
+      (await phone.isVisible().catch(() => false)) &&
+      !(await phone.inputValue().catch(() => ""))
+    ) {
+      await phone.fill("0412345678").catch(() => {});
+    }
   }
   try {
     await expect(cont).toBeEnabled({ timeout: 15_000 });

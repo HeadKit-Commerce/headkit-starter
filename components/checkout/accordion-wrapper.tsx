@@ -18,6 +18,8 @@ interface Props {
   buttonLabel?: string;
   buttonOnClick?: () => void;
   disabled?: boolean;
+  /** Keep step content mounted (but hidden) when collapsed — required for Stripe address sync. */
+  keepMountedWhenInactive?: boolean;
 }
 
 const AccordionWrapper = ({
@@ -34,6 +36,7 @@ const AccordionWrapper = ({
   buttonLabel = "Continue",
   buttonOnClick,
   disabled = false,
+  keepMountedWhenInactive = false,
 }: Props) => {
   return (
     <div
@@ -106,10 +109,14 @@ const AccordionWrapper = ({
         )}
       </div>
 
-      {isActive && (
-        <div className="mt-5">
+      {(isActive || keepMountedWhenInactive) && (
+        <div
+          className={cn("mt-5", {
+            hidden: !isActive && keepMountedWhenInactive,
+          })}
+        >
           {children}
-          {showButton && (
+          {showButton && isActive && (
             <Button
               className="mt-4 w-full"
               onClick={(e) => {

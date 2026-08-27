@@ -493,6 +493,15 @@ export function wpOrderStatus(orderId: string): string | null {
 // Stripe iframe driving (the previously-manual gap this suite closes)
 // ---------------------------------------------------------------------------
 
+/** True when `url` is a Stripe.js iframe (hostname check, not substring match). */
+function isStripeJsFrameURL(url: string): boolean {
+  try {
+    return new URL(url).hostname === "js.stripe.com";
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Find the js.stripe.com iframe that contains `selector` (polling until
  * `timeoutMs`). Stripe mounts each element (contact email, shipping address,
@@ -507,7 +516,7 @@ export async function stripeFrameWith(
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     for (const frame of page.frames()) {
-      if (!/js\.stripe\.com/.test(frame.url())) continue;
+      if (!isStripeJsFrameURL(frame.url())) continue;
       const n = await frame
         .locator(selector)
         .count()
@@ -531,7 +540,7 @@ export interface ShippingAddressFixture {
   postcode: string;
   /** ISO country option value (e.g. "AU"). */
   country: string;
-  /** AU-local phone for the storefront PhoneInput (outside the iframe). */
+  /** AU-local phone for Stripe ShippingAddressElement (`input[name="phone"]`). */
   phone: string;
 }
 
@@ -566,9 +575,24 @@ export async function fillContactStep(
   await cont.click();
 }
 
+/** Fill phone on the Stripe shipping address element when present. */
+async function fillStripeShippingPhone(
+  page: Page,
+  frame: Frame,
+  phone: string,
+): Promise<void> {
+  const stripePhone = frame.locator('input[name="phone"]');
+  if ((await stripePhone.count()) > 0) {
+    await stripePhone.fill(phone);
+    return;
+  }
+  // Non-Stripe fallback (legacy PhoneInput outside the iframe).
+  await page.getByPlaceholder("Enter phone number").fill(phone);
+}
+
 /**
  * Step 2 — Delivery (Ship to Home): fill the Stripe ShippingAddressElement
- * (elements-inner-address frame) + the storefront phone input, then advance
+ * (elements-inner-address frame, including Stripe's phone field) then advance
  * with "Continue". Assumes Ship to Home is the active delivery method (it is
  * the default).
  */
@@ -591,8 +615,7 @@ export async function fillShipToHomeStep(
   await frame
     .locator('select[name="administrativeArea"]')
     .selectOption(addr.state);
-  // Phone lives OUTSIDE the iframe (Stripe's element returns no phone).
-  await page.getByPlaceholder("Enter phone number").fill(addr.phone);
+  await fillStripeShippingPhone(page, frame, addr.phone);
   const cont = page.getByRole("button", { name: /^continue$/i });
   await expect(
     cont,
@@ -629,6 +652,52 @@ export async function fillShippingOptionsStep(
   }
   await expect(cont).toBeEnabled({ timeout: 30_000 });
   await cont.click();
+}
+
+/** Stripe's native "billing same as shipping" sync checkbox (Payment step). */
+export const BILLING_SAME_AS_SHIPPING =
+  /billing.*same.*shipping|same.*shipping.*billing/i;
+
+/**
+ * Assert Stripe rendered the native billing-same-as-shipping control on the
+ * Payment step (inside a js.stripe.com iframe when syncAddressCheckbox=billing).
+ */
+export async function expectBillingSameAsShippingControl(
+  page: Page,
+  timeoutMs = 30_000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    for (const frame of page.frames()) {
+      if (!isStripeJsFrameURL(frame.url())) continue;
+      const checkbox = frame.getByRole("checkbox", {
+        name: BILLING_SAME_AS_SHIPPING,
+      });
+      if (
+        (await checkbox.count()) > 0 &&
+        (await checkbox
+          .first()
+          .isVisible()
+          .catch(() => false))
+      ) {
+        return;
+      }
+      const label = frame.getByText(BILLING_SAME_AS_SHIPPING);
+      if (
+        (await label.count()) > 0 &&
+        (await label
+          .first()
+          .isVisible()
+          .catch(() => false))
+      ) {
+        return;
+      }
+    }
+    await page.waitForTimeout(300);
+  }
+  throw new Error(
+    `Stripe billing-same-as-shipping control not found within ${timeoutMs}ms`,
+  );
 }
 
 /** Stripe TEST cards. */

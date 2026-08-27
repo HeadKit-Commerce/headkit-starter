@@ -126,6 +126,24 @@ export function buildCheckoutAppearance(): Appearance {
       ".AccordionItem": {
         padding: "4px",
       },
+      ".Tab": {
+        border: `1px solid ${primary}`,
+        borderRadius: radius,
+        boxShadow: "none",
+      },
+      ".Tab:hover": {
+        color: primary,
+      },
+      ".Tab--selected": {
+        border: `2px solid ${primary}`,
+        boxShadow: "none",
+      },
+      ".TabIcon": {
+        fill: primary,
+      },
+      ".TabIcon--selected": {
+        fill: primary,
+      },
       ".Label": {
         fontSize: SITE_TYPE.labelFontSize,
         fontWeight: SITE_TYPE.labelFontWeight,

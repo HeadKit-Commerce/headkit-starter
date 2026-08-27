@@ -214,6 +214,10 @@ const DeliveryMethodStep: React.FC<DeliveryMethodStepProps> = ({
   const shippingContacts = shippingSeed
     ? [{ name: shippingSeed.name ?? "", address: shippingSeed.address }]
     : undefined;
+  const stripeShippingOptions = {
+    fields: { phone: "always" as const },
+    ...(shippingContacts ? { contacts: shippingContacts } : {}),
+  };
   const seededRef = useRef(false);
   useEffect(() => {
     if (!enableStripe || seededRef.current || !actions) return;
@@ -570,7 +574,7 @@ const DeliveryMethodStep: React.FC<DeliveryMethodStepProps> = ({
                 // the key flips seeded↔empty to force a fresh mount (never an
                 // update()) once the async saved address resolves.
                 key={`${deliveryMethod}:${shippingContacts ? "seeded" : "empty"}`}
-                options={shippingContacts ? { contacts: shippingContacts } : {}}
+                options={stripeShippingOptions}
                 onChange={(event) => {
                   if (event.complete && event.value) {
                     const { address, phone, firstName, lastName, name } =
@@ -631,30 +635,6 @@ const DeliveryMethodStep: React.FC<DeliveryMethodStepProps> = ({
                     setShippingElementComplete(false);
                   }
                 }}
-              />
-              {/* Workaround: Stripe ShippingAddressElement does not return phone in event.value. Remove when fixed. */}
-              <FormField
-                name="shippingAddress.phone"
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone</FormLabel>
-                    <FormControl>
-                      <PhoneInput
-                        value={field.value ?? ""}
-                        onChange={(v) => {
-                          field.onChange(v || "");
-                          void form.trigger("shippingAddress.phone");
-                        }}
-                        className="w-full"
-                        placeholder="Enter phone number"
-                        countries={["AU", "NZ"]}
-                        defaultCountry="AU"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
               />
             </>
           ) : (

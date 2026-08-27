@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { loadStripe } from "@stripe/stripe-js";
+import { getStripePromise } from "@/lib/stripe-js-singleton";
 import {
   Elements,
   PaymentMethodMessagingElement,
@@ -208,7 +208,7 @@ export function PaymentMethodMessaging({
 
   const stripePromise = useMemo(() => {
     if (!gate || !near) return null;
-    return loadStripe(publishableKey, {
+    return getStripePromise(publishableKey, {
       ...(stripeAccountId ? { stripeAccount: stripeAccountId } : {}),
     });
   }, [gate, near, publishableKey, stripeAccountId]);

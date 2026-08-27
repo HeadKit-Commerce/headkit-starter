@@ -9,7 +9,6 @@ import {
 } from "@stripe/react-stripe-js/checkout";
 import type { AddressInput } from "@headkit/sdk";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { SpinnerIcon } from "@/components/icon";
 import { useCheckoutActions } from "@/app/checkout/checkout-actions-context";
 import { writeBillingAddressCookie } from "@/lib/checkout-billing-cookie";
@@ -17,7 +16,8 @@ import { isCheckoutSessionDead } from "@/lib/checkout-session-status";
 
 interface StripePaymentStepProps {
   /**
-   * ENG-801: render the "Billing is same as shipping" checkbox. Only true on
+   * ENG-801: render billing on the payment step with Stripe's native
+   * syncAddressCheckbox ("billing same as shipping"). Only true on
    * Ship-to-Home (the flow that collected a shipping address). Click & Collect
    * and no-shipping flows collect billing at the BillingAddressStep instead.
    */
@@ -54,21 +54,64 @@ type BillingValue = {
   postalCode: string;
 };
 
+/** Normalize an address for same-vs-distinct comparison on Pay. */
+function addressCompareKey(addr: {
+  line1?: string | null | undefined;
+  address1?: string | null | undefined;
+  city?: string | null | undefined;
+  state?: string | null | undefined;
+  country?: string | null | undefined;
+  postalCode?: string | null | undefined;
+  postcode?: string | null | undefined;
+}): string {
+  return [
+    (addr.line1 ?? addr.address1 ?? "").trim().toLowerCase(),
+    (addr.city ?? "").trim().toLowerCase(),
+    (addr.state ?? "").trim().toLowerCase(),
+    (addr.country ?? "").trim().toLowerCase(),
+    (addr.postalCode ?? addr.postcode ?? "").trim().toLowerCase(),
+  ].join("|");
+}
+
+function isDistinctBilling(
+  billing: BillingValue | null,
+  shipping: AddressInput | null | undefined,
+): boolean {
+  if (!billing?.line1?.trim() || !shipping?.address1?.trim()) return false;
+  return (
+    addressCompareKey(billing) !==
+    addressCompareKey({
+      line1: shipping.address1,
+      city: shipping.city,
+      state: shipping.state,
+      country: shipping.country,
+      postalCode: shipping.postcode,
+    })
+  );
+}
+
+/** Wait for React to commit an unmount before Stripe confirm() (ENG-801). */
+async function waitForBillingUnmount(): Promise<void> {
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => resolve());
+    });
+  });
+}
+
 /**
  * Renders PaymentElement + confirm button inside a CheckoutProvider context.
  * Must be a child of <CheckoutProvider> (from @stripe/react-stripe-js/checkout).
  * Calls checkout.confirm() to finalise payment — on success Stripe handles the
  * redirect to the returnUrl configured on the session.
  *
- * ENG-801: on Ship-to-Home a "Billing is same as shipping" checkbox (default
- * checked) is rendered. Unchecking reveals an inline BillingAddressElement.
- * On Pay the element is UNMOUNTED first, then the entered billing is pushed
- * via actions.updateBillingAddress() before checkout.confirm(). The unmount
- * is required: Stripe rejects confirm() while a billing Address Element is
- * mounted if updateBillingAddress() was ever called on the session (the
- * delivery step's billing=shipping write already counts). Checked = today's
- * behavior; after an uncheck → Pay attempt, re-checking restores
- * billing = shipping via actions.updateBillingAddress().
+ * ENG-801: on Ship-to-Home Stripe renders the native "billing same as shipping"
+ * checkbox (syncAddressCheckbox on the Elements instance). The
+ * BillingAddressElement stays mounted while the checkbox is visible; it is
+ * unmounted immediately before checkout.confirm() because Stripe rejects
+ * confirm() while a billing Address Element is mounted if
+ * updateBillingAddress() was ever called on the session (the delivery step's
+ * billing=shipping write already counts).
  */
 export function StripePaymentStep({
   showBillingSameAsShipping = false,
@@ -80,7 +123,6 @@ export function StripePaymentStep({
   const { actions } = useCheckoutActions();
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [billingSameAsShipping, setBillingSameAsShipping] = useState(true);
   const [billingElementComplete, setBillingElementComplete] = useState(false);
   const [lastBillingValue, setLastBillingValue] = useState<BillingValue | null>(
     null,
@@ -120,126 +162,110 @@ export function StripePaymentStep({
     setIsSubmitting(true);
     setError(null);
     try {
-      if (showBillingSameAsShipping && !billingSameAsShipping) {
-        // Distinct billing: unmount the element, push the entered address,
-        // then confirm. Stripe: "If you intend to use a different value,
-        // ensure the Address Element is not mounted by the time you call
-        // confirm()."
-        if (!actions || !billingElementComplete || !lastBillingValue?.line1) {
-          setError("Please complete your billing address");
-          return;
-        }
-        const name = [lastBillingValue.firstName, lastBillingValue.lastName]
-          .filter(Boolean)
-          .join(" ")
-          .trim();
-        const billingPayload = {
-          ...(name ? { name } : {}),
-          address: {
-            line1: lastBillingValue.line1,
-            ...(lastBillingValue.line2
-              ? { line2: lastBillingValue.line2 }
-              : {}),
+      if (showBillingSameAsShipping) {
+        const distinct = isDistinctBilling(lastBillingValue, shippingAddress);
+
+        if (distinct) {
+          if (!actions || !billingElementComplete || !lastBillingValue?.line1) {
+            setError("Please complete your billing address");
+            return;
+          }
+          const name = [lastBillingValue.firstName, lastBillingValue.lastName]
+            .filter(Boolean)
+            .join(" ")
+            .trim();
+          const billingPayload = {
+            ...(name ? { name } : {}),
+            address: {
+              line1: lastBillingValue.line1,
+              ...(lastBillingValue.line2
+                ? { line2: lastBillingValue.line2 }
+                : {}),
+              city: lastBillingValue.city,
+              state: lastBillingValue.state,
+              postal_code: lastBillingValue.postalCode,
+              country: lastBillingValue.country,
+            },
+          };
+          setRemountContacts([{ name, address: billingPayload.address }]);
+          setHideBillingElement(true);
+          await waitForBillingUnmount();
+          const res = await actions.updateBillingAddress(billingPayload);
+          if (res.type === "error") {
+            setError(res.error?.message ?? "Failed to update billing address");
+            return;
+          }
+          billingOverriddenRef.current = true;
+          writeBillingAddressCookie({
+            firstName: lastBillingValue.firstName,
+            lastName: lastBillingValue.lastName,
+            address1: lastBillingValue.line1,
+            address2: lastBillingValue.line2 ?? "",
             city: lastBillingValue.city,
             state: lastBillingValue.state,
-            postal_code: lastBillingValue.postalCode,
+            postcode: lastBillingValue.postalCode,
             country: lastBillingValue.country,
-          },
-        };
-        // Unmount the element (and keep its value as remount prefill). The
-        // awaited network call below gives React time to commit the unmount
-        // before confirm() runs.
-        setRemountContacts([{ name, address: billingPayload.address }]);
-        setHideBillingElement(true);
-        const res = await actions.updateBillingAddress(billingPayload);
-        if (res.type === "error") {
-          setError(res.error?.message ?? "Failed to update billing address");
-          return;
-        }
-        billingOverriddenRef.current = true;
-        // Persist the entered billing for the success pages — the session
-        // retrieve returns stale customer_details for a while after confirm,
-        // so the cookie is the deterministic finalize source (ENG-801).
-        writeBillingAddressCookie({
-          firstName: lastBillingValue.firstName,
-          lastName: lastBillingValue.lastName,
-          address1: lastBillingValue.line1,
-          address2: lastBillingValue.line2 ?? "",
-          city: lastBillingValue.city,
-          state: lastBillingValue.state,
-          postcode: lastBillingValue.postalCode,
-          country: lastBillingValue.country,
-        });
-      } else if (
-        showBillingSameAsShipping &&
-        billingSameAsShipping &&
-        billingOverriddenRef.current
-      ) {
-        // Re-checked after a distinct billing was pushed: restore
-        // billing = shipping on the session before confirming. Never confirm
-        // with stale distinct billing while the UI claims "same as shipping".
-        if (!actions || !shippingAddress?.address1) {
-          setError(
-            "Unable to restore your billing address. Please uncheck the box and enter a billing address.",
-          );
-          return;
-        }
-        const restoreName = [
-          shippingAddress.firstName,
-          shippingAddress.lastName,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .trim();
-        const restoreRes = await actions.updateBillingAddress({
-          ...(restoreName ? { name: restoreName } : {}),
-          address: {
-            line1: shippingAddress.address1 ?? "",
-            ...(shippingAddress.address2
-              ? { line2: shippingAddress.address2 }
-              : {}),
-            city: shippingAddress.city ?? "",
-            state: shippingAddress.state ?? "",
-            postal_code: shippingAddress.postcode ?? "",
-            country: shippingAddress.country ?? "",
-          },
-        });
-        if (restoreRes.type === "error") {
-          setError(
-            restoreRes.error?.message ?? "Failed to update billing address",
-          );
-          return;
-        }
-        billingOverriddenRef.current = false;
-      }
+          });
+        } else {
+          setHideBillingElement(true);
+          await waitForBillingUnmount();
 
-      if (
-        showBillingSameAsShipping &&
-        billingSameAsShipping &&
-        shippingAddress?.address1
-      ) {
-        // Checked = billing IS the shipping address. Persist it so the
-        // success pages never read a stale/distinct billing from a previous
-        // attempt or from the lagging session retrieve (ENG-801).
-        writeBillingAddressCookie({
-          firstName: shippingAddress.firstName ?? "",
-          lastName: shippingAddress.lastName ?? "",
-          address1: shippingAddress.address1 ?? "",
-          address2: shippingAddress.address2 ?? "",
-          city: shippingAddress.city ?? "",
-          state: shippingAddress.state ?? "",
-          postcode: shippingAddress.postcode ?? "",
-          country: shippingAddress.country ?? "",
-          ...(shippingAddress.phone ? { phone: shippingAddress.phone } : {}),
-        });
+          if (billingOverriddenRef.current) {
+            if (!actions || !shippingAddress?.address1) {
+              setError(
+                "Unable to restore your billing address. Please uncheck the box and enter a billing address.",
+              );
+              return;
+            }
+            const restoreName = [
+              shippingAddress.firstName,
+              shippingAddress.lastName,
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .trim();
+            const restoreRes = await actions.updateBillingAddress({
+              ...(restoreName ? { name: restoreName } : {}),
+              address: {
+                line1: shippingAddress.address1 ?? "",
+                ...(shippingAddress.address2
+                  ? { line2: shippingAddress.address2 }
+                  : {}),
+                city: shippingAddress.city ?? "",
+                state: shippingAddress.state ?? "",
+                postal_code: shippingAddress.postcode ?? "",
+                country: shippingAddress.country ?? "",
+              },
+            });
+            if (restoreRes.type === "error") {
+              setError(
+                restoreRes.error?.message ?? "Failed to update billing address",
+              );
+              return;
+            }
+            billingOverriddenRef.current = false;
+          }
+
+          if (shippingAddress?.address1) {
+            writeBillingAddressCookie({
+              firstName: shippingAddress.firstName ?? "",
+              lastName: shippingAddress.lastName ?? "",
+              address1: shippingAddress.address1 ?? "",
+              address2: shippingAddress.address2 ?? "",
+              city: shippingAddress.city ?? "",
+              state: shippingAddress.state ?? "",
+              postcode: shippingAddress.postcode ?? "",
+              country: shippingAddress.country ?? "",
+              ...(shippingAddress.phone
+                ? { phone: shippingAddress.phone }
+                : {}),
+            });
+          }
+        }
       }
 
       const result = await checkout.confirm();
       if (result.type === "error") {
-        // ENG-784: a confirm error may mean the session was expired under us
-        // (cart mutated in another tab → mechanism 1 fired). Ask the SERVER
-        // for the session status (D7) — dead → one-shot auto-recreate; alive
-        // → keep the existing inline error handling.
         if (
           sessionId &&
           onSessionExpired &&
@@ -264,15 +290,12 @@ export function StripePaymentStep({
       );
     } finally {
       setIsSubmitting(false);
-      // Remount the element (prefilled via remountContacts) if the payment
-      // did not redirect — e.g. declined card or a confirm error.
       setHideBillingElement(false);
     }
   }, [
     checkoutState,
     actions,
     showBillingSameAsShipping,
-    billingSameAsShipping,
     billingElementComplete,
     lastBillingValue,
     shippingAddress,
@@ -299,39 +322,19 @@ export function StripePaymentStep({
     );
   }
 
-  // The amount on the Pay button. `StripeCheckoutAmount.amount` is Stripe's own
-  // PRE-FORMATTED, localised display string — the same "A$20.99" the summary
-  // beside this button renders — so there is no currency formatting or minor-
-  // unit arithmetic to do here and nothing new to plumb: `checkoutState` is
-  // already narrowed to `success` by the two early returns above.
-  //
-  // Fallback is the bare "Pay Now", and it is reachable only if Stripe hands
-  // back an EMPTY `amount` string; the genuine loading window is already served
-  // by the `type === "loading"` branch above, which renders a spinner and not
-  // this button at all.
-  //
-  // A true zero total does not reach this component. `app/checkout/page.tsx`
-  // routes a settled-free cart to the no-payment "Place order" confirm without
-  // ever creating a session (`isSettledFreeCart`), and a cart driven to zero
-  // mid-checkout by a 100% coupon or a full gift-card redemption has its live
-  // session EXPIRED by `SyncCheckoutSessionLineItems` rather than re-priced —
-  // see the zero-total rules in AGENTS.md. So "Pay A$0.00" is not a state this
-  // button can render in normal operation.
   const payAmount = checkoutState.checkout.total.total.amount.trim() || null;
 
   return (
     <div className="space-y-4">
-      {/*
-        PAY-06: express / wallet checkout (Apple Pay / Google Pay / Link) is NOT
-        here — it lives in <ExpressCheckoutTop /> at the top of the checkout page
-        (components/checkout/express-checkout-top.tsx). Stripe allows only ONE
-        ExpressCheckoutElement per CheckoutProvider; a second instance here threw
-        "cannot create multiple instances" and crashed to the error boundary.
-        This step is the card / Payment Element path only.
-      */}
       <CurrencySelectorElement />
       <PaymentElement
         options={{
+          layout: {
+            type: "accordion",
+            defaultCollapsed: false,
+            radios: "always",
+            spacedAccordionItems: true,
+          },
           fields: {
             billingDetails: {
               name: "never",
@@ -339,55 +342,32 @@ export function StripePaymentStep({
           },
         }}
       />
-      {showBillingSameAsShipping && (
-        <div className="space-y-4">
-          <div className="flex flex-row items-start space-x-2">
-            <Checkbox
-              id="billing-same-as-shipping"
-              checked={billingSameAsShipping}
-              onCheckedChange={(checked) => {
-                setBillingSameAsShipping(checked === true);
-                setError(null);
-              }}
-            />
-            <label
-              htmlFor="billing-same-as-shipping"
-              className="text-sm font-medium leading-none"
-            >
-              Billing is same as shipping
-            </label>
-          </div>
-          {!billingSameAsShipping && !hideBillingElement && (
-            <BillingAddressElement
-              // `contacts` (create-only, ENG-755) restores the entered value
-              // after the Pay-flow unmount; remountContacts only changes while
-              // the element is hidden, so options never change on a live mount.
-              options={remountContacts ? { contacts: remountContacts } : {}}
-              onChange={(event) => {
-                if (event.complete && event.value) {
-                  const { address, firstName, lastName, name } = event.value;
-                  const first = (name?.split(" ")?.[0] || firstName) ?? "";
-                  const last = (name?.split(" ")?.[1] || lastName) ?? "";
-                  const addr = address ?? {};
-                  const value: BillingValue = {
-                    firstName: first,
-                    lastName: last,
-                    line1: addr.line1 ?? "",
-                    line2: addr.line2 ?? "",
-                    city: addr.city ?? "",
-                    state: addr.state ?? "",
-                    country: addr.country ?? "",
-                    postalCode: addr.postal_code ?? "",
-                  };
-                  setLastBillingValue(value);
-                  setBillingElementComplete(!!value.line1);
-                } else {
-                  setBillingElementComplete(false);
-                }
-              }}
-            />
-          )}
-        </div>
+      {showBillingSameAsShipping && !hideBillingElement && (
+        <BillingAddressElement
+          options={remountContacts ? { contacts: remountContacts } : {}}
+          onChange={(event) => {
+            if (event.complete && event.value) {
+              const { address, firstName, lastName, name } = event.value;
+              const first = (name?.split(" ")?.[0] || firstName) ?? "";
+              const last = (name?.split(" ")?.[1] || lastName) ?? "";
+              const addr = address ?? {};
+              const value: BillingValue = {
+                firstName: first,
+                lastName: last,
+                line1: addr.line1 ?? "",
+                line2: addr.line2 ?? "",
+                city: addr.city ?? "",
+                state: addr.state ?? "",
+                country: addr.country ?? "",
+                postalCode: addr.postal_code ?? "",
+              };
+              setLastBillingValue(value);
+              setBillingElementComplete(!!value.line1);
+            } else {
+              setBillingElementComplete(false);
+            }
+          }}
+        />
       )}
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-3">
