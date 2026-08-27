@@ -684,13 +684,57 @@ export async function payButtonAmountMajor(page: Page): Promise<number | null> {
   const name = (await payButton(page).textContent())?.trim() ?? "";
   const body = name.replace(/^Pay\s+/i, "");
   if (/^now$/i.test(body)) return null;
-  const numeric = body.replace(/[^\d.,]/g, "");
+  return parseMoneyMajor(body);
+}
+
+/**
+ * Parse a formatted money string into MAJOR units, or `null` when it carries no
+ * parseable figure.
+ *
+ * Format-tolerant on purpose: currency symbols/codes are dropped, and the
+ * decimal separator is whichever `.` or `,` is followed by exactly two trailing
+ * digits (so both `A$1,430.00` and `1.430,00 €` parse to 1430.00). Compare the
+ * RESULT numerically — never assert on the formatted string, which is the
+ * renderer's (Stripe's, or `formatPrice`'s) to choose.
+ */
+export function parseMoneyMajor(text: string): number | null {
+  const numeric = text.replace(/[^\d.,]/g, "");
+  if (!/\d/.test(numeric)) return null;
   const decimal = /[.,](\d{2})$/.exec(numeric);
   const whole = decimal
     ? numeric.slice(0, numeric.length - 3).replace(/[.,]/g, "")
     : numeric.replace(/[.,]/g, "");
   const parsed = Number(`${whole}.${decimal?.[1] ?? "00"}`);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+/**
+ * HeadKit's OWN order-summary `Total` row, in MAJOR units.
+ *
+ * This is the storefront's rendered total — `formatPrice(totalForDisplay,
+ * currency)` in `components/checkout/cart.tsx`, where `currency` is the CART's
+ * currency. It is never Stripe's presentment currency, so it is directly
+ * comparable to {@link cartTotalMajor}. (The Pay button is not: Stripe Adaptive
+ * Pricing may render it in the shopper's local currency, which makes a numeric
+ * comparison against the Woo payable false by construction — see
+ * `260827-diagnose-pay-button-vs-cart-payable`.)
+ *
+ * The summary is `hidden md:block` on the checkout page, so this needs a
+ * desktop-width viewport (the suite's default).
+ */
+export async function orderSummaryTotalMajor(
+  page: Page,
+): Promise<number | null> {
+  const label = page.locator("p", { hasText: /^Total$/ }).last();
+  const row = label.locator(
+    "xpath=ancestor::div[contains(@class,'justify-between')][1]",
+  );
+  await expect(
+    row,
+    "order-summary Total row never rendered on the checkout page",
+  ).toBeVisible({ timeout: 30_000 });
+  const value = (await row.locator("p").last().textContent())?.trim() ?? "";
+  return parseMoneyMajor(value);
 }
 
 /** Click Pay Now and wait for the Stripe redirect to the bare success route. */

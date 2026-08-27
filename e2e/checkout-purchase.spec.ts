@@ -12,6 +12,7 @@ import {
   fillShippingOptionsStep,
   installCartCookie,
   payAndAwaitSuccess,
+  orderSummaryTotalMajor,
   payButtonAmountMajor,
   seedRegularCart,
   stackIsUp,
@@ -111,19 +112,39 @@ test.describe("Paid card checkout (Gap 1 — P0-01/02/03/18)", () => {
       "cart total must be > 0 for a paid checkout",
     ).toBeGreaterThan(0);
 
-    // Guard on the pay button's COPY: it must carry the payable, not a bare
+    // Guard on the pay button's COPY: it must carry an amount, not a bare
     // "Pay Now". A silent revert of `Pay {amount}` fails here rather than
-    // sliding through on the locator's fallback branch. Compared numerically —
-    // the string itself is Stripe's own localised formatting to choose.
+    // sliding through on the locator's fallback branch.
+    //
+    // The button's FIGURE is deliberately NOT compared to the Woo payable:
+    // Stripe Adaptive Pricing may render it in the shopper's local currency
+    // (US CI sees `$20.17` for an A$27.00 cart), so that equality is false by
+    // construction and only ever reported where the runner sits — see
+    // `260827-diagnose-pay-button-vs-cart-payable`. The payable is guarded on
+    // two surfaces where both sides are the same currency instead: HeadKit's
+    // own order-summary Total below, and Stripe's `amount_total` after the
+    // payment (integration currency) further down.
     const payableMajor = await cartTotalMajor(api, cartToken);
     const buttonAmount = await payButtonAmountMajor(page);
     expect(
       buttonAmount,
       'pay button rendered the bare "Pay Now" fallback instead of `Pay {amount}`',
     ).not.toBeNull();
+
+    // The displayed-total-vs-payable guard: the summary HeadKit itself renders
+    // must equal the Store API payable at pay time. Same currency by
+    // construction (`components/checkout/cart.tsx` formats with the CART's
+    // currency). This is the surface where the tax-exclusive display P0
+    // (`260825-dishee-checkout-charges-tax-exclusive`) lived — page showing one
+    // total while Stripe charged another.
+    const summaryTotal = await orderSummaryTotalMajor(page);
     expect(
-      buttonAmount ?? 0,
-      "pay button amount != the cart payable at pay time",
+      summaryTotal,
+      "order-summary Total row carried no parseable amount",
+    ).not.toBeNull();
+    expect(
+      summaryTotal ?? 0,
+      "order-summary Total != the cart payable at pay time",
     ).toBeCloseTo(payableMajor, 2);
 
     const sessionId = await payAndAwaitSuccess(page);
