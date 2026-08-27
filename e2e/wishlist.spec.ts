@@ -129,22 +129,27 @@ test.describe("Wishlist read surface + home smoke (P1-40, P1-32)", () => {
     });
 
     // Seeded home sections all render with content.
-    // New Arrivals / Latest News are no longer hardcoded on the homepage.
-    for (const section of [
-      "Featured Products",
-      "On Sale",
-      "Shop by Category",
-    ]) {
+    // New Arrivals / Latest News are no longer hardcoded on the homepage, and
+    // neither is "Featured Products" — merchants pick their own product
+    // sections from the CMS, so the homepage no longer ships one that nothing
+    // guards against duplicating WP content. The assertion below is the
+    // inverse: the heading must be ABSENT.
+    for (const section of ["On Sale", "Shop by Category"]) {
       await expect(
         page.getByRole("heading", { name: section }).first(),
         `home section "${section}" missing`,
       ).toBeVisible();
     }
 
+    await expect(
+      page.getByRole("heading", { name: "Featured Products" }),
+      'the hardcoded "Featured Products" carousel must no longer render',
+    ).toHaveCount(0);
+
     // Product carousels actually carry product cards (not empty rails).
     // (The ProductCarousel `id` prop is not emitted into the DOM, so scope
     // by the section that owns each heading.)
-    for (const section of ["Featured Products", "On Sale"]) {
+    for (const section of ["On Sale"]) {
       const rail = page
         .locator("section")
         .filter({ has: page.getByRole("heading", { name: section }) });

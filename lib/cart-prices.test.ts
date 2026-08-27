@@ -7,6 +7,7 @@ import {
   lineDisplayTotal,
   orderDiscountDisplayTotal,
   orderItemsDisplayTotal,
+  orderShippingLineDisplayTotal,
   shippingDisplayTotal,
 } from "./cart-prices";
 import { getFloatVal } from "./utils";
@@ -458,5 +459,86 @@ describe("shippingDisplayTotal — the Shipping row", () => {
     expect(shippingDisplayTotal(undefined)).toBe(0);
     expect(shippingDisplayTotal(null)).toBe(0);
     expect(shippingDisplayTotal({})).toBe(0);
+  });
+});
+
+describe("orderShippingLineDisplayTotal — the confirmation page's method line", () => {
+  /**
+   * The reported defect: the confirmation page printed the shipper's fee twice
+   * at two different numbers. The method line rendered the wc/v3 shipping
+   * line's tax-EXCLUSIVE `total` while the Shipping row in the totals block
+   * rendered the inclusive figure, so a 10%-GST order read "Flat rate A$10.00"
+   * above "Shipping A$11.00" for the one delivery. Both must be inclusive.
+   *
+   * `OrderShippingLine` carries no per-line tax (the SDK schema has
+   * methodId/methodTitle/total plus the pickup fields and nothing else), so the
+   * inclusive per-line figure is derivable only from the order-level pair — and
+   * only when there is one line to attribute all of it to.
+   */
+  const gstOrder = {
+    totals: {
+      totalItems: "100",
+      totalItemsTax: "0",
+      totalDiscount: "0",
+      totalDiscountTax: "0",
+      totalShipping: "10",
+      totalShippingTax: "1",
+    },
+    shippingLines: [{ total: "10" }],
+  };
+
+  it("prints the INCLUSIVE amount for the single-shipping-line order", () => {
+    const line = gstOrder.shippingLines[0];
+    expect(orderShippingLineDisplayTotal(gstOrder, line)).toBe(11);
+  });
+
+  it("agrees to the cent with the Shipping row beside it", () => {
+    // This equality IS the fix. Anything that makes these two diverge
+    // reintroduces the two-figures-one-delivery defect.
+    expect(
+      orderShippingLineDisplayTotal(gstOrder, gstOrder.shippingLines[0]),
+    ).toBe(shippingDisplayTotal(gstOrder));
+  });
+
+  it("reports a free line as 0 whatever else the order carries", () => {
+    // Tax on nothing is nothing, so a zero ex-tax line is zero inclusive too —
+    // true even on a multi-line order, where nothing else is derivable.
+    const multi = {
+      ...gstOrder,
+      shippingLines: [{ total: "0" }, { total: "10" }],
+    };
+    expect(orderShippingLineDisplayTotal(multi, { total: "0" })).toBe(0);
+    expect(orderShippingLineDisplayTotal(gstOrder, { total: "0" })).toBe(0);
+  });
+
+  it("refuses (null) rather than guess when several PAID lines share the tax", () => {
+    // The order-level tax cannot be split across packages without a per-line
+    // rate, and WooCommerce allows different shipping tax classes. The caller
+    // prints the method title alone; the totals block stays authoritative.
+    const multi = {
+      ...gstOrder,
+      totals: {
+        ...gstOrder.totals,
+        totalShipping: "18",
+        totalShippingTax: "1.8",
+      },
+      shippingLines: [{ total: "10" }, { total: "8" }],
+    };
+    expect(orderShippingLineDisplayTotal(multi, { total: "10" })).toBeNull();
+    expect(orderShippingLineDisplayTotal(multi, { total: "8" })).toBeNull();
+  });
+
+  it("is inert on a zero-tax store", () => {
+    const noTax = {
+      totals: { totalShipping: "10", totalShippingTax: "0" },
+      shippingLines: [{ total: "10" }],
+    };
+    expect(orderShippingLineDisplayTotal(noTax, { total: "10" })).toBe(10);
+  });
+
+  it("survives an absent order, absent lines and an absent line", () => {
+    expect(orderShippingLineDisplayTotal(undefined, undefined)).toBe(0);
+    expect(orderShippingLineDisplayTotal(null, { total: "10" })).toBeNull();
+    expect(orderShippingLineDisplayTotal({}, { total: "10" })).toBeNull();
   });
 });

@@ -231,6 +231,72 @@ export function shippingDisplayTotal(
   );
 }
 
+/** One wc/v3 order shipping line, as the order pages read it. */
+export interface OrderShippingLineLike {
+  total?: string | null;
+}
+
+/** An order, for {@link orderShippingLineDisplayTotal}. */
+export interface OrderShippingLinesSource extends DisplayTotalsSource {
+  shippingLines?: readonly OrderShippingLineLike[] | null;
+}
+
+/**
+ * The tax-INCLUSIVE amount to print beside ONE shipping METHOD on an order
+ * page, or `null` when it cannot be derived — see the multi-line case below.
+ *
+ * **The defect.** The confirmation page printed the shipper's fee twice at two
+ * different numbers: the method line rendered `shippingLines[].total`, which is
+ * wc/v3's tax-EXCLUSIVE figure, while the Shipping row in the totals block a
+ * few hundred pixels away rendered {@link shippingDisplayTotal}, which adds the
+ * sibling tax back. On a 10%-GST order that reads "Flat rate A$10.00" above
+ * "Shipping A$11.00" for the same delivery. Both figures must be inclusive.
+ *
+ * **Why this cannot just add a sibling like every other helper here.**
+ * `OrderShippingLine` in the SDK schema carries `methodId`, `methodTitle`,
+ * `total` and the three pickup fields — and NO tax field. Commerce does not
+ * surface a per-line shipping tax at all, so there is nothing on the line to
+ * add. What IS available is the order-level pair `totalShipping` /
+ * `totalShippingTax`, which commerce maps straight off the wc/v3 order's
+ * `shipping_total` / `shipping_tax`.
+ *
+ * So the derivation is exact in the two cases that matter and refuses in the
+ * one it cannot reach:
+ *
+ * | order has                | returns                             |
+ * |--------------------------|-------------------------------------|
+ * | a line whose ex-tax total is 0 | `0` — tax on nothing is nothing, so a free line is free inclusive too, whatever else the order carries |
+ * | exactly ONE shipping line      | `shippingDisplayTotal(order)` — that one line IS the whole of the order's shipping, so the order-level inclusive figure is this line's, to the cent and by construction identical to the Shipping row |
+ * | two or more paid lines         | `null` |
+ *
+ * **`null` means "print no figure", not "print zero".** With several paid
+ * shipping packages the order-level tax is a single number that cannot be split
+ * across them without a per-line rate, and WooCommerce lets shipping lines sit
+ * in different tax classes. Pro-rating by ex-tax share would always sum back to
+ * the Shipping row but would put an invented number against each individual
+ * method — on a receipt, a plausible wrong figure is worse than none. The
+ * caller drops to the method title alone and the totals block stays the single
+ * authority for what the shipping cost. Closing that gap needs a `totalTax` on
+ * `OrderShippingLine` in the commerce schema; it is the same shape as the
+ * `totalItemsTax` gap that forced {@link orderItemsDisplayTotal} to sum from
+ * the lines.
+ *
+ * @see {@link shippingDisplayTotal} for the totals-block figure this agrees with.
+ */
+export function orderShippingLineDisplayTotal(
+  order: OrderShippingLinesSource | null | undefined,
+  line: OrderShippingLineLike | null | undefined,
+): number | null {
+  if (getFloatVal(line?.total) === 0) {
+    return 0;
+  }
+  const lines = order?.shippingLines ?? [];
+  if (lines.length === 1) {
+    return shippingDisplayTotal(order);
+  }
+  return null;
+}
+
 /** One applied coupon, as the checkout summary's coupon chip needs it. */
 export interface CouponTotalsLike {
   totalDiscount?: string | null;

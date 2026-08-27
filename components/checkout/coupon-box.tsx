@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import type { CartFieldsFragment } from "@headkit/sdk";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   applyCouponAction,
   applyGiftCardAction,
@@ -196,11 +197,39 @@ export const CouponBox = ({ cart }: CouponBoxProps) => {
       <form onSubmit={handleSubmit(handleApply)}>
         <div className="flex gap-3 items-start">
           <div className="flex-1">
-            <input
+            {/* The design-system <Input>, not a raw element. The raw one was
+                `w-full p-2 border rounded`, which measured 37-42px tall beside
+                a 40px Apply button, 4px radius beside the button's 6px, a
+                transparent background, and NO focus style at all (so it drew
+                Chrome's default blue ring, which appears nowhere else on the
+                site). <Input> supplies `h-10`, `bg-white` and a branded
+                `focus-visible:ring-2` — the same field treatment every other
+                input on the site gets.
+
+                Two classes are added on top, and both track the Apply button
+                BESIDE this field rather than <Input>'s own defaults:
+
+                - `rounded-[var(--radius-button)]` — Button reads that token,
+                  and a store can set it to `9999px` (round) or `0` (square)
+                  via `CORNER_STYLE_VARS` in app/layout.tsx. <Input>'s fixed
+                  `rounded-md` happens to equal the token's `soft` default, so
+                  it would match on a default store and diverge on either of
+                  the other two.
+                - `border-primary` — <Input>'s `border-neutral-200` is chosen
+                  for a white page. Measured against the page background it is
+                  1.26:1 on the default white store and 1.03:1 on a store with
+                  a tinted background, both far under the 3.0:1 WCAG 1.4.11
+                  asks of a control boundary. The Apply button next to it
+                  already uses `border-primary` and already clears the bar
+                  (5.50:1 default, 18.20:1 on the store this was reported
+                  from), so matching it makes the two ends of one row agree
+                  and inherits a boundary the brand has already had to make
+                  visible. */}
+            <Input
               {...register("code")}
               type="text"
               placeholder="Coupon Code or Gift Card"
-              className="w-full p-2 border rounded"
+              className="w-full rounded-[var(--radius-button)] border-primary"
             />
             {errors.code && (
               <p className="text-red-500 text-sm mt-1">{errors.code.message}</p>

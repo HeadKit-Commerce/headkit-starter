@@ -43,7 +43,10 @@ import {
   clearBillingAddressCookie,
 } from "@/lib/checkout-billing-cookie";
 import { getEmailMarketingStatusAction } from "@/lib/email-marketing-actions";
-import { buildCheckoutAppearance } from "@/lib/stripe-appearance";
+import {
+  buildCheckoutAppearance,
+  buildCheckoutFonts,
+} from "@/lib/stripe-appearance";
 
 export type Step =
   | CheckoutFormStepEnum.CONTACT
@@ -979,6 +982,10 @@ export function CheckoutForm({
   // Built once on the client so Stripe gets concrete CSS values (no var()).
   // Must stay above early returns — hooks cannot run conditionally.
   const appearance = useMemo(() => buildCheckoutAppearance(), []);
+  // The appearance names the brand family; this is what lets the iframe
+  // actually LOAD it. Passing one without the other is the bug — see
+  // buildCheckoutFonts().
+  const fonts = useMemo(() => buildCheckoutFonts(), []);
 
   if (error) {
     return (
@@ -1043,6 +1050,7 @@ export function CheckoutForm({
           : {}),
         elementsOptions: {
           appearance,
+          fonts,
         },
       }}
     >

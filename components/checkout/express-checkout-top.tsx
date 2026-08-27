@@ -38,6 +38,31 @@ import { isCheckoutSessionDead } from "@/lib/checkout-session-status";
  * inline on the page beneath. The inline message is kept as the on-page
  * fallback.
  */
+/**
+ * Whether Stripe reported at least one wallet the buyer can actually use.
+ *
+ * `event.paymentMethods` is an OBJECT keyed by wallet
+ * (`{link?: {available}, applePay?: {available}, …}`), not a list and not a
+ * boolean, so the obvious `Boolean(event.paymentMethods)` is `true` for
+ * `{applePay: {available: false}, googlePay: {available: false}}` — every
+ * wallet unavailable, and still truthy. That rendered the "Express checkout"
+ * heading and the "OR" divider around a zero-height element: a label and a rule
+ * framing nothing.
+ *
+ * Nobody has seen it, which is exactly why it is worth fixing now: the stores
+ * this ships to have Link available, so `hasWallet` has always been
+ * legitimately true. It surfaces the first time a buyer arrives with Link
+ * disabled on the account and no platform wallet — a browser/store combination
+ * no one has happened to test.
+ *
+ * Exported for test; there is no other caller.
+ */
+export function hasAvailableWallet(
+  paymentMethods: StripeExpressCheckoutElementAvailablePaymentMethodsChangeEvent["paymentMethods"],
+): boolean {
+  return Object.values(paymentMethods ?? {}).some((m) => m?.available === true);
+}
+
 export function ExpressCheckoutTop({
   sessionId,
   onSessionExpired,
@@ -94,7 +119,7 @@ export function ExpressCheckoutTop({
   const handleAvailablePaymentMethodsChange = (
     event: StripeExpressCheckoutElementAvailablePaymentMethodsChangeEvent,
   ): void => {
-    setHasWallet(Boolean(event.paymentMethods));
+    setHasWallet(hasAvailableWallet(event.paymentMethods));
   };
 
   return (

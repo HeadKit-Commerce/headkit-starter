@@ -17,6 +17,7 @@ import { CheckoutTestModeBanner } from "@/components/checkout/test-mode-banner";
 import { getBranding } from "@/lib/branding";
 import { normalizeCheckoutMode } from "@/lib/checkout-mode";
 import { isOfflineOnlyCart } from "@/lib/payment-gateways";
+import { getStripeConfig } from "@/lib/stripe-config";
 
 export default async function CheckoutPage({
   searchParams,
@@ -34,10 +35,18 @@ export default async function CheckoutPage({
   // session minted below, honest banner on top.
   const cartChanged = error === "cart_changed";
 
-  // Parallel: quote-mode needs branding; Shopify hosted redirect needs cart.
-  const [{ storeSettings }, cartResult] = await Promise.all([
+  // Parallel: quote-mode needs branding; Shopify hosted redirect needs cart;
+  // the checkout summary's BNPL badge needs the store's messaging toggle.
+  //
+  // Only `bnplMessagingEnabled` is taken from this config. The publishable key
+  // and Connect account the badge renders against come from the checkout
+  // SESSION below — checkout has always taken its key from there rather than
+  // from `getStripeConfig()`, and the session's account is the one the shopper
+  // is actually paying through.
+  const [{ storeSettings }, cartResult, stripeConfig] = await Promise.all([
     getBranding(),
     getFullCartAction(),
+    getStripeConfig(),
   ]);
 
   // HeadKit Quote stores use /quote instead of the payment checkout.
@@ -215,8 +224,21 @@ export default async function CheckoutPage({
     // Fallback: checkout will use cart-derived list with empty addresses
   }
 
+  // NO `min-h-screen` here. It forced this wrapper to a full 100vh BELOW the
+  // header, so the page was always at least a viewport-and-a-header tall no
+  // matter how little content the accordion had — measured as a void between
+  // the last step card and the footer that GREW with the screen: gap =
+  // viewportHeight - 642 (258px at 900px, 658px at 1300px). The remaining
+  // `min-h-[700px]` in checkout-page-content.tsx keeps a constant ~103px of
+  // floor, which does not scale.
+  //
+  // `bg-brand-bg` stays and is now the only reason the wrapper exists. It is
+  // belt-and-braces rather than load-bearing: globals.css already paints
+  // `body` with `var(--color-background, var(--background))`, and layout.tsx
+  // sets BOTH of those and `--color-brand-bg` from the same branding value, so
+  // the area below the wrapper was never a different colour.
   return (
-    <div className="min-h-screen bg-brand-bg">
+    <div className="bg-brand-bg">
       {checkoutSession ? (
         <CheckoutTestModeBanner
           publishableKey={checkoutSession.publishableKey}
@@ -259,6 +281,7 @@ export default async function CheckoutPage({
         {...(customerEmail && { customerEmail })}
         isAuthenticated={isAuthenticated}
         allowedCountries={["AU", "NZ"]}
+        bnplMessagingEnabled={stripeConfig.bnplMessagingEnabled}
       />
     </div>
   );

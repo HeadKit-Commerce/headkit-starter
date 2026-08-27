@@ -93,7 +93,18 @@ export function LineItemDisplay({
           />
         </div>
 
-        <div className="flex flex-1 flex-col justify-between">
+        {/* `min-w-0` is load-bearing, not cosmetic. A flex child defaults to
+            `min-width: auto`, which refuses to shrink below its content width —
+            and the title below is `truncate` (`white-space: nowrap`), so its
+            min-content width is the WHOLE product name. Without `min-w-0` this
+            column therefore never yields, `truncate` never engages, and the
+            `shrink-0` price beside it is pushed off the right edge of the
+            viewport: measured 91px of horizontal page overflow at 768px on a
+            48-character product name, present from ~790px up to 1024px. The
+            sibling line-item surfaces (`headkit-ui/cart-item.tsx`,
+            `quote/quote-cart-items.tsx`, `headkit-ui/product-multi-add.tsx`)
+            already carry it; this row was the one that did not. */}
+        <div className="flex min-w-0 flex-1 flex-col justify-between">
           <p className="font-medium text-sm capitalize text-gray-900 truncate">
             {displayName}
           </p>

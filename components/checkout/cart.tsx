@@ -12,12 +12,32 @@ import {
 import { getFloatVal, formatPrice } from "@/lib/utils";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { useIsQuoteMode } from "@/components/checkout/checkout-mode-provider";
+import { PaymentMethodMessaging } from "@/components/stripe/payment-messaging";
+
+/**
+ * What the BNPL badge needs to decide whether it can render. Absent (the
+ * offline-gateway summary, quote mode) means no badge at all — see the render
+ * site below.
+ */
+export interface CartBnplMessaging {
+  /**
+   * From the CHECKOUT SESSION, not `getStripeConfig()`. The session's key is
+   * the one the shopper is actually paying through, so it is the one whose
+   * account's BNPL providers the badge must describe.
+   */
+  publishableKey: string;
+  stripeAccountId?: string | null;
+  /** The store's `bnplMessagingEnabled` dashboard toggle. */
+  enabled: boolean;
+}
 
 interface Props {
   showDisplayShipping?: boolean;
+  /** Omit to render no BNPL badge (see {@link CartBnplMessaging}). */
+  bnpl?: CartBnplMessaging;
 }
 
-const Cart = ({ showDisplayShipping }: Props) => {
+const Cart = ({ showDisplayShipping, bnpl }: Props) => {
   const { cartData } = useCartContext();
   const isQuoteMode = useIsQuoteMode();
 
@@ -38,12 +58,13 @@ const Cart = ({ showDisplayShipping }: Props) => {
     return shippingCost === 0 ? "Free" : formatPrice(shippingCost, currency);
   };
 
-  const calculateTotal = () => {
-    const total = getFloatVal(cartData.totals.totalPrice);
-    return showDisplayShipping
-      ? formatPrice(total, currency)
-      : formatPrice(total - shippingCost, currency);
-  };
+  // The figure the Total row prints, as a number. Shared with the BNPL badge
+  // below so the two can never quote different amounts.
+  const totalForDisplay = showDisplayShipping
+    ? getFloatVal(cartData.totals.totalPrice)
+    : getFloatVal(cartData.totals.totalPrice) - shippingCost;
+
+  const calculateTotal = () => formatPrice(totalForDisplay, currency);
 
   return (
     <div>
@@ -113,6 +134,34 @@ const Cart = ({ showDisplayShipping }: Props) => {
               <p>{calculateTotal()}</p>
             </div>
           </div>
+
+          {/* BNPL instalment messaging, directly under the Total it describes.
+              The component already existed but had exactly one mount site in
+              the repo — the PDP — so checkout showed nothing at any step, with
+              the toggle on and providers live. This is that missing mount.
+
+              Unconditional by design: `PaymentMethodMessaging` returns null
+              when its own gate fails (toggle off, no `acct_`, currency Stripe
+              does not accept) and, when Stripe accepts the request but the
+              merchant has no BNPL provider enabled, suppresses the 9px sliver
+              Stripe paints and claims no margin. An empty render here is the
+              correct outcome, not a bug to design around.
+
+              It is fed `totalForDisplay` — the same number the Total row above
+              prints — because the instalment plan a shopper is offered has to
+              be a division of what they are about to pay, not of a line price
+              or a pre-shipping subtotal. */}
+          {bnpl && (
+            <div className="mt-[20px]">
+              <PaymentMethodMessaging
+                price={totalForDisplay}
+                currency={currency}
+                publishableKey={bnpl.publishableKey}
+                stripeAccountId={bnpl.stripeAccountId ?? null}
+                enabled={bnpl.enabled}
+              />
+            </div>
+          )}
         </>
       )}
     </div>

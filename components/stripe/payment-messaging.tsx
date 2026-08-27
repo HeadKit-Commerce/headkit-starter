@@ -6,7 +6,10 @@ import {
   Elements,
   PaymentMethodMessagingElement,
 } from "@stripe/react-stripe-js";
-import { buildCheckoutAppearance } from "@/lib/stripe-appearance";
+import {
+  buildCheckoutAppearance,
+  buildCheckoutFonts,
+} from "@/lib/stripe-appearance";
 
 /**
  * Currencies the Payment Method Messaging Element accepts — the full 12-member
@@ -211,6 +214,10 @@ export function PaymentMethodMessaging({
   }, [gate, near, publishableKey, stripeAccountId]);
 
   const appearance = useMemo(() => buildCheckoutAppearance(), []);
+  // Same pairing as checkout: the appearance names the brand family, this is
+  // what lets the Stripe iframe load it. Without it the badge renders in the
+  // system stack while the price above it renders in the brand face.
+  const fonts = useMemo(() => buildCheckoutFonts(), []);
 
   if (!gate) return null;
 
@@ -234,7 +241,11 @@ export function PaymentMethodMessaging({
       {stripePromise && hasAmount ? (
         <Elements
           stripe={stripePromise}
-          options={{ appearance, currency: normalizedCurrency.toLowerCase() }}
+          options={{
+            appearance,
+            fonts,
+            currency: normalizedCurrency.toLowerCase(),
+          }}
         >
           <PaymentMethodMessagingElement
             options={{

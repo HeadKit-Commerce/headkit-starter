@@ -93,9 +93,6 @@ vi.mock("@/components/headkit-ui/block-editor", () => ({
 vi.mock("@/components/headkit-ui/editorial-content", () => ({
   EditorialContent: (): null => null,
 }));
-vi.mock("@/components/seo/carousel-product-json-ld", () => ({
-  CarouselProductJsonLD: (): null => null,
-}));
 vi.mock("@/components/headkit-ui/product-carousel", () => ({
   ProductCarousel: (): null => null,
 }));

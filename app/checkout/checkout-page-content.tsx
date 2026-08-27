@@ -115,6 +115,13 @@ interface CheckoutPageContentProps {
    */
   isAuthenticated?: boolean;
   allowedCountries?: string[];
+  /**
+   * The store's `bnplMessagingEnabled` dashboard toggle, read server-side in
+   * page.tsx. Only the TOGGLE travels: the publishable key and Connect account
+   * the badge renders against come from the checkout session, which is the
+   * account the shopper is actually paying through.
+   */
+  bnplMessagingEnabled?: boolean;
 }
 
 export function CheckoutPageContent({
@@ -126,6 +133,7 @@ export function CheckoutPageContent({
   customerEmail,
   isAuthenticated = false,
   allowedCountries = ["AU", "NZ"],
+  bnplMessagingEnabled = false,
 }: CheckoutPageContentProps) {
   const router = useRouter();
   const { cartData, setCartData, toggleCart } = useCartContext();
@@ -593,7 +601,14 @@ export function CheckoutPageContent({
                   "block! mt-[20px]": showCart,
                 })}
               >
-                <Cart showDisplayShipping={true} />
+                <Cart
+                  showDisplayShipping={true}
+                  bnpl={{
+                    publishableKey: checkoutSession.publishableKey,
+                    stripeAccountId: checkoutSession.stripeAccountId ?? null,
+                    enabled: bnplMessagingEnabled,
+                  }}
+                />
               </div>
             </div>
           }

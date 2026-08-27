@@ -15,6 +15,7 @@ import {
   orderDiscountDisplayTotal,
   orderItemsDisplayTotal,
   shippingDisplayTotal,
+  orderShippingLineDisplayTotal,
 } from "@/lib/cart-prices";
 import { PaymentMethodDisplay } from "@/components/checkout/payment-method-display";
 import { needsCheckoutOrderProcessing } from "@/lib/checkout-success-utils";
@@ -479,38 +480,50 @@ export default async function Page({ params, searchParams }: Props) {
                   <div className="col-span-3 md:col-span-2 space-y-1">
                     {hasShippingMethod && (
                       <>
-                        {shippingLines.map((line, i) => (
-                          <div key={i}>
-                            <div>
-                              {isQuoteMode ? (
-                                line.methodTitle
-                              ) : (
-                                <>
-                                  {line.methodTitle} /{" "}
-                                  {getFloatVal(line.total) === 0
-                                    ? "Free"
-                                    : formatPrice(
-                                        getFloatVal(line.total),
-                                        currency,
-                                      )}
-                                </>
-                              )}
+                        {shippingLines.map((line, i) => {
+                          // TAX-INCLUSIVE, so this agrees with the Shipping row
+                          // in the totals block below. It used to render the
+                          // line's raw wc/v3 `total`, which is tax-EXCLUSIVE —
+                          // the same delivery quoted twice on one page at two
+                          // different numbers. `null` means the order carries
+                          // several paid shipping lines and the inclusive
+                          // amount cannot be split across them; the method
+                          // title then prints on its own rather than carrying
+                          // an invented figure. See
+                          // `orderShippingLineDisplayTotal`.
+                          const lineTotal = isQuoteMode
+                            ? null
+                            : orderShippingLineDisplayTotal(order, line);
+                          return (
+                            <div key={i}>
+                              <div>
+                                {lineTotal === null ? (
+                                  line.methodTitle
+                                ) : (
+                                  <>
+                                    {line.methodTitle} /{" "}
+                                    {lineTotal === 0
+                                      ? "Free"
+                                      : formatPrice(lineTotal, currency)}
+                                  </>
+                                )}
+                              </div>
+                              {isPickupLine(line.methodId) &&
+                                (line.pickupAddress || line.pickupDetails) && (
+                                  <div className="mt-1 text-base text-gray-600">
+                                    {line.pickupAddress && (
+                                      <div>{line.pickupAddress}</div>
+                                    )}
+                                    {line.pickupDetails && (
+                                      <div className="text-sm">
+                                        {line.pickupDetails}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                             </div>
-                            {isPickupLine(line.methodId) &&
-                              (line.pickupAddress || line.pickupDetails) && (
-                                <div className="mt-1 text-base text-gray-600">
-                                  {line.pickupAddress && (
-                                    <div>{line.pickupAddress}</div>
-                                  )}
-                                  {line.pickupDetails && (
-                                    <div className="text-sm">
-                                      {line.pickupDetails}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                          </div>
-                        ))}
+                          );
+                        })}
                       </>
                     )}
                     {hasShippingAddress && (

@@ -299,6 +299,26 @@ export function StripePaymentStep({
     );
   }
 
+  // The amount on the Pay button. `StripeCheckoutAmount.amount` is Stripe's own
+  // PRE-FORMATTED, localised display string — the same "A$20.99" the summary
+  // beside this button renders — so there is no currency formatting or minor-
+  // unit arithmetic to do here and nothing new to plumb: `checkoutState` is
+  // already narrowed to `success` by the two early returns above.
+  //
+  // Fallback is the bare "Pay Now", and it is reachable only if Stripe hands
+  // back an EMPTY `amount` string; the genuine loading window is already served
+  // by the `type === "loading"` branch above, which renders a spinner and not
+  // this button at all.
+  //
+  // A true zero total does not reach this component. `app/checkout/page.tsx`
+  // routes a settled-free cart to the no-payment "Place order" confirm without
+  // ever creating a session (`isSettledFreeCart`), and a cart driven to zero
+  // mid-checkout by a 100% coupon or a full gift-card redemption has its live
+  // session EXPIRED by `SyncCheckoutSessionLineItems` rather than re-priced —
+  // see the zero-total rules in AGENTS.md. So "Pay A$0.00" is not a state this
+  // button can render in normal operation.
+  const payAmount = checkoutState.checkout.total.total.amount.trim() || null;
+
   return (
     <div className="space-y-4">
       {/*
@@ -381,7 +401,7 @@ export function StripePaymentStep({
         loading={isSubmitting}
         className="w-full"
       >
-        Pay Now
+        {payAmount ? `Pay ${payAmount}` : "Pay Now"}
       </Button>
     </div>
   );
