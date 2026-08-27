@@ -1,16 +1,9 @@
 {
   "version": 1,
   "layout": {
-    "navLayout": "centered-logo",
-    "navStyle": "text-labels",
-    "heroLayout": "fixed-height",
-    "homepageNav": "overlay-hero"
-  },
-  "figma": {
-    "fileKey": "X5OSLihKQQWAoKz1sk0M3D",
-    "referenceFrames": {
-      "homeDesktop": "237:3465",
-      "uiCanvas": "237:2928"
-    }
+    "navLayout": "left-logo",
+    "navStyle": "icons",
+    "heroLayout": "inset",
+    "homepageNav": "solid"
   }
 }

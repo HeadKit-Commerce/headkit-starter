@@ -8,12 +8,13 @@ import {
 } from "@/lib/store-theme";
 
 describe("getStoreTheme", () => {
-  it("loads velvet overrides theme.json", () => {
+  it("loads starter default layout modes from overrides/theme.json", () => {
     resetStoreThemeForTests();
     const theme = getStoreTheme();
-    expect(theme.layout.navLayout).toBe("centered-logo");
-    expect(theme.layout.heroLayout).toBe("fixed-height");
-    expect(theme.layout.homepageNav).toBe("overlay-hero");
+    expect(theme.layout.navLayout).toBe("left-logo");
+    expect(theme.layout.navStyle).toBe("icons");
+    expect(theme.layout.heroLayout).toBe("inset");
+    expect(theme.layout.homepageNav).toBe("solid");
   });
 });
 
