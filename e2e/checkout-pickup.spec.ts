@@ -94,6 +94,10 @@ async function fillBillingStep(page: Page): Promise<void> {
 /** Select Click & Collect + a pickup location at the Delivery step, then Continue. */
 async function selectPickup(page: Page, locationName: string): Promise<void> {
   await page.getByText("Free Click & Collect").click();
+  await expect(
+    page.getByText("Select your store to collect from"),
+    "pickup location list did not render after selecting Click & Collect",
+  ).toBeVisible({ timeout: 20_000 });
   const locationRadio = page
     .locator("label", { hasText: locationName })
     .first();

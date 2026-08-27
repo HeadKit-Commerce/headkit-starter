@@ -555,6 +555,24 @@ export const AU_SHIPPING: ShippingAddressFixture = {
 };
 
 /**
+ * Wait until the Delivery accordion is active after contact submit.
+ * handleContactNext refetches the cart before advancing — callers must not
+ * poll Stripe/delivery UI until this settles.
+ */
+export async function waitForDeliveryStep(page: Page): Promise<void> {
+  await expect(
+    page.getByRole("button", { name: /^continue$/i }),
+    "Delivery step did not render after contact",
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(
+    page
+      .getByText(/Ship to Home|Free Click & Collect|Select your store/i)
+      .first(),
+    "Delivery step content did not render after contact",
+  ).toBeVisible({ timeout: 30_000 });
+}
+
+/**
  * Step 1 — Contact: fill the email into the Stripe ContactDetailsElement
  * (input[name="email"] inside the elements-inner-authentication frame) and
  * advance with "Continue to Delivery".
@@ -573,6 +591,7 @@ export async function fillContactStep(
     "Continue to Delivery never enabled after filling the Stripe contact email",
   ).toBeEnabled({ timeout: 20_000 });
   await cont.click();
+  await waitForDeliveryStep(page);
 }
 
 /** Fill phone on the Stripe shipping address element when present. */

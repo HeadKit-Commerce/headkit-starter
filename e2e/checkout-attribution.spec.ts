@@ -20,6 +20,7 @@ import {
   stripeFrameWith,
   stripeSessionAnyKey,
   stripeTestKeys,
+  waitForDeliveryStep,
 } from "./helpers";
 
 /**
@@ -94,6 +95,7 @@ async function completeAuthedContactStep(page: Page): Promise<void> {
     "Continue to Delivery never enabled on the logged-in contact step",
   ).toBeEnabled({ timeout: 20_000 });
   await cont.click();
+  await waitForDeliveryStep(page);
 }
 
 /**

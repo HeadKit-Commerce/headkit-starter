@@ -32,7 +32,10 @@ const contactSchema = z.object({
 
 interface ContactFormStepProps {
   enableStripe: boolean;
-  onNext: (data: { email: string; newsletter: boolean }) => void;
+  onNext: (data: {
+    email: string;
+    newsletter: boolean;
+  }) => void | Promise<void>;
   buttonLabel?: string;
   defaultValues?: { email?: string; newsletter?: boolean };
   /** When provided, creates a new checkout session and updates cart on email submit instead of using Stripe updateEmail. */
@@ -147,7 +150,7 @@ const ContactFormStep: React.FC<ContactFormStepProps> = ({
       // When email unchanged, do NOT call updateEmail (Stripe forbids it). Just advance.
       if (decision === "advance") {
         maybeSubscribe(data);
-        onNext(data);
+        await onNext(data);
         return;
       }
 
@@ -178,7 +181,7 @@ const ContactFormStep: React.FC<ContactFormStepProps> = ({
       }
 
       maybeSubscribe(data);
-      onNext(data);
+      await onNext(data);
     } catch (err) {
       toast({
         variant: "destructive",
