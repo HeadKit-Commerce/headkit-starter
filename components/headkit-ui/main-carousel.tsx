@@ -7,10 +7,17 @@ import { Carousel } from "@/components/headkit-ui/carousel";
 import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { Button } from "@/components/ui/button";
 import type { HeroCarouselItem } from "@headkit/sdk";
-import { decodeHtmlEntities } from "@/lib/utils";
+import { decodeHtmlEntities, cn } from "@/lib/utils";
+import {
+  heroLayoutClasses,
+  heroMediaClasses,
+  type HeroLayout,
+} from "@/lib/store-theme";
 
 interface Props {
   carouselItems: HeroCarouselItem[];
+  /** Shell variant — defaults to inset when omitted (starter template). */
+  heroLayout?: HeroLayout;
 }
 
 type HeroSlide = HeroCarouselItem & {
@@ -25,15 +32,21 @@ function slideVideo(slide: HeroSlide, mobile: boolean): string {
   return slide.video || "";
 }
 
-export const MainCarousel = ({ carouselItems }: Props) => {
+export const MainCarousel = ({
+  carouselItems,
+  heroLayout = "inset",
+}: Props) => {
   // Schedule windows are applied in WordPress (headkit_query_active_carousels).
   const items = carouselItems as HeroSlide[];
   const [activeIndex, setActiveIndex] = useState(0);
 
   if (items.length === 0) return null;
 
+  const shellClass = heroLayoutClasses(heroLayout);
+  const mediaClass = heroMediaClasses(heroLayout);
+
   return (
-    <div className="headkit-hero-carousel overflow-hidden mx-5">
+    <div className={cn("headkit-hero-carousel overflow-hidden", shellClass)}>
       <Carousel
         items={items}
         onSlideChange={setActiveIndex}
@@ -47,7 +60,12 @@ export const MainCarousel = ({ carouselItems }: Props) => {
 
           return (
             <div className="basis-full w-full relative">
-              <div className="relative flex flex-col-reverse overflow-hidden rounded-brand md:flex-col">
+              <div
+                className={cn(
+                  "relative flex flex-col-reverse overflow-hidden md:flex-col",
+                  heroLayout === "inset" ? "rounded-brand" : "rounded-none",
+                )}
+              >
                 <div className="z-10 h-full w-full md:absolute">
                   <div className="mx-auto flex h-full items-center">
                     <div className="py-[20px] md:w-[400px] md:pl-[20px] lg:w-[600px] lg:pl-[100px]">
@@ -71,7 +89,7 @@ export const MainCarousel = ({ carouselItems }: Props) => {
                 </div>
                 {/* Desktop: prefer 16:9; cap height so ultrawide never overflows
                     the fold (object-cover crops within the box). Mobile stays square. */}
-                <div className="relative aspect-square w-full overflow-hidden md:aspect-video md:max-h-[70svh]">
+                <div className={mediaClass}>
                   {hasVideo ? (
                     <>
                       {/* Mobile video (or desktop fallback). muted+playsInline

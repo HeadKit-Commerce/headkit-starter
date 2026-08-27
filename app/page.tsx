@@ -23,6 +23,7 @@ import {
 } from "@/lib/hide-empty-collections";
 import { collectionPathResolver } from "@/lib/collection-path";
 import { MainCarousel } from "@/components/headkit-ui/main-carousel";
+import { getStoreTheme } from "@/lib/store-theme";
 import { BlockEditor } from "@/components/headkit-ui/block-editor";
 import { EditorialContent } from "@/components/headkit-ui/editorial-content";
 import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
@@ -180,6 +181,8 @@ export async function HomeContent() {
     !hasEditorSectionClass(editorBlocks, "headkit-hero-carousel") &&
     carousels.length > 0;
 
+  const heroLayout = getStoreTheme().layout.heroLayout;
+
   // The hardcoded "Featured Products" carousel USED TO RENDER HERE, together
   // with a <CarouselProductJsonLD> describing it. Both are gone: merchants
   // choose their own product sections from the CMS now, and unlike the three
@@ -199,7 +202,9 @@ export async function HomeContent() {
   // is a separate call and is deliberately not made here.
   return (
     <>
-      {showHardcodedHero && <MainCarousel carouselItems={carousels} />}
+      {showHardcodedHero && (
+        <MainCarousel carouselItems={carousels} heroLayout={heroLayout} />
+      )}
 
       {/* WP front-page content in editor document order */}
       {segments.map((seg, index) => {

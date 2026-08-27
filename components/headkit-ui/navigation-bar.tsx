@@ -30,6 +30,7 @@ import { isAppNavigationHref } from "@/lib/convert-uri";
 import { cn, decodeHtmlEntities } from "@/lib/utils";
 import { HeaderActions } from "@/components/headkit-ui/header-actions";
 import { CartTriggerButton } from "@/components/headkit-ui/cart-drawer";
+import type { NavLayout, NavStyle } from "@/lib/store-theme";
 
 /** A navigation tree node returned by headkit.menu.get(). */
 export interface NavMenuItem {
@@ -59,6 +60,10 @@ interface NavigationBarProps {
   } | null;
   /** Links whose href should receive sale/highlighted styling. */
   highlightedLinks?: string[];
+  /** Logo placement — from overrides/theme.json via NavigationWrapper. */
+  navLayout?: NavLayout;
+  /** Desktop action presentation — icons (default) or text labels. */
+  navStyle?: NavStyle;
 }
 
 function removeTrailingSlash(url: string): string {
@@ -83,9 +88,15 @@ export function NavigationBar({
   mobileActions,
   preheader,
   highlightedLinks = [],
+  navLayout = "left-logo",
+  navStyle = "icons",
 }: NavigationBarProps) {
+  const centeredLogo = navLayout === "centered-logo";
   const desktopActions = actions ?? (
-    <HeaderActions initialCartCount={initialCartCount ?? 0} />
+    <HeaderActions
+      initialCartCount={initialCartCount ?? 0}
+      navStyle={navStyle}
+    />
   );
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -135,6 +146,7 @@ export function NavigationBar({
         onValueChange={(val) => setMenuOpen(!!val)}
         className={cn(
           "headkit-nav sticky top-0 flex items-center justify-between h-20 w-full max-w-full px-5 md:px-10 font-body text-primary backdrop-blur-xs transition-colors",
+          centeredLogo && "headkit-nav--centered relative",
           // Stay above the mobile sheet/overlay so logo + hamburger remain usable.
           mobileOpen ? "z-[60]" : "z-20",
           // Solid only while mega-menu / mobile sheet is open, or on hover.
@@ -144,20 +156,37 @@ export function NavigationBar({
             : "bg-brand-bg/75 hover:bg-brand-bg",
         )}
       >
+        {centeredLogo ? (
+          <NavigationMenuLink asChild>
+            <InstantLink
+              href="/"
+              aria-label="Home"
+              className="headkit-nav-logo absolute left-1/2 top-1/2 z-[1] -translate-x-1/2 -translate-y-1/2 cursor-pointer hover:opacity-75"
+            >
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              {logo as any}
+            </InstantLink>
+          </NavigationMenuLink>
+        ) : null}
+
         {/* Left: logo + primary menu */}
-        <NavigationMenuList className="space-x-0">
-          <NavigationMenuItem className="mr-4 hover:opacity-75">
-            <NavigationMenuLink asChild>
-              <InstantLink
-                href="/"
-                aria-label="Home"
-                className="cursor-pointer"
-              >
-                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                {logo as any}
-              </InstantLink>
-            </NavigationMenuLink>
-          </NavigationMenuItem>
+        <NavigationMenuList
+          className={cn("space-x-0", centeredLogo && "flex-1 justify-start")}
+        >
+          {!centeredLogo ? (
+            <NavigationMenuItem className="mr-4 hover:opacity-75">
+              <NavigationMenuLink asChild>
+                <InstantLink
+                  href="/"
+                  aria-label="Home"
+                  className="cursor-pointer"
+                >
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  {logo as any}
+                </InstantLink>
+              </NavigationMenuLink>
+            </NavigationMenuItem>
+          ) : null}
 
           {/* No wrapper element: <ul> children must be <li> (a11y list/listitem).
               Desktop-only visibility lives on each NavigationMenuItem. */}
@@ -173,7 +202,12 @@ export function NavigationBar({
         </NavigationMenuList>
 
         {/* Right: secondary menu + actions + mobile toggle */}
-        <NavigationMenuList className="headkit-nav-secondary space-x-0">
+        <NavigationMenuList
+          className={cn(
+            "headkit-nav-secondary space-x-0",
+            centeredLogo && "flex-1 justify-end",
+          )}
+        >
           {secondaryMenuItems && secondaryMenuItems.length > 0 && (
             <DesktopMenuSection
               items={secondaryMenuItems}

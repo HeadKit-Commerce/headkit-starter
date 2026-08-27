@@ -15,6 +15,7 @@ import {
   filterMenuItemsByNonEmptyCollections,
   getNonEmptyCollectionSlugs,
 } from "@/lib/hide-empty-collections";
+import { getStoreTheme } from "@/lib/store-theme";
 
 /** Permissive shape for API menu nodes (GraphQL fragment stops at 3 levels, so innermost lacks children). */
 type MenuItemLike = {
@@ -315,10 +316,14 @@ export async function NavigationWrapper() {
     (preheaderTitle !== undefined && preheaderTitle.length > 0) ||
     preheaderLinks.length > 0;
 
+  const { layout } = getStoreTheme();
+
   return (
     <NavigationBar
       primaryMenuItems={primaryItems}
       secondaryMenuItems={secondaryItems}
+      navLayout={layout.navLayout}
+      navStyle={layout.navStyle}
       {...(showPreheader
         ? {
             preheader: {

@@ -32,6 +32,7 @@ import { BrandingIconsProvider } from "@/components/branding/branding-icons-prov
 import { DeferredThirdPartyScripts } from "@/components/headkit-ui/deferred-third-party-scripts";
 import { getEmailMarketingStatus } from "@/lib/email-marketing";
 import { Toaster } from "@/components/ui/toaster";
+import { getThemeHtmlAttributes } from "@/lib/store-theme";
 
 // Build-time env GTM id (kept as a fallback); per-tenant gtmId from
 // dashboard-api StoreSettings takes precedence at runtime (FE-08).
@@ -175,6 +176,8 @@ export default async function RootLayout({
   const onPrimaryText = background
     ? resolveOnPrimaryTextColor(primary, background)
     : null;
+  const themeAttrs = getThemeHtmlAttributes();
+
   const brandVars = [
     primary
       ? `--color-primary: ${primary}; --color-purple-500: ${primary}; --color-purple-800: ${primary};`
@@ -198,6 +201,7 @@ export default async function RootLayout({
       lang="en"
       suppressHydrationWarning
       className={fonts.variableClassNames}
+      {...themeAttrs}
     >
       <head>
         <meta name="apple-mobile-web-app-title" content={siteName} />

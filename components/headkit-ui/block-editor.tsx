@@ -22,6 +22,7 @@ import {
   getNonEmptyCollectionSlugs,
 } from "@/lib/hide-empty-collections";
 import { resolveCarouselProductsFromHtml } from "@/lib/resolve-carousel-products-from-html";
+import { getStoreTheme } from "@/lib/store-theme";
 
 interface Props {
   blocks: ProcessedEditorBlock[];
@@ -159,6 +160,7 @@ const BlockEditor = async ({
   }
 
   const { branding } = await getBranding();
+  const heroLayout = getStoreTheme().layout.heroLayout;
   const nonEmptySlugs = branding.hideEmptyCollections
     ? await getNonEmptyCollectionSlugs()
     : null;
@@ -253,7 +255,13 @@ const BlockEditor = async ({
         if (data.cssClasses.includes("headkit-hero-carousel")) {
           const nodes = hydrateHeroCarousels(data.attrs?.["carousels"]);
           if (nodes.length === 0) return null;
-          return <MainCarousel key={index} carouselItems={nodes} />;
+          return (
+            <MainCarousel
+              key={index}
+              carouselItems={nodes}
+              heroLayout={heroLayout}
+            />
+          );
         }
 
         if (data.cssClasses.includes("headkit-product-carousel")) {

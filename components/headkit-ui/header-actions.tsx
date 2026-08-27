@@ -14,6 +14,7 @@ import {
   HeaderActionExtras,
   MobileHeaderActionExtras,
 } from "@/overrides/header-actions";
+import type { NavStyle } from "@/lib/store-theme";
 
 interface HeaderActionsProps {
   /**
@@ -21,6 +22,8 @@ interface HeaderActionsProps {
    * The client will update it live once the cart loads.
    */
   initialCartCount?: number;
+  /** Desktop presentation — icons (default) or uppercase text labels. */
+  navStyle?: NavStyle;
 }
 
 /**
@@ -30,16 +33,73 @@ interface HeaderActionsProps {
  * Colour: primary at rest, slight opacity drop on hover.
  * Extra actions (e.g. phone) come from `overrides/header-actions`.
  */
-export function HeaderActions({ initialCartCount = 0 }: HeaderActionsProps) {
+export function HeaderActions({
+  initialCartCount = 0,
+  navStyle = "icons",
+}: HeaderActionsProps) {
   const { isAuthenticated } = useAuth();
   const { cartData, optimisticCart, toggleCart } = useCartContext();
   const cartCount =
     (optimisticCart ?? cartData)?.itemsCount ?? initialCartCount;
   const { Search, Heart, User, Cart } = useChromeIcons();
   const isQuoteMode = useIsQuoteMode();
+  const textLabels = navStyle === "text-labels";
+
+  if (textLabels) {
+    return (
+      <div className="headkit-nav-actions headkit-nav-actions--text flex items-center gap-5 uppercase text-[15px] tracking-[0.05em]">
+        <SearchDrawer
+          trigger={
+            <Button
+              variant="ghost"
+              className="h-auto px-0 py-0 font-body font-normal uppercase tracking-[0.05em] text-primary hover:bg-transparent hover:opacity-70"
+            >
+              Search
+            </Button>
+          }
+        />
+
+        <Button
+          variant="ghost"
+          className="relative h-auto px-0 py-0 font-body font-normal uppercase tracking-[0.05em] text-primary hover:bg-transparent hover:opacity-70"
+          asChild
+        >
+          <InstantLink
+            href="/account"
+            aria-label={isAuthenticated ? "Account (signed in)" : "Account"}
+          >
+            my account
+            {isAuthenticated ? (
+              <span className="sr-only"> (signed in)</span>
+            ) : null}
+          </InstantLink>
+        </Button>
+
+        <HeaderActionExtras />
+
+        {isQuoteMode ? (
+          <Button
+            variant="ghost"
+            className="relative h-auto px-0 py-0 font-body font-normal uppercase tracking-[0.05em] text-primary hover:bg-transparent hover:opacity-70"
+            onClick={() => toggleCart(true)}
+          >
+            my quote [{cartCount}]
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            className="relative h-auto px-0 py-0 font-body font-normal uppercase tracking-[0.05em] text-primary hover:bg-transparent hover:opacity-70"
+            onClick={() => toggleCart(true)}
+          >
+            cart [{cartCount}]
+          </Button>
+        )}
+      </div>
+    );
+  }
 
   return (
-    <div className="flex items-center">
+    <div className="headkit-nav-actions flex items-center">
       <SearchDrawer
         trigger={
           <Button
