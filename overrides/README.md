@@ -6,16 +6,16 @@ Platform template upgrades should leave `overrides/` alone. You still have the f
 
 ## What goes here
 
-| Path                   | Purpose                                                                |
-| ---------------------- | ---------------------------------------------------------------------- |
-| `styles.css`           | CSS beyond dashboard branding (layout, spacing, hide elements, tweaks) |
-| `theme.json`           | Layout modes (nav, hero, homepage nav) — validated at build time       |
-| `theme.schema.json`    | JSON Schema for `theme.json` (for editors and future tooling)          |
-| `design-tokens.json`   | Design reference tokens (Figma-aligned; not loaded at runtime yet)     |
-| `FIGMA.md`             | How Figma variables map to repo tokens and `theme.json`                |
-| `GAPS.md`              | Known gaps, hard-coded areas, and follow-up work                       |
-| `header-actions.tsx`   | Extra header icons (e.g. phone) between Account and Cart               |
-| `maintenance.ts`       | Copy, colours and logo for the maintenance page (`../MAINTENANCE.md`)  |
+| Path                 | Purpose                                                                |
+| -------------------- | ---------------------------------------------------------------------- |
+| `styles.css`         | CSS beyond dashboard branding (layout, spacing, hide elements, tweaks) |
+| `theme.json`         | Layout modes (nav, hero, homepage nav) — validated at build time       |
+| `theme.schema.json`  | JSON Schema for `theme.json` (for editors and future tooling)          |
+| `design-tokens.json` | Design reference tokens (Figma-aligned; not loaded at runtime yet)     |
+| `FIGMA.md`           | How Figma variables map to repo tokens and `theme.json`                |
+| `GAPS.md`            | Known gaps, hard-coded areas, and follow-up work                       |
+| `header-actions.tsx` | Extra header icons (e.g. phone) between Account and Cart               |
+| `maintenance.ts`     | Copy, colours and logo for the maintenance page (`../MAINTENANCE.md`)  |
 
 ## What stays elsewhere
 
@@ -29,12 +29,12 @@ Platform template upgrades should leave `overrides/` alone. You still have the f
 
 Customer layout behaviour is configured in `overrides/theme.json` and loaded by `lib/store-theme.ts`. Invalid files fall back to starter defaults so a typo cannot break the shell.
 
-| Field          | Values                                      | Effect                                      |
-| -------------- | ------------------------------------------- | ------------------------------------------- |
-| `navLayout`    | `left-logo`, `centered-logo`, `split`       | Logo placement in the nav bar               |
-| `navStyle`     | `icons`, `text-labels`                      | Desktop header actions (icons vs text)      |
-| `heroLayout`   | `inset`, `full-bleed`, `fixed-height`       | Hero carousel shell (margins, height)       |
-| `homepageNav`  | `solid`, `overlay-hero`                     | Transparent nav over homepage hero          |
+| Field         | Values                                | Effect                                 |
+| ------------- | ------------------------------------- | -------------------------------------- |
+| `navLayout`   | `left-logo`, `centered-logo`, `split` | Logo placement in the nav bar          |
+| `navStyle`    | `icons`, `text-labels`                | Desktop header actions (icons vs text) |
+| `heroLayout`  | `inset`, `full-bleed`, `fixed-height` | Hero carousel shell (margins, height)  |
+| `homepageNav` | `solid`, `overlay-hero`               | Transparent nav over homepage hero     |
 
 SSR hooks: `getThemeHtmlAttributes()` sets `data-nav-layout`, `data-nav-style`, `data-hero-layout`, and `data-homepage-nav` on `<html>` so `styles.css` can target layout modes without per-route React changes.
 

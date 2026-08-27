@@ -117,8 +117,7 @@ export function heroLayoutClasses(heroLayout: HeroLayout): string {
 
 /** Inner media box classes for hero height modes. */
 export function heroMediaClasses(heroLayout: HeroLayout): string {
-  const base =
-    "relative aspect-square w-full overflow-hidden md:aspect-video";
+  const base = "relative aspect-square w-full overflow-hidden md:aspect-video";
   if (heroLayout === "fixed-height") {
     return `${base} md:aspect-auto md:h-[850px] md:max-h-none`;
   }

@@ -4,23 +4,23 @@ Tracked items that are **not** solved in Pass 1 (`overrides/styles.css` + layout
 
 ## Closed in Pass 1 (platform + overrides)
 
-| Item | Approach |
-| ---- | -------- |
-| Centred logo | `theme.json` → `navLayout: centered-logo` + `NavigationBar` |
-| Text nav actions | `navStyle: text-labels` → `HeaderActions` |
-| Full-bleed 850px hero | `heroLayout: fixed-height` → `MainCarousel` + CSS |
-| Homepage nav overlay | `homepageNav: overlay-hero` + `:has(.headkit-home)` CSS |
-| Page / footer sand palette | `styles.css` + `design-tokens.json` |
-| Figma variable guide | `FIGMA.md` |
+| Item                       | Approach                                                    |
+| -------------------------- | ----------------------------------------------------------- |
+| Centred logo               | `theme.json` → `navLayout: centered-logo` + `NavigationBar` |
+| Text nav actions           | `navStyle: text-labels` → `HeaderActions`                   |
+| Full-bleed 850px hero      | `heroLayout: fixed-height` → `MainCarousel` + CSS           |
+| Homepage nav overlay       | `homepageNav: overlay-hero` + `:has(.headkit-home)` CSS     |
+| Page / footer sand palette | `styles.css` + `design-tokens.json`                         |
+| Figma variable guide       | `FIGMA.md`                                                  |
 
 ## Open — homepage sections (Shopify / CMS)
 
-| Section (Figma) | Status | Recommendation |
-| --------------- | ------ | -------------- |
-| Insignia / editorial band | Not built | CMS HTML block or future Sanity module |
-| Bundle editorial (split image + copy) | Not built | CMS / Sanity — complex layout |
-| Footer “VELVET” wordmark | Not built | Custom footer slot or WP footer HTML |
-| Column header accent bars | Partial | CSS on `.headkit-section-header` only |
+| Section (Figma)                       | Status    | Recommendation                         |
+| ------------------------------------- | --------- | -------------------------------------- |
+| Insignia / editorial band             | Not built | CMS HTML block or future Sanity module |
+| Bundle editorial (split image + copy) | Not built | CMS / Sanity — complex layout          |
+| Footer “VELVET” wordmark              | Not built | Custom footer slot or WP footer HTML   |
+| Column header accent bars             | Partial   | CSS on `.headkit-section-header` only  |
 
 **Practical call:** ship Pass 1 chrome + hero + tokenized carousels; add editorial sections when Velvet content exists in Shopify/WP or via Sanity integration.
 
@@ -34,12 +34,12 @@ HeadKit Shopify path does not yet expose all WP HeadKit blocks (`headkit-brand-c
 
 ## Open — styling limits
 
-| Limit | Notes |
-| ----- | ----- |
+| Limit                                         | Notes                                                                |
+| --------------------------------------------- | -------------------------------------------------------------------- |
 | Dashboard `--color-*` may override some hooks | Pass 1 uses `--velvet-*` and high-specificity selectors where needed |
-| Nav overlay when mega-menu open | JS sets solid `bg-brand-bg` on open — intentional |
-| Wishlist hidden in text-label mode | Matches Figma desktop chrome (Search / account / cart only) |
-| Sale highlight colour still starter pink | Override in `styles.css` if Velvet needs accent-only highlights |
+| Nav overlay when mega-menu open               | JS sets solid `bg-brand-bg` on open — intentional                    |
+| Wishlist hidden in text-label mode            | Matches Figma desktop chrome (Search / account / cart only)          |
+| Sale highlight colour still starter pink      | Override in `styles.css` if Velvet needs accent-only highlights      |
 
 ## Open — fonts
 
