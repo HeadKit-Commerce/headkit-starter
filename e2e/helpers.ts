@@ -186,6 +186,22 @@ export async function cartTotalMinor(
   return Number(cart.totals.total_price);
 }
 
+/**
+ * The same payable in MAJOR units, using the cart's own `currency_minor_unit`
+ * exponent (2 for AUD cents, 0 for a no-decimals store) rather than assuming
+ * cents — see the money-scale rules in AGENTS.md.
+ */
+export async function cartTotalMajor(
+  api: APIRequestContext,
+  cartToken: string,
+): Promise<number> {
+  const cart = (await getStoreCart(api, cartToken)) as {
+    totals: { total_price: string; currency_minor_unit?: number };
+  };
+  const minorUnit = Number(cart.totals.currency_minor_unit ?? 2);
+  return Number(cart.totals.total_price) / 10 ** minorUnit;
+}
+
 /** Drop a Store API cart token into the storefront `hk-cart-token` cookie. */
 export async function installCartCookie(
   context: BrowserContext,
@@ -634,9 +650,47 @@ export async function fillCard(
   await frame.locator('input[name="cvc"]').fill("123");
 }
 
+/**
+ * Accessible name of the Payment step's confirm button.
+ *
+ * The button renders `Pay {amount}` — Stripe's own PRE-FORMATTED localised
+ * display string, e.g. `Pay A$430.00` — and falls back to the bare `Pay Now`
+ * only when Stripe hands back an EMPTY amount string
+ * (`components/checkout/steps/stripe-checkout-step.tsx`).
+ *
+ * Deliberately NOT `/pay/i`: that would also match unrelated buttons, and it
+ * would let a silent regression back to a bare `Pay Now` on a normal cart pass.
+ * The amount branch therefore requires a digit, and allows a currency prefix
+ * and/or suffix around it (`A$430.00`, `US$1,430.00`, `430,00 €`).
+ */
+export const PAY_BUTTON_NAME = /^Pay (?:Now|\S*\d[\d.,\s]*\S*)$/;
+
 /** The Payment step's confirm button. */
 export function payButton(page: Page) {
-  return page.getByRole("button", { name: /pay now/i });
+  return page.getByRole("button", { name: PAY_BUTTON_NAME });
+}
+
+/**
+ * The numeric amount carried by the Pay button's accessible name, in MAJOR
+ * units, or `null` when the button renders the bare `Pay Now` fallback.
+ *
+ * Format-tolerant on purpose: currency symbols/codes are dropped, and the
+ * decimal separator is whichever `.` or `,` is followed by exactly two trailing
+ * digits (so both `A$1,430.00` and `1.430,00 €` parse to 1430.00). Compare the
+ * RESULT numerically — never assert on the formatted string, which is Stripe's
+ * to choose.
+ */
+export async function payButtonAmountMajor(page: Page): Promise<number | null> {
+  const name = (await payButton(page).textContent())?.trim() ?? "";
+  const body = name.replace(/^Pay\s+/i, "");
+  if (/^now$/i.test(body)) return null;
+  const numeric = body.replace(/[^\d.,]/g, "");
+  const decimal = /[.,](\d{2})$/.exec(numeric);
+  const whole = decimal
+    ? numeric.slice(0, numeric.length - 3).replace(/[.,]/g, "")
+    : numeric.replace(/[.,]/g, "");
+  const parsed = Number(`${whole}.${decimal?.[1] ?? "00"}`);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 /** Click Pay Now and wait for the Stripe redirect to the bare success route. */

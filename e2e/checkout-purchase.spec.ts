@@ -4,6 +4,7 @@ import {
   CARD_DECLINED,
   CARD_OK,
   awaitOrderConfirmation,
+  cartTotalMajor,
   cartTotalMinor,
   fillCard,
   fillContactStep,
@@ -11,6 +12,7 @@ import {
   fillShippingOptionsStep,
   installCartCookie,
   payAndAwaitSuccess,
+  payButtonAmountMajor,
   seedRegularCart,
   stackIsUp,
   stripeSessionAnyKey,
@@ -108,6 +110,21 @@ test.describe("Paid card checkout (Gap 1 — P0-01/02/03/18)", () => {
       payableAtPayTime,
       "cart total must be > 0 for a paid checkout",
     ).toBeGreaterThan(0);
+
+    // Guard on the pay button's COPY: it must carry the payable, not a bare
+    // "Pay Now". A silent revert of `Pay {amount}` fails here rather than
+    // sliding through on the locator's fallback branch. Compared numerically —
+    // the string itself is Stripe's own localised formatting to choose.
+    const payableMajor = await cartTotalMajor(api, cartToken);
+    const buttonAmount = await payButtonAmountMajor(page);
+    expect(
+      buttonAmount,
+      'pay button rendered the bare "Pay Now" fallback instead of `Pay {amount}`',
+    ).not.toBeNull();
+    expect(
+      buttonAmount ?? 0,
+      "pay button amount != the cart payable at pay time",
+    ).toBeCloseTo(payableMajor, 2);
 
     const sessionId = await payAndAwaitSuccess(page);
 
