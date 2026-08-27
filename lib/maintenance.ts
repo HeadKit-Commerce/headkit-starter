@@ -375,10 +375,6 @@ function decide(key: string, read: MaintenanceRead): MaintenanceDecision {
  * Enumerated from the route tree, not from a wishlist — each entry is here
  * because 503ing it breaks something that outlives the window:
  *
- *  - `/.well-known/apple-developer-merchantid-domain-association` and the
- *    `/api/apple-pay-domain-association` handler it rewrites to. Stripe
- *    re-verifies the domain; a 503 here removes Apple Pay AFTER go-live, and
- *    the failure surfaces long after anyone would connect it to this change.
  *  - `/api/revalidate` — otherwise the store cannot be refreshed while dark,
  *    which is exactly when content is being changed.
  *  - `/api/checkout/confirm` AND `/checkout/finalising`, its only redirect
@@ -408,8 +404,6 @@ function decide(key: string, read: MaintenanceRead): MaintenanceDecision {
  * migrated, so it references neither).
  */
 const EXEMPT_PATHS: ReadonlySet<string> = new Set([
-  "/.well-known/apple-developer-merchantid-domain-association",
-  "/api/apple-pay-domain-association",
   "/api/revalidate",
   "/api/checkout/confirm",
   "/checkout/finalising",

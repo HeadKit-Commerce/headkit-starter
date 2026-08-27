@@ -147,8 +147,6 @@ describe("flag normalisation", () => {
 describe("exemptions", () => {
   it("keeps the paths a window depends on answering", () => {
     for (const path of [
-      "/.well-known/apple-developer-merchantid-domain-association",
-      "/api/apple-pay-domain-association",
       "/api/revalidate",
       "/api/checkout/confirm",
       // Its only redirect target — exempting the handler alone would 303 a
@@ -280,8 +278,6 @@ describe("the gate", () => {
   it("answers every exemption with the flag ON, without reading the flag", async () => {
     edgeConfigGet.mockResolvedValue(true);
     for (const path of [
-      "/api/apple-pay-domain-association",
-      "/.well-known/apple-developer-merchantid-domain-association",
       "/api/revalidate",
       "/api/checkout/confirm",
       "/api/posts-base-path",

@@ -79,7 +79,6 @@ export NEXT_PUBLIC_GRAPHQL_URL="$GATEWAY_URL"
 export NEXT_PUBLIC_HEADKIT_PUBLIC_KEY="$PUBLIC_KEY"
 export HEADKIT_PRIVATE_KEY="$SECRET_KEY"
 export NEXT_PUBLIC_FRONTEND_URL="$BASE"
-export APPLE_PAY_DOMAIN_ASSOCIATION="proof-apple-pay-token"
 export REVALIDATION_SECRET="proof-revalidation-secret"
 export ALLOW_LOCAL_IMAGES=1
 
@@ -131,10 +130,6 @@ check "a deep shopper path is dark too" 503 "$(status "$BASE/products/anything")
 
 say ""
 say "3. exemptions, with the flag still ON"
-check "/.well-known/apple-developer-merchantid-domain-association" 200 \
-  "$(status "$BASE/.well-known/apple-developer-merchantid-domain-association")"
-check "/api/apple-pay-domain-association" 200 \
-  "$(status "$BASE/api/apple-pay-domain-association")"
 check "/api/revalidate (GET health)" 200 "$(status "$BASE/api/revalidate")"
 check "/api/posts-base-path" 200 "$(status "$BASE/api/posts-base-path")"
 check "/robots.txt (a 5xx here would deindex the site)" 200 \

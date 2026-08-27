@@ -45,8 +45,7 @@ export async function GET(): Promise<Response> {
   // `.next/server/app/api/brand-fonts.body`, `"status": 404` in the `.meta`
   // beside it, and a 404 HTML shell on the wire). `await connection()` rather
   // than `export const dynamic`, which Cache Components rejects at build —
-  // same reason and same shape as
-  // `app/api/apple-pay-domain-association/route.ts`.
+  // same pattern as other request-time API routes that must not be prerendered.
   //
   // It costs nothing per request: `getBranding()` is `"use cache: remote"`
   // with a `days` life and the `branding` tag, so this is a cache read, and it

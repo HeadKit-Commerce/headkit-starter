@@ -43,11 +43,9 @@ function disallowEverything(host: string | undefined): MetadataRoute.Robots {
  * never read here — see lib/host-indexing.ts, which names it in full.
  *
  * Deployment Protection is explicitly NOT the mechanism (T-15.1-08-02). It
- * would 401 Stripe's unauthenticated fetch of
- * /.well-known/apple-developer-merchantid-domain-association, so the payment
- * method domain never activates and Apple Pay renders an empty button — while
- * the operator's own curl, carrying a bypass cookie, returns 200 and the check
- * goes green. /robots.txt and /.well-known/* must stay reachable unauthenticated.
+ * would 401 unauthenticated fetches of infrastructure paths operators need
+ * while rehearsing on a protected host. /robots.txt must stay reachable
+ * unauthenticated.
  *
  * Reading the Host header makes this route dynamic; it therefore carries no
  * cache directive by design.
