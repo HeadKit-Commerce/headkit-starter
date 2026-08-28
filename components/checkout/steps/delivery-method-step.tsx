@@ -29,6 +29,7 @@ import {
   buildCheckoutShippingAddressElementOptions,
   buildCheckoutShippingContacts,
   buildStripeAddressSeed,
+  personalSavedShippingAddress,
 } from "@/lib/checkout-address-seed";
 import { useCheckoutActions } from "@/app/checkout/checkout-actions-context";
 import { useToast } from "@/hooks/use-toast";
@@ -204,7 +205,10 @@ const DeliveryMethodStep: React.FC<DeliveryMethodStepProps> = ({
   // mounts) and a seedable address is present. We do NOT re-seed afterward:
   // account-first-then-Link (CKA-05) — once the email authenticates Link, Link's
   // selected address wins in the UI and no WP<->Link sync is attempted.
-  const savedShippingAddress = defaultValues.shippingAddress;
+  const savedShippingAddress = personalSavedShippingAddress(
+    defaultValues.shippingAddress,
+    pickupLocations,
+  );
   // CKA-04 (visible prefill): the saved WP address (from the user-scoped cart)
   // prefills the Stripe ShippingAddressElement VISIBLY via the `contacts` option
   // passed at element CREATION (first contact auto-selected, still editable).
@@ -213,7 +217,12 @@ const DeliveryMethodStep: React.FC<DeliveryMethodStepProps> = ({
   // (ENG-755: forwarding it to element.update() after mount 400s), so the
   // element `key` flips seeded↔empty and the element remounts once (never
   // update()) when the async saved address resolves.
-  const shippingContacts = buildCheckoutShippingContacts(savedShippingAddress);
+  // Click & Collect leftovers are dropped — they must not appear as Stripe's
+  // "Saved address" on Ship to home.
+  const shippingContacts = buildCheckoutShippingContacts(
+    savedShippingAddress,
+    pickupLocations,
+  );
   const stripeShippingOptions =
     buildCheckoutShippingAddressElementOptions(shippingContacts);
   const seededRef = useRef(false);

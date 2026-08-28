@@ -342,6 +342,11 @@ export function StripePaymentStep({
               name: "never",
             },
           },
+          // Checkout Session wallets default to `auto` (show when the session
+          // has `card` and the platform supports them). Set explicitly so
+          // Apple Pay / Google Pay stay in the Payment Element while Express
+          // remains mounted — Shopify / Stripe hosted checkout do the same.
+          wallets: { applePay: "auto", googlePay: "auto" },
         }}
       />
       {showBillingSameAsShipping && !hideBillingElement && (

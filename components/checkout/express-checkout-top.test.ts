@@ -80,9 +80,7 @@ describe("shouldMountExpressCheckout", () => {
     expect(shouldMountExpressCheckout(CheckoutFormStepEnum.ADDRESS)).toBe(true);
   });
 
-  it("unmounts on Payment so the Payment Element can show Apple Pay", () => {
-    expect(shouldMountExpressCheckout(CheckoutFormStepEnum.PAYMENT)).toBe(
-      false,
-    );
+  it("stays mounted on Payment so Express and Payment Element wallets can both show", () => {
+    expect(shouldMountExpressCheckout(CheckoutFormStepEnum.PAYMENT)).toBe(true);
   });
 });

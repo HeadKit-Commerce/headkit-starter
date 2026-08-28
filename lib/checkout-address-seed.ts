@@ -133,15 +133,110 @@ export function contactsWithoutPhone(
 }
 
 /**
+ * Pickup location fields used to recognise a Click & Collect store
+ * address that leaked onto the Woo customer / cart. Street match is
+ * against `address` or `name` (some locations put the shop name in
+ * line 1).
+ */
+export type PickupLocationMatchInput = {
+  name: string;
+  address: string;
+  city: string;
+  postcode: string;
+  countryCode: string;
+};
+
+/**
+ * True when `addr` is a Click & Collect pickup location rather than a
+ * personal home address. Returning-user checkout must not offer that
+ * as Stripe's "Saved address" on Ship to home.
+ */
+export function isPickupLocationAddress(
+  addr: SavedShippingAddress | null | undefined,
+  locations: readonly PickupLocationMatchInput[] | undefined,
+): boolean {
+  if (addr == null || locations == null || locations.length === 0) {
+    return false;
+  }
+  const line1 = normalizeAddressPart(addr.line1);
+  const city = normalizeAddressPart(addr.city);
+  const postcode = normalizeAddressPart(addr.postalCode);
+  const country = normalizeAddressPart(addr.country);
+  if (line1 === "") {
+    return false;
+  }
+  return locations.some((loc) => {
+    const locStreet = normalizeAddressPart(loc.address);
+    const locName = normalizeAddressPart(loc.name);
+    const streetHit =
+      line1 === locStreet || (locName !== "" && line1 === locName);
+    if (!streetHit) {
+      return false;
+    }
+    if (country !== "" && normalizeAddressPart(loc.countryCode) !== country) {
+      return false;
+    }
+    const locPostcode = normalizeAddressPart(loc.postcode);
+    if (postcode !== "" && locPostcode !== "") {
+      return postcode === locPostcode;
+    }
+    const locCity = normalizeAddressPart(loc.city);
+    if (city !== "" && locCity !== "") {
+      return city === locCity || city === "pickup";
+    }
+    return locStreet !== "" || locName !== "";
+  });
+}
+
+/**
+ * Cart / customer shipping that is safe to seed as a personal address.
+ * Pickup-location leftovers return `undefined`.
+ */
+export function personalSavedShippingAddress(
+  addr: SavedShippingAddress | null | undefined,
+  locations: readonly PickupLocationMatchInput[] | undefined,
+): SavedShippingAddress | undefined {
+  if (addr == null || isPickupLocationAddress(addr, locations)) {
+    return undefined;
+  }
+  return addr;
+}
+
+/**
+ * Same filter for a Woo `AddressInput` (cart seed on checkout load).
+ * Returns the original object so callers keep phone / email fields.
+ */
+export function personalSavedAddressInput<
+  T extends CheckoutShippingAddressInput,
+>(
+  addr: T | null | undefined,
+  locations: readonly PickupLocationMatchInput[] | undefined,
+): T | undefined {
+  if (addr == null) {
+    return undefined;
+  }
+  const checkout = savedShippingFromAddressInput(addr);
+  if (checkout == null || isPickupLocationAddress(checkout, locations)) {
+    return undefined;
+  }
+  return addr;
+}
+
+/**
  * Build `contacts` prefill for Shipping / Billing address elements.
  *
  * Name + address only. Saved-address phone stays on PhoneInput /
  * `updatePhoneNumber()` — never on `contacts`.
+ *
+ * Click & Collect store addresses are omitted when `pickupLocations`
+ * is passed — they must not appear as Stripe's "Saved address".
  */
 export function buildCheckoutShippingContacts(
   addr: SavedShippingAddress | null | undefined,
+  pickupLocations: readonly PickupLocationMatchInput[] | undefined = [],
 ): CheckoutShippingContactOption[] | undefined {
-  const seed = buildStripeAddressSeed(addr);
+  const personal = personalSavedShippingAddress(addr, pickupLocations);
+  const seed = buildStripeAddressSeed(personal);
   if (!seed) return undefined;
   return [
     {
@@ -149,6 +244,10 @@ export function buildCheckoutShippingContacts(
       address: seed.address,
     },
   ];
+}
+
+function normalizeAddressPart(value: string | undefined): string {
+  return (value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
 /**

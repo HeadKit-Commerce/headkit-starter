@@ -34,11 +34,8 @@ import {
   CheckoutActionsProvider,
   useCheckoutActions,
 } from "@/app/checkout/checkout-actions-context";
-import {
-  getFullCartAction,
-  selectShippingAction,
-  updateCustomerAddressAction,
-} from "@/lib/cart-actions";
+import { getFullCartAction, selectShippingAction } from "@/lib/cart-actions";
+import { personalSavedAddressInput } from "@/lib/checkout-address-seed";
 import type { AddressInput } from "@headkit/sdk";
 import { useDebugRegister } from "@headkit/sdk/debug";
 import { CheckoutFormSkeleton } from "@/components/checkout/checkout-form-skeleton";
@@ -206,13 +203,20 @@ function CheckoutSteps({
     }
     getFullCartAction().then((fullCart) => {
       if (cancelled || !fullCart) return;
-      const billing = fullCart.billingAddress;
-      const shipping = fullCart.shippingAddress;
+      const matchList = [...pickupLocationsFromApi, ...pickupLocations];
+      const billing = personalSavedAddressInput(
+        fullCart.billingAddress,
+        matchList,
+      );
+      const shipping = personalSavedAddressInput(
+        fullCart.shippingAddress,
+        matchList,
+      );
       setFormData((prev) => ({
         ...prev,
-        email: prev.email || billing?.email || "",
+        email: prev.email || fullCart.billingAddress?.email || "",
         shippingAddress:
-          prev.shippingAddress ??
+          personalSavedAddressInput(prev.shippingAddress, matchList) ??
           (shipping?.address1
             ? {
                 firstName: shipping.firstName,
@@ -227,11 +231,11 @@ function CheckoutSteps({
                 // blank. Fall back to the billing phone so the delivery
                 // PhoneInput prefills (it derives country from the E.164 prefix,
                 // else the saved address country). Guest → both empty → "".
-                phone: shipping.phone || billing?.phone || "",
+                phone: shipping.phone || fullCart.billingAddress?.phone || "",
               }
             : null),
         billingAddress:
-          prev.billingAddress ??
+          personalSavedAddressInput(prev.billingAddress, matchList) ??
           (billing?.address1
             ? {
                 firstName: billing.firstName,
@@ -254,6 +258,8 @@ function CheckoutSteps({
   }, [
     (cartData as { billingAddress?: { email?: string } } | null)?.billingAddress
       ?.email,
+    pickupLocationsFromApi,
+    pickupLocations,
   ]);
 
   // ENG-784 dead-session recovery: ONE auto-recreate per dead session. The
@@ -441,27 +447,39 @@ function CheckoutSteps({
       phone?: string | undefined;
     };
   }) => {
-    const shippingAddr =
+    const matchList = [...pickupLocationsFromApi, ...pickupLocations];
+    const isClickCollect =
+      data.deliveryMethod === DeliveryStepEnum.CLICK_AND_COLLECT;
+    const incomingShipping: AddressInput | undefined =
       data.shippingAddress?.line1 != null &&
       data.shippingAddress.line1.trim() !== ""
-        ? {
-            firstName: data.shippingAddress.firstName ?? "",
-            lastName: data.shippingAddress.lastName ?? "",
-            address1: data.shippingAddress.line1 ?? "",
-            address2: data.shippingAddress.line2 ?? "",
-            city: data.shippingAddress.city ?? "",
-            state: data.shippingAddress.state ?? "",
-            postcode: data.shippingAddress.postalCode ?? "",
-            country: data.shippingAddress.country ?? "",
-            phone: data.shippingAddress.phone ?? "",
-          }
-        : null;
+        ? personalSavedAddressInput(
+            {
+              firstName: data.shippingAddress.firstName ?? "",
+              lastName: data.shippingAddress.lastName ?? "",
+              address1: data.shippingAddress.line1 ?? "",
+              address2: data.shippingAddress.line2 ?? "",
+              city: data.shippingAddress.city ?? "",
+              state: data.shippingAddress.state ?? "",
+              postcode: data.shippingAddress.postalCode ?? "",
+              country: data.shippingAddress.country ?? "",
+              phone: data.shippingAddress.phone ?? "",
+            } satisfies AddressInput,
+            matchList,
+          )
+        : undefined;
 
     setFormData((prev) => {
+      const keptPersonal = personalSavedAddressInput(
+        prev.shippingAddress,
+        matchList,
+      );
       const next: FormData = {
         ...prev,
         deliveryMethod: data.deliveryMethod,
-        shippingAddress: shippingAddr ?? prev.shippingAddress,
+        shippingAddress: isClickCollect
+          ? (keptPersonal ?? null)
+          : (incomingShipping ?? keptPersonal ?? null),
       };
       if (
         data.deliveryMethod === DeliveryStepEnum.CLICK_AND_COLLECT &&
@@ -474,16 +492,16 @@ function CheckoutSteps({
 
     markCompleted(CheckoutFormStepEnum.DELIVERY_METHOD);
 
-    // Click & Collect: select pickup rate on cart and update shipping address to pickup location
+    // Click & Collect: select the pickup rate only.
+    // Pickup goes onto the Stripe session only (delivery-method-step).
+    // Do not write the store address onto the Woo customer — that becomes
+    // "Saved address" on the next Ship-to-home checkout.
     if (
       data.deliveryMethod === DeliveryStepEnum.CLICK_AND_COLLECT &&
       data.location
     ) {
       const pkg = cartData?.shippingRates?.[0];
       const packageId = pkg?.packageId ?? "0";
-      const loc = pickupLocations.find(
-        (l) => l.shippingMethodId === data.location,
-      );
 
       const runCartUpdates = async () => {
         // keepCheckoutSession: checkout-mounted mutation — the sync effect
@@ -495,29 +513,6 @@ function CheckoutSteps({
         );
         if (!selectResult.success) throw new Error(selectResult.error);
         setCartData(selectResult.cart);
-
-        if (loc) {
-          const updateResult = await updateCustomerAddressAction(
-            {
-              shippingAddress: {
-                firstName: "",
-                lastName: "",
-                address1: loc.address?.trim() || loc.name,
-                address2: "",
-                city: loc.city ?? "Pickup",
-                // WooCommerce update-customer validates ISO codes — the display
-                // names in `state`/`country` ("New South Wales"/"Australia") 400.
-                state: loc.stateCode ?? "",
-                postcode: loc.postcode ?? "",
-                country: loc.countryCode ?? "",
-                phone: "",
-              },
-            },
-            { keepCheckoutSession: true },
-          );
-          if (!updateResult.success) throw new Error(updateResult.error);
-          setCartData(updateResult.cart);
-        }
       };
 
       if (actions) {
@@ -532,7 +527,7 @@ function CheckoutSteps({
       }
     }
 
-    // Refetch cart for Ship to Home (address-specific shipping rates) or Click & Collect (selected pickup, updated address)
+    // Refetch cart for Ship to Home (address-specific shipping rates) or Click & Collect (selected pickup rate)
     let cartForStepDecision = cartData;
     if (
       data.deliveryMethod === DeliveryStepEnum.SHIPPING_TO_HOME ||
@@ -694,12 +689,12 @@ function CheckoutSteps({
   return (
     <>
       {/* Express/wallet checkout (Apple Pay / Google Pay / Link) — the single
-          ExpressCheckoutElement instance, mounted at the top on earlier steps
-          so a buyer can pay in one tap. Unmounted on Payment so the Payment
-          Element can show wallets (Stripe hides PE wallets while ECE is
-          mounted). Stripe allows only ONE ECE per CheckoutProvider.
-          Rendered from CheckoutSteps so confirm-time dead-session can reach
-          handleSessionExpired (ENG-784). */}
+          ExpressCheckoutElement instance, mounted at the top through Contact,
+          Delivery, Address, and Payment. Checkout Session Payment Element also
+          keeps wallets on `auto`, so Apple Pay can appear in both places
+          (Shopify / Stripe hosted checkout). Stripe allows only ONE ECE per
+          CheckoutProvider. Rendered from CheckoutSteps so confirm-time
+          dead-session can reach handleSessionExpired (ENG-784). */}
       {shouldMountExpressCheckout(currentStep) ? (
         <ExpressCheckoutTop
           sessionId={sessionId}

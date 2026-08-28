@@ -13,18 +13,24 @@ import { isCheckoutSessionDead } from "@/lib/checkout-session-status";
 import { CheckoutFormStepEnum } from "@/components/checkout/utils";
 
 /**
- * Express Checkout stays mounted on contact / delivery / shipping so one-tap
- * wallets work. It MUST unmount on the Payment step.
+ * Express stays mounted on every pay-capable step, including Payment.
  *
- * Stripe Payment Element docs: when PE and ECE are combined, Apple Pay /
- * Google Pay appear only in ECE to avoid duplication. That is why step 4
- * showed no wallet radios while ECE sat at the top of checkout.
- * https://docs.stripe.com/payments/payment-element
+ * Checkout Session `createPaymentElement` shows wallets when the session
+ * has `card` and the platform supports them (`wallets.applePay/googlePay`
+ * default `auto`). That is independent of Express — Shopify Checkout and
+ * Stripe hosted checkout keep both. The PaymentIntents PE+ECE de-dupe note
+ * does not apply to this Custom Checkout Session path.
+ * https://docs.stripe.com/js/custom_checkout/create_payment_element
  */
 export function shouldMountExpressCheckout(
   step: CheckoutFormStepEnum,
 ): boolean {
-  return step !== CheckoutFormStepEnum.PAYMENT;
+  return (
+    step === CheckoutFormStepEnum.CONTACT ||
+    step === CheckoutFormStepEnum.DELIVERY_METHOD ||
+    step === CheckoutFormStepEnum.ADDRESS ||
+    step === CheckoutFormStepEnum.PAYMENT
+  );
 }
 
 /**
@@ -38,9 +44,8 @@ export function shouldMountExpressCheckout(
  * `onShippingAddressChange` / `onShippingRateChange` wiring is needed here.
  *
  * Single-instance rule: exactly one ExpressCheckoutElement may exist per
- * CheckoutProvider. This is THE instance — it was removed from the Payment step
- * (stripe-checkout-step) to avoid Stripe's "cannot create multiple instances"
- * crash.
+ * CheckoutProvider. This is THE instance — it stays mounted on Payment so
+ * Express buttons do not disappear while Payment Element also shows wallets.
  *
  * Empty state: the element renders nothing when the device/browser has no
  * available wallet. The element stays mounted (so it can report availability),

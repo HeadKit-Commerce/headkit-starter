@@ -33,9 +33,10 @@ import { test, expect } from "@playwright/test";
  * / Link) at the TOP of the page, above the contact step, inside the
  * CheckoutProvider context (components/checkout/express-checkout-top.tsx). It is
  * wrapped in a `[data-testid="express-checkout"]` container that is in the DOM
- * from page load for a paid cart (no longer gated behind reaching the payment
- * step). Stripe allows only ONE ExpressCheckoutElement per CheckoutProvider, so
- * it is NOT also mounted in the payment step.
+ * from page load for a paid cart and stays mounted through Payment. Stripe
+ * allows only ONE ExpressCheckoutElement per CheckoutProvider — this is that
+ * instance. Payment Element wallets stay on `auto` so Apple Pay can also
+ * appear in the payment methods list.
  *
  * IMPORTANT — MANUAL GATE: the actual Apple/Google Pay BUTTON only renders when
  * BOTH (a) the buyer's browser/device advertises a wallet AND (b) the storefront

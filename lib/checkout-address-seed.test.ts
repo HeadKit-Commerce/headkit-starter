@@ -9,6 +9,8 @@ import {
   buildCheckoutShippingContacts,
   buildStripeAddressSeed,
   contactsWithoutPhone,
+  isPickupLocationAddress,
+  personalSavedShippingAddress,
   savedShippingFromAddressInput,
   type SavedShippingAddress,
 } from "@/lib/checkout-address-seed";
@@ -268,6 +270,109 @@ describe("buildCheckoutBillingAddressElementOptions", () => {
   });
 });
 
+const SYDNEY_PICKUP = {
+  name: "Sydney Store",
+  address: "123 George Street",
+  city: "Sydney",
+  postcode: "2000",
+  countryCode: "AU",
+};
+
+describe("isPickupLocationAddress", () => {
+  it("is false when there is no address or no pickup list", () => {
+    expect(isPickupLocationAddress(undefined, [SYDNEY_PICKUP])).toBe(false);
+    expect(isPickupLocationAddress(FULL, [])).toBe(false);
+    expect(isPickupLocationAddress(FULL, undefined)).toBe(false);
+  });
+
+  it("is false for a real home address that is not a pickup location", () => {
+    expect(isPickupLocationAddress(FULL, [SYDNEY_PICKUP])).toBe(false);
+  });
+
+  it("is true when the saved address is the Click & Collect store", () => {
+    expect(
+      isPickupLocationAddress(
+        {
+          line1: "123 George Street",
+          city: "Sydney",
+          postalCode: "2000",
+          country: "AU",
+        },
+        [SYDNEY_PICKUP],
+      ),
+    ).toBe(true);
+  });
+
+  it("is true when checkout wrote the location name as line1 (empty store street)", () => {
+    expect(
+      isPickupLocationAddress(
+        {
+          line1: "Sydney Store",
+          city: "Pickup",
+          postalCode: "2000",
+          country: "AU",
+        },
+        [{ ...SYDNEY_PICKUP, address: "" }],
+      ),
+    ).toBe(true);
+  });
+
+  it("is case- and whitespace-insensitive", () => {
+    expect(
+      isPickupLocationAddress(
+        {
+          line1: "  123  GEORGE STREET ",
+          city: "SYDNEY",
+          postalCode: "2000",
+          country: "au",
+        },
+        [SYDNEY_PICKUP],
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("personalSavedShippingAddress", () => {
+  it("returns the address when it is not a pickup location", () => {
+    expect(personalSavedShippingAddress(FULL, [SYDNEY_PICKUP])).toEqual(FULL);
+  });
+
+  it("returns undefined when the saved address is a Click & Collect store", () => {
+    const storeAddr: SavedShippingAddress = {
+      line1: "123 George Street",
+      city: "Sydney",
+      postalCode: "2000",
+      country: "AU",
+    };
+    expect(
+      personalSavedShippingAddress(storeAddr, [SYDNEY_PICKUP]),
+    ).toBeUndefined();
+  });
+});
+
+describe("buildCheckoutShippingContacts pickup exclusion", () => {
+  it("does not emit Stripe contacts for a Click & Collect store address", () => {
+    expect(
+      buildCheckoutShippingContacts(
+        {
+          firstName: "",
+          lastName: "",
+          line1: "123 George Street",
+          city: "Sydney",
+          postalCode: "2000",
+          country: "AU",
+        },
+        [SYDNEY_PICKUP],
+      ),
+    ).toBeUndefined();
+  });
+
+  it("still emits contacts for a personal home address", () => {
+    const contacts = buildCheckoutShippingContacts(FULL, [SYDNEY_PICKUP]);
+    expect(contacts?.[0]?.address.line1).toBe("1 Analytical Way");
+  });
+});
+
 describe("ShippingAddressElement options source-scan", () => {
   it("delivery step never passes AddressElement fields to ShippingAddressElement", () => {
     const source = readFileSync(
@@ -325,5 +430,28 @@ describe("ShippingAddressElement options source-scan", () => {
     expect(source).not.toMatch(
       /<BillingAddressElement[\s\S]{0,800}fields\s*[:=]/,
     );
+  });
+
+  it("does not write Click & Collect pickup onto the Woo customer", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../app/checkout/CheckoutForm.tsx"),
+      "utf8",
+    );
+    expect(source).toContain("personalSavedAddressInput");
+    expect(source).not.toContain("updateCustomerAddressAction");
+    expect(source).toMatch(/Pickup goes onto the Stripe session only/);
+  });
+
+  it("Payment Element keeps wallets on auto while Express stays mounted", () => {
+    const source = readFileSync(
+      resolve(
+        __dirname,
+        "../components/checkout/steps/stripe-checkout-step.tsx",
+      ),
+      "utf8",
+    );
+    expect(source).toMatch(/applePay:\s*"auto"/);
+    expect(source).toMatch(/googlePay:\s*"auto"/);
+    expect(source).not.toMatch(/applePay:\s*"never"/);
   });
 });
