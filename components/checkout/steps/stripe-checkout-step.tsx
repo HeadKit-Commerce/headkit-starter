@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCheckoutActions } from "@/app/checkout/checkout-actions-context";
 import { writeBillingAddressCookie } from "@/lib/checkout-billing-cookie";
 import { isCheckoutSessionDead } from "@/lib/checkout-session-status";
+import { buildCheckoutBillingAddressElementOptions } from "@/lib/checkout-address-seed";
 
 interface StripePaymentStepProps {
   /**
@@ -345,7 +346,10 @@ export function StripePaymentStep({
       />
       {showBillingSameAsShipping && !hideBillingElement && (
         <BillingAddressElement
-          options={remountContacts ? { contacts: remountContacts } : {}}
+          options={buildCheckoutBillingAddressElementOptions({
+            remountContacts,
+            shippingAddress,
+          })}
           onChange={(event) => {
             if (event.complete && event.value) {
               const { address, firstName, lastName, name } = event.value;

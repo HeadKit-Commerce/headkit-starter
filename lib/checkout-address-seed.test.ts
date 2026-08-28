@@ -4,9 +4,12 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import {
+  buildCheckoutBillingAddressElementOptions,
   buildCheckoutShippingAddressElementOptions,
   buildCheckoutShippingContacts,
   buildStripeAddressSeed,
+  contactsWithoutPhone,
+  savedShippingFromAddressInput,
   type SavedShippingAddress,
 } from "@/lib/checkout-address-seed";
 
@@ -134,8 +137,9 @@ describe("buildCheckoutShippingContacts", () => {
     expect(buildCheckoutShippingContacts({})).toBeUndefined();
   });
 
-  it("includes official contacts[].phone when the saved address has one", () => {
-    expect(buildCheckoutShippingContacts(FULL)).toEqual([
+  it("never puts phone on contacts even when the saved address has one", () => {
+    const contacts = buildCheckoutShippingContacts(FULL);
+    expect(contacts).toEqual([
       {
         name: "Ada Lovelace",
         address: {
@@ -146,14 +150,121 @@ describe("buildCheckoutShippingContacts", () => {
           postal_code: "2000",
           country: "AU",
         },
+      },
+    ]);
+    expect(contacts?.[0]).not.toHaveProperty("phone");
+    expect(JSON.stringify(contacts)).not.toContain("phone");
+  });
+});
+
+describe("contactsWithoutPhone", () => {
+  it("strips phone from a contact that carried one", () => {
+    const stripped = contactsWithoutPhone([
+      {
+        name: "Ada Lovelace",
+        address: {
+          line1: "1 Analytical Way",
+          city: "Sydney",
+          state: "NSW",
+          postal_code: "2000",
+          country: "AU",
+        },
         phone: "0400000000",
       },
     ]);
+    expect(stripped?.[0]).not.toHaveProperty("phone");
+    expect(JSON.stringify(stripped)).not.toContain("phone");
+  });
+});
+
+describe("buildCheckoutBillingAddressElementOptions", () => {
+  const shippingWithPhone = {
+    firstName: "Ada",
+    lastName: "Lovelace",
+    address1: "1 Analytical Way",
+    address2: "Unit 5",
+    city: "Sydney",
+    state: "NSW",
+    postcode: "2000",
+    country: "AU",
+    phone: "0400000000",
+  };
+
+  it("seeds billing contacts from shipping address without phone", () => {
+    const options = buildCheckoutBillingAddressElementOptions({
+      shippingAddress: shippingWithPhone,
+    });
+    expect(options).toEqual({
+      contacts: [
+        {
+          name: "Ada Lovelace",
+          address: {
+            line1: "1 Analytical Way",
+            line2: "Unit 5",
+            city: "Sydney",
+            state: "NSW",
+            postal_code: "2000",
+            country: "AU",
+          },
+        },
+      ],
+    });
+    expect(JSON.stringify(options)).not.toContain("phone");
+    expect(options).not.toHaveProperty("fields");
   });
 
-  it("omits phone when the saved address has none", () => {
-    const contacts = buildCheckoutShippingContacts({ ...FULL, phone: "" });
-    expect(contacts?.[0]).not.toHaveProperty("phone");
+  it("prefers remount contacts and still strips phone", () => {
+    const options = buildCheckoutBillingAddressElementOptions({
+      remountContacts: [
+        {
+          name: "Grace Hopper",
+          address: {
+            line1: "10 Hopper St",
+            city: "Auckland",
+            state: "AUK",
+            postal_code: "1010",
+            country: "NZ",
+          },
+          phone: "+64211234567",
+        },
+      ],
+      shippingAddress: shippingWithPhone,
+    });
+    expect(options).toEqual({
+      contacts: [
+        {
+          name: "Grace Hopper",
+          address: {
+            line1: "10 Hopper St",
+            city: "Auckland",
+            state: "AUK",
+            postal_code: "1010",
+            country: "NZ",
+          },
+        },
+      ],
+    });
+    expect(JSON.stringify(options)).not.toContain("phone");
+  });
+
+  it("returns empty options when there is nothing to seed (guest)", () => {
+    expect(buildCheckoutBillingAddressElementOptions({})).toEqual({});
+    expect(
+      buildCheckoutBillingAddressElementOptions({ shippingAddress: null }),
+    ).toEqual({});
+  });
+
+  it("maps AddressInput-shaped shipping onto the seed without phone", () => {
+    expect(savedShippingFromAddressInput(shippingWithPhone)).toEqual({
+      firstName: "Ada",
+      lastName: "Lovelace",
+      line1: "1 Analytical Way",
+      line2: "Unit 5",
+      city: "Sydney",
+      state: "NSW",
+      country: "AU",
+      postalCode: "2000",
+    });
   });
 });
 
@@ -182,5 +293,37 @@ describe("ShippingAddressElement options source-scan", () => {
     );
     expect(source).toMatch(/Do NOT pass AddressElement `fields`/);
     expect(source).not.toMatch(/fields:\s*\{\s*phone/);
+    expect(source).not.toMatch(
+      /return\s*\[[\s\S]{0,200}\.\.\.\(phone \? \{ phone \}/,
+    );
+  });
+
+  it("payment step never passes contacts[].phone or AddressElement phone fields", () => {
+    const source = readFileSync(
+      resolve(
+        __dirname,
+        "../components/checkout/steps/stripe-checkout-step.tsx",
+      ),
+      "utf8",
+    );
+    expect(source).toContain("buildCheckoutBillingAddressElementOptions");
+    expect(source).not.toMatch(
+      /<BillingAddressElement[\s\S]{0,800}fields\s*[:=]/,
+    );
+    expect(source).not.toMatch(/contacts:\s*\[[\s\S]{0,200}phone/);
+  });
+
+  it("click-and-collect billing step never puts phone on contacts", () => {
+    const source = readFileSync(
+      resolve(
+        __dirname,
+        "../components/checkout/steps/billing-address-step.tsx",
+      ),
+      "utf8",
+    );
+    expect(source).toContain("buildCheckoutShippingAddressElementOptions");
+    expect(source).not.toMatch(
+      /<BillingAddressElement[\s\S]{0,800}fields\s*[:=]/,
+    );
   });
 });

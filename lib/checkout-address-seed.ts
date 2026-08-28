@@ -68,35 +68,85 @@ export function buildStripeAddressSeed(
 }
 
 /**
- * Stripe Checkout Session `createShippingAddressElement` `contacts` entry.
+ * Stripe Checkout Session address-element `contacts` entry.
  *
- * Official JS options are `contacts` and `display` only. `contacts[].phone` is
- * a saved-contact prefill string — it does NOT render a phone input.
+ * Official ShippingAddressElement options are `contacts` and `display` only.
+ * Never include `phone` on contacts: BillingAddressElement is an Address
+ * Element, and Stripe.js throws IntegrationError if `contacts[0].phone` is
+ * set without AddressElement `fields.phone` / `validation.phone.required`
+ * `'always'`. Phone is collected via PhoneInput + `updatePhoneNumber()`.
  * https://docs.stripe.com/js/custom_checkout/create_shipping_address_element
  */
 export interface CheckoutShippingContactOption {
   name: string;
   address: StripeAddressSeed["address"];
-  phone?: string;
+}
+
+/** Cart / form shipping address (AddressInput-shaped) used to seed billing contacts. */
+export interface CheckoutShippingAddressInput {
+  firstName?: string | null | undefined;
+  lastName?: string | null | undefined;
+  address1?: string | null | undefined;
+  address2?: string | null | undefined;
+  city?: string | null | undefined;
+  state?: string | null | undefined;
+  country?: string | null | undefined;
+  postcode?: string | null | undefined;
 }
 
 /**
- * Build the official `contacts` prefill for ShippingAddressElement.
+ * Map an AddressInput-shaped shipping address onto the delivery-form seed
+ * shape. Phone is intentionally dropped — it must not reach Stripe `contacts`.
+ */
+export function savedShippingFromAddressInput(
+  addr: CheckoutShippingAddressInput | null | undefined,
+): SavedShippingAddress | undefined {
+  if (!addr) return undefined;
+  return {
+    firstName: addr.firstName ?? undefined,
+    lastName: addr.lastName ?? undefined,
+    line1: addr.address1 ?? undefined,
+    line2: addr.address2 ?? undefined,
+    city: addr.city ?? undefined,
+    state: addr.state ?? undefined,
+    country: addr.country ?? undefined,
+    postalCode: addr.postcode ?? undefined,
+  };
+}
+
+/**
+ * Strip `phone` from any contact payload so Address / Billing elements never
+ * receive `contacts[0].phone`.
+ */
+export function contactsWithoutPhone(
+  contacts:
+    | ReadonlyArray<{
+        name: string;
+        address: StripeAddressSeed["address"];
+        phone?: string | undefined;
+      }>
+    | null
+    | undefined,
+): CheckoutShippingContactOption[] | undefined {
+  if (!contacts?.length) return undefined;
+  return contacts.map(({ name, address }) => ({ name, address }));
+}
+
+/**
+ * Build `contacts` prefill for Shipping / Billing address elements.
  *
- * Includes `phone` when the saved address has one (Stripe ContactOption).
- * Does not invent AddressElement `fields`.
+ * Name + address only. Saved-address phone stays on PhoneInput /
+ * `updatePhoneNumber()` — never on `contacts`.
  */
 export function buildCheckoutShippingContacts(
   addr: SavedShippingAddress | null | undefined,
 ): CheckoutShippingContactOption[] | undefined {
   const seed = buildStripeAddressSeed(addr);
   if (!seed) return undefined;
-  const phone = addr?.phone?.trim();
   return [
     {
       name: seed.name ?? "",
       address: seed.address,
-      ...(phone ? { phone } : {}),
     },
   ];
 }
@@ -115,6 +165,35 @@ export function buildCheckoutShippingContacts(
 export function buildCheckoutShippingAddressElementOptions(
   contacts: CheckoutShippingContactOption[] | undefined,
 ): { contacts: CheckoutShippingContactOption[] } | Record<string, never> {
-  if (!contacts?.length) return {};
-  return { contacts };
+  const clean = contactsWithoutPhone(contacts);
+  if (!clean?.length) return {};
+  return { contacts: clean };
+}
+
+/**
+ * Options for Checkout Session BillingAddressElement.
+ *
+ * Prefer remount snapshot (failed Pay), else shipping address. Always strip
+ * `phone` so a session phone from `updatePhoneNumber()` cannot leak into
+ * `contacts[0].phone` (that IntegrationError requires AddressElement
+ * `fields.phone: 'always'`, which we do not invent here).
+ */
+export function buildCheckoutBillingAddressElementOptions(args: {
+  remountContacts?:
+    | ReadonlyArray<{
+        name: string;
+        address: StripeAddressSeed["address"];
+        phone?: string | undefined;
+      }>
+    | null
+    | undefined;
+  shippingAddress?: CheckoutShippingAddressInput | null | undefined;
+}): { contacts: CheckoutShippingContactOption[] } | Record<string, never> {
+  const fromRemount = contactsWithoutPhone(args.remountContacts);
+  if (fromRemount?.length) return { contacts: fromRemount };
+  return buildCheckoutShippingAddressElementOptions(
+    buildCheckoutShippingContacts(
+      savedShippingFromAddressInput(args.shippingAddress),
+    ),
+  );
 }
