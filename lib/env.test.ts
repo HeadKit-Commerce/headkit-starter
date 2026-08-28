@@ -46,3 +46,31 @@ describe("env NEXT_PUBLIC_GRAPHQL_URL canonical contract (FE-11)", () => {
     );
   });
 });
+
+describe("env APPLE_PAY_DOMAIN_ASSOCIATION", () => {
+  const ORIGINAL = { ...process.env };
+
+  beforeEach(() => {
+    vi.resetModules();
+    process.env.NEXT_PUBLIC_HEADKIT_PUBLIC_KEY = "pk_local";
+    process.env.HEADKIT_PRIVATE_KEY = "sk_local";
+    process.env.NEXT_PUBLIC_GRAPHQL_URL = "http://localhost:4000/graphql";
+  });
+
+  afterEach(() => {
+    process.env = { ...ORIGINAL };
+    vi.resetModules();
+  });
+
+  it("is optional and undefined when unset", async () => {
+    delete process.env.APPLE_PAY_DOMAIN_ASSOCIATION;
+    const mod = await import("./env");
+    expect(mod.env.APPLE_PAY_DOMAIN_ASSOCIATION).toBeUndefined();
+  });
+
+  it("exposes a non-empty override", async () => {
+    process.env.APPLE_PAY_DOMAIN_ASSOCIATION = "custom-token";
+    const mod = await import("./env");
+    expect(mod.env.APPLE_PAY_DOMAIN_ASSOCIATION).toBe("custom-token");
+  });
+});

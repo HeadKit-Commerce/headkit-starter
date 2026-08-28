@@ -207,7 +207,16 @@ const nextConfig: NextConfig = {
     ];
   },
   async rewrites() {
-    return [];
+    return [
+      // Apple Pay domain verification. Without this, the dotted `.well-known`
+      // path falls through to the /[...slug] catch-all and returns the HTML app
+      // shell, so Stripe's verification fetch fails and Apple Pay stays hidden.
+      // Map it to a route handler that serves the Stripe-issued token.
+      {
+        source: "/.well-known/apple-developer-merchantid-domain-association",
+        destination: "/api/apple-pay-domain-association",
+      },
+    ];
   },
   async headers() {
     return [

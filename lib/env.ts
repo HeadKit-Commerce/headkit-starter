@@ -48,6 +48,10 @@ const clientSchema = z.object({
 const serverSchema = clientSchema.extend({
   HEADKIT_PRIVATE_KEY: z.string().min(1),
   REVALIDATION_SECRET: z.string().optional(),
+  // Optional override for the Apple Pay domain-association token served at
+  // /.well-known/apple-developer-merchantid-domain-association. When unset, the
+  // storefront serves Stripe's universal Payment Method Domain file automatically.
+  APPLE_PAY_DOMAIN_ASSOCIATION: z.string().optional(),
   DASHBOARD_API_URL: z.string().url().optional(),
   DASHBOARD_API_TOKEN: z.string().min(1).optional(),
   // Platform dashboard-api origin for CAA start/redeem (optional; also
