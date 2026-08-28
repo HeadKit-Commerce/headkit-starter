@@ -24,6 +24,7 @@ import { useCheckoutActions } from "@/app/checkout/checkout-actions-context";
 import { useToast } from "@/hooks/use-toast";
 import { CheckoutFormStepEnum } from "@/components/checkout/utils";
 import { subscribeEmailAction } from "@/lib/email-marketing-actions";
+import { useCartContext } from "@/components/headkit-ui/cart-context";
 
 const contactSchema = z.object({
   email: z.string().min(1, "Email is required").email("Invalid email"),
@@ -54,6 +55,7 @@ const ContactFormStep: React.FC<ContactFormStepProps> = ({
 }) => {
   const checkoutState = useCheckout();
   const { actions } = useCheckoutActions();
+  const { setCartData } = useCartContext();
   const { toast } = useToast();
   const form = useForm<z.infer<typeof contactSchema>>({
     resolver: zodResolver(contactSchema),
@@ -138,6 +140,7 @@ const ContactFormStep: React.FC<ContactFormStepProps> = ({
           { keepCheckoutSession: true },
         );
         if (!result.success) throw new Error(result.error);
+        setCartData(result.cart);
         maybeSubscribe(data);
         await onRefreshSession(
           data.email,

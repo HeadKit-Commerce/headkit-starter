@@ -555,21 +555,43 @@ export const AU_SHIPPING: ShippingAddressFixture = {
 };
 
 /**
+ * Wait until session recreate remount finishes (Stripe provider reload).
+ */
+export async function waitForCheckoutRemount(page: Page): Promise<void> {
+  const spinner = page.getByText("Preparing your checkout…");
+  if (await spinner.isVisible().catch(() => false)) {
+    await expect(
+      spinner,
+      "Checkout remount spinner did not disappear after session recreate",
+    ).toBeHidden({ timeout: 45_000 });
+  }
+}
+
+/**
  * Wait until the Delivery accordion is active after contact submit.
  * handleContactNext refetches the cart before advancing — callers must not
  * poll Stripe/delivery UI until this settles.
  */
 export async function waitForDeliveryStep(page: Page): Promise<void> {
+  await waitForCheckoutRemount(page);
   await expect(
     page.getByRole("button", { name: /^continue$/i }),
     "Delivery step did not render after contact",
-  ).toBeVisible({ timeout: 30_000 });
+  ).toBeVisible({ timeout: 45_000 });
   await expect(
     page
       .getByText(/Ship to Home|Free Click & Collect|Select your store/i)
       .first(),
     "Delivery step content did not render after contact",
   ).toBeVisible({ timeout: 30_000 });
+}
+
+/** Wait for Stripe ShippingAddressElement to mount after delivery step opens. */
+export async function waitForStripeShippingAddress(
+  page: Page,
+  timeoutMs = 45_000,
+): Promise<Frame> {
+  return stripeFrameWith(page, 'input[name="addressLine1"]', timeoutMs);
 }
 
 /**
@@ -619,7 +641,7 @@ export async function fillShipToHomeStep(
   page: Page,
   addr: ShippingAddressFixture = AU_SHIPPING,
 ): Promise<void> {
-  const frame = await stripeFrameWith(page, 'input[name="addressLine1"]');
+  const frame = await waitForStripeShippingAddress(page);
   await frame.locator('input[name="name"]').fill(addr.name);
   await frame.locator('select[name="country"]').selectOption(addr.country);
   await frame.locator('input[name="addressLine1"]').fill(addr.line1);

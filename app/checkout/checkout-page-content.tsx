@@ -20,6 +20,7 @@ import {
   expireCheckoutSessionAction,
   updateCustomerAction,
 } from "@/app/checkout/actions";
+import { getFullCartAction } from "@/lib/cart-actions";
 import { Input } from "@/components/ui/input";
 import { CartChangedBanner } from "@/components/checkout/cart-changed-banner";
 import type { Step } from "@/app/checkout/CheckoutForm";
@@ -211,6 +212,8 @@ export function CheckoutPageContent({
         testMode: session.testMode === true,
         shippingOptionMapping: session.shippingOptionMapping ?? null,
       });
+      const refreshedCart = await getFullCartAction();
+      if (refreshedCart) setCartData(refreshedCart);
       setRestoreStep(nextStep);
       setRestoredEmail(newEmail);
       if (opts?.notice === "cart_changed") {
@@ -233,6 +236,7 @@ export function CheckoutPageContent({
       allowedCountries,
       cartData?.needsShipping,
       activeSessionIdForSupersede,
+      setCartData,
     ],
   );
 
