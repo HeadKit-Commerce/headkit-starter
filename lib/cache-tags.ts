@@ -39,6 +39,7 @@ export const KNOWN_MENU_LOCATIONS = [
   "FOOTER",
   "FOOTER_2",
   "FOOTER_3",
+  "FOOTER_4",
   "FOOTER_POLICY",
 ] as const;
 

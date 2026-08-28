@@ -267,14 +267,15 @@ export function Footer({
       (url) => typeof url === "string" && url.length > 0,
     );
 
-  const threeMenuDesktop = footerMenus.length >= 3;
+  const multiMenuDesktop = footerMenus.length >= 3;
+  const fourMenuDesktop = footerMenus.length >= 4;
 
   return (
     <footer className="headkit-footer border-t-2 border-t-[#E2E2DF] px-5 md:px-10">
       <div
         className={cn(
           "grid gap-x-8 gap-y-8 py-10 md:py-14",
-          threeMenuDesktop
+          multiMenuDesktop
             ? "md:grid-cols-12 lg:gap-x-8"
             : "md:grid-cols-3 lg:gap-x-24",
         )}
@@ -283,7 +284,8 @@ export function Footer({
         <div
           className={cn(
             "flex flex-col gap-4",
-            threeMenuDesktop && "md:col-span-3",
+            multiMenuDesktop &&
+              (fourMenuDesktop ? "md:col-span-2" : "md:col-span-3"),
           )}
         >
           <Link href="/" aria-label="home" className="w-fit">
@@ -309,10 +311,10 @@ export function Footer({
           ) : null}
         </div>
 
-        {/* Menu columns — 3 menus → 2+2+2 of 12 on desktop */}
-        {threeMenuDesktop ? (
+        {/* Menu columns — 3→2+2+2 of 12; 4→2+2+2+2 of 12 on desktop */}
+        {multiMenuDesktop ? (
           footerMenus
-            .slice(0, 3)
+            .slice(0, 4)
             .map((menu) => (
               <FooterMenuColumn
                 key={menu.location}
@@ -342,7 +344,8 @@ export function Footer({
         <div
           className={cn(
             "flex flex-col gap-8",
-            threeMenuDesktop && "md:col-span-3",
+            multiMenuDesktop &&
+              (fourMenuDesktop ? "md:col-span-2" : "md:col-span-3"),
           )}
         >
           {showSubscribe ? <FooterSubscribe /> : null}

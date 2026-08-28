@@ -113,14 +113,15 @@ beforeEach(() => {
     { name: "", description: null, items: [] },
     { name: "", description: null, items: [] },
     { name: "", description: null, items: [] },
+    { name: "", description: null, items: [] },
   ]);
 });
 
-describe("fetchMenu — tagged by location, days backstop", () => {
-  it("tags the PRIMARY menu with headkit:menu:PRIMARY at cacheLife('days')", async () => {
+describe("fetchMenu — tagged by location, hours backstop", () => {
+  it("tags the PRIMARY menu with headkit:menu:PRIMARY at cacheLife('hours')", async () => {
     await fetchMenu("PRIMARY");
     expect(cacheTag).toHaveBeenCalledWith("headkit:menu:PRIMARY");
-    expect(cacheLife).toHaveBeenCalledWith("days");
+    expect(cacheLife).toHaveBeenCalledWith("hours");
   });
 
   it("tags the SECONDARY menu with headkit:menu:SECONDARY", async () => {
@@ -140,21 +141,22 @@ describe("fetchMenu — tagged by location, days backstop", () => {
 });
 
 describe("getFooterMenus — TAG.footer + all footer locations", () => {
-  it("tags footer + FOOTER/FOOTER_2/FOOTER_3/FOOTER_POLICY at cacheLife('days')", async () => {
+  it("tags footer + FOOTER/FOOTER_2/FOOTER_3/FOOTER_4/FOOTER_POLICY at cacheLife('hours')", async () => {
     await getFooterMenus();
     expect(cacheTag).toHaveBeenCalledWith(
       "headkit:footer",
       "headkit:menu:FOOTER",
       "headkit:menu:FOOTER_2",
       "headkit:menu:FOOTER_3",
+      "headkit:menu:FOOTER_4",
       "headkit:menu:FOOTER_POLICY",
       "headkit:branding",
       "headkit:collections",
     );
-    expect(cacheLife).toHaveBeenCalledWith("days");
+    expect(cacheLife).toHaveBeenCalledWith("hours");
   });
 
-  it("fetches all four footer locations and returns stable slots", async () => {
+  it("fetches all five footer locations and returns stable slots", async () => {
     menuGetMenus.mockResolvedValueOnce([
       {
         name: "Shop",
@@ -163,6 +165,7 @@ describe("getFooterMenus — TAG.footer + all footer locations", () => {
       },
       { name: "Company", description: null, items: [] },
       { name: "Support", description: null, items: [] },
+      { name: "Extras", description: null, items: [] },
       {
         name: "Paralel Furniture Pty Ltd",
         description: null,
@@ -178,6 +181,7 @@ describe("getFooterMenus — TAG.footer + all footer locations", () => {
       },
       { location: "FOOTER_2", name: "Company", items: [] },
       { location: "FOOTER_3", name: "Support", items: [] },
+      { location: "FOOTER_4", name: "Extras", items: [] },
       {
         location: "FOOTER_POLICY",
         name: "Paralel Furniture Pty Ltd",
@@ -188,6 +192,7 @@ describe("getFooterMenus — TAG.footer + all footer locations", () => {
       "FOOTER",
       "FOOTER_2",
       "FOOTER_3",
+      "FOOTER_4",
       "FOOTER_POLICY",
     ]);
     expect(menuGet).not.toHaveBeenCalled();
@@ -195,13 +200,13 @@ describe("getFooterMenus — TAG.footer + all footer locations", () => {
 });
 
 describe("getFooterMenu — legacy FOOTER-only helper", () => {
-  it("tags the footer data entry with headkit:footer + menu:FOOTER at cacheLife('days')", async () => {
+  it("tags the footer data entry with headkit:footer + menu:FOOTER at cacheLife('hours')", async () => {
     await getFooterMenu();
     expect(cacheTag).toHaveBeenCalledWith(
       "headkit:footer",
       "headkit:menu:FOOTER",
     );
-    expect(cacheLife).toHaveBeenCalledWith("days");
+    expect(cacheLife).toHaveBeenCalledWith("hours");
   });
 
   it("degrades to [] when the SDK read throws", async () => {
@@ -211,7 +216,7 @@ describe("getFooterMenu — legacy FOOTER-only helper", () => {
 });
 
 describe("NavigationWrapper — subscribes to the menus it composes", () => {
-  it("tags primary + secondary + pre-header + branding + collections and uses cacheLife('days')", async () => {
+  it("tags primary + secondary + pre-header + branding + collections and uses cacheLife('hours')", async () => {
     await NavigationWrapper();
     expect(cacheTag).toHaveBeenCalledWith(
       "headkit:menu:PRIMARY",
@@ -220,7 +225,7 @@ describe("NavigationWrapper — subscribes to the menus it composes", () => {
       "headkit:branding",
       "headkit:collections",
     );
-    expect(cacheLife).toHaveBeenCalledWith("days");
+    expect(cacheLife).toHaveBeenCalledWith("hours");
   });
 
   it("fetches PRIMARY + SECONDARY + PRE_HEADER in one getMenus batch", async () => {
