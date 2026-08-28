@@ -65,7 +65,7 @@ describe("decideContactSubmit (ENG-801)", () => {
     ).toBe("update-email");
   });
 
-  it('first visit (no initial email) counts as changed → "recreate" when refresh exists (current behavior, preserved)', () => {
+  it('first visit (no initial email) on an email-less session → "update-email" (ENG-801)', () => {
     expect(
       decideContactSubmit({
         initialEmail: "",
@@ -73,7 +73,7 @@ describe("decideContactSubmit (ENG-801)", () => {
         sessionEmail: "",
         hasRefreshSession: true,
       }),
-    ).toBe("recreate");
+    ).toBe("update-email");
   });
 
   it("normalizes case and surrounding whitespace when comparing emails (treated as unchanged)", () => {

@@ -142,8 +142,13 @@ export function CheckoutPageContent({
   const [errorMessage, setErrorMessage] = useState("");
   const [checkoutSession, setCheckoutSession] =
     useState<CheckoutSessionProp | null>(initialCheckoutSession ?? null);
-  const [restoreStep, setRestoreStep] = useState<string | null>(null);
-  const [restoredEmail, setRestoredEmail] = useState<string | null>(null);
+  /** Step/email to restore after session recreate — keyed by sessionId so it
+   * survives re-renders until the remounted checkout form consumes it. */
+  const [sessionRestore, setSessionRestore] = useState<{
+    sessionId: string;
+    step: string;
+    email: string;
+  } | null>(null);
   const [isPlacingFreeOrder, setIsPlacingFreeOrder] = useState(false);
   // ENG-838: WooCommerce requires a FULL billing address even for a $0 order
   // (woocommerce_rest_invalid_address: first name, street, suburb, state,
@@ -214,8 +219,11 @@ export function CheckoutPageContent({
       });
       const refreshedCart = await getFullCartAction();
       if (refreshedCart) setCartData(refreshedCart);
-      setRestoreStep(nextStep);
-      setRestoredEmail(newEmail);
+      setSessionRestore({
+        sessionId: session.sessionId,
+        step: nextStep,
+        email: newEmail,
+      });
       if (opts?.notice === "cart_changed") {
         setShowCartChangedNotice(true);
       }
@@ -347,17 +355,19 @@ export function CheckoutPageContent({
     registerActiveCheckoutSessionAction(activeSessionId).catch(() => {});
   }, [activeSessionId]);
 
-  const initialStep = restoreStep;
+  const activeSessionIdForRestore = checkoutSession?.sessionId;
+  const restoreForActiveSession =
+    activeSessionIdForRestore &&
+    sessionRestore?.sessionId === activeSessionIdForRestore
+      ? sessionRestore
+      : null;
+  const initialStep = restoreForActiveSession?.step ?? null;
   // Prefer a restored email (after a session refresh); otherwise seed the
   // server-resolved logged-in email (CKA-04) so the Contact step prefills on
   // first paint. Guest → null (unchanged).
-  const initialEmail = restoredEmail ?? customerEmail ?? null;
-  useEffect(() => {
-    if (restoreStep) {
-      setRestoreStep(null);
-      setRestoredEmail(null);
-    }
-  }, [restoreStep]);
+  const initialEmail = restoreForActiveSession
+    ? restoreForActiveSession.email
+    : (customerEmail ?? null);
 
   const hasItems = (cartData?.items.length ?? 0) > 0;
   const cartTotal = getFloatVal(cartData?.totals.totalPrice ?? "0");

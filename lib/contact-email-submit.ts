@@ -20,10 +20,11 @@ export interface ContactSubmitInput {
  * Pure, node-testable extraction of the contact-step handleSubmit branch
  * order (ENG-801). Reproduces the component's branches EXACTLY:
  *
- *   (a) "recreate"     — the email changed and a refresh path exists: the
- *                        session must be recreated (Stripe render-locks a
- *                        `customer_email` set at create; recreate-then-
- *                        updateEmail is the ENG-801 model).
+ *   (a) "recreate"     — the email changed FROM a prior value and a refresh
+ *                        path exists: the session must be recreated (Stripe
+ *                        render-locks a `customer_email` set at create;
+ *                        recreate-then-updateEmail is the ENG-801 model).
+ *                        First entry on an email-less session is NOT a change.
  *   (b) "advance"      — the email is unchanged, a prefill exists, AND the
  *                        session already carries an email: Stripe forbids
  *                        `updateEmail` with an unchanged email, so just move
@@ -55,7 +56,11 @@ export function decideContactSubmit(
   const submitted = input.submittedEmail.trim().toLowerCase();
   const emailChanged = submitted !== initial;
 
-  if (input.hasRefreshSession && emailChanged) return "recreate";
+  // ENG-801: sessions are created email-less — first entry is not a "change"
+  // from a prior email, so push via updateEmail instead of recreating the session.
+  if (input.hasRefreshSession && emailChanged && initial.length > 0) {
+    return "recreate";
+  }
 
   const stripeHasNoEmail =
     input.sessionEmail != null && !input.sessionEmail.trim();
