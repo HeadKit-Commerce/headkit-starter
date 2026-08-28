@@ -166,6 +166,10 @@ function CheckoutSteps({
     }
     return new Set();
   });
+  const currentStepRef = useRef(currentStep);
+  const completedStepsRef = useRef(completedSteps);
+  currentStepRef.current = currentStep;
+  completedStepsRef.current = completedSteps;
 
   const [emailMarketingEnabled, setEmailMarketingEnabled] = useState(false);
   const [formData, setFormData] = useState<FormData>({
@@ -260,10 +264,17 @@ function CheckoutSteps({
     if (!onRefreshSession) return;
     if (sessionExpiredHandledRef.current === sessionId) return;
     sessionExpiredHandledRef.current = sessionId;
-    void onRefreshSession(formData.email, currentStep, {
+    // Async sync can resolve after contact submit advances the step. Remounting
+    // at a stale CONTACT restoreStep wiped delivery under full CI concurrency.
+    const restoreStep = completedStepsRef.current.has(
+      CheckoutFormStepEnum.CONTACT,
+    )
+      ? CheckoutFormStepEnum.DELIVERY_METHOD
+      : currentStepRef.current;
+    void onRefreshSession(formData.email, restoreStep, {
       notice: "cart_changed",
     }).catch(() => {});
-  }, [onRefreshSession, sessionId, formData.email, currentStep]);
+  }, [onRefreshSession, sessionId, formData.email]);
 
   // Sync line items via Stripe runServerUpdate when cart total changes.
   // Uses Route Handler to avoid Server Action revalidation.
@@ -271,6 +282,14 @@ function CheckoutSteps({
   const { actions } = useCheckoutActions();
   useEffect(() => {
     if (!sessionId || !cartData?.totals?.totalPrice || !actions) return;
+    // Contact submit updates cart via setCartData before onNext advances the
+    // step. A 409 here would recreate at CONTACT and undo the delivery advance.
+    if (
+      currentStep === CheckoutFormStepEnum.CONTACT &&
+      !completedSteps.has(CheckoutFormStepEnum.CONTACT)
+    ) {
+      return;
+    }
     actions
       .runServerUpdate(async () => {
         const res = await fetch("/api/checkout/sync-line-items", {
@@ -298,7 +317,15 @@ function CheckoutSteps({
         onSyncComplete?.(data.shippingOptionMapping ?? null);
       })
       .catch(() => {});
-  }, [cartData, sessionId, actions, onSyncComplete, handleSessionExpired]);
+  }, [
+    cartData,
+    sessionId,
+    actions,
+    onSyncComplete,
+    handleSessionExpired,
+    currentStep,
+    completedSteps,
+  ]);
 
   // ENG-801 session-email push: sessions are created email-LESS so the Stripe
   // email field stays editable (a `customer_email` set at create renders the
