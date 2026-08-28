@@ -569,8 +569,7 @@ export async function waitForCheckoutRemount(page: Page): Promise<void> {
 
 /**
  * Wait until the Delivery accordion is active after contact submit.
- * handleContactNext refetches the cart before advancing — callers must not
- * poll Stripe/delivery UI until this settles.
+ * handleContactNext advances immediately after contact mutations settle.
  */
 export async function waitForDeliveryStep(page: Page): Promise<void> {
   await waitForCheckoutRemount(page);

@@ -380,14 +380,10 @@ function CheckoutSteps({
     }));
     markCompleted(CheckoutFormStepEnum.CONTACT);
 
-    // Read-only cart refetch — do NOT wrap in runServerUpdate. The contact step
-    // already ran runServerUpdate for the address mutation; a second Stripe
-    // server-update for a GET-only action can hang or clobber session email
-    // (ENG-801 push races). Delivery step uses runServerUpdate only when the
-    // preceding mutation changed session line items / shipping.
-    const fetchedCart = await getFullCartAction();
-    if (fetchedCart) setCartData(fetchedCart);
-
+    // Advance immediately — the contact step already updated cart context on
+    // the update-email / recreate paths, and the mount-time getFullCartAction
+    // fill covers prefill. A second server-action GET here blocked step
+    // transition under full CI concurrency (delivery "Continue" never appeared).
     goToStep(CheckoutFormStepEnum.DELIVERY_METHOD);
   };
 
