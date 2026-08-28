@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import {
+  buildCheckoutShippingAddressElementOptions,
+  buildCheckoutShippingContacts,
   buildStripeAddressSeed,
   type SavedShippingAddress,
 } from "@/lib/checkout-address-seed";
@@ -94,5 +99,88 @@ describe("buildStripeAddressSeed (CKA-04/CKA-05)", () => {
         country: "NZ",
       },
     });
+  });
+});
+
+describe("buildCheckoutShippingAddressElementOptions", () => {
+  it("returns empty object when there are no contacts (guest)", () => {
+    expect(buildCheckoutShippingAddressElementOptions(undefined)).toEqual({});
+    expect(buildCheckoutShippingAddressElementOptions([])).toEqual({});
+  });
+
+  it("passes contacts only — never fields (Checkout Session create contract)", () => {
+    const contacts = [
+      {
+        name: "Ada Lovelace",
+        address: {
+          line1: "1 Analytical Way",
+          city: "Sydney",
+          state: "NSW",
+          postal_code: "2000",
+          country: "AU",
+        },
+      },
+    ];
+    const options = buildCheckoutShippingAddressElementOptions(contacts);
+    expect(options).toEqual({ contacts });
+    expect(options).not.toHaveProperty("fields");
+    expect(JSON.stringify(options)).not.toContain('"fields"');
+  });
+});
+
+describe("buildCheckoutShippingContacts", () => {
+  it("returns undefined when there is no seedable address", () => {
+    expect(buildCheckoutShippingContacts(null)).toBeUndefined();
+    expect(buildCheckoutShippingContacts({})).toBeUndefined();
+  });
+
+  it("includes official contacts[].phone when the saved address has one", () => {
+    expect(buildCheckoutShippingContacts(FULL)).toEqual([
+      {
+        name: "Ada Lovelace",
+        address: {
+          line1: "1 Analytical Way",
+          line2: "Unit 5",
+          city: "Sydney",
+          state: "NSW",
+          postal_code: "2000",
+          country: "AU",
+        },
+        phone: "0400000000",
+      },
+    ]);
+  });
+
+  it("omits phone when the saved address has none", () => {
+    const contacts = buildCheckoutShippingContacts({ ...FULL, phone: "" });
+    expect(contacts?.[0]).not.toHaveProperty("phone");
+  });
+});
+
+describe("ShippingAddressElement options source-scan", () => {
+  it("delivery step never passes AddressElement fields to ShippingAddressElement", () => {
+    const source = readFileSync(
+      resolve(
+        __dirname,
+        "../components/checkout/steps/delivery-method-step.tsx",
+      ),
+      "utf8",
+    );
+    expect(source).toContain("buildCheckoutShippingAddressElementOptions");
+    expect(source).toContain("options={stripeShippingOptions}");
+    expect(source).toContain("<PhoneInput");
+    expect(source).toContain("updatePhoneNumber");
+    expect(source).not.toMatch(
+      /<ShippingAddressElement[\s\S]{0,800}fields\s*[:=]/,
+    );
+  });
+
+  it("helper source never mentions AddressElement fields as an accepted option", () => {
+    const source = readFileSync(
+      resolve(__dirname, "./checkout-address-seed.ts"),
+      "utf8",
+    );
+    expect(source).toMatch(/Do NOT pass AddressElement `fields`/);
+    expect(source).not.toMatch(/fields:\s*\{\s*phone/);
   });
 });

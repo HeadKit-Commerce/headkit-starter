@@ -10,6 +10,22 @@ import type {
   StripeExpressCheckoutElementConfirmEvent,
 } from "@stripe/stripe-js";
 import { isCheckoutSessionDead } from "@/lib/checkout-session-status";
+import { CheckoutFormStepEnum } from "@/components/checkout/utils";
+
+/**
+ * Express Checkout stays mounted on contact / delivery / shipping so one-tap
+ * wallets work. It MUST unmount on the Payment step.
+ *
+ * Stripe Payment Element docs: when PE and ECE are combined, Apple Pay /
+ * Google Pay appear only in ECE to avoid duplication. That is why step 4
+ * showed no wallet radios while ECE sat at the top of checkout.
+ * https://docs.stripe.com/payments/payment-element
+ */
+export function shouldMountExpressCheckout(
+  step: CheckoutFormStepEnum,
+): boolean {
+  return step !== CheckoutFormStepEnum.PAYMENT;
+}
 
 /**
  * Express / wallet checkout (Apple Pay / Google Pay / Link) mounted at the TOP

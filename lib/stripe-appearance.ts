@@ -123,9 +123,8 @@ export function buildCheckoutAppearance(): Appearance {
       colorTextPlaceholder: "#76766B",
     },
     rules: {
-      ".AccordionItem": {
-        padding: "4px",
-      },
+      // Do not crush `.AccordionItem` padding. Payment Element accordion
+      // radios (`layout.radios: "always"`) sit in that padding; 4px hid them.
       ".Tab": {
         border: `1px solid ${primary}`,
         borderRadius: radius,

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { hasAvailableWallet } from "./express-checkout-top";
+import { CheckoutFormStepEnum } from "@/components/checkout/utils";
+import {
+  hasAvailableWallet,
+  shouldMountExpressCheckout,
+} from "./express-checkout-top";
 
 /**
  * The wallet-availability gate behind the "Express checkout" heading and the
@@ -64,5 +68,21 @@ describe("hasAvailableWallet", () => {
 
     expect(wire({ applePay: undefined, link: { available: true } })).toBe(true);
     expect(wire({ applePay: undefined })).toBe(false);
+  });
+});
+
+describe("shouldMountExpressCheckout", () => {
+  it("mounts on earlier steps so one-tap wallets stay available", () => {
+    expect(shouldMountExpressCheckout(CheckoutFormStepEnum.CONTACT)).toBe(true);
+    expect(
+      shouldMountExpressCheckout(CheckoutFormStepEnum.DELIVERY_METHOD),
+    ).toBe(true);
+    expect(shouldMountExpressCheckout(CheckoutFormStepEnum.ADDRESS)).toBe(true);
+  });
+
+  it("unmounts on Payment so the Payment Element can show Apple Pay", () => {
+    expect(shouldMountExpressCheckout(CheckoutFormStepEnum.PAYMENT)).toBe(
+      false,
+    );
   });
 });

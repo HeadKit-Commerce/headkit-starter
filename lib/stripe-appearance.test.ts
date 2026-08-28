@@ -85,5 +85,6 @@ describe("buildCheckoutAppearance", () => {
     expect(appearance.rules?.[".Input:focus"]?.outline).toBe(
       "2px solid #57734d",
     );
+    expect(appearance.rules?.[".AccordionItem"]).toBeUndefined();
   });
 });

@@ -616,7 +616,7 @@ export async function fillContactStep(
   await waitForDeliveryStep(page);
 }
 
-/** Fill phone on the Stripe shipping address element when present. */
+/** Fill phone for ship-to-home (Stripe iframe if present, else PhoneInput). */
 async function fillStripeShippingPhone(
   page: Page,
   frame: Frame,
@@ -627,15 +627,14 @@ async function fillStripeShippingPhone(
     await stripePhone.fill(phone);
     return;
   }
-  // Non-Stripe fallback (legacy PhoneInput outside the iframe).
+  // Checkout Session ShippingAddressElement has no phone field — use PhoneInput.
   await page.getByPlaceholder("Enter phone number").fill(phone);
 }
 
 /**
  * Step 2 — Delivery (Ship to Home): fill the Stripe ShippingAddressElement
- * (elements-inner-address frame, including Stripe's phone field) then advance
- * with "Continue". Assumes Ship to Home is the active delivery method (it is
- * the default).
+ * then PhoneInput, then advance with "Continue". Assumes Ship to Home is the
+ * active delivery method (it is the default).
  */
 export async function fillShipToHomeStep(
   page: Page,

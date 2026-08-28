@@ -25,7 +25,11 @@ import {
   CHECKOUT_PHONE_MESSAGE,
 } from "@/components/checkout/utils";
 import { updateCustomerAddressAction } from "@/lib/cart-actions";
-import { buildStripeAddressSeed } from "@/lib/checkout-address-seed";
+import {
+  buildCheckoutShippingAddressElementOptions,
+  buildCheckoutShippingContacts,
+  buildStripeAddressSeed,
+} from "@/lib/checkout-address-seed";
 import { useCheckoutActions } from "@/app/checkout/checkout-actions-context";
 import { useToast } from "@/hooks/use-toast";
 
@@ -209,15 +213,9 @@ const DeliveryMethodStep: React.FC<DeliveryMethodStepProps> = ({
   // (ENG-755: forwarding it to element.update() after mount 400s), so the
   // element `key` flips seeded↔empty and the element remounts once (never
   // update()) when the async saved address resolves.
-  const shippingSeed = buildStripeAddressSeed(savedShippingAddress);
-  // Stripe ContactOption requires a `name` (string); default to "" when absent.
-  const shippingContacts = shippingSeed
-    ? [{ name: shippingSeed.name ?? "", address: shippingSeed.address }]
-    : undefined;
-  const stripeShippingOptions = {
-    fields: { phone: "always" as const },
-    ...(shippingContacts ? { contacts: shippingContacts } : {}),
-  };
+  const shippingContacts = buildCheckoutShippingContacts(savedShippingAddress);
+  const stripeShippingOptions =
+    buildCheckoutShippingAddressElementOptions(shippingContacts);
   const seededRef = useRef(false);
   useEffect(() => {
     if (!enableStripe || seededRef.current || !actions) return;
@@ -583,11 +581,12 @@ const DeliveryMethodStep: React.FC<DeliveryMethodStepProps> = ({
                 options={stripeShippingOptions}
                 onChange={(event) => {
                   if (event.complete && event.value) {
-                    const { address, phone, firstName, lastName, name } =
-                      event.value;
+                    const { address, firstName, lastName, name } = event.value;
                     const first = (name?.split(" ")?.[0] || firstName) ?? "";
                     const last = (name?.split(" ")?.[1] || lastName) ?? "";
                     const addr = address ?? {};
+                    const existingPhone =
+                      form.getValues("shippingAddress.phone") ?? "";
                     const value = {
                       firstName: first,
                       lastName: last,
@@ -597,7 +596,7 @@ const DeliveryMethodStep: React.FC<DeliveryMethodStepProps> = ({
                       state: addr.state ?? "",
                       country: addr.country ?? "",
                       postalCode: addr.postal_code ?? "",
-                      phone: phone ?? "",
+                      phone: existingPhone,
                     };
                     setLastShippingValue(value);
                     setShippingElementComplete(!!value.line1);
@@ -629,18 +628,41 @@ const DeliveryMethodStep: React.FC<DeliveryMethodStepProps> = ({
                     form.setValue("shippingAddress.country", value.country, {
                       shouldValidate: true,
                     });
-                    if ((value.phone ?? "").trim()) {
-                      form.setValue(
-                        "shippingAddress.phone",
-                        value.phone ?? "",
-                        { shouldValidate: true },
-                      );
-                    }
                     void form.trigger("shippingAddress");
                   } else {
                     setShippingElementComplete(false);
                   }
                 }}
+              />
+              {/* Official Custom Checkout + Adaptive Pricing path: ShippingAddressElement
+                  still has no phone input (Stripe: use a separate UI + updatePhoneNumber).
+                  Session create already sets phone_number_collection[enabled]=true. */}
+              <FormField
+                name="shippingAddress.phone"
+                control={form.control}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone</FormLabel>
+                    <FormControl>
+                      <PhoneInput
+                        value={field.value ?? ""}
+                        onChange={(v) => {
+                          const next = v || "";
+                          field.onChange(next);
+                          setLastShippingValue((prev) =>
+                            prev ? { ...prev, phone: next } : prev,
+                          );
+                          void form.trigger("shippingAddress.phone");
+                        }}
+                        className="w-full"
+                        placeholder="Enter phone number"
+                        countries={["AU", "NZ"]}
+                        defaultCountry="AU"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </>
           ) : (
@@ -799,7 +821,11 @@ const DeliveryMethodStep: React.FC<DeliveryMethodStepProps> = ({
                       <PhoneInput
                         value={field.value ?? ""}
                         onChange={(v) => {
-                          field.onChange(v || "");
+                          const next = v || "";
+                          field.onChange(next);
+                          setLastShippingValue((prev) =>
+                            prev ? { ...prev, phone: next } : prev,
+                          );
                           void form.trigger("shippingAddress.phone");
                         }}
                         className="w-full"

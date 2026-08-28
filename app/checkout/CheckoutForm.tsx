@@ -24,7 +24,10 @@ import { DeliveryMethodStep } from "@/components/checkout/steps/delivery-method-
 import { ShippingOptionsStep } from "@/components/checkout/steps/shipping-options-step";
 import { BillingAddressStep } from "@/components/checkout/steps/billing-address-step";
 import { StripePaymentStep } from "@/components/checkout/steps/stripe-checkout-step";
-import { ExpressCheckoutTop } from "@/components/checkout/express-checkout-top";
+import {
+  ExpressCheckoutTop,
+  shouldMountExpressCheckout,
+} from "@/components/checkout/express-checkout-top";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import type { CheckoutSessionProp } from "@/app/checkout/checkout-page-content";
 import {
@@ -691,16 +694,18 @@ function CheckoutSteps({
   return (
     <>
       {/* Express/wallet checkout (Apple Pay / Google Pay / Link) — the single
-          ExpressCheckoutElement instance, mounted at the top so a buyer can
-          pay in one tap and skip the form. It self-hides when no wallet is
-          available. Stripe allows only ONE per CheckoutProvider, so it must
-          NOT also appear in the Payment step. Rendered from CheckoutSteps
-          (not CheckoutForm) so its confirm-time dead-session path can reach
+          ExpressCheckoutElement instance, mounted at the top on earlier steps
+          so a buyer can pay in one tap. Unmounted on Payment so the Payment
+          Element can show wallets (Stripe hides PE wallets while ECE is
+          mounted). Stripe allows only ONE ECE per CheckoutProvider.
+          Rendered from CheckoutSteps so confirm-time dead-session can reach
           handleSessionExpired (ENG-784). */}
-      <ExpressCheckoutTop
-        sessionId={sessionId}
-        onSessionExpired={handleSessionExpired}
-      />
+      {shouldMountExpressCheckout(currentStep) ? (
+        <ExpressCheckoutTop
+          sessionId={sessionId}
+          onSessionExpired={handleSessionExpired}
+        />
+      ) : null}
       <div className="space-y-2">
         {/* Step 1: Contact */}
         <AccordionWrapper
