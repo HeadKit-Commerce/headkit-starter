@@ -169,6 +169,7 @@ const ContactFormStep: React.FC<ContactFormStepProps> = ({
             { keepCheckoutSession: true },
           );
           if (!result.success) throw new Error(result.error);
+          setCartData(result.cart);
         });
         if (updateResult.type === "error") {
           throw new Error(
@@ -194,7 +195,6 @@ const ContactFormStep: React.FC<ContactFormStepProps> = ({
             ? err.message
             : "Something went wrong. Please try again.",
       });
-      throw err;
     }
   };
 

@@ -380,21 +380,13 @@ function CheckoutSteps({
     }));
     markCompleted(CheckoutFormStepEnum.CONTACT);
 
-    // Refetch cart so UI reflects updated billingAddress.email (same pattern as delivery step)
-    const runGetCart = async () => {
-      const fetchedCart = await getFullCartAction();
-      if (fetchedCart) setCartData(fetchedCart);
-    };
-    if (actions) {
-      const updateResult = await actions.runServerUpdate(runGetCart);
-      if (updateResult.type === "error") {
-        throw new Error(
-          updateResult.error?.message ?? "Failed to refresh cart",
-        );
-      }
-    } else {
-      await runGetCart();
-    }
+    // Read-only cart refetch — do NOT wrap in runServerUpdate. The contact step
+    // already ran runServerUpdate for the address mutation; a second Stripe
+    // server-update for a GET-only action can hang or clobber session email
+    // (ENG-801 push races). Delivery step uses runServerUpdate only when the
+    // preceding mutation changed session line items / shipping.
+    const fetchedCart = await getFullCartAction();
+    if (fetchedCart) setCartData(fetchedCart);
 
     goToStep(CheckoutFormStepEnum.DELIVERY_METHOD);
   };
