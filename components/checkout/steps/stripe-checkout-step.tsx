@@ -9,7 +9,7 @@ import {
 } from "@stripe/react-stripe-js/checkout";
 import type { AddressInput } from "@headkit/sdk";
 import { Button } from "@/components/ui/button";
-import { SpinnerIcon } from "@/components/icon";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useCheckoutActions } from "@/app/checkout/checkout-actions-context";
 import { writeBillingAddressCookie } from "@/lib/checkout-billing-cookie";
 import { isCheckoutSessionDead } from "@/lib/checkout-session-status";
@@ -305,9 +305,10 @@ export function StripePaymentStep({
 
   if (checkoutState.type === "loading") {
     return (
-      <div className="flex items-center justify-center py-8">
-        <SpinnerIcon className="h-5 w-5 animate-spin text-gray-400" />
-        <span className="ml-3 text-sm text-gray-500">Loading payment…</span>
+      <div className="space-y-3 py-2" aria-hidden="true">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-11 w-full" />
       </div>
     );
   }

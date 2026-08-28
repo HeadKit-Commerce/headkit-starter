@@ -16,7 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { PhoneInput } from "@/components/ui/phone-input-lazy";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { SpinnerIcon } from "@/components/icon";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
   DeliveryStepEnum,
@@ -460,8 +460,14 @@ const DeliveryMethodStep: React.FC<DeliveryMethodStepProps> = ({
 
   if (isLoading) {
     return (
-      <div className="text-center min-h-[200px] flex items-center justify-center bg-white/50">
-        <SpinnerIcon className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="space-y-3 py-2" aria-hidden="true">
+        <Skeleton className="h-5 w-48" />
+        <div className="grid gap-4 md:grid-cols-2">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </div>
+        <Skeleton className="h-40 w-full" />
+        <Skeleton className="h-11 w-full" />
       </div>
     );
   }

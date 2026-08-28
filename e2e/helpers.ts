@@ -556,13 +556,14 @@ export const AU_SHIPPING: ShippingAddressFixture = {
 
 /**
  * Wait until session recreate remount finishes (Stripe provider reload).
+ * Remount paints the form skeleton while Stripe.js resolves — no copy.
  */
 export async function waitForCheckoutRemount(page: Page): Promise<void> {
-  const spinner = page.getByText("Preparing your checkout…");
-  if (await spinner.isVisible().catch(() => false)) {
+  const skeleton = page.getByTestId("checkout-form-skeleton");
+  if (await skeleton.isVisible().catch(() => false)) {
     await expect(
-      spinner,
-      "Checkout remount spinner did not disappear after session recreate",
+      skeleton,
+      "Checkout remount skeleton did not disappear after session recreate",
     ).toBeHidden({ timeout: 45_000 });
   }
 }

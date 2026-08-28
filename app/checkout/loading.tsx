@@ -1,18 +1,25 @@
-export default function CheckoutLoading() {
-  // Keep this minimal: Shopify carts redirect to hosted checkoutUrl and must
-  // not flash the Stripe accordion skeleton. WooCommerce still paints the
-  // real checkout once SSR finishes.
-  //
-  // `min-h-screen` HERE IS DELIBERATE AND IS NOT THE ONE THAT WAS REMOVED FROM
-  // page.tsx. This file is a single centred sentence, and `min-h-screen` is
-  // what gives `items-center` a box to centre it in — drop it and the message
-  // pins to the top of the window. page.tsx's copy was a wrapper around real
-  // content, where the same class only manufactured empty space below it. The
-  // two files share no geometry (this one paints no step card and no summary),
-  // so there is nothing here to keep "in step" with that change.
+import { CheckoutFormSkeleton } from "@/components/checkout/checkout-form-skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
+
+/**
+ * Route-level fallback while checkout RSC resolves. Skeleton only — no copy.
+ * Shopify carts still redirect to hosted checkout once SSR finishes; they see
+ * this briefly, not a Stripe accordion.
+ */
+export default function CheckoutLoading(): React.ReactElement {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-brand-bg">
-      <p className="text-sm text-muted-foreground">Continuing to checkout…</p>
+    <div className="bg-brand-bg">
+      <div className="px-[20px] md:px-[40px] mx-auto grid grid-cols-12 gap-[20px] py-8">
+        <div className="order-2 md:order-1 col-span-12 md:col-span-6">
+          <CheckoutFormSkeleton />
+        </div>
+        <div className="order-1 md:order-2 col-span-12 md:col-start-7 md:col-span-6 lg:col-start-8 lg:col-span-5 space-y-4">
+          <Skeleton className="h-6 w-24" />
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+      </div>
     </div>
   );
 }

@@ -5,7 +5,7 @@ import type { CartFieldsFragment } from "@headkit/sdk";
 import { Button } from "@/components/ui/button";
 import { selectShippingAction } from "@/lib/cart-actions";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { SpinnerIcon } from "@/components/icon";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getFloatVal, formatPrice } from "@/lib/utils";
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { useCheckoutActions } from "@/app/checkout/checkout-actions-context";
@@ -198,8 +198,10 @@ export const ShippingOptionsStep = ({
 
   if (!cartData?.shippingRates) {
     return (
-      <div className="flex justify-center py-4">
-        <SpinnerIcon className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="space-y-3 py-2" aria-hidden="true">
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-11 w-full" />
       </div>
     );
   }
@@ -245,11 +247,6 @@ export const ShippingOptionsStep = ({
               })}
             </div>
           </RadioGroup>
-          {isLoading && (
-            <div className="absolute inset-0 bg-white/50 flex items-center justify-center">
-              <SpinnerIcon className="h-6 w-6 animate-spin" />
-            </div>
-          )}
         </div>
       ) : (
         <p>Sorry, shipping is not currently available for this order.</p>
@@ -258,6 +255,7 @@ export const ShippingOptionsStep = ({
       <Button
         type="submit"
         disabled={!activeRateId || isLoading}
+        loading={isLoading}
         className="w-full"
         rightIcon="arrowRight"
       >

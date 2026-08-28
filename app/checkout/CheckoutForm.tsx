@@ -38,7 +38,7 @@ import {
 } from "@/lib/cart-actions";
 import type { AddressInput } from "@headkit/sdk";
 import { useDebugRegister } from "@headkit/sdk/debug";
-import { SpinnerIcon } from "@/components/icon";
+import { CheckoutFormSkeleton } from "@/components/checkout/checkout-form-skeleton";
 import {
   writeBillingAddressCookie,
   clearBillingAddressCookie,
@@ -263,6 +263,15 @@ function CheckoutSteps({
   const handleSessionExpired = useCallback(() => {
     if (!onRefreshSession) return;
     if (sessionExpiredHandledRef.current === sessionId) return;
+    // Contact submit updates cart before React commits the step advance. An
+    // in-flight sync 409 must not recreate while still on contact — that
+    // remounts at CONTACT and hides the delivery accordion under CI load.
+    if (
+      currentStepRef.current === CheckoutFormStepEnum.CONTACT &&
+      !completedStepsRef.current.has(CheckoutFormStepEnum.CONTACT)
+    ) {
+      return;
+    }
     sessionExpiredHandledRef.current = sessionId;
     // Async sync can resolve after contact submit advances the step. Remounting
     // at a stale CONTACT restoreStep wiped delivery under full CI concurrency.
@@ -282,12 +291,9 @@ function CheckoutSteps({
   const { actions } = useCheckoutActions();
   useEffect(() => {
     if (!sessionId || !cartData?.totals?.totalPrice || !actions) return;
-    // Contact submit updates cart via setCartData before onNext advances the
-    // step. A 409 here would recreate at CONTACT and undo the delivery advance.
-    if (
-      currentStep === CheckoutFormStepEnum.CONTACT &&
-      !completedSteps.has(CheckoutFormStepEnum.CONTACT)
-    ) {
+    // Never sync on the contact step — email/cart mutations there can 409 and
+    // trigger handleSessionExpired before the step advance commits.
+    if (currentStepRef.current === CheckoutFormStepEnum.CONTACT) {
       return;
     }
     actions
@@ -324,7 +330,6 @@ function CheckoutSteps({
     onSyncComplete,
     handleSessionExpired,
     currentStep,
-    completedSteps,
   ]);
 
   // ENG-801 session-email push: sessions are created email-LESS so the Stripe
@@ -389,10 +394,15 @@ function CheckoutSteps({
   }, []);
 
   const markCompleted = (step: Step) => {
-    setCompletedSteps((prev) => new Set([...prev, step]));
+    setCompletedSteps((prev) => {
+      const next = new Set([...prev, step]);
+      completedStepsRef.current = next;
+      return next;
+    });
   };
 
   const goToStep = (step: Step) => {
+    currentStepRef.current = step;
     setCurrentStep(step);
   };
 
@@ -407,10 +417,9 @@ function CheckoutSteps({
     }));
     markCompleted(CheckoutFormStepEnum.CONTACT);
 
-    // Advance immediately — the contact step already updated cart context on
-    // the update-email / recreate paths, and the mount-time getFullCartAction
-    // fill covers prefill. A second server-action GET here blocked step
-    // transition under full CI concurrency (delivery "Continue" never appeared).
+    // Advance immediately — refs update synchronously so async sync/expired
+    // handlers see DELIVERY before React commits. The contact step already
+    // updated cart context on the update-email / recreate paths.
     goToStep(CheckoutFormStepEnum.DELIVERY_METHOD);
   };
 
@@ -1032,12 +1041,16 @@ export function CheckoutForm({
   }
 
   if (!stripePromise) {
+    // Same grid as the live form so the cart sidebar stays put while Stripe.js
+    // resolves — no copy, skeleton only (storefront convention).
     return (
-      <div className="flex items-center justify-center py-16">
-        <SpinnerIcon className="h-6 w-6 animate-spin text-gray-400" />
-        <span className="ml-3 text-sm text-gray-500">
-          Preparing your checkout…
-        </span>
+      <div className="px-[20px] md:px-[40px] mx-auto grid grid-cols-12 gap-[20px]">
+        <div className="order-2 md:order-1 col-span-12 md:col-span-6">
+          <CheckoutFormSkeleton />
+        </div>
+        <div className="order-1 md:order-2 col-span-12 md:col-start-7 md:col-span-6 lg:col-start-8 lg:col-span-5">
+          {cartSidebar}
+        </div>
       </div>
     );
   }
