@@ -53,6 +53,9 @@ export function FooterSubscribe() {
         onSubmit={handleSubmit}
         className="relative flex flex-col gap-2 lg:flex-row"
       >
+        {/* Radius tracks Branding → Style (`--radius-button` from layout),
+            same pairing as checkout coupon-box: field corners match the
+            Subscribe button for soft / round / square. */}
         <Input
           type="email"
           name="email"
@@ -61,7 +64,7 @@ export function FooterSubscribe() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={isPending}
-          className="lg:pr-28"
+          className="rounded-[var(--radius-button)] lg:pr-28"
           autoComplete="email"
         />
         <Button
