@@ -1,5 +1,6 @@
 /**
- * Convert a WordPress absolute URI to a relative frontend path.
+ * Convert a WordPress / Shopify storefront absolute URI to a relative frontend
+ * path.
  *
  * WooCommerce returns `uri` as a full absolute URL pointing to the WordPress
  * backend (e.g. "https://commerce-backend.com/shop/general/beanie/").
@@ -10,6 +11,10 @@
  * Those must pass through unchanged — `new URL(uri).pathname` drops the scheme
  * (e.g. `tel:1300883919` → `1300883919`), which broke Paralel's preheader phone.
  *
+ * Off-site http(s) hosts (Instagram, Facebook, …) must also pass through
+ * unchanged. Stripping them to a bare path made InstantLink treat social links
+ * as in-app routes (e.g. `instagram.com/brand` → `/brand`).
+ *
  * @example
  * convertToRelativePath("https://commerce-backend.com/shop/general/beanie/")
  * // → "/shop/general/beanie/"
@@ -19,6 +24,9 @@
  *
  * convertToRelativePath("tel:1300883919")
  * // → "tel:1300883919"
+ *
+ * convertToRelativePath("https://www.instagram.com/velvetmuse/")
+ * // → "https://www.instagram.com/velvetmuse/"
  */
 /**
  * Normalize a CMS/menu/carousel href for in-app Next.js navigation.
@@ -29,6 +37,35 @@ export function normalizeNavigationHref(
   uri: string | null | undefined,
 ): string {
   return convertToRelativePath(uri);
+}
+
+/** Hosts that must stay absolute (social / off-site Custom Links). */
+const EXTERNAL_LINK_HOST_SUFFIXES = [
+  "instagram.com",
+  "facebook.com",
+  "fb.com",
+  "fb.me",
+  "twitter.com",
+  "x.com",
+  "tiktok.com",
+  "youtube.com",
+  "youtu.be",
+  "linkedin.com",
+  "pinterest.com",
+  "pin.it",
+  "threads.net",
+  "wa.me",
+  "whatsapp.com",
+  "vimeo.com",
+  "spotify.com",
+  "open.spotify.com",
+] as const;
+
+export function isExternalHttpHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^www\./, "");
+  return EXTERNAL_LINK_HOST_SUFFIXES.some(
+    (suffix) => host === suffix || host.endsWith(`.${suffix}`),
+  );
 }
 
 export function convertToRelativePath(uri: string | null | undefined): string {
@@ -46,7 +83,11 @@ export function convertToRelativePath(uri: string | null | undefined): string {
   }
 
   try {
-    return new URL(uri).pathname;
+    const parsed = new URL(uri);
+    if (isExternalHttpHost(parsed.hostname)) {
+      return uri;
+    }
+    return parsed.pathname;
   } catch {
     return uri;
   }

@@ -119,11 +119,19 @@ export function InstantLink({
       onNavigate: _onNavigate,
       ...anchorProps
     } = rest;
+    const isHttpExternal =
+      hrefStr.startsWith("http://") || hrefStr.startsWith("https://");
     return (
       <a
         {...anchorProps}
         href={hrefStr}
         className={cn("relative cursor-pointer", className)}
+        {...(isHttpExternal
+          ? {
+              target: anchorProps.target ?? "_blank",
+              rel: anchorProps.rel ?? "noopener noreferrer",
+            }
+          : {})}
       >
         {children as ReactNode}
       </a>

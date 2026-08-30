@@ -46,6 +46,15 @@ describe("convertToRelativePath", () => {
     // new URL('tel:…').pathname drops the scheme — the Paralel preheader bug.
     expect(convertToRelativePath("tel:1300883919")).not.toBe("1300883919");
   });
+
+  it("preserves Instagram and other social absolute links", () => {
+    expect(convertToRelativePath("https://www.instagram.com/velvetmuse/")).toBe(
+      "https://www.instagram.com/velvetmuse/",
+    );
+    expect(convertToRelativePath("https://facebook.com/brand")).toBe(
+      "https://facebook.com/brand",
+    );
+  });
 });
 
 describe("normalizeNavigationHref", () => {

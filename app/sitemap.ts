@@ -406,11 +406,11 @@ function collectMenuUris(
  * That is a smaller gap than the current one (no pages at all) and closing it
  * needs the pages-list query above.
  *
- * `convertToRelativePath` strips the origin of ANY http(s) menu uri — it cannot
- * tell a WordPress permalink from a social link — so an external link arrives
- * here as a bare path. The existence probe is what makes that safe: only a path
- * this store actually publishes is emitted, and it is emitted under `siteUrl`,
- * so an off-site `<loc>` stays impossible by construction.
+ * Off-site absolute menu URIs (Instagram, etc.) stay absolute in
+ * `convertToRelativePath` and are rejected by `menuItemPath` /
+ * `isAppNavigationHref`. WordPress backend permalinks are still stripped to
+ * paths and confirmed via `content(type: PAGE)` before emit, so an off-site
+ * `<loc>` stays impossible by construction.
  */
 async function makePageSitemap(
   siteUrl: string,
