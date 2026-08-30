@@ -16,11 +16,22 @@ import {
 } from "@/components/icon";
 import { FooterSubscribe } from "@/components/headkit-ui/footer-subscribe";
 import { InstantLink } from "@/components/headkit-ui/instant-link";
-import {
-  normalizeNavigationHref,
-  isAppNavigationHref,
-} from "@/lib/convert-uri";
 import { cn, decodeHtmlEntities } from "@/lib/utils";
+
+/**
+ * CMS `target` only when set. Omitting lets {@link InstantLink} default
+ * absolute http(s) social/off-site links to `_blank` + `noopener`.
+ * Passing `target="_self"` as a fallback overrode that and kept Instagram
+ * same-tab on Velvet.
+ */
+function cmsLinkTargetProps(target: string | null | undefined): {
+  target?: string;
+} {
+  if (target == null || target === "") {
+    return {};
+  }
+  return { target };
+}
 
 // ---------------------------------------------------------------------------
 // HeadKit SVG assets
@@ -168,33 +179,18 @@ function FooterMenuColumn({
         {items.map((item) => {
           const label = decodeHtmlEntities(item.label);
           const className = "w-fit leading-relaxed hover:underline";
-          const href = normalizeNavigationHref(item.uri);
-          if (isAppNavigationHref(href)) {
-            return (
-              <InstantLink
-                key={item.id}
-                href={href}
-                pendingVariant="text"
-                target={item.target ?? "_self"}
-                className={className}
-              >
-                {label}
-              </InstantLink>
-            );
-          }
-          // tel:/mailto:/external — native <a>; Next <Link> is for app paths.
+          // One InstantLink path for app + tel/mailto + absolute social URLs.
+          // InstantLink already picks Next <Link> vs plain <a> + _blank.
           return (
-            <a
+            <InstantLink
               key={item.id}
-              href={href || item.uri}
-              target={item.target ?? "_self"}
+              href={item.uri}
+              pendingVariant="text"
               className={className}
-              {...(item.target === "_blank"
-                ? { rel: "noopener noreferrer" }
-                : {})}
+              {...cmsLinkTargetProps(item.target)}
             >
               {label}
-            </a>
+            </InstantLink>
           );
         })}
       </div>
@@ -380,14 +376,15 @@ export function Footer({
             {policyMenu && (
               <div className="mb-2 flex flex-wrap items-center gap-[6px]">
                 {policyMenu.items?.map((item) => (
-                  <Link
+                  <InstantLink
                     key={item.id}
                     href={item.uri}
-                    target={item.target ?? "_self"}
+                    pendingVariant="text"
                     className="underline hover:text-primary"
+                    {...cmsLinkTargetProps(item.target)}
                   >
                     {decodeHtmlEntities(item.label)}
-                  </Link>
+                  </InstantLink>
                 ))}
               </div>
             )}
