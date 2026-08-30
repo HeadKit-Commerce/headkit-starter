@@ -209,8 +209,7 @@ export function ProductDetail({
     [product.attributes],
   );
   const isVariable =
-    product.type?.toUpperCase() === VARIABLE ||
-    variationAttributes.length > 0;
+    product.type?.toUpperCase() === VARIABLE || variationAttributes.length > 0;
   const isGiftCard = product.isGiftCard === true;
   const [giftCardValues, setGiftCardValues] =
     useState<GiftCardFormValues | null>(null);
