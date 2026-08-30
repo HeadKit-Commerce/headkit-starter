@@ -68,9 +68,33 @@ export function isExternalHttpHost(hostname: string): boolean {
   );
 }
 
+/**
+ * Shopify Catalog / "All Collections" is `/collections`; the automatic "All
+ * products" collection is `/collections/all`. HeadKit's full catalog is `/shop`
+ * (same as Woo). Bare `/collections` has no App Router index — it soft-404s via
+ * `[...slug]`. Category PLPs (`/collections/{slug}`) are unchanged.
+ */
+function rewriteShopCatalogIndexPath(path: string): string {
+  let cut = path.length;
+  const q = path.indexOf("?");
+  const h = path.indexOf("#");
+  if (q >= 0) cut = Math.min(cut, q);
+  if (h >= 0) cut = Math.min(cut, h);
+  const pathname = path.slice(0, cut);
+  const suffix = path.slice(cut);
+  const normalized = pathname.replace(/\/+$/, "") || "/";
+  if (
+    normalized === "/collections" ||
+    normalized.toLowerCase() === "/collections/all"
+  ) {
+    return `/shop${suffix}`;
+  }
+  return path;
+}
+
 export function convertToRelativePath(uri: string | null | undefined): string {
   if (!uri) return "";
-  if (uri.startsWith("/")) return uri;
+  if (uri.startsWith("/")) return rewriteShopCatalogIndexPath(uri);
 
   // Opaque / non-http(s) schemes used by WP Custom Links — keep intact.
   // Match "scheme:" where scheme is not http/https (case-insensitive).
@@ -87,7 +111,8 @@ export function convertToRelativePath(uri: string | null | undefined): string {
     if (isExternalHttpHost(parsed.hostname)) {
       return uri;
     }
-    return parsed.pathname;
+    const pathWithSearch = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    return rewriteShopCatalogIndexPath(pathWithSearch);
   } catch {
     return uri;
   }

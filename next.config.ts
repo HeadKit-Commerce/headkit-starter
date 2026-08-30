@@ -214,6 +214,11 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       { source: "/blogs/:blog", destination: "/:blog", permanent: true },
+      // Shopify Catalog / "All Collections" and the automatic "All products"
+      // collection → HeadKit /shop (Woo shop page). Do NOT redirect
+      // /collections/:slug — those are real category PLPs.
+      { source: "/collections", destination: "/shop", permanent: true },
+      { source: "/collections/all", destination: "/shop", permanent: true },
     ];
   },
   async rewrites() {
