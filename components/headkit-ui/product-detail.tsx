@@ -200,7 +200,17 @@ export function ProductDetail({
     setWishlisted(isInWishlist(product.id));
   }, [product.id]);
 
-  const isVariable = product.type?.toUpperCase() === VARIABLE;
+  // Prefer commerce `type`, but also treat products with variation attributes
+  // as variable — e.g. Shopify colourways where sibling variants are unpublished
+  // from Online Store leave a single Storefront variant (historically typed
+  // simple) that must still show the colour swatch.
+  const variationAttributes = useMemo(
+    () => product.attributes.filter((a) => a.variation),
+    [product.attributes],
+  );
+  const isVariable =
+    product.type?.toUpperCase() === VARIABLE ||
+    variationAttributes.length > 0;
   const isGiftCard = product.isGiftCard === true;
   const [giftCardValues, setGiftCardValues] =
     useState<GiftCardFormValues | null>(null);
@@ -254,11 +264,6 @@ export function ProductDetail({
       setAddonFormError(null);
     },
     [],
-  );
-
-  const variationAttributes = useMemo(
-    () => product.attributes.filter((a) => a.variation),
-    [product.attributes],
   );
 
   const [selectedAttributes, setSelectedAttributes] = useState<
