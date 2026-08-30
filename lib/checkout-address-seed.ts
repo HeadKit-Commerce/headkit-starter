@@ -270,11 +270,27 @@ export function buildCheckoutShippingAddressElementOptions(
 }
 
 /**
- * Options for Checkout Session BillingAddressElement.
+ * Options for the PAYMENT step's BillingAddressElement.
  *
- * Prefer remount snapshot (failed Pay), else shipping address. Always strip
- * `phone` so a session phone from `updatePhoneNumber()` cannot leak into
- * `contacts[0].phone` (that IntegrationError requires AddressElement
+ * `contacts` here is a RECOVERY prefill only — the snapshot of a distinct
+ * billing address the shopper already typed, captured when the element is
+ * unmounted on Pay so a failed confirm does not lose it (`contacts` is
+ * create-only, ENG-755).
+ *
+ * NEVER seed it from the shipping address on first mount. The payment step's
+ * Elements instance runs with `syncAddressCheckbox: "billing"`
+ * (`app/checkout/CheckoutForm.tsx`), and Stripe renders that native
+ * "billing address same as shipping" checkbox only for an UNSEEDED billing
+ * element. Given `contacts`, the element renders the saved-address card
+ * ("<name> / <line1> / Change") instead and the checkbox never appears —
+ * observed on staging run 33193675514, where the failure surfaced as
+ * `expectBillingSameAsShippingControl` timing out with the card in the
+ * snapshot. The shipping address needs no prefill anyway: with the checkbox
+ * ticked Stripe reuses it, and the delivery step already pushed
+ * `updateBillingAddress(shipping)` to the session.
+ *
+ * Always strip `phone` so a session phone from `updatePhoneNumber()` cannot
+ * leak into `contacts[0].phone` (that IntegrationError requires AddressElement
  * `fields.phone: 'always'`, which we do not invent here).
  */
 export function buildCheckoutBillingAddressElementOptions(args: {
@@ -286,13 +302,8 @@ export function buildCheckoutBillingAddressElementOptions(args: {
       }>
     | null
     | undefined;
-  shippingAddress?: CheckoutShippingAddressInput | null | undefined;
 }): { contacts: CheckoutShippingContactOption[] } | Record<string, never> {
   const fromRemount = contactsWithoutPhone(args.remountContacts);
-  if (fromRemount?.length) return { contacts: fromRemount };
-  return buildCheckoutShippingAddressElementOptions(
-    buildCheckoutShippingContacts(
-      savedShippingFromAddressInput(args.shippingAddress),
-    ),
-  );
+  if (!fromRemount?.length) return {};
+  return { contacts: fromRemount };
 }

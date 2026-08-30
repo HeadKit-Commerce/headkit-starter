@@ -160,6 +160,22 @@ export function buildCheckoutAppearance(): Appearance {
       ".Input.Input--invalid": {
         outline: `2px solid ${FALLBACKS.danger}`,
       },
+      // `flat` removes Stripe's default field chrome. Keep the unchecked
+      // sync-address control visible on white backgrounds while preserving
+      // the same brand/focus/error language as the fields above.
+      ".Checkbox": {
+        border: `1px solid ${primary}`,
+        backgroundColor: "#FFFFFF",
+        borderRadius: radius,
+      },
+      ".Checkbox:focus": {
+        outline: `2px solid ${primary}`,
+        outlineOffset: "2px",
+      },
+      ".Checkbox--checked": {
+        border: `1px solid ${primary}`,
+        backgroundColor: primary,
+      },
     },
   };
 }

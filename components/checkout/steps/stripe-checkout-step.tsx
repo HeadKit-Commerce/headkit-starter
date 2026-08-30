@@ -39,6 +39,15 @@ interface StripePaymentStepProps {
    * the one-shot auto-recreate with the cart-changed notice.
    */
   onSessionExpired?: () => void;
+  /**
+   * Raised for the duration of `checkout.confirm()` so the parent can unmount
+   * the delivery step's ShippingAddressElement, which stays mounted-but-hidden
+   * through the Payment step (`keepMountedWhenInactive`). Stripe REJECTS
+   * confirm() while any Address Element is mounted once
+   * `updateShippingAddress()` has been called on the session — see the
+   * component docblock.
+   */
+  onConfirmingChange?: (confirming: boolean) => void;
 }
 
 /** Billing value tracked from BillingAddressElement change events (ENG-801).
@@ -113,12 +122,28 @@ async function waitForBillingUnmount(): Promise<void> {
  * confirm() while a billing Address Element is mounted if
  * updateBillingAddress() was ever called on the session (the delivery step's
  * billing=shipping write already counts).
+ *
+ * BOTH Address Elements have to go, not just this one. The SHIPPING element
+ * lives in the delivery step, which is deliberately kept mounted-but-hidden
+ * through Payment (`keepMountedWhenInactive` in CheckoutForm) so Stripe has a
+ * shipping element to sync the checkbox against. Stripe applies the same
+ * confirm-time rule to it, naming the write it conflicts with:
+ *
+ *   "You called confirm() while the Address Element is mounted, but you
+ *    previously also called updateShippingAddress(). … ensure the Address
+ *    Element is not mounted by the time you call confirm()."
+ *
+ * That is the whole of the failure — confirm() resolves as an error, the card
+ * is never presented, and the shopper stays on /checkout with no order. So the
+ * unmount is signalled UP via `onConfirmingChange` as well as applied locally,
+ * and both are committed (`waitForBillingUnmount`) before confirm() runs.
  */
 export function StripePaymentStep({
   showBillingSameAsShipping = false,
   shippingAddress = null,
   sessionId,
   onSessionExpired,
+  onConfirmingChange,
 }: StripePaymentStepProps) {
   const checkoutState = useCheckout();
   const { actions } = useCheckoutActions();
@@ -190,6 +215,7 @@ export function StripePaymentStep({
           };
           setRemountContacts([{ name, address: billingPayload.address }]);
           setHideBillingElement(true);
+          onConfirmingChange?.(true);
           await waitForBillingUnmount();
           const res = await actions.updateBillingAddress(billingPayload);
           if (res.type === "error") {
@@ -209,6 +235,7 @@ export function StripePaymentStep({
           });
         } else {
           setHideBillingElement(true);
+          onConfirmingChange?.(true);
           await waitForBillingUnmount();
 
           if (billingOverriddenRef.current) {
@@ -292,6 +319,7 @@ export function StripePaymentStep({
     } finally {
       setIsSubmitting(false);
       setHideBillingElement(false);
+      onConfirmingChange?.(false);
     }
   }, [
     checkoutState,
@@ -302,6 +330,7 @@ export function StripePaymentStep({
     shippingAddress,
     sessionId,
     onSessionExpired,
+    onConfirmingChange,
   ]);
 
   if (checkoutState.type === "loading") {
@@ -351,9 +380,11 @@ export function StripePaymentStep({
       />
       {showBillingSameAsShipping && !hideBillingElement && (
         <BillingAddressElement
+          // `remountContacts` ONLY — seeding this element from the shipping
+          // address makes Stripe render a saved-address card instead of the
+          // native billing-same-as-shipping checkbox (see the helper).
           options={buildCheckoutBillingAddressElementOptions({
             remountContacts,
-            shippingAddress,
           })}
           onChange={(event) => {
             if (event.complete && event.value) {
