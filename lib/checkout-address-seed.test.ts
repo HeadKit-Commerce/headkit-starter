@@ -192,26 +192,18 @@ describe("buildCheckoutBillingAddressElementOptions", () => {
     phone: "0400000000",
   };
 
-  it("seeds billing contacts from shipping address without phone", () => {
-    const options = buildCheckoutBillingAddressElementOptions({
-      shippingAddress: shippingWithPhone,
-    });
-    expect(options).toEqual({
-      contacts: [
-        {
-          name: "Ada Lovelace",
-          address: {
-            line1: "1 Analytical Way",
-            line2: "Unit 5",
-            city: "Sydney",
-            state: "NSW",
-            postal_code: "2000",
-            country: "AU",
-          },
-        },
-      ],
-    });
-    expect(JSON.stringify(options)).not.toContain("phone");
+  // The payment-step Elements instance runs with syncAddressCheckbox:"billing",
+  // and Stripe renders that native checkbox only for an UNSEEDED billing
+  // element. Seeding it from the shipping address swapped the checkbox for a
+  // saved-address card ("Ada Lovelace / 1 Analytical Way / Change"), which is
+  // how staging run 33193675514 failed `expectBillingSameAsShippingControl`.
+  it("never seeds billing contacts from a shipping address", () => {
+    const options = buildCheckoutBillingAddressElementOptions(
+      // @ts-expect-error shippingAddress is no longer an accepted seed source
+      { shippingAddress: shippingWithPhone },
+    );
+    expect(options).toEqual({});
+    expect(options).not.toHaveProperty("contacts");
     expect(options).not.toHaveProperty("fields");
   });
 
@@ -230,7 +222,6 @@ describe("buildCheckoutBillingAddressElementOptions", () => {
           phone: "+64211234567",
         },
       ],
-      shippingAddress: shippingWithPhone,
     });
     expect(options).toEqual({
       contacts: [
@@ -252,7 +243,10 @@ describe("buildCheckoutBillingAddressElementOptions", () => {
   it("returns empty options when there is nothing to seed (guest)", () => {
     expect(buildCheckoutBillingAddressElementOptions({})).toEqual({});
     expect(
-      buildCheckoutBillingAddressElementOptions({ shippingAddress: null }),
+      buildCheckoutBillingAddressElementOptions({ remountContacts: null }),
+    ).toEqual({});
+    expect(
+      buildCheckoutBillingAddressElementOptions({ remountContacts: [] }),
     ).toEqual({});
   });
 
@@ -416,6 +410,40 @@ describe("ShippingAddressElement options source-scan", () => {
       /<BillingAddressElement[\s\S]{0,800}fields\s*[:=]/,
     );
     expect(source).not.toMatch(/contacts:\s*\[[\s\S]{0,200}phone/);
+    // Reseeding the payment-step billing element from the shipping address
+    // hides Stripe's native billing-same-as-shipping checkbox.
+    expect(source).not.toMatch(
+      /buildCheckoutBillingAddressElementOptions\(\{[\s\S]{0,200}shippingAddress/,
+    );
+  });
+
+  it("payment step unmounts BOTH address elements before confirm()", () => {
+    const step = readFileSync(
+      resolve(
+        __dirname,
+        "../components/checkout/steps/stripe-checkout-step.tsx",
+      ),
+      "utf8",
+    );
+    // Local (billing) unmount and the signal that unmounts the delivery step's
+    // ShippingAddressElement must both fire before every confirm() path.
+    const localUnmounts = step.match(/setHideBillingElement\(true\)/g) ?? [];
+    const raisedSignals = step.match(/onConfirmingChange\?\.\(true\)/g) ?? [];
+    expect(localUnmounts.length).toBeGreaterThan(0);
+    expect(raisedSignals.length).toBe(localUnmounts.length);
+    expect(step).toContain("onConfirmingChange?.(false)");
+
+    // …and the form must actually honour the signal. Stripe rejects confirm()
+    // with "You called confirm() while the Address Element is mounted, but you
+    // previously also called updateShippingAddress()" otherwise.
+    const form = readFileSync(
+      resolve(__dirname, "../app/checkout/CheckoutForm.tsx"),
+      "utf8",
+    );
+    expect(form).toContain("onConfirmingChange={setIsConfirmingPayment}");
+    expect(form).toMatch(
+      /keepMountedWhenInactive=\{[\s\S]{0,600}!isConfirmingPayment/,
+    );
   });
 
   it("click-and-collect billing step never puts phone on contacts", () => {

@@ -4,20 +4,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 /**
  * The PLP heading outline, read off the rendered page.
  *
- * `ProductCard#titleAs` exists because the card is used at two depths and the
- * correct heading level differs between them (see the prop's docblock). PR #311
- * removed the prop inside a hunk whose stated subject was image rollover,
- * hardcoding the card to `<h3>`; on PLP and search the card follows the page
- * `h1` directly, so `h3` skips a level — a WCAG heading-order violation. The
- * same PR moved `e2e/plp-filters.spec.ts` to `.headkit-product-card h3` in step,
- * which is why the suite stayed green through the regression.
- *
- * So this test renders the REAL collection surfaces — `CollectionHeader` and
- * `ProductGrid`, composed the way `collection-page.tsx` composes them — and
- * reads the heading outline out of the markup. It fails on the pre-fix tree
- * (h1 -> h3) and passes after (h1 -> h2). It also checks the carousel depth,
- * where the default `h3` is the correct level and an unconditional `h2` would
- * be the opposite regression.
+ * Collection cards use `h3` under a section `h2` ("Products", visually hidden)
+ * so they match carousel cards (section `h2` → card `h3`) without skipping a
+ * level after the collection `h1`. This test renders `CollectionHeader` and
+ * `ProductGrid` the way `collection-page.tsx` composes them, and also checks
+ * the carousel depth where the default `h3` stays correct.
  */
 
 vi.mock("server-only", () => ({}));
@@ -151,13 +142,14 @@ function cardHeadings(html: string, tag: string): string[] {
 }
 
 describe("PLP heading order", () => {
-  it("renders the page h1 followed by product-name h2s — no skipped level", () => {
+  it("renders the page h1, a Products h2, then product-name h3s — no skipped level", () => {
     const outline = headingOutline(renderPlp());
 
     expect(outline[0]).toEqual({ level: 1, text: "Kitchen" });
     expect(outline.slice(1)).toEqual([
-      { level: 2, text: "Copper Kettle" },
-      { level: 2, text: "Cast Iron Pan" },
+      { level: 2, text: "Products" },
+      { level: 3, text: "Copper Kettle" },
+      { level: 3, text: "Cast Iron Pan" },
     ]);
 
     // The property the outline encodes: no heading jumps more than one level
@@ -172,15 +164,14 @@ describe("PLP heading order", () => {
 
   it("puts the product name under the card hook the PLP e2e selector uses", () => {
     // `e2e/plp-filters.spec.ts` counts and reads cards through
-    // `.headkit-product-card h2`. If the rendered level and that selector ever
-    // disagree the suite goes green while matching nothing, which is how the
-    // level regressed unnoticed once already.
+    // `.headkit-product-card h3`. If the rendered level and that selector ever
+    // disagree the suite goes green while matching nothing.
     const html = renderPlp();
-    expect(cardHeadings(html, "h2")).toEqual([
+    expect(cardHeadings(html, "h3")).toEqual([
       "Copper Kettle",
       "Cast Iron Pan",
     ]);
-    expect(cardHeadings(html, "h3")).toEqual([]);
+    expect(cardHeadings(html, "h2")).toEqual([]);
   });
 
   it("keeps h3 for a card nested under a section heading (carousels)", () => {

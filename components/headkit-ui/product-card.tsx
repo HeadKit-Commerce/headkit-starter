@@ -34,19 +34,13 @@ interface Props {
   priority?: boolean;
   /**
    * Heading level for the product name. The correct level depends on where the
-   * card sits, and this component is used at two different depths:
+   * card sits:
    *
-   *   - PLP / search results: the card follows the page `h1` directly, so the
-   *     name must be `h2` — `h3` there skips a level (WCAG heading-order).
-   *   - Homepage carousels: the card sits under a section `h2`, so `h3` is
-   *     correct and `h2` would duplicate the section heading's level.
+   *   - PLP / search / carousels: the card sits under a section `h2` (visible
+   *     on carousels; `sr-only` "Products" on the collection grid), so `h3`.
+   *   - Wishlist: the card follows the page `h1` directly, so `h2`.
    *
-   * Hardcoding either one is wrong on the other surface — that is exactly how
-   * this regressed twice (#58 set h2 for PLP, #102 set h3 for carousels, each
-   * breaking the other). The caller knows its own depth, so it decides.
-   *
-   * Defaults to `h3`, the nested case, so a caller that has not thought about
-   * it cannot silently claim top-level significance.
+   * Defaults to `h3`, the nested case.
    */
   titleAs?: "h2" | "h3";
 }

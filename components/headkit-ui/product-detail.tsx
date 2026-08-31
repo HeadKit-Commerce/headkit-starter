@@ -67,7 +67,11 @@ import {
   colourSlugFromProductPath,
 } from "@/lib/product-colourway-nav";
 import { findSwatchAttribute } from "@/lib/swatch-attribute";
-import { isSizeAttrSlug, isVariationOutOfStock } from "@/lib/variation-stock";
+import {
+  isBackorderStockStatus,
+  isSizeAttrSlug,
+  isVariationOutOfStock,
+} from "@/lib/variation-stock";
 import {
   Accordion,
   AccordionContent,
@@ -196,7 +200,16 @@ export function ProductDetail({
     setWishlisted(isInWishlist(product.id));
   }, [product.id]);
 
-  const isVariable = product.type?.toUpperCase() === VARIABLE;
+  // Prefer commerce `type`, but also treat products with variation attributes
+  // as variable — e.g. Shopify colourways where sibling variants are unpublished
+  // from Online Store leave a single Storefront variant (historically typed
+  // simple) that must still show the colour swatch.
+  const variationAttributes = useMemo(
+    () => product.attributes.filter((a) => a.variation),
+    [product.attributes],
+  );
+  const isVariable =
+    product.type?.toUpperCase() === VARIABLE || variationAttributes.length > 0;
   const isGiftCard = product.isGiftCard === true;
   const [giftCardValues, setGiftCardValues] =
     useState<GiftCardFormValues | null>(null);
@@ -250,11 +263,6 @@ export function ProductDetail({
       setAddonFormError(null);
     },
     [],
-  );
-
-  const variationAttributes = useMemo(
-    () => product.attributes.filter((a) => a.variation),
-    [product.attributes],
   );
 
   const [selectedAttributes, setSelectedAttributes] = useState<
@@ -493,7 +501,11 @@ export function ProductDetail({
     : product.id;
   const cartItemQty =
     cartData?.items.find((i) => i.id === String(targetId))?.quantity ?? 0;
-  const maxStock = (selectedVariation ?? product).stockQuantity ?? null;
+  // Backorder / Shopify CONTINUE: quantity may be 0 while still sellable —
+  // do not treat that as a max of 0 (would block Add to cart).
+  const maxStock = isBackorderStockStatus(stockStatus)
+    ? null
+    : ((selectedVariation ?? product).stockQuantity ?? null);
   const isAtStockLimit = maxStock !== null && cartItemQty + quantity > maxStock;
 
   // For a gift card the button must stay disabled until BOTH the form is valid
@@ -570,7 +582,25 @@ export function ProductDetail({
     (sum, line) => sum + line.unitPrice * line.quantity,
     0,
   );
-  const setTotal = getFloatVal(displayPrice) * quantity + companionTotal;
+  const heroUnitPrice = getFloatVal(displayPrice);
+  const setTotal = heroUnitPrice * quantity + companionTotal;
+  const setPieceCount =
+    quantity + companionLines.reduce((sum, line) => sum + line.quantity, 0);
+  const multiAddHeroImage = (() => {
+    const fromVariation = selectedVariation?.image;
+    if (fromVariation?.src) {
+      return { src: fromVariation.src, alt: fromVariation.alt || product.name };
+    }
+    const fromProduct = product.image;
+    if (fromProduct?.src) {
+      return { src: fromProduct.src, alt: fromProduct.alt || product.name };
+    }
+    const first = product.images[0];
+    if (first?.src) {
+      return { src: first.src, alt: first.alt || product.name };
+    }
+    return null;
+  })();
 
   // Sticky ATC bar: only after the primary ATC scrolls above the viewport
   // (not when it is still below the fold).
@@ -1042,6 +1072,17 @@ export function ProductDetail({
           {/* Quantity selector + Add to Cart + Wishlist */}
           {showMultiAdd && (
             <ProductMultiAdd
+              hero={{
+                id: product.id,
+                name: product.name,
+                unitPrice: heroUnitPrice,
+                image: multiAddHeroImage,
+                minQuantity: 1,
+                maxQuantity: maxStock,
+                unavailable: isOutOfStock || (isVariable && !selectedVariation),
+              }}
+              heroQuantity={quantity}
+              onHeroQuantityChange={setQuantity}
               companions={multiAddCompanions}
               pinSlug={multiAddPinSlug}
               pinValue={multiAddPinValue}
@@ -1049,48 +1090,52 @@ export function ProductDetail({
               onQuantityChange={(productId, next) =>
                 setCompanionQty((prev) => ({ ...prev, [productId]: next }))
               }
-              companionTotal={companionTotal}
-              showTotal={hasCompanionLines}
+              setTotal={setTotal}
+              pieceCount={setPieceCount}
+              showTotal={setPieceCount > 0}
             />
           )}
 
           <div ref={atcSectionRef} className="mb-6 flex items-center gap-3">
-            <div className="flex items-center rounded-md border border-gray-300">
-              <button
-                type="button"
-                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                disabled={quantity <= 1}
-                className="cursor-pointer px-3 py-2.5 text-gray-600 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
-                aria-label="Decrease quantity"
-              >
-                <MinusIcon className="h-4 w-4" />
-              </button>
-              <input
-                type="number"
-                min={1}
-                max={maxStock ?? 99}
-                value={quantity}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value);
-                  if (!isNaN(val) && val >= 1) setQuantity(val);
-                }}
-                className="w-12 border-x border-gray-300 py-2 text-center text-sm font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                aria-label="Quantity"
-              />
-              <button
-                type="button"
-                onClick={() =>
-                  setQuantity((q) =>
-                    maxStock ? Math.min(maxStock, q + 1) : q + 1,
-                  )
-                }
-                disabled={maxStock !== null && quantity >= maxStock}
-                className="cursor-pointer px-3 py-2.5 text-gray-600 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
-                aria-label="Increase quantity"
-              >
-                <PlusIcon className="h-4 w-4" />
-              </button>
-            </div>
+            {/* Qty lives in Complete the Set when multi-add is active. */}
+            {!showMultiAdd && (
+              <div className="flex items-center rounded-md border border-gray-300">
+                <button
+                  type="button"
+                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                  disabled={quantity <= 1}
+                  className="cursor-pointer px-3 py-2.5 text-gray-600 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Decrease quantity"
+                >
+                  <MinusIcon className="h-4 w-4" />
+                </button>
+                <input
+                  type="number"
+                  min={1}
+                  max={maxStock ?? 99}
+                  value={quantity}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    if (!isNaN(val) && val >= 1) setQuantity(val);
+                  }}
+                  className="w-12 border-x border-gray-300 py-2 text-center text-sm font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  aria-label="Quantity"
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    setQuantity((q) =>
+                      maxStock ? Math.min(maxStock, q + 1) : q + 1,
+                    )
+                  }
+                  disabled={maxStock !== null && quantity >= maxStock}
+                  className="cursor-pointer px-3 py-2.5 text-gray-600 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Increase quantity"
+                >
+                  <PlusIcon className="h-4 w-4" />
+                </button>
+              </div>
+            )}
 
             <Button
               className={cn(
@@ -1267,33 +1312,35 @@ export function ProductDetail({
               />
             </div>
           </div>
-          <div className="hidden items-center rounded-md border border-gray-300 sm:flex">
-            <button
-              type="button"
-              onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-              disabled={quantity <= 1}
-              className="cursor-pointer px-3 py-2 text-gray-600 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
-              aria-label="Decrease quantity"
-            >
-              <MinusIcon className="h-4 w-4" />
-            </button>
-            <span className="w-10 border-x border-gray-300 py-2 text-center text-sm font-medium">
-              {quantity}
-            </span>
-            <button
-              type="button"
-              onClick={() =>
-                setQuantity((q) =>
-                  maxStock ? Math.min(maxStock, q + 1) : q + 1,
-                )
-              }
-              disabled={maxStock !== null && quantity >= maxStock}
-              className="cursor-pointer px-3 py-2 text-gray-600 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
-              aria-label="Increase quantity"
-            >
-              <PlusIcon className="h-4 w-4" />
-            </button>
-          </div>
+          {!showMultiAdd && (
+            <div className="hidden items-center rounded-md border border-gray-300 sm:flex">
+              <button
+                type="button"
+                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                disabled={quantity <= 1}
+                className="cursor-pointer px-3 py-2 text-gray-600 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Decrease quantity"
+              >
+                <MinusIcon className="h-4 w-4" />
+              </button>
+              <span className="w-10 border-x border-gray-300 py-2 text-center text-sm font-medium">
+                {quantity}
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  setQuantity((q) =>
+                    maxStock ? Math.min(maxStock, q + 1) : q + 1,
+                  )
+                }
+                disabled={maxStock !== null && quantity >= maxStock}
+                className="cursor-pointer px-3 py-2 text-gray-600 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Increase quantity"
+              >
+                <PlusIcon className="h-4 w-4" />
+              </button>
+            </div>
+          )}
           <Button
             className={cn(
               "min-w-[140px] shrink-0 md:min-w-[180px]",

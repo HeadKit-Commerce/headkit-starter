@@ -416,17 +416,16 @@ describe("WordPress page sitemap section", () => {
     ).not.toHaveBeenCalled();
   });
 
-  it("drops an external http link, because its path is not a published page", async () => {
-    // `convertToRelativePath` strips the origin of ANY http(s) menu uri — it
-    // exists to turn WordPress permalinks into storefront paths and cannot tell
-    // a backend permalink from a social link. The existence probe is what makes
-    // that safe: only a path this store actually publishes is emitted, and it is
-    // then emitted as a storefront URL, so an off-site <loc> stays impossible.
+  it("drops an external http link without probing it as a CMS page", async () => {
+    // Social / off-site absolute menu URIs stay absolute in convertToRelativePath
+    // (so InstantLink can open them off-site). menuItemPath then rejects them via
+    // isAppNavigationHref — they must never become a storefront <loc>, and they
+    // must not burn a content(PAGE) probe on a fake slug like "acme".
     menuGetMenus.mockResolvedValue([menu("https://instagram.com/acme")]);
     contentGet.mockResolvedValue(null);
 
     await expect(pageUrls()).resolves.toEqual([]);
-    expect(contentGet).toHaveBeenCalledWith("acme", "PAGE");
+    expect(contentGet).not.toHaveBeenCalled();
   });
 
   it("does not restate a page that is already a static entry, and does not probe it", async () => {

@@ -13,6 +13,8 @@ export const DEFAULT_POSTS_BASE_PATH = "news";
 const RESERVED_POSTS_BASE = new Set([
   "account",
   "api",
+  "blogs",
+  "blog",
   "brand",
   "checkout",
   "client",
@@ -21,6 +23,7 @@ const RESERVED_POSTS_BASE = new Set([
   "faq",
   "featured",
   "new",
+  "pages",
   // `next.config.ts:205-206` 308s `/posts` (and `/posts/:slug*`) to `/news`
   // unconditionally. A store whose WordPress Posts page slug is `posts` would
   // therefore have `proxy.ts` 308 `/news` → `/posts` while the config 308s it

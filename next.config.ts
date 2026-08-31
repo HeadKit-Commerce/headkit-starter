@@ -204,6 +204,21 @@ const nextConfig: NextConfig = {
       // /news counterpart with the query intact.
       { source: "/posts", destination: "/news", permanent: true },
       { source: "/posts/:slug*", destination: "/news/:slug*", permanent: true },
+      // Shopify Online Store URL shapes → HeadKit/Woo storefront paths.
+      // Commerce menus/content now emit bare /{page} and /{postsBase}/…, but
+      // bookmarked Admin links and any missed emitter still 404 without these.
+      { source: "/pages/:path*", destination: "/:path*", permanent: true },
+      {
+        source: "/blogs/:blog/:article*",
+        destination: "/:blog/:article*",
+        permanent: true,
+      },
+      { source: "/blogs/:blog", destination: "/:blog", permanent: true },
+      // Shopify Catalog / "All Collections" and the automatic "All products"
+      // collection → HeadKit /shop (Woo shop page). Do NOT redirect
+      // /collections/:slug — those are real category PLPs.
+      { source: "/collections", destination: "/shop", permanent: true },
+      { source: "/collections/all", destination: "/shop", permanent: true },
     ];
   },
   async rewrites() {

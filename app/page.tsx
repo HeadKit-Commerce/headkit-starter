@@ -249,7 +249,7 @@ export async function HomeContent() {
             title="Shop by Category"
             description=""
             allButton="View All"
-            allButtonPath="/collections"
+            allButtonPath="/shop"
             className="px-5 md:px-10"
           />
           <div className="mt-8">

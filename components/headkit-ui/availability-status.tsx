@@ -2,11 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import {
+  isBackorderStockStatus,
+  isVariationOutOfStock,
+} from "@/lib/variation-stock";
 
 enum AvailabilityStatusEnum {
   IN_STOCK = "IN_STOCK",
   LOW_STOCK = "LOW_STOCK",
   OUT_OF_STOCK = "OUT_OF_STOCK",
+  ON_BACKORDER = "ON_BACKORDER",
 }
 
 interface Props {
@@ -20,25 +25,31 @@ const AvailabilityStatus = ({ stockStatus, stockQuantity }: Props) => {
   );
 
   useEffect(() => {
-    const normalized = stockStatus?.toLowerCase();
-    if (normalized === "outofstock" || stockQuantity === 0) {
+    if (isVariationOutOfStock({ stockStatus, stockQuantity })) {
       setStatus(AvailabilityStatusEnum.OUT_OF_STOCK);
-    } else if (
+      return;
+    }
+    if (isBackorderStockStatus(stockStatus)) {
+      setStatus(AvailabilityStatusEnum.ON_BACKORDER);
+      return;
+    }
+    if (
       stockQuantity !== null &&
       stockQuantity !== undefined &&
       stockQuantity > 0 &&
       stockQuantity <= 3
     ) {
       setStatus(AvailabilityStatusEnum.LOW_STOCK);
-    } else {
-      setStatus(AvailabilityStatusEnum.IN_STOCK);
+      return;
     }
+    setStatus(AvailabilityStatusEnum.IN_STOCK);
   }, [stockStatus, stockQuantity]);
 
   const dotColor = {
     [AvailabilityStatusEnum.IN_STOCK]: "bg-lime-800",
     [AvailabilityStatusEnum.LOW_STOCK]: "bg-orange-500",
     [AvailabilityStatusEnum.OUT_OF_STOCK]: "bg-pink-800",
+    [AvailabilityStatusEnum.ON_BACKORDER]: "bg-orange-500",
   }[status];
 
   const textColor = {
@@ -47,12 +58,14 @@ const AvailabilityStatus = ({ stockStatus, stockQuantity }: Props) => {
     [AvailabilityStatusEnum.IN_STOCK]: "text-lime-900",
     [AvailabilityStatusEnum.LOW_STOCK]: "text-orange-500",
     [AvailabilityStatusEnum.OUT_OF_STOCK]: "text-pink-800",
+    [AvailabilityStatusEnum.ON_BACKORDER]: "text-orange-500",
   }[status];
 
   const label = {
     [AvailabilityStatusEnum.IN_STOCK]: "In Stock",
     [AvailabilityStatusEnum.LOW_STOCK]: `Only ${stockQuantity} in Stock`,
     [AvailabilityStatusEnum.OUT_OF_STOCK]: "Out of Stock",
+    [AvailabilityStatusEnum.ON_BACKORDER]: "Available on backorder",
   }[status];
 
   return (

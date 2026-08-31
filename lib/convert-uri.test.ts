@@ -46,12 +46,38 @@ describe("convertToRelativePath", () => {
     // new URL('tel:…').pathname drops the scheme — the Paralel preheader bug.
     expect(convertToRelativePath("tel:1300883919")).not.toBe("1300883919");
   });
+
+  it("preserves Instagram and other social absolute links", () => {
+    expect(convertToRelativePath("https://www.instagram.com/velvetmuse/")).toBe(
+      "https://www.instagram.com/velvetmuse/",
+    );
+    expect(convertToRelativePath("https://facebook.com/brand")).toBe(
+      "https://facebook.com/brand",
+    );
+  });
 });
 
 describe("normalizeNavigationHref", () => {
   it("matches convertToRelativePath", () => {
     expect(normalizeNavigationHref("https://store.example/shop")).toBe("/shop");
-    expect(normalizeNavigationHref("/collections")).toBe("/collections");
+    expect(normalizeNavigationHref("/collections")).toBe("/shop");
+  });
+
+  it("maps Shopify catalog index URLs onto /shop", () => {
+    expect(normalizeNavigationHref("/collections/")).toBe("/shop");
+    expect(normalizeNavigationHref("/collections?page=2")).toBe("/shop?page=2");
+    expect(normalizeNavigationHref("/collections/all")).toBe("/shop");
+    expect(normalizeNavigationHref("/collections/all/")).toBe("/shop");
+    expect(
+      normalizeNavigationHref("https://store.myshopify.com/collections"),
+    ).toBe("/shop");
+    // Category PLPs stay under /collections/{slug}.
+    expect(normalizeNavigationHref("/collections/sale")).toBe(
+      "/collections/sale",
+    );
+    expect(
+      normalizeNavigationHref("https://store.example/collections/summer"),
+    ).toBe("/collections/summer");
   });
 });
 

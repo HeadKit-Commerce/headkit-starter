@@ -85,6 +85,25 @@ describe("buildCheckoutAppearance", () => {
     expect(appearance.rules?.[".Input:focus"]?.outline).toBe(
       "2px solid #57734d",
     );
+    expect(appearance.rules?.[".CheckboxInput"]).toEqual({
+      border: "1px solid #57734d",
+      backgroundColor: "#FFFFFF",
+      borderRadius: "1.25rem",
+    });
+    expect(appearance.rules?.[".CheckboxInput--checked"]).toEqual({
+      border: "1px solid #57734d",
+      backgroundColor: "#57734d",
+      borderRadius: "1.25rem",
+    });
+    expect(appearance.rules?.[".CheckboxInput:focus-visible"]).toEqual({
+      border: "2px solid #57734d",
+      backgroundColor: "#FFFFFF",
+      borderRadius: "1.25rem",
+    });
+    expect(appearance.variables?.iconCheckmarkColor).toBe("#FFFFFF");
+    expect(appearance.rules?.[".Checkbox"]).toBeUndefined();
+    expect(appearance.rules?.[".Checkbox:focus"]).toBeUndefined();
+    expect(appearance.rules?.[".Checkbox--checked"]).toBeUndefined();
     expect(appearance.rules?.[".AccordionItem"]).toBeUndefined();
   });
 });

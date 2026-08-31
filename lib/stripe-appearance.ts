@@ -114,6 +114,7 @@ export function buildCheckoutAppearance(): Appearance {
       colorBackground: "#FFFFFF",
       colorText: text,
       colorDanger: FALLBACKS.danger,
+      iconCheckmarkColor: "#FFFFFF",
       fontFamily,
       // Stripe scales the whole Element off this. Left at Stripe's 16px default
       // it rendered field values ~2px larger than the site's own inputs on
@@ -159,6 +160,24 @@ export function buildCheckoutAppearance(): Appearance {
       },
       ".Input.Input--invalid": {
         outline: `2px solid ${FALLBACKS.danger}`,
+      },
+      // `flat` removes Stripe's default field chrome. Keep the unchecked
+      // sync-address control visible on white backgrounds while preserving
+      // the same brand/focus/error language as the fields above.
+      ".CheckboxInput": {
+        border: `1px solid ${primary}`,
+        backgroundColor: "#FFFFFF",
+        borderRadius: radius,
+      },
+      ".CheckboxInput:focus-visible": {
+        border: `2px solid ${primary}`,
+        backgroundColor: "#FFFFFF",
+        borderRadius: radius,
+      },
+      ".CheckboxInput--checked": {
+        border: `1px solid ${primary}`,
+        backgroundColor: primary,
+        borderRadius: radius,
       },
     },
   };

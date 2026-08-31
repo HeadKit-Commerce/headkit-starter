@@ -130,4 +130,16 @@ describe("InstantLink as a Radix asChild target", () => {
     expect(html).toContain('href="/shop"');
     expect(html).not.toContain("velvet.headkit.app");
   });
+
+  it("keeps Instagram absolute and opens in a new tab", () => {
+    const html = renderToStaticMarkup(
+      <InstantLink href="https://www.instagram.com/velvetmuse/">
+        Instagram
+      </InstantLink>,
+    );
+
+    expect(html).toContain('href="https://www.instagram.com/velvetmuse/"');
+    expect(html).toContain('target="_blank"');
+    expect(html).toContain('rel="noopener noreferrer"');
+  });
 });

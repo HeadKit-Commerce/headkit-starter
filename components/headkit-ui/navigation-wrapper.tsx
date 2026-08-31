@@ -123,6 +123,7 @@ const FOOTER_LOCATIONS = [
   "FOOTER",
   "FOOTER_2",
   "FOOTER_3",
+  "FOOTER_4",
   "FOOTER_POLICY",
 ] as const satisfies readonly MenuLocation[];
 
@@ -162,8 +163,11 @@ async function loadMenusBatch(
  * Cached PRIMARY/SECONDARY/PRE_HEADER menu read, tagged BY LOCATION
  * (`TAG.menu(location)` → `headkit:menu:{location}`) so a menu edit for one
  * location invalidates only that location's entry — not one blanket tag across
- * every menu (09.5-03, CACHE-03). Finite `days` backstop (D4): a missed webhook
- * self-heals in ~1 day instead of `max` (~30d).
+ * every menu (09.5-03, CACHE-03).
+ *
+ * Finite `hours` backstop: Shopify has no menu webhooks, so Storefront menu
+ * edits self-heal within ~1 hour. WordPress still invalidates instantly via
+ * `wp_update_nav_menu` → `/api/revalidate`.
  *
  * Prefer {@link NavigationWrapper}'s batched `getMenus` for chrome that needs
  * several locations; keep this for single-location callers.
@@ -172,7 +176,7 @@ export async function fetchMenu(
   location: MenuLocation,
 ): Promise<NavMenuItem[]> {
   "use cache: remote";
-  cacheLife("days");
+  cacheLife("hours");
   cacheTag(TAG.menu(location));
   return loadMenu(location);
 }
@@ -180,19 +184,20 @@ export async function fetchMenu(
 /**
  * CMS footer menus for the root layout Footer.
  *
- * WordPress registers up to four locations that the Footer UI consumes in order:
+ * Providers register up to five locations that the Footer UI consumes in order:
  *   [0] FOOTER        → column title = menu name; links = items
  *   [1] FOOTER_2      → column title = menu name; links = items
  *   [2] FOOTER_3      → optional third column (omitted in UI when empty)
- *   [3] FOOTER_POLICY → copyright line = menu name; links = policy items
+ *   [3] FOOTER_4      → optional fourth column (omitted in UI when empty)
+ *   [4] FOOTER_POLICY → copyright line = menu name; links = policy items
  *
  * Fetched via a single `menus(locations:)` GraphQL query (one storefront RTT;
- * commerce hits WP locations in parallel). Always returns four sections so
+ * commerce hits provider locations in parallel). Always returns five sections so
  * Footer's policy/copyright slot stays at `menus` location FOOTER_POLICY when
- * FOOTER_3 is unassigned.
+ * FOOTER_3 / FOOTER_4 are unassigned.
  *
  * Tags: `TAG.footer` plus each location's `TAG.menu(...)` so any of the
- * WP menu edits (or the legacy footer tag) invalidate this entry.
+ * menu edits (or the legacy footer tag) invalidate this entry.
  */
 export async function getFooterMenus(): Promise<
   {
@@ -202,12 +207,13 @@ export async function getFooterMenus(): Promise<
   }[]
 > {
   "use cache: remote";
-  cacheLife("days");
+  cacheLife("hours");
   cacheTag(
     TAG.footer,
     TAG.menu("FOOTER"),
     TAG.menu("FOOTER_2"),
     TAG.menu("FOOTER_3"),
+    TAG.menu("FOOTER_4"),
     TAG.menu("FOOTER_POLICY"),
     TAG.branding,
     TAG.collections,
@@ -217,7 +223,8 @@ export async function getFooterMenus(): Promise<
   const footer = menus[0] ?? EMPTY_MENU;
   const footer2 = menus[1] ?? EMPTY_MENU;
   const footer3 = menus[2] ?? EMPTY_MENU;
-  const policy = menus[3] ?? EMPTY_MENU;
+  const footer4 = menus[3] ?? EMPTY_MENU;
+  const policy = menus[4] ?? EMPTY_MENU;
 
   const { branding } = await getBranding();
   const nonEmptySlugs = branding.hideEmptyCollections
@@ -251,6 +258,7 @@ export async function getFooterMenus(): Promise<
     toSection("FOOTER", footer),
     toSection("FOOTER_2", footer2),
     toSection("FOOTER_3", footer3),
+    toSection("FOOTER_4", footer4),
     toSection("FOOTER_POLICY", policy),
   ];
 }
@@ -261,19 +269,20 @@ export async function getFooterMenus(): Promise<
  */
 export async function getFooterMenu(): Promise<NavMenuItem[]> {
   "use cache: remote";
-  cacheLife("days");
+  cacheLife("hours");
   cacheTag(TAG.footer, TAG.menu("FOOTER"));
   return loadMenu("FOOTER");
 }
 
 export async function NavigationWrapper() {
   "use cache: remote";
-  cacheLife("days");
+  cacheLife("hours");
   // Subscribe to exactly what this wrapper composes: primary + secondary +
   // pre-header menus AND branding (the wrapper renders the logo from
   // getBrandingAssets / getBranding, and nested tags don't bubble — without
   // TAG.branding here a logo change never purges the nav). NEVER a route/page
   // tag on chrome (D2 / T-09.5-09).
+  // cacheLife hours: Shopify has no menu webhooks (WP still tag-purges).
   cacheTag(
     TAG.menu("PRIMARY"),
     TAG.menu("SECONDARY"),

@@ -70,6 +70,9 @@ export function ProductGrid({
 
   return (
     <div className="px-5 md:px-10 z-5">
+      {/* Section heading so card titles can be h3 (same depth as carousels)
+          without skipping a level after the collection h1. */}
+      <h2 className="sr-only">Products</h2>
       <div className={CATALOG_GRID_CLASS}>
         {isLoadingBefore && (
           <LoadingSkeleton
@@ -86,9 +89,7 @@ export function ProductGrid({
             key={product.id}
             product={product}
             isNew={product.isNew}
-            // PLP cards follow the collection h1 directly (collection-header.tsx),
-            // so the name is an h2; h3 would skip a level.
-            titleAs="h2"
+            titleAs="h3"
             priority={!preferHeaderLcp && index === 0}
             {...(index >= 4
               ? {

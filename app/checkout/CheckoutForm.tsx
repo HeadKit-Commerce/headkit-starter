@@ -171,6 +171,16 @@ function CheckoutSteps({
   currentStepRef.current = currentStep;
   completedStepsRef.current = completedSteps;
 
+  // True only while StripePaymentStep is running checkout.confirm(). It drops
+  // the delivery step's `keepMountedWhenInactive` for that window so the
+  // ShippingAddressElement is UNMOUNTED when confirm() runs — Stripe rejects
+  // confirm() while an Address Element is mounted once updateShippingAddress()
+  // has been called on the session, which the delivery step always does. The
+  // step remounts as soon as confirm settles, re-seeded from
+  // formData.shippingAddress, so a declined card leaves the collapsed summary
+  // and the sync checkbox exactly as they were.
+  const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
+
   const [emailMarketingEnabled, setEmailMarketingEnabled] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     email: initialEmail ?? "",
@@ -743,7 +753,10 @@ function CheckoutSteps({
           keepMountedWhenInactive={
             needsShipping &&
             formData.deliveryMethod === DeliveryStepEnum.SHIPPING_TO_HOME &&
-            isStepCompleted(CheckoutFormStepEnum.DELIVERY_METHOD)
+            isStepCompleted(CheckoutFormStepEnum.DELIVERY_METHOD) &&
+            // …except while confirming: Stripe will not confirm() with the
+            // ShippingAddressElement mounted after updateShippingAddress().
+            !isConfirmingPayment
           }
         >
           {needsShipping ? (
@@ -883,6 +896,7 @@ function CheckoutSteps({
             shippingAddress={formData.shippingAddress}
             sessionId={sessionId}
             onSessionExpired={handleSessionExpired}
+            onConfirmingChange={setIsConfirmingPayment}
           />
         </AccordionWrapper>
       </div>

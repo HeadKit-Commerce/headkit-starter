@@ -23,7 +23,7 @@ export default function CollectionError({
           <Button onClick={reset} variant="default">
             Try again
           </Button>
-          <Link href="/collections">
+          <Link href="/shop">
             <Button variant="outline">Browse Collections</Button>
           </Link>
         </div>
