@@ -145,10 +145,10 @@ function cardForColourway(
   );
 
   const imageSrc = matchingVar?.image?.src || product.image?.src || "";
-  // Per-colourway rollover must come from that variation's gallery only —
-  // never the parent product's second image, and never another colourway's
-  // featured shot (Shopify galleries often list colourways back-to-back).
-  const rawHover = matchingVar?.images?.[1]?.src ?? null;
+  // Colourway images[1] first. Parent hoverImage is the product gallery[1]
+  // fallback when the variant has no own second frame (Shopify #393 leaves
+  // variation.images empty for a single/shared featured). Never accept
+  // another colourway's primary — that was the Insignia stolen-hover.
   const colourAttr = colourAttrSlug(product) ?? "";
   const otherPrimaries = new Set<string>();
   for (const variation of (product.variations ?? []) as VariationLike[]) {
@@ -157,10 +157,16 @@ function cardForColourway(
     const primary = variation.image?.src ?? "";
     if (primary) otherPrimaries.add(primary);
   }
-  const hoverSrc =
-    rawHover && rawHover !== imageSrc && !otherPrimaries.has(rawHover)
-      ? rawHover
-      : null;
+  const colourwayHover = matchingVar?.images?.[1];
+  const parentHover = product.hoverImage;
+  const hoverCandidate =
+    [colourwayHover, parentHover].find(
+      (img) =>
+        Boolean(img?.src) &&
+        img!.src !== imageSrc &&
+        !otherPrimaries.has(img!.src),
+    ) ?? null;
+  const hoverSrc = hoverCandidate?.src ?? null;
   // Sale badge should match the colourway shown, not "any variation on sale".
   const onSale = matchingVar ? Boolean(matchingVar.onSale) : product.onSale;
 
@@ -185,9 +191,9 @@ function cardForColourway(
     hoverImage: hoverSrc
       ? {
           src: hoverSrc,
-          alt: decodeHtmlEntities(product.name ?? ""),
-          width: product.hoverImage?.width ?? 0,
-          height: product.hoverImage?.height ?? 0,
+          alt: hoverCandidate?.alt ?? decodeHtmlEntities(product.name ?? ""),
+          width: hoverCandidate?.width ?? product.hoverImage?.width ?? 0,
+          height: hoverCandidate?.height ?? product.hoverImage?.height ?? 0,
         }
       : null,
   };

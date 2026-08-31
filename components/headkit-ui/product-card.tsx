@@ -86,11 +86,10 @@ export const ProductCard = ({
         )
       : undefined;
   // Prefer the second variation gallery image; parent hoverImage applies to
-  // simple cards and non-exploded swatch cards (exploded cards set hoverImage
-  // per colourway in catalog-display — no parent fallback there).
-  // Exploded colourway cards already resolved hoverImage in catalog-display
-  // (and dropped another colourway's primary). Do not re-scan variations —
-  // that reintroduces the first-card stolen-hover bug.
+  // simple cards and non-exploded swatch cards. Exploded colourway cards
+  // already resolved hoverImage in catalog-display (colourway images[1],
+  // then parent hover if it is not another colourway's primary). Do not
+  // re-scan variations — that reintroduces the first-card stolen-hover bug.
   const hoverSrc = imageRollover
     ? lockedColour
       ? (product.hoverImage?.src ?? null)
