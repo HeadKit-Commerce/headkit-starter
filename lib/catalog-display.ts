@@ -159,14 +159,16 @@ function cardForColourway(
   }
   const colourwayHover = matchingVar?.images?.[1];
   const parentHover = product.hoverImage;
+  // ProductSummaryFields.variations.images is src-only. The union with
+  // parent hoverImage therefore has no alt/width/height — read those from
+  // the parent object when it is the chosen candidate.
   const hoverCandidate =
-    [colourwayHover, parentHover].find(
-      (img) =>
-        Boolean(img?.src) &&
-        img!.src !== imageSrc &&
-        !otherPrimaries.has(img!.src),
-    ) ?? null;
-  const hoverSrc = hoverCandidate?.src ?? null;
+    [colourwayHover, parentHover].find((img) => {
+      const src = img?.src ?? "";
+      return src !== "" && src !== imageSrc && !otherPrimaries.has(src);
+    }) ?? null;
+  const hoverSrc = hoverCandidate?.src ?? "";
+  const parentMeta = parentHover?.src === hoverSrc ? parentHover : null;
   // Sale badge should match the colourway shown, not "any variation on sale".
   const onSale = matchingVar ? Boolean(matchingVar.onSale) : product.onSale;
 
@@ -191,9 +193,9 @@ function cardForColourway(
     hoverImage: hoverSrc
       ? {
           src: hoverSrc,
-          alt: hoverCandidate?.alt ?? decodeHtmlEntities(product.name ?? ""),
-          width: hoverCandidate?.width ?? product.hoverImage?.width ?? 0,
-          height: hoverCandidate?.height ?? product.hoverImage?.height ?? 0,
+          alt: parentMeta?.alt ?? decodeHtmlEntities(product.name ?? ""),
+          width: parentMeta?.width ?? 0,
+          height: parentMeta?.height ?? 0,
         }
       : null,
   };
