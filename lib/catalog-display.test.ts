@@ -145,7 +145,92 @@ describe("expandCatalogProducts", () => {
     expect(result[1]?.image?.src).toBe("/blue.jpg");
     // Red has a second variation gallery image → colourway-specific rollover.
     expect(result[0]?.hoverImage?.src).toBe("/red-hover.jpg");
-    // Blue has no second image → no rollover for that colourway.
+    // Blue has no colourway images[1]; parent hover is not another
+    // colourway's primary → keep the product gallery rollover.
+    expect(result[1]?.hoverImage?.src).toBe("/hover.jpg");
+  });
+
+  it("keeps parent hoverImage when a single colourway has no variation gallery", () => {
+    const undergrowth = {
+      ...colourAttr,
+      options: ["undergrowth"],
+      fullOptions: [
+        {
+          name: "Undergrowth",
+          slug: "undergrowth",
+          swatchColor: "#3a4a2a",
+          swatchColor2: "",
+        },
+      ],
+    };
+    const products = [
+      makeProduct({
+        id: "towel",
+        slug: "monogram-face-cloth",
+        name: "Monogram Face Cloth",
+        image: { src: "/packshot.jpg", alt: "", width: 0, height: 0 },
+        hoverImage: { src: "/lifestyle.jpg", alt: "", width: 0, height: 0 },
+        attributes: [undergrowth],
+        variations: [
+          {
+            id: "v1",
+            price: "10",
+            regularPrice: "10",
+            salePrice: "",
+            onSale: false,
+            stockStatus: "IN_STOCK",
+            image: { src: "/packshot.jpg" },
+            images: [],
+            attributes: [{ key: "pa_colour", value: "undergrowth" }],
+          },
+        ],
+      }),
+    ];
+
+    const result = expandCatalogProducts(products, true);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.colorwaySlug).toBe("undergrowth");
+    expect(result[0]?.image?.src).toBe("/packshot.jpg");
+    expect(result[0]?.hoverImage?.src).toBe("/lifestyle.jpg");
+  });
+
+  it("does not use parent hoverImage when it is another colourway primary", () => {
+    const products = [
+      makeProduct({
+        id: "1",
+        slug: "tee",
+        name: "Tee",
+        hoverImage: { src: "/blue.jpg", alt: "", width: 0, height: 0 },
+        attributes: [colourAttr],
+        variations: [
+          {
+            id: "v1",
+            price: "10",
+            regularPrice: "10",
+            salePrice: "",
+            onSale: false,
+            stockStatus: "IN_STOCK",
+            image: { src: "/red.jpg" },
+            images: [{ src: "/red.jpg" }],
+            attributes: [{ key: "pa_colour", value: "red" }],
+          },
+          {
+            id: "v2",
+            price: "10",
+            regularPrice: "10",
+            salePrice: "",
+            onSale: false,
+            stockStatus: "IN_STOCK",
+            image: { src: "/blue.jpg" },
+            images: [{ src: "/blue.jpg" }],
+            attributes: [{ key: "pa_colour", value: "blue" }],
+          },
+        ],
+      }),
+    ];
+
+    const result = expandCatalogProducts(products, true);
+    expect(result[0]?.hoverImage).toBeNull();
     expect(result[1]?.hoverImage).toBeNull();
   });
 
@@ -155,6 +240,7 @@ describe("expandCatalogProducts", () => {
         id: "1",
         slug: "tee",
         name: "Tee",
+        hoverImage: null,
         attributes: [colourAttr],
         variations: [
           {
@@ -334,6 +420,48 @@ describe("collapseCatalogProducts", () => {
     expect(resolveCarouselColourway(products[0]!)).toBe("blue");
     const result = collapseCatalogProducts(products);
     expect(result[0]?.colorwaySlug).toBe("blue");
+  });
+
+  it("keeps parent hoverImage on a collapsed single-colourway card", () => {
+    const undergrowth = {
+      ...colourAttr,
+      options: ["undergrowth"],
+      fullOptions: [
+        {
+          name: "Undergrowth",
+          slug: "undergrowth",
+          swatchColor: "#3a4a2a",
+          swatchColor2: "",
+        },
+      ],
+    };
+    const products = [
+      makeProduct({
+        id: "towel",
+        slug: "monogram-face-cloth",
+        name: "Monogram Face Cloth",
+        image: { src: "/packshot.jpg", alt: "", width: 0, height: 0 },
+        hoverImage: { src: "/lifestyle.jpg", alt: "", width: 0, height: 0 },
+        attributes: [undergrowth],
+        variations: [
+          {
+            id: "v1",
+            price: "10",
+            regularPrice: "10",
+            salePrice: "",
+            onSale: false,
+            stockStatus: "IN_STOCK",
+            image: { src: "/packshot.jpg" },
+            images: [],
+            attributes: [{ key: "pa_colour", value: "undergrowth" }],
+          },
+        ],
+      }),
+    ];
+
+    const result = collapseCatalogProducts(products);
+    expect(result[0]?.colorwaySlug).toBe("undergrowth");
+    expect(result[0]?.hoverImage?.src).toBe("/lifestyle.jpg");
   });
 
   it("sets onSale from the shown colourway variation", () => {
