@@ -1,4 +1,34 @@
+import { readFileSync } from "node:fs";
+import { availableParallelism, totalmem } from "node:os";
+
 import type { NextConfig } from "next";
+
+import {
+  parseCgroupMemoryLimit,
+  resolveBuildWorkers,
+} from "./lib/build-parallelism";
+
+/**
+ * The container's memory limit, when the kernel exposes one (cgroup v2 first,
+ * then v1). Unreadable on macOS and on any host without cgroups, which is why
+ * every failure here is `undefined` rather than an error: the caller then falls
+ * back to `os.totalmem()`, and a missing limit only ever costs workers, never
+ * over-provisions them.
+ */
+function readCgroupMemoryLimit(): number | undefined {
+  for (const path of [
+    "/sys/fs/cgroup/memory.max",
+    "/sys/fs/cgroup/memory/memory.limit_in_bytes",
+  ]) {
+    try {
+      const parsed = parseCgroupMemoryLimit(readFileSync(path, "utf8"));
+      if (parsed !== undefined) return parsed;
+    } catch {
+      /* No cgroup at this path — try the next, then fall back. */
+    }
+  }
+  return undefined;
+}
 
 /**
  * Image `remotePatterns` allowlist (FE-10).
@@ -81,20 +111,50 @@ const securityHeaders = [
  * Prerendering the full category×colour×brand + product×colour matrix fires
  * bursts of reads at the gateway → WooCommerce REST; managed WP (Pressable)
  * rate-limits aggressively and stays 429 for longer than a few seconds,
- * exhausting the SDK retry budget. Defaults stay fully serialized (1/1) —
- * today's safe behavior.
+ * exhausting the SDK retry budget.
  *
- * The SDK now also caps in-flight reads per process
+ * The SDK also caps in-flight reads per process
  * (`HEADKIT_SDK_MAX_CONCURRENT`, default 4, 0 = off) — the precise throttle on
- * what WP actually sees. With that ceiling in place, builds can be sped up by
- * raising these env vars; note the SDK cap is per worker process, so the
- * effective global read ceiling is `HEADKIT_SDK_MAX_CONCURRENT × NEXT_BUILD_CPUS`.
+ * what WP actually sees. That cap is per worker PROCESS, so the effective
+ * global read ceiling is `HEADKIT_SDK_MAX_CONCURRENT × workers`, and it is the
+ * worker count — not the page concurrency — that moves it: a worker rendering
+ * two pages at once still has at most 4 reads on the wire.
+ *
+ * Both were hard-coded to `1` while the SDK had no proactive cap, so every
+ * storefront prerendered with ONE worker whatever machine it was given. For a
+ * large catalogue the cost is not a slow build but an unfinishable one: on
+ * Vercel's standard 4-core/8 GB build machine one worker reached 13,116 of a
+ * store's 14,615 pages in the 45-minute platform ceiling
+ * (`BUILD_EXCEEDED_MAXIMUM_TIME`).
+ *
+ * The worker count is now derived from the build MACHINE — see
+ * `lib/build-parallelism.ts`, which carries the four-build measurement it comes
+ * from. Memory, not cores, is the binding resource, so an 8 GB machine still
+ * resolves to one worker (today's behaviour, and the config that did not OOM)
+ * while a 16 GB machine gets two.
+ *
+ * Page concurrency stays at 1. Raising it to 2 was measured to buy no
+ * throughput — a worker's page renders are dominated by one upstream read
+ * each, and the SDK's cap is per PROCESS, so two pages at once still put at
+ * most 4 reads on the wire — while coinciding with the worst failure of the
+ * four builds. It is left as an env lever rather than a default.
+ *
+ * Both stay overridable in BOTH directions: `NEXT_BUILD_CPUS=1` pins the
+ * serialized build for a store whose provider cannot take the reads, and a
+ * bigger build machine can be spent by raising them.
  */
 const positiveIntEnv = (raw: string | undefined, fallback: number): number => {
   const n = Number(raw ?? "");
   return Number.isInteger(n) && n > 0 ? n : fallback;
 };
-const buildCpus = positiveIntEnv(process.env.NEXT_BUILD_CPUS, 1);
+const buildCpus = positiveIntEnv(
+  process.env.NEXT_BUILD_CPUS,
+  resolveBuildWorkers({
+    totalMemBytes: totalmem(),
+    cgroupLimitBytes: readCgroupMemoryLimit(),
+    cpus: availableParallelism(),
+  }),
+);
 const staticGenConcurrency = positiveIntEnv(
   process.env.NEXT_STATIC_GEN_CONCURRENCY,
   1,
