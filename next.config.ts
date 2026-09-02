@@ -211,6 +211,22 @@ const nextConfig: NextConfig = {
     ],
     cpus: buildCpus,
     staticGenerationMaxConcurrency: staticGenConcurrency,
+    // Report EVERY bad page in one build, not just the first one.
+    //
+    // Deliberate diagnostic choice — do not "clean up" as an unused
+    // experimental flag. Next's default (`true`) makes the export worker
+    // `process.exit(1)` on the first page that fails after its retries, so a
+    // catalogue with three broken products surfaces exactly one of them per
+    // run. With a 14,615-page store that build costs ~32 minutes, so each
+    // additional bad row is another half-hour round trip; the most recent one
+    // died at page 14,448 and told us nothing about the 167 after it.
+    //
+    // Set to `false`, the worker records the failure and keeps going; the
+    // export then throws `Export encountered errors on N paths:` listing all
+    // of them (next/dist/export/index.js). The build still FAILS on a
+    // prerender error — this changes only how much of the damage one failing
+    // build is allowed to report.
+    prerenderEarlyExit: false,
   },
   images: {
     // Prefer modern formats everywhere the optimizer runs (PLP cards, heroes,

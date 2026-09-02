@@ -78,7 +78,9 @@ export function LineItemDisplay({
 }: LineItemDisplayProps) {
   const displayName = stripTitleMarkers(decodeHtmlEntities(name));
   const imageSrc = images[0]?.src ?? "/assets/HeadKit-Fallback.png";
-  const imageAlt = stripTitleMarkers(decodeHtmlEntities(images[0]?.alt ?? name));
+  const imageAlt = stripTitleMarkers(
+    decodeHtmlEntities(images[0]?.alt ?? name),
+  );
 
   return (
     <div className="space-y-1.5">

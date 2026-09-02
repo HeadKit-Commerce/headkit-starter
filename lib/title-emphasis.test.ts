@@ -17,7 +17,9 @@ describe("stripTitleMarkers", () => {
   });
 
   it("drops leftover unmatched braces", () => {
-    expect(stripTitleMarkers("Monogram {Bath Sheet")).toBe("Monogram Bath Sheet");
+    expect(stripTitleMarkers("Monogram {Bath Sheet")).toBe(
+      "Monogram Bath Sheet",
+    );
   });
 });
 
