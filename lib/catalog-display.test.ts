@@ -29,6 +29,7 @@ function makeProduct(
     onSale: false,
     isNew: false,
     stockStatus: "IN_STOCK",
+    tags: [],
     image: { src: "/main.jpg", alt: "", width: 0, height: 0 },
     hoverImage: { src: "/hover.jpg", alt: "", width: 0, height: 0 },
     attributes: [],

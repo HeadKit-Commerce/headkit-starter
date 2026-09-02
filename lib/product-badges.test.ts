@@ -8,9 +8,9 @@ describe("isBadgeTag", () => {
   });
 
   it("matches allowlist by name or slug, case-insensitive", () => {
-    expect(
-      isBadgeTag({ name: "Limited", slug: "limited" }, ["limited"]),
-    ).toBe(true);
+    expect(isBadgeTag({ name: "Limited", slug: "limited" }, ["limited"])).toBe(
+      true,
+    );
     expect(isBadgeTag({ name: "NEW", slug: "new" }, ["New"])).toBe(true);
     expect(isBadgeTag({ name: "Organic", slug: "organic" }, ["limited"])).toBe(
       false,
@@ -35,8 +35,11 @@ describe("productBadgesFromTags", () => {
 
   it("hides New/Sale when those flags already render", () => {
     expect(
-      productBadgesFromTags(tags, ["sale"], { hideNew: true, hideSale: true }),
-    ).toEqual([{ label: "NEW", slug: "badge-new" }]);
+      productBadgesFromTags(tags, ["limited", "sale"], {
+        hideNew: true,
+        hideSale: true,
+      }),
+    ).toEqual([{ label: "Limited", slug: "limited" }]);
     expect(
       productBadgesFromTags([{ name: "badge:NEW", slug: "badge-new" }], [], {
         hideNew: true,

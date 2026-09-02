@@ -237,7 +237,7 @@ export function ProductDetail({
   const hasUploadAddon = hasBlockingAddon(addons);
 
   const multiAddBlock = (
-    product as StorefrontProduct & {
+    product as (ProductFieldsFragment | Product) & {
       multiAdd?: {
         pinOption?: string | null;
         products: MultiAddCompanion[];
@@ -596,14 +596,18 @@ export function ProductDetail({
     if (fromVariation?.src) {
       return {
         src: fromVariation.src,
-        alt: stripTitleMarkers(decodeHtmlEntities(fromVariation.alt || product.name)),
+        alt: stripTitleMarkers(
+          decodeHtmlEntities(fromVariation.alt || product.name),
+        ),
       };
     }
     const fromProduct = product.image;
     if (fromProduct?.src) {
       return {
         src: fromProduct.src,
-        alt: stripTitleMarkers(decodeHtmlEntities(fromProduct.alt || product.name)),
+        alt: stripTitleMarkers(
+          decodeHtmlEntities(fromProduct.alt || product.name),
+        ),
       };
     }
     const first = product.images[0];
@@ -1229,7 +1233,9 @@ export function ProductDetail({
             <div className="mb-6">
               <ProductEnquiry
                 formId={ENQUIRY_FORM_ID}
-                productName={stripTitleMarkers(decodeHtmlEntities(product.name))}
+                productName={stripTitleMarkers(
+                  decodeHtmlEntities(product.name),
+                )}
                 initialValues={enquiryInitialValues}
               />
             </div>

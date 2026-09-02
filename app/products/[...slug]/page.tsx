@@ -89,6 +89,7 @@ function mapRelatedToProduct(
     onSale: r.onSale,
     type: r.type,
     stockStatus: r.stockStatus,
+    tags: [],
     image: r.image
       ? {
           src: r.image.src,
