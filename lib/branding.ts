@@ -50,6 +50,10 @@ export interface BrandingFont {
   fileUrl: string;
   /** Discrete Google weights from dashboard; empty → lean default in brand-fonts. */
   googleWeights: number[];
+  /** When true, storefront also loads italic Fontsource faces. */
+  googleItalic: boolean;
+  /** Uploaded italic cut URL; empty when unset. */
+  italicFileUrl: string;
 }
 
 export interface Branding {
@@ -155,6 +159,8 @@ const EMPTY_FONT: BrandingFont = {
   googleSlug: "",
   fileUrl: "",
   googleWeights: [],
+  googleItalic: false,
+  italicFileUrl: "",
 };
 
 const DEFAULT_BUNDLE: BrandingBundle = {
@@ -334,17 +340,23 @@ const BRANDING_QUERY = /* GraphQL */ `
       headingFontFamily
       headingFontGoogleSlug
       headingFontGoogleWeights
+      headingFontGoogleItalic
       headingFontFileUrl
+      headingFontItalicFileUrl
       subheadingFontSource
       subheadingFontFamily
       subheadingFontGoogleSlug
       subheadingFontGoogleWeights
+      subheadingFontGoogleItalic
       subheadingFontFileUrl
+      subheadingFontItalicFileUrl
       bodyFontSource
       bodyFontFamily
       bodyFontGoogleSlug
       bodyFontGoogleWeights
+      bodyFontGoogleItalic
       bodyFontFileUrl
+      bodyFontItalicFileUrl
       cornerStyle
       iconLibrary
       showVariants
@@ -503,17 +515,23 @@ interface FlatBranding extends Partial<
   headingFontFamily?: string | null;
   headingFontGoogleSlug?: string | null;
   headingFontGoogleWeights?: number[] | null;
+  headingFontGoogleItalic?: boolean | null;
   headingFontFileUrl?: string | null;
+  headingFontItalicFileUrl?: string | null;
   subheadingFontSource?: string | null;
   subheadingFontFamily?: string | null;
   subheadingFontGoogleSlug?: string | null;
   subheadingFontGoogleWeights?: number[] | null;
+  subheadingFontGoogleItalic?: boolean | null;
   subheadingFontFileUrl?: string | null;
+  subheadingFontItalicFileUrl?: string | null;
   bodyFontSource?: string | null;
   bodyFontFamily?: string | null;
   bodyFontGoogleSlug?: string | null;
   bodyFontGoogleWeights?: number[] | null;
+  bodyFontGoogleItalic?: boolean | null;
   bodyFontFileUrl?: string | null;
+  bodyFontItalicFileUrl?: string | null;
   showVariants?: boolean | null;
   showSwatches?: boolean | null;
   imageRollover?: boolean | null;
@@ -542,6 +560,8 @@ function coerceFont(
   googleSlug: string | null | undefined,
   fileUrl: string | null | undefined,
   googleWeights?: number[] | null,
+  googleItalic?: boolean | null,
+  italicFileUrl?: string | null,
 ): BrandingFont {
   return {
     source: source ?? "",
@@ -551,6 +571,8 @@ function coerceFont(
     googleWeights: Array.isArray(googleWeights)
       ? googleWeights.filter((w): w is number => typeof w === "number")
       : [],
+    googleItalic: googleItalic === true,
+    italicFileUrl: italicFileUrl ?? "",
   };
 }
 
@@ -573,6 +595,8 @@ function coerce(data: NonNullable<BrandingResponse["data"]>): BrandingBundle {
         b.headingFontGoogleSlug,
         b.headingFontFileUrl,
         b.headingFontGoogleWeights,
+        b.headingFontGoogleItalic,
+        b.headingFontItalicFileUrl,
       ),
       subheadingFont: coerceFont(
         b.subheadingFontSource,
@@ -580,6 +604,8 @@ function coerce(data: NonNullable<BrandingResponse["data"]>): BrandingBundle {
         b.subheadingFontGoogleSlug,
         b.subheadingFontFileUrl,
         b.subheadingFontGoogleWeights,
+        b.subheadingFontGoogleItalic,
+        b.subheadingFontItalicFileUrl,
       ),
       bodyFont: coerceFont(
         b.bodyFontSource,
@@ -587,6 +613,8 @@ function coerce(data: NonNullable<BrandingResponse["data"]>): BrandingBundle {
         b.bodyFontGoogleSlug,
         b.bodyFontFileUrl,
         b.bodyFontGoogleWeights,
+        b.bodyFontGoogleItalic,
+        b.bodyFontItalicFileUrl,
       ),
       cornerStyle: b.cornerStyle || DEFAULT_CORNER_STYLE,
       iconLibrary: b.iconLibrary || DEFAULT_ICON_LIBRARY,

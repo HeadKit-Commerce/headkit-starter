@@ -62,6 +62,8 @@ const stubBranding: Branding = {
     googleSlug: "",
     fileUrl: "",
     googleWeights: [],
+    googleItalic: false,
+    italicFileUrl: "",
   },
   subheadingFont: {
     source: "",
@@ -69,6 +71,8 @@ const stubBranding: Branding = {
     googleSlug: "",
     fileUrl: "",
     googleWeights: [],
+    googleItalic: false,
+    italicFileUrl: "",
   },
   bodyFont: {
     source: "",
@@ -76,6 +80,8 @@ const stubBranding: Branding = {
     googleSlug: "",
     fileUrl: "",
     googleWeights: [],
+    googleItalic: false,
+    italicFileUrl: "",
   },
   cornerStyle: "soft",
   iconLibrary: "hi2",

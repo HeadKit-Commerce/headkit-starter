@@ -183,6 +183,10 @@ export type BrandingFontInput = {
   fileUrl: string;
   /** Discrete Google weights to load; empty → DEFAULT_GOOGLE_WEIGHTS. */
   googleWeights?: number[];
+  /** When true, also load italic Fontsource faces for the selected weights. */
+  googleItalic?: boolean;
+  /** Uploaded italic cut; same family name, font-style: italic. */
+  italicFileUrl?: string;
 };
 
 export type ResolvedBrandFonts = {
@@ -243,13 +247,18 @@ function fontFormat(url: string): string | null {
   return null;
 }
 
-function fontsourceWoff2Url(id: FontsourceId, weight: FontWeight): string {
-  return `https://cdn.jsdelivr.net/fontsource/fonts/${id}@${FONTSOURCE_VERSION}/latin-${weight}-normal.woff2`;
+function fontsourceWoff2Url(
+  id: FontsourceId,
+  weight: FontWeight,
+  style: "normal" | "italic" = "normal",
+): string {
+  return `https://cdn.jsdelivr.net/fontsource/fonts/${id}@${FONTSOURCE_VERSION}/latin-${weight}-${style}.woff2`;
 }
 
 function curatedFaceCss(
   family: CuratedFamily,
   requestedWeights: number[],
+  includeItalic = false,
 ): string {
   const available = new Set<number>(family.availableWeights);
   const weights = requestedWeights.filter((w): w is FontWeight =>
@@ -262,10 +271,15 @@ function curatedFaceCss(
           DEFAULT_GOOGLE_WEIGHTS.includes(w),
         );
   const familyLiteral = cssFamilyLiteral(family.familyName);
+  const styles: Array<"normal" | "italic"> = includeItalic
+    ? ["normal", "italic"]
+    : ["normal"];
   return finalWeights
-    .map(
-      (weight) =>
-        `@font-face{font-family:${familyLiteral};font-style:normal;font-weight:${weight};font-display:swap;src:url(${JSON.stringify(fontsourceWoff2Url(family.fontsourceId, weight))}) format("woff2");}`,
+    .flatMap((weight) =>
+      styles.map(
+        (style) =>
+          `@font-face{font-family:${familyLiteral};font-style:${style};font-weight:${weight};font-display:swap;src:url(${JSON.stringify(fontsourceWoff2Url(family.fontsourceId, weight, style))}) format("woff2");}`,
+      ),
     )
     .join("");
 }
@@ -301,10 +315,10 @@ export function resolveBrandFonts(input: {
     return true;
   });
 
-  // Deduplicate curated families; merge weight requests across slots.
+  // Deduplicate curated families; merge weight/italic requests across slots.
   const faces = new Map<
     CssVarName,
-    { family: CuratedFamily; weights: Set<number> }
+    { family: CuratedFamily; weights: Set<number>; italic: boolean }
   >();
 
   const urbanist = CURATED.Urbanist;
@@ -312,6 +326,7 @@ export function resolveBrandFonts(input: {
     faces.set(urbanist.cssVar, {
       family: urbanist,
       weights: new Set(DEFAULT_GOOGLE_WEIGHTS),
+      italic: false,
     });
   }
 
@@ -319,25 +334,29 @@ export function resolveBrandFonts(input: {
     const curated = curatedBySlot[slot];
     if (!curated) return;
     const requested = normalizeGoogleWeights(slots[slot].googleWeights);
+    const italic = slots[slot].googleItalic === true;
     const existing = faces.get(curated.cssVar);
     if (existing) {
       for (const w of requested) existing.weights.add(w);
+      if (italic) existing.italic = true;
       return;
     }
     faces.set(curated.cssVar, {
       family: curated,
       weights: new Set(requested),
+      italic,
     });
   });
 
   const fontFaceParts: string[] = [];
   const slotVarLines: string[] = [];
 
-  for (const { family, weights } of faces.values()) {
+  for (const { family, weights, italic } of faces.values()) {
     fontFaceParts.push(
       curatedFaceCss(
         family,
         [...weights].toSorted((a, b) => a - b),
+        italic,
       ),
     );
     slotVarLines.push(
@@ -359,6 +378,13 @@ export function resolveBrandFonts(input: {
       fontFaceParts.push(
         `@font-face{font-family:${family};src:url(${JSON.stringify(srcUrl)})${format ? ` format(${JSON.stringify(format)})` : ""};font-weight:100 900;font-style:normal;font-display:swap;}`,
       );
+      if (font.italicFileUrl) {
+        const italicSrc = toSameOriginBrandFontUrl(font.italicFileUrl);
+        const italicFormat = fontFormat(font.italicFileUrl);
+        fontFaceParts.push(
+          `@font-face{font-family:${family};src:url(${JSON.stringify(italicSrc)})${italicFormat ? ` format(${JSON.stringify(italicFormat)})` : ""};font-weight:100 900;font-style:italic;font-display:swap;}`,
+        );
+      }
       cssVarLines.push(`${cssVar}: ${family}, sans-serif;`);
       return;
     }

@@ -129,6 +129,47 @@ describe("resolveBrandFonts", () => {
     expect(resolved.fontFaceCss).not.toContain("fonts.googleapis.com");
     // One family × three weights → three @font-face rules only.
     expect(resolved.fontFaceCss.match(/@font-face/g)?.length).toBe(3);
+    expect(resolved.fontFaceCss).not.toContain("font-style:italic");
+    expect(resolved.fontFaceCss).not.toContain("latin-400-italic");
+  });
+
+  it("emits italic Fontsource faces when googleItalic is opted in", () => {
+    const resolved = resolveBrandFonts({
+      heading: {
+        source: "google",
+        family: "Inter",
+        googleSlug: "Inter",
+        fileUrl: "",
+        googleWeights: [400],
+        googleItalic: true,
+      },
+      subheading: empty,
+      body: empty,
+    });
+    expect(resolved.fontFaceCss).toContain("latin-400-normal.woff2");
+    expect(resolved.fontFaceCss).toContain("latin-400-italic.woff2");
+    expect(resolved.fontFaceCss).toContain("font-style:italic");
+    expect(resolved.fontFaceCss.match(/@font-face/g)?.length).toBe(5);
+  });
+
+  it("emits a second @font-face for an uploaded italic cut", () => {
+    const resolved = resolveBrandFonts({
+      heading: {
+        source: "upload",
+        family: "PP Neue Montreal",
+        googleSlug: "",
+        fileUrl:
+          "https://storage.googleapis.com/headkit-storage/branding/regular.woff2",
+        italicFileUrl:
+          "https://storage.googleapis.com/headkit-storage/branding/italic.woff2",
+      },
+      subheading: empty,
+      body: empty,
+    });
+    expect(resolved.fontFaceCss).toContain("/api/branding-font?f=regular.woff2");
+    expect(resolved.fontFaceCss).toContain("/api/branding-font?f=italic.woff2");
+    expect(resolved.fontFaceCss).toContain("font-style:italic");
+    expect(resolved.fontFaceCss.match(/@font-face/g)?.length).toBe(5);
   });
 
   it("normalizes empty googleWeights to Regular/Medium/SemiBold", () => {
