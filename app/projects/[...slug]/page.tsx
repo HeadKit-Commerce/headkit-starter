@@ -73,7 +73,7 @@ function mapRelatedToProduct(r: RelatedProduct): Product {
     hoverImage: r.hoverImage ?? null,
     images: r.image ? [r.image] : [],
     categories: [],
-    tags: [],
+    tags: r.tags ?? [],
     attributes: r.attributes ?? [],
     defaultAttributes: r.defaultAttributes ?? [],
     variations: r.variations ?? [],
