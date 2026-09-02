@@ -161,7 +161,7 @@ export function NavigationBar({
             <InstantLink
               href="/"
               aria-label="Home"
-              className="headkit-nav-logo absolute left-1/2 top-1/2 z-[1] -translate-x-1/2 -translate-y-1/2 cursor-pointer hover:opacity-75"
+              className="headkit-nav-logo absolute left-1/2 z-[1] cursor-pointer hover:opacity-75"
             >
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {logo as any}
@@ -223,12 +223,12 @@ export function NavigationBar({
           )}
 
           {/* Mobile sticky cart — outside the sheet; desktop uses HeaderActions */}
-          <NavigationMenuItem className="md:hidden">
+          <NavigationMenuItem className="headkit-nav-bag md:hidden">
             <CartTriggerButton initialCartCount={initialCartCount ?? 0} />
           </NavigationMenuItem>
 
           {/* Hamburger through tablet / below-xl (secondary only from xl) */}
-          <NavigationMenuItem className="xl:hidden">
+          <NavigationMenuItem className="headkit-nav-hamburger xl:hidden">
             <Sheet
               open={mobileOpen}
               onOpenChange={(open) => {

@@ -848,7 +848,11 @@ export function ProductDetail({
       selectedColor === initialColor ||
       (!selectedColor && !initialColor));
 
-  const badgeAllowlist = getStoreTheme().catalog?.badgeTags;
+  const storeTheme = getStoreTheme();
+  const badgeAllowlist = storeTheme.catalog?.badgeTags;
+  const sizeGuideHref = storeTheme.pdp?.sizeGuideHref;
+  const sizeChartHtml = shopifyRichTextToHtml(product.sizeChart ?? "");
+  const showSizeChartModal = Boolean(sizeChartHtml) && !sizeGuideHref;
   const customBadges = productBadgesFromTags(product.tags, badgeAllowlist, {
     hideNew: Boolean(product.isNew),
     hideSale: isOnSale,
@@ -856,7 +860,6 @@ export function ProductDetail({
   const visibleTags = (product.tags ?? []).filter(
     (tag) => !isBadgeTag(tag, badgeAllowlist),
   );
-  const sizeChartHtml = shopifyRichTextToHtml(product.sizeChart ?? "");
   const hasSizeAttribute = variationAttributes.some((attr) =>
     isSizeAttrSlug(attr.slug),
   );
@@ -887,7 +890,7 @@ export function ProductDetail({
             />
           )}
 
-          {!hasSizeAttribute && sizeChartHtml ? (
+          {!hasSizeAttribute && showSizeChartModal ? (
             <div className="mb-5">
               <SizeChartTrigger html={sizeChartHtml} />
             </div>
@@ -897,7 +900,7 @@ export function ProductDetail({
           {isVariable && variationAttributes.length > 0 && (
             <div className="mb-5 flex flex-col gap-4">
               {variationAttributes.map((attr) => (
-                <div key={attr.id}>
+                <div key={attr.id} className="flex flex-col">
                   <div className="mb-2 flex items-center gap-2">
                     <p className="font-semibold text-primary">
                       {decodeHtmlEntities(attr.name)}
@@ -911,7 +914,7 @@ export function ProductDetail({
                         )}
                       </span>
                     )}
-                    {isSizeAttrSlug(attr.slug) && sizeChartHtml ? (
+                    {isSizeAttrSlug(attr.slug) && showSizeChartModal ? (
                       <SizeChartTrigger html={sizeChartHtml} />
                     ) : null}
                   </div>
@@ -1134,6 +1137,7 @@ export function ProductDetail({
               setTotal={setTotal}
               pieceCount={setPieceCount}
               showTotal={setPieceCount > 0}
+              {...(sizeGuideHref ? { sizeGuideHref } : {})}
             />
           )}
 

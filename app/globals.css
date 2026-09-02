@@ -257,4 +257,5 @@
 /* `{Bath Sheet}` title marker — italic by default; stores override colour/weight. */
 .headkit-title-emphasis {
   font-style: italic;
+  font-synthesis: style;
 }

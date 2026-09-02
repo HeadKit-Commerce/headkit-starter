@@ -18,6 +18,16 @@ export interface CatalogTheme {
   badgeTags: string[];
 }
 
+/** Optional PDP chrome owned by the customer theme. */
+export interface PdpTheme {
+  /**
+   * Internal path for a Size Guide page (e.g. `/size-guide`).
+   * When set, Complete the Set shows a right-aligned link and the
+   * modal size-chart trigger is hidden so the two do not compete.
+   */
+  sizeGuideHref?: string;
+}
+
 /** Validated customer theme from overrides/theme.json. */
 export interface StoreTheme {
   version: number;
@@ -28,6 +38,7 @@ export interface StoreTheme {
     homepageNav: HomepageNav;
   };
   catalog?: CatalogTheme;
+  pdp?: PdpTheme;
   figma?: {
     fileKey: string;
     referenceFrames: Record<string, string>;
@@ -45,10 +56,19 @@ const catalogSchema = z.object({
   badgeTags: z.array(z.string().min(1).max(64)).max(32),
 });
 
+const pdpSchema = z.object({
+  sizeGuideHref: z
+    .string()
+    .min(1)
+    .max(256)
+    .regex(/^\/(?!\/)[A-Za-z0-9/_-]*$/),
+});
+
 const themeSchema = z.object({
   version: z.number().int().min(1),
   layout: layoutSchema,
   catalog: catalogSchema.optional(),
+  pdp: pdpSchema.optional(),
   figma: z
     .object({
       fileKey: z.string(),
@@ -76,6 +96,9 @@ function normalizeTheme(data: z.infer<typeof themeSchema>): StoreTheme {
   };
   if (data.catalog !== undefined) {
     theme.catalog = data.catalog;
+  }
+  if (data.pdp !== undefined) {
+    theme.pdp = data.pdp;
   }
   if (data.figma !== undefined) {
     theme.figma = data.figma;

@@ -15,6 +15,7 @@ describe("getStoreTheme", () => {
     expect(theme.layout.navStyle).toBe("icons");
     expect(theme.layout.heroLayout).toBe("inset");
     expect(theme.layout.homepageNav).toBe("solid");
+    expect(theme.pdp).toBeUndefined();
   });
 });
 
