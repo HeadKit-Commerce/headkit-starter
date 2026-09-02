@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { formatPrice, decodeHtmlEntities } from "@/lib/utils";
+import { stripTitleMarkers } from "@/lib/title-emphasis";
 import {
   GiftCardDetails,
   type GiftCardDisplay,
@@ -75,9 +76,9 @@ export function LineItemDisplay({
   hideLineTotal,
   hideAddonPrices,
 }: LineItemDisplayProps) {
-  const displayName = decodeHtmlEntities(name);
+  const displayName = stripTitleMarkers(decodeHtmlEntities(name));
   const imageSrc = images[0]?.src ?? "/assets/HeadKit-Fallback.png";
-  const imageAlt = decodeHtmlEntities(images[0]?.alt ?? name);
+  const imageAlt = stripTitleMarkers(decodeHtmlEntities(images[0]?.alt ?? name));
 
   return (
     <div className="space-y-1.5">

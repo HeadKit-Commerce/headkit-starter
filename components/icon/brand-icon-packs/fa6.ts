@@ -1,6 +1,8 @@
 import {
   FaArrowLeft,
   FaArrowRight,
+  FaArrowUp,
+  FaArrowDown,
   FaArrowRotateRight,
   FaBars,
   FaCheck,
@@ -27,6 +29,8 @@ import type { BrandUiIcons } from "./types";
 export const icons: BrandUiIcons = {
   ArrowLeft: FaArrowLeft,
   ArrowRight: FaArrowRight,
+  ArrowUp: FaArrowUp,
+  ArrowDown: FaArrowDown,
   ArrowPath: FaArrowRotateRight,
   Menu: FaBars,
   Check: FaCheck,

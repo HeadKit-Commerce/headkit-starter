@@ -1,6 +1,8 @@
 import {
   RxArrowLeft,
   RxArrowRight,
+  RxArrowUp,
+  RxArrowDown,
   RxReload,
   RxHamburgerMenu,
   RxCheck,
@@ -27,6 +29,8 @@ import type { BrandUiIcons } from "./types";
 export const icons: BrandUiIcons = {
   ArrowLeft: RxArrowLeft,
   ArrowRight: RxArrowRight,
+  ArrowUp: RxArrowUp,
+  ArrowDown: RxArrowDown,
   ArrowPath: RxReload,
   Menu: RxHamburgerMenu,
   Check: RxCheck,

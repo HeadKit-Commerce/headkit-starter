@@ -1,6 +1,8 @@
 import {
   TiArrowLeft,
   TiArrowRight,
+  TiArrowUp,
+  TiArrowDown,
   TiArrowSync,
   TiThMenu,
   TiTick,
@@ -27,6 +29,8 @@ import type { BrandUiIcons } from "./types";
 export const icons: BrandUiIcons = {
   ArrowLeft: TiArrowLeft,
   ArrowRight: TiArrowRight,
+  ArrowUp: TiArrowUp,
+  ArrowDown: TiArrowDown,
   ArrowPath: TiArrowSync,
   Menu: TiThMenu,
   Check: TiTick,

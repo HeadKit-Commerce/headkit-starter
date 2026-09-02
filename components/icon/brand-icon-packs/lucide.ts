@@ -1,6 +1,8 @@
 import {
   LuArrowLeft,
   LuArrowRight,
+  LuArrowUp,
+  LuArrowDown,
   LuRefreshCw,
   LuMenu,
   LuCheck,
@@ -27,6 +29,8 @@ import type { BrandUiIcons } from "./types";
 export const icons: BrandUiIcons = {
   ArrowLeft: LuArrowLeft,
   ArrowRight: LuArrowRight,
+  ArrowUp: LuArrowUp,
+  ArrowDown: LuArrowDown,
   ArrowPath: LuRefreshCw,
   Menu: LuMenu,
   Check: LuCheck,

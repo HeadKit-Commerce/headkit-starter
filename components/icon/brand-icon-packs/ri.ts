@@ -1,6 +1,8 @@
 import {
   RiArrowLeftLine,
   RiArrowRightLine,
+  RiArrowUpLine,
+  RiArrowDownLine,
   RiRefreshLine,
   RiMenuLine,
   RiCheckLine,
@@ -27,6 +29,8 @@ import type { BrandUiIcons } from "./types";
 export const icons: BrandUiIcons = {
   ArrowLeft: RiArrowLeftLine,
   ArrowRight: RiArrowRightLine,
+  ArrowUp: RiArrowUpLine,
+  ArrowDown: RiArrowDownLine,
   ArrowPath: RiRefreshLine,
   Menu: RiMenuLine,
   Check: RiCheckLine,

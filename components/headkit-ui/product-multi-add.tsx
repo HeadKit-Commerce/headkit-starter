@@ -4,6 +4,8 @@ import Image from "next/image";
 import type { MultiAddCompanion } from "@/lib/multi-add";
 import { resolveCompanionLineId } from "@/lib/multi-add";
 import { MinusIcon, PlusIcon } from "@/components/icon";
+import { TitleEmphasis } from "@/components/headkit-ui/title-emphasis";
+import { stripTitleMarkers } from "@/lib/title-emphasis";
 import { decodeHtmlEntities, formatPrice, getFloatVal } from "@/lib/utils";
 
 /** Hero (current PDP) row shown at the top of Complete the Set. */
@@ -48,6 +50,7 @@ function QtyStepper({
   onChange: (next: number) => void;
 }): React.JSX.Element {
   const atMax = max !== null && qty >= max;
+  const plainName = stripTitleMarkers(decodeHtmlEntities(name));
   return (
     <div className="flex items-center rounded-md border border-gray-300">
       <button
@@ -55,7 +58,7 @@ function QtyStepper({
         onClick={() => onChange(Math.max(min, qty - 1))}
         disabled={qty <= min || unavailable}
         className="cursor-pointer px-2.5 py-2 text-gray-600 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
-        aria-label={`Decrease ${name} quantity`}
+        aria-label={`Decrease ${plainName} quantity`}
       >
         <MinusIcon className="h-3.5 w-3.5" />
       </button>
@@ -69,7 +72,7 @@ function QtyStepper({
         }
         disabled={unavailable || atMax}
         className="cursor-pointer px-2.5 py-2 text-gray-600 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
-        aria-label={`Increase ${name} quantity`}
+        aria-label={`Increase ${plainName} quantity`}
       >
         <PlusIcon className="h-3.5 w-3.5" />
       </button>
@@ -101,7 +104,9 @@ export function ProductMultiAdd({
             {hero.image?.src ? (
               <Image
                 src={hero.image.src}
-                alt={hero.image.alt || hero.name}
+                alt={stripTitleMarkers(
+                  decodeHtmlEntities(hero.image.alt || hero.name),
+                )}
                 fill
                 className="object-cover"
                 sizes="56px"
@@ -110,7 +115,7 @@ export function ProductMultiAdd({
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-primary">
-              {decodeHtmlEntities(hero.name)}
+              <TitleEmphasis text={hero.name} />
             </p>
             <p className="text-sm text-gray-600">
               {hero.unavailable ? "Unavailable" : formatPrice(hero.unitPrice)}
@@ -139,7 +144,9 @@ export function ProductMultiAdd({
                 {img?.src ? (
                   <Image
                     src={img.src}
-                    alt={img.alt || companion.name}
+                    alt={stripTitleMarkers(
+                      decodeHtmlEntities(img.alt || companion.name),
+                    )}
                     fill
                     className="object-cover"
                     sizes="56px"
@@ -148,7 +155,7 @@ export function ProductMultiAdd({
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-primary">
-                  {decodeHtmlEntities(companion.name)}
+                  <TitleEmphasis text={companion.name} />
                 </p>
                 <p className="text-sm text-gray-600">
                   {unavailable ? "Unavailable" : formatPrice(unit)}

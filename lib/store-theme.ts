@@ -13,6 +13,11 @@ export type HeroLayout = "inset" | "full-bleed" | "fixed-height";
 /** Homepage navigation chrome. */
 export type HomepageNav = "solid" | "overlay-hero";
 
+/** Product-tag names/slugs that render as card/PDP pills. */
+export interface CatalogTheme {
+  badgeTags: string[];
+}
+
 /** Validated customer theme from overrides/theme.json. */
 export interface StoreTheme {
   version: number;
@@ -22,6 +27,7 @@ export interface StoreTheme {
     heroLayout: HeroLayout;
     homepageNav: HomepageNav;
   };
+  catalog?: CatalogTheme;
   figma?: {
     fileKey: string;
     referenceFrames: Record<string, string>;
@@ -35,9 +41,14 @@ const layoutSchema = z.object({
   homepageNav: z.enum(["solid", "overlay-hero"]),
 });
 
+const catalogSchema = z.object({
+  badgeTags: z.array(z.string().min(1).max(64)).max(32),
+});
+
 const themeSchema = z.object({
   version: z.number().int().min(1),
   layout: layoutSchema,
+  catalog: catalogSchema.optional(),
   figma: z
     .object({
       fileKey: z.string(),
@@ -63,6 +74,9 @@ function normalizeTheme(data: z.infer<typeof themeSchema>): StoreTheme {
     version: data.version,
     layout: data.layout,
   };
+  if (data.catalog !== undefined) {
+    theme.catalog = data.catalog;
+  }
   if (data.figma !== undefined) {
     theme.figma = data.figma;
   }

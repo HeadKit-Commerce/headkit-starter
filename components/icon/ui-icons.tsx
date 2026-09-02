@@ -16,6 +16,16 @@ export function ArrowRightIcon(props: IconProps): React.JSX.Element {
   return <ArrowRight {...props} />;
 }
 
+export function ArrowUpIcon(props: IconProps): React.JSX.Element {
+  const { ArrowUp } = useBrandIcons();
+  return <ArrowUp {...props} />;
+}
+
+export function ArrowDownIcon(props: IconProps): React.JSX.Element {
+  const { ArrowDown } = useBrandIcons();
+  return <ArrowDown {...props} />;
+}
+
 export function ArrowPathIcon(props: IconProps): React.JSX.Element {
   const { ArrowPath } = useBrandIcons();
   return <ArrowPath {...props} />;

@@ -8,6 +8,8 @@ export type IconComponent = IconType;
 export {
   ArrowLeftIcon,
   ArrowRightIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
   ArrowPathIcon,
   MenuIcon,
   CheckIcon,

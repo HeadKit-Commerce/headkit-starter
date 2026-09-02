@@ -24,6 +24,8 @@ export type BrandingIconLibrary =
 export type BrandUiIcons = {
   ArrowLeft: IconType;
   ArrowRight: IconType;
+  ArrowUp: IconType;
+  ArrowDown: IconType;
   ArrowPath: IconType;
   Menu: IconType;
   Check: IconType;

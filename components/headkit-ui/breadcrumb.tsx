@@ -1,6 +1,7 @@
 import { ChevronRightIcon } from "@/components/icon";
 import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { decodeHtmlEntities } from "@/lib/utils";
+import { stripTitleMarkers } from "@/lib/title-emphasis";
 
 interface BreadcrumbItem {
   name: string;
@@ -24,7 +25,7 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
       <ol className="flex flex-wrap items-center gap-x-1 gap-y-1 text-sm text-gray-800 break-words">
         {items.map((item, i) => {
           const isLast = i === items.length - 1;
-          const label = decodeHtmlEntities(item.name);
+          const label = stripTitleMarkers(decodeHtmlEntities(item.name));
           return (
             <li key={i} className="flex max-w-full items-center gap-1">
               {i > 0 && (

@@ -13,6 +13,10 @@ import { getVariationCardPrice } from "@/lib/price-display";
 import { findSwatchAttribute } from "@/lib/swatch-attribute";
 import { useCatalogDisplay } from "@/components/headkit-ui/catalog-display-provider";
 import type { CatalogProduct } from "@/lib/catalog-display";
+import { TitleEmphasis } from "@/components/headkit-ui/title-emphasis";
+import { productBadgesFromTags } from "@/lib/product-badges";
+import { stripTitleMarkers } from "@/lib/title-emphasis";
+import { getStoreTheme } from "@/lib/store-theme";
 
 const isVariableProduct = (product: ProductSummaryFieldsFragment): boolean =>
   product?.type?.toUpperCase() === "VARIABLE";
@@ -153,6 +157,16 @@ export const ProductCard = ({
 
   if (!product) return null;
 
+  const isNewIn = isNew || Boolean(product?.isNew);
+  const customBadges = productBadgesFromTags(
+    product.tags,
+    getStoreTheme().catalog?.badgeTags,
+    { hideNew: isNewIn, hideSale: product?.onSale ?? false },
+  );
+  const plainName = stripTitleMarkers(
+    decodeHtmlEntities(product?.name ?? "Product"),
+  );
+
   return (
     <div className={cn("headkit-product-card relative w-full", className)}>
       <div className="absolute left-2 top-2 z-10">
@@ -160,7 +174,8 @@ export const ProductCard = ({
           isSale={product?.onSale ?? false}
           // Prefer explicit prop; fall back to product.isNew so collection grids
           // show New without every caller passing the prop.
-          isNewIn={isNew || Boolean(product?.isNew)}
+          isNewIn={isNewIn}
+          badges={customBadges}
         />
       </div>
       {/*
@@ -178,7 +193,7 @@ export const ProductCard = ({
           src={imageSelected}
           hoverSrc={hoverSrc}
           showHover={isHovering}
-          alt={decodeHtmlEntities(product?.name ?? "Product")}
+          alt={plainName}
           priority={priority}
           fit="contain"
         />
@@ -203,7 +218,7 @@ export const ProductCard = ({
                   dark && "text-white",
                 )}
               >
-                {decodeHtmlEntities(product?.name ?? "")}
+                <TitleEmphasis text={product?.name ?? ""} />
               </TitleTag>
             </InstantLink>
             <div className="flex min-w-0 flex-wrap items-center gap-2 py-1.5">

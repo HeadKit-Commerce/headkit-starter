@@ -1,6 +1,8 @@
 import {
   IoArrowBack,
   IoArrowForward,
+  IoArrowUp,
+  IoArrowDown,
   IoRefresh,
   IoMenu,
   IoCheckmark,
@@ -27,6 +29,8 @@ import type { BrandUiIcons } from "./types";
 export const icons: BrandUiIcons = {
   ArrowLeft: IoArrowBack,
   ArrowRight: IoArrowForward,
+  ArrowUp: IoArrowUp,
+  ArrowDown: IoArrowDown,
   ArrowPath: IoRefresh,
   Menu: IoMenu,
   Check: IoCheckmark,

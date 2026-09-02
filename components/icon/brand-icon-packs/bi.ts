@@ -1,6 +1,8 @@
 import {
   BiArrowBack,
   BiRightArrowAlt,
+  BiUpArrowAlt,
+  BiDownArrowAlt,
   BiRefresh,
   BiMenu,
   BiCheck,
@@ -27,6 +29,8 @@ import type { BrandUiIcons } from "./types";
 export const icons: BrandUiIcons = {
   ArrowLeft: BiArrowBack,
   ArrowRight: BiRightArrowAlt,
+  ArrowUp: BiUpArrowAlt,
+  ArrowDown: BiDownArrowAlt,
   ArrowPath: BiRefresh,
   Menu: BiMenu,
   Check: BiCheck,

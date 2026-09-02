@@ -12,6 +12,7 @@ import {
 import { useCartContext } from "@/components/headkit-ui/cart-context";
 import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { QuantityStepper } from "@/components/headkit-ui/quantity-stepper";
+import { stripTitleMarkers } from "@/lib/title-emphasis";
 import {
   GiftCardDetails,
   type GiftCardDisplay,
@@ -85,9 +86,11 @@ function QuoteCartItem({
     });
   };
 
-  const displayName = decodeHtmlEntities(item.name);
+  const displayName = stripTitleMarkers(decodeHtmlEntities(item.name));
   const imageSrc = item.images[0]?.src ?? "/assets/HeadKit-Fallback.png";
-  const imageAlt = decodeHtmlEntities(item.images[0]?.alt ?? item.name);
+  const imageAlt = stripTitleMarkers(
+    decodeHtmlEntities(item.images[0]?.alt ?? item.name),
+  );
   // The cart fragment selects a slug and no permalink, so this is one of the
   // two storefront surfaces that cannot build the canonical `/shop/{cat…}/{slug}`
   // path (`lib/canonical-path.ts`) — it 308s on click instead.

@@ -60,6 +60,12 @@ import { isInWishlist, toggleWishlist } from "@/lib/wishlist";
 import type { GiftCardFormValues } from "@/components/gift-card-form";
 import { DeliveryType } from "@/components/gift-card-delivery-type";
 import { ProductEnquiry } from "@/components/headkit-ui/product-enquiry";
+import { TitleEmphasis } from "@/components/headkit-ui/title-emphasis";
+import { SizeChartTrigger } from "@/components/headkit-ui/size-chart-trigger";
+import { isBadgeTag, productBadgesFromTags } from "@/lib/product-badges";
+import { stripTitleMarkers } from "@/lib/title-emphasis";
+import { shopifyRichTextToHtml } from "@/lib/shopify-rich-text";
+import { getStoreTheme } from "@/lib/store-theme";
 import { isColorAttrSlug } from "@/components/headkit-ui/collection/utils";
 import { buildEnquiryInitialValues } from "@/lib/enquiry-form-values";
 import {
@@ -87,10 +93,8 @@ const GiftCardForm = lazy(() =>
   })),
 );
 
-type StorefrontProduct = ProductFieldsFragment | Product;
-
 interface Props {
-  product: StorefrontProduct;
+  product: ProductFieldsFragment | Product;
   initialSearchParams?: Record<string, string>;
   /**
    * Kept for callers / agent reference — not rendered on the storefront.
@@ -437,7 +441,7 @@ export function ProductDetail({
   const enquiryInitialValues = useMemo(
     () =>
       buildEnquiryInitialValues({
-        productName: decodeHtmlEntities(product.name),
+        productName: stripTitleMarkers(decodeHtmlEntities(product.name)),
         productUrl:
           typeof window !== "undefined"
             ? `${window.location.origin}${pathname}`
@@ -452,12 +456,12 @@ export function ProductDetail({
   const galleryImages = useMemo(() => {
     // Variation-owned gallery replaces the parent product gallery entirely
     // (hide parent featured + gallery while that colourway is selected).
-    const productAlt = decodeHtmlEntities(product.name);
+    const productAlt = stripTitleMarkers(decodeHtmlEntities(product.name));
     const variationGallery = (selectedVariation?.images ?? [])
       .filter((img) => Boolean(img?.src))
       .map((img) => ({
         src: img.src,
-        alt: decodeHtmlEntities(img.alt || product.name),
+        alt: stripTitleMarkers(decodeHtmlEntities(img.alt || product.name)),
       }));
     if (variationGallery.length > 0) {
       return variationGallery;
@@ -465,7 +469,7 @@ export function ProductDetail({
 
     const base = product.images.map((img) => ({
       src: img.src,
-      alt: decodeHtmlEntities(img.alt || product.name),
+      alt: stripTitleMarkers(decodeHtmlEntities(img.alt || product.name)),
     }));
     return base.length > 0
       ? base
@@ -587,19 +591,29 @@ export function ProductDetail({
   const setPieceCount =
     quantity + companionLines.reduce((sum, line) => sum + line.quantity, 0);
   const multiAddHeroImage = (() => {
+    const productAlt = stripTitleMarkers(decodeHtmlEntities(product.name));
     const fromVariation = selectedVariation?.image;
     if (fromVariation?.src) {
-      return { src: fromVariation.src, alt: fromVariation.alt || product.name };
+      return {
+        src: fromVariation.src,
+        alt: stripTitleMarkers(decodeHtmlEntities(fromVariation.alt || product.name)),
+      };
     }
     const fromProduct = product.image;
     if (fromProduct?.src) {
-      return { src: fromProduct.src, alt: fromProduct.alt || product.name };
+      return {
+        src: fromProduct.src,
+        alt: stripTitleMarkers(decodeHtmlEntities(fromProduct.alt || product.name)),
+      };
     }
     const first = product.images[0];
     if (first?.src) {
-      return { src: first.src, alt: first.alt || product.name };
+      return {
+        src: first.src,
+        alt: stripTitleMarkers(decodeHtmlEntities(first.alt || product.name)),
+      };
     }
-    return null;
+    return productAlt ? { src: "/placeholder.png", alt: productAlt } : null;
   })();
 
   // Sticky ATC bar: only after the primary ATC scrolls above the viewport
@@ -830,6 +844,19 @@ export function ProductDetail({
       selectedColor === initialColor ||
       (!selectedColor && !initialColor));
 
+  const badgeAllowlist = getStoreTheme().catalog?.badgeTags;
+  const customBadges = productBadgesFromTags(product.tags, badgeAllowlist, {
+    hideNew: Boolean(product.isNew),
+    hideSale: isOnSale,
+  });
+  const visibleTags = (product.tags ?? []).filter(
+    (tag) => !isBadgeTag(tag, badgeAllowlist),
+  );
+  const sizeChartHtml = shopifyRichTextToHtml(product.sizeChart ?? "");
+  const hasSizeAttribute = variationAttributes.some((attr) =>
+    isSizeAttrSlug(attr.slug),
+  );
+
   return (
     <div className="headkit-product-detail">
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
@@ -838,12 +865,13 @@ export function ProductDetail({
           images={galleryImages}
           isSale={isOnSale}
           isNew={product.isNew}
+          badges={customBadges}
         />
 
         {/* Right: product info */}
         <div className="flex flex-col">
           <h1 className="mb-3 text-primary">
-            {decodeHtmlEntities(product.name)}
+            <TitleEmphasis text={product.name} />
           </h1>
 
           {product.shortDescription && (
@@ -854,6 +882,12 @@ export function ProductDetail({
               }}
             />
           )}
+
+          {!hasSizeAttribute && sizeChartHtml ? (
+            <div className="mb-5">
+              <SizeChartTrigger html={sizeChartHtml} />
+            </div>
+          ) : null}
 
           {/* Variation attribute selectors */}
           {isVariable && variationAttributes.length > 0 && (
@@ -873,6 +907,9 @@ export function ProductDetail({
                         )}
                       </span>
                     )}
+                    {isSizeAttrSlug(attr.slug) && sizeChartHtml ? (
+                      <SizeChartTrigger html={sizeChartHtml} />
+                    ) : null}
                   </div>
                   <div className="flex flex-wrap gap-3">
                     {attr.fullOptions.map((option) => {
@@ -1074,7 +1111,7 @@ export function ProductDetail({
             <ProductMultiAdd
               hero={{
                 id: product.id,
-                name: product.name,
+                name: stripTitleMarkers(decodeHtmlEntities(product.name)),
                 unitPrice: heroUnitPrice,
                 image: multiAddHeroImage,
                 minQuantity: 1,
@@ -1192,7 +1229,7 @@ export function ProductDetail({
             <div className="mb-6">
               <ProductEnquiry
                 formId={ENQUIRY_FORM_ID}
-                productName={decodeHtmlEntities(product.name)}
+                productName={stripTitleMarkers(decodeHtmlEntities(product.name))}
                 initialValues={enquiryInitialValues}
               />
             </div>
@@ -1204,9 +1241,9 @@ export function ProductDetail({
           )}
 
           {/* Tags */}
-          {product.tags.length > 0 && (
+          {visibleTags.length > 0 && (
             <div className="mb-6 flex flex-wrap gap-2">
-              {product.tags.map((tag) => (
+              {visibleTags.map((tag) => (
                 <span
                   key={tag.id}
                   className="text-xs font-medium text-primary/80"
@@ -1300,7 +1337,7 @@ export function ProductDetail({
         <div className="mx-auto flex max-w-7xl items-center gap-3 md:gap-6">
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-primary md:text-base">
-              {decodeHtmlEntities(product.name)}
+              <TitleEmphasis text={product.name} />
             </p>
             <div className="mt-0.5">
               <ProductPrice

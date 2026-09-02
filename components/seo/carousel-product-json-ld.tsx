@@ -2,6 +2,7 @@ import type { ProductSummaryFieldsFragment } from "@headkit/sdk";
 import type { ItemList, WithContext } from "schema-dts";
 import { decodeHtmlEntities } from "@/lib/utils";
 import { productPath } from "@/lib/canonical-path";
+import { stripTitleMarkers } from "@/lib/title-emphasis";
 import { safeJsonLdStringify } from "./safe-json-ld";
 import { resolveJsonLdSiteUrl } from "./site-origin";
 
@@ -41,7 +42,7 @@ export async function CarouselProductJsonLD({
       position: index + 1,
       item: {
         "@type": "Product",
-        name: decodeHtmlEntities(product.name ?? ""),
+        name: stripTitleMarkers(decodeHtmlEntities(product.name ?? "")),
         image: product.image?.src ?? "",
         offers: {
           "@type": "Offer",

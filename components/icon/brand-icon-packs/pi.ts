@@ -1,6 +1,8 @@
 import {
   PiArrowLeft,
   PiArrowRight,
+  PiArrowUp,
+  PiArrowDown,
   PiArrowsClockwise,
   PiList,
   PiCheck,
@@ -27,6 +29,8 @@ import type { BrandUiIcons } from "./types";
 export const icons: BrandUiIcons = {
   ArrowLeft: PiArrowLeft,
   ArrowRight: PiArrowRight,
+  ArrowUp: PiArrowUp,
+  ArrowDown: PiArrowDown,
   ArrowPath: PiArrowsClockwise,
   Menu: PiList,
   Check: PiCheck,

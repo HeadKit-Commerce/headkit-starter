@@ -1,6 +1,8 @@
 import {
   HiOutlineArrowLeft,
   HiOutlineArrowRight,
+  HiOutlineArrowUp,
+  HiOutlineArrowDown,
   HiOutlineRefresh,
   HiOutlineMenu,
   HiOutlineCheck,
@@ -27,6 +29,8 @@ import type { BrandUiIcons } from "./types";
 export const icons: BrandUiIcons = {
   ArrowLeft: HiOutlineArrowLeft,
   ArrowRight: HiOutlineArrowRight,
+  ArrowUp: HiOutlineArrowUp,
+  ArrowDown: HiOutlineArrowDown,
   ArrowPath: HiOutlineRefresh,
   Menu: HiOutlineMenu,
   Check: HiOutlineCheck,

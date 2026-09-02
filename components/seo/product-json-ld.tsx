@@ -1,6 +1,7 @@
 import type { ProductFieldsFragment } from "@headkit/sdk";
 import { decodeHtmlEntities } from "@/lib/utils";
 import { productPath } from "@/lib/canonical-path";
+import { stripTitleMarkers } from "@/lib/title-emphasis";
 import { safeJsonLdStringify } from "./safe-json-ld";
 import { resolveJsonLdSiteUrl } from "./site-origin";
 
@@ -151,7 +152,7 @@ export async function ProductJsonLD({
     const jsonLd = {
       "@context": "https://schema.org",
       "@type": "ProductGroup",
-      name: decodeHtmlEntities(product.name),
+      name: stripTitleMarkers(decodeHtmlEntities(product.name)),
       description: decodedDescription,
       image: images,
       url: productUrl,
@@ -174,7 +175,7 @@ export async function ProductJsonLD({
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
-    name: decodeHtmlEntities(product.name),
+    name: stripTitleMarkers(decodeHtmlEntities(product.name)),
     description: decodedDescription,
     ...(product.sku ? { sku: product.sku } : {}),
     image: images,

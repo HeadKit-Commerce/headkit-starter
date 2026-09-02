@@ -1,6 +1,8 @@
 import {
   CgArrowLeft,
   CgArrowRight,
+  CgArrowUp,
+  CgArrowDown,
   CgRedo,
   CgMenu,
   CgCheck,
@@ -27,6 +29,8 @@ import type { BrandUiIcons } from "./types";
 export const icons: BrandUiIcons = {
   ArrowLeft: CgArrowLeft,
   ArrowRight: CgArrowRight,
+  ArrowUp: CgArrowUp,
+  ArrowDown: CgArrowDown,
   ArrowPath: CgRedo,
   Menu: CgMenu,
   Check: CgCheck,

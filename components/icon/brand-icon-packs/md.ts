@@ -1,6 +1,8 @@
 import {
   MdArrowBack,
   MdArrowForward,
+  MdArrowUpward,
+  MdArrowDownward,
   MdRefresh,
   MdMenu,
   MdCheck,
@@ -27,6 +29,8 @@ import type { BrandUiIcons } from "./types";
 export const icons: BrandUiIcons = {
   ArrowLeft: MdArrowBack,
   ArrowRight: MdArrowForward,
+  ArrowUp: MdArrowUpward,
+  ArrowDown: MdArrowDownward,
   ArrowPath: MdRefresh,
   Menu: MdMenu,
   Check: MdCheck,

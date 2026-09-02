@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { BadgeList } from "@/components/headkit-ui/badge-list";
+import type { CustomProductBadge } from "@/lib/product-badges";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Lightbox } from "@/components/ui/lightbox";
 
@@ -16,6 +17,7 @@ interface Props {
   images: GalleryImage[];
   isSale?: boolean;
   isNew?: boolean;
+  badges?: CustomProductBadge[];
 }
 
 const FALLBACK_IMAGE_SRC = "/assets/HeadKit-Fallback.png";
@@ -25,6 +27,7 @@ export function ProductImageGallery({
   images: rawImages,
   isSale = false,
   isNew = false,
+  badges = [],
 }: Props) {
   const [mobileIndex, setMobileIndex] = useState(0);
   const touchStartX = useRef<number | null>(null);
@@ -98,7 +101,7 @@ export function ProductImageGallery({
             >
               {index === 0 && (
                 <div className="absolute left-2 top-2 z-10">
-                  <BadgeList isSale={isSale} isNewIn={isNew} />
+                  <BadgeList isSale={isSale} isNewIn={isNew} badges={badges} />
                 </div>
               )}
               <div className="relative aspect-square overflow-hidden">
@@ -136,7 +139,7 @@ export function ProductImageGallery({
         onTouchCancel={onTouchEnd}
       >
         <div className="absolute left-2 top-2 z-10">
-          <BadgeList isSale={isSale} isNewIn={isNew} />
+          <BadgeList isSale={isSale} isNewIn={isNew} badges={badges} />
         </div>
 
         <Dialog>

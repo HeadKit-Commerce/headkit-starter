@@ -35,6 +35,7 @@ import {
 } from "@/lib/canonical-path";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductPageShell } from "./product-page-shell";
+import { stripTitleMarkers } from "@/lib/title-emphasis";
 
 // Cache Components requires generateStaticParams to return ≥1 param. When the
 // catalog API is unreachable at build we emit this single placeholder (which
@@ -612,7 +613,7 @@ export async function ProductPageContent({ params, searchParams }: Props) {
     // trail (Home / Shop / product) rather than an empty or `undefined` segment.
     ...(categoryCrumbs.length > 0 ? categoryCrumbs : fallbackCrumbs),
     {
-      name: product.name,
+      name: stripTitleMarkers(product.name),
       href: canonicalPath,
     },
   ];

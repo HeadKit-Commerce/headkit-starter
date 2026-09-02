@@ -1,6 +1,8 @@
 import {
   FiArrowLeft,
   FiArrowRight,
+  FiArrowUp,
+  FiArrowDown,
   FiRefreshCw,
   FiMenu,
   FiCheck,
@@ -27,6 +29,8 @@ import type { BrandUiIcons } from "./types";
 export const icons: BrandUiIcons = {
   ArrowLeft: FiArrowLeft,
   ArrowRight: FiArrowRight,
+  ArrowUp: FiArrowUp,
+  ArrowDown: FiArrowDown,
   ArrowPath: FiRefreshCw,
   Menu: FiMenu,
   Check: FiCheck,

@@ -1,6 +1,8 @@
 import {
   TbArrowLeft,
   TbArrowRight,
+  TbArrowUp,
+  TbArrowDown,
   TbRefresh,
   TbMenu2,
   TbCheck,
@@ -27,6 +29,8 @@ import type { BrandUiIcons } from "./types";
 export const icons: BrandUiIcons = {
   ArrowLeft: TbArrowLeft,
   ArrowRight: TbArrowRight,
+  ArrowUp: TbArrowUp,
+  ArrowDown: TbArrowDown,
   ArrowPath: TbRefresh,
   Menu: TbMenu2,
   Check: TbCheck,

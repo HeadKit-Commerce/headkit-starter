@@ -1,6 +1,8 @@
 import {
   BsArrowLeft,
   BsArrowRight,
+  BsArrowUp,
+  BsArrowDown,
   BsArrowRepeat,
   BsList,
   BsCheck,
@@ -27,6 +29,8 @@ import type { BrandUiIcons } from "./types";
 export const icons: BrandUiIcons = {
   ArrowLeft: BsArrowLeft,
   ArrowRight: BsArrowRight,
+  ArrowUp: BsArrowUp,
+  ArrowDown: BsArrowDown,
   ArrowPath: BsArrowRepeat,
   Menu: BsList,
   Check: BsCheck,

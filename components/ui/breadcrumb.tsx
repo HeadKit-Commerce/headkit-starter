@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { convertToRelativePath } from "@/lib/convert-uri";
 import { decodeHtmlEntities } from "@/lib/utils";
+import { stripTitleMarkers } from "@/lib/title-emphasis";
 
 interface Props {
   items: {
@@ -21,7 +22,7 @@ const Breadcrumb = ({ items }: Props) => {
     <nav aria-label="Breadcrumb">
       <ol className="flex flex-wrap items-center gap-x-1 gap-y-1 text-sm break-words">
         {items.map((item, i) => {
-          const label = decodeHtmlEntities(item.name);
+          const label = stripTitleMarkers(decodeHtmlEntities(item.name));
           if (item.current) {
             return (
               <li key={i} className="max-w-full text-primary">

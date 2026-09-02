@@ -1,6 +1,8 @@
 import {
   AiOutlineArrowLeft,
   AiOutlineArrowRight,
+  AiOutlineArrowUp,
+  AiOutlineArrowDown,
   AiOutlineReload,
   AiOutlineMenu,
   AiOutlineCheck,
@@ -27,6 +29,8 @@ import type { BrandUiIcons } from "./types";
 export const icons: BrandUiIcons = {
   ArrowLeft: AiOutlineArrowLeft,
   ArrowRight: AiOutlineArrowRight,
+  ArrowUp: AiOutlineArrowUp,
+  ArrowDown: AiOutlineArrowDown,
   ArrowPath: AiOutlineReload,
   Menu: AiOutlineMenu,
   Check: AiOutlineCheck,

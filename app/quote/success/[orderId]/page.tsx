@@ -11,6 +11,7 @@ import {
   parseQuoteDetailsCookie,
   type QuoteFormDetails,
 } from "@/lib/quote-form";
+import { stripTitleMarkers } from "@/lib/title-emphasis";
 
 interface Props {
   params: Promise<{ orderId: string }>;
@@ -105,7 +106,7 @@ export default async function QuoteSuccessPage({
         firstName={details.firstName}
         items={order.items.map((item) => ({
           key: item.key,
-          name: item.name,
+          name: stripTitleMarkers(item.name),
           quantity: item.quantity,
           images: item.images,
           variation: item.variation ?? [],

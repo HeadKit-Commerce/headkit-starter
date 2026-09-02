@@ -1,5 +1,6 @@
 import type { BreadcrumbList, ListItem, WithContext } from "schema-dts";
 import { decodeHtmlEntities } from "@/lib/utils";
+import { stripTitleMarkers } from "@/lib/title-emphasis";
 import { safeJsonLdStringify } from "./safe-json-ld";
 import { resolveJsonLdSiteUrl } from "./site-origin";
 
@@ -35,7 +36,7 @@ export async function BreadcrumbJsonLD({
       return {
         "@type": "ListItem",
         position: index + 1,
-        name: decodeHtmlEntities(item.name),
+        name: stripTitleMarkers(decodeHtmlEntities(item.name)),
         ...(url ? { item: url } : {}),
       };
     }) as ListItem[],

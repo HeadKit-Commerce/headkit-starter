@@ -1,6 +1,8 @@
 import {
   LiaArrowLeftSolid,
   LiaArrowRightSolid,
+  LiaArrowUpSolid,
+  LiaArrowDownSolid,
   LiaRedoAltSolid,
   LiaBarsSolid,
   LiaCheckSolid,
@@ -27,6 +29,8 @@ import type { BrandUiIcons } from "./types";
 export const icons: BrandUiIcons = {
   ArrowLeft: LiaArrowLeftSolid,
   ArrowRight: LiaArrowRightSolid,
+  ArrowUp: LiaArrowUpSolid,
+  ArrowDown: LiaArrowDownSolid,
   ArrowPath: LiaRedoAltSolid,
   Menu: LiaBarsSolid,
   Check: LiaCheckSolid,

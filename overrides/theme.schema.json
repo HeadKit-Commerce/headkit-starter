@@ -38,6 +38,19 @@
       },
       "required": ["navLayout", "navStyle", "heroLayout", "homepageNav"]
     },
+    "catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional catalog presentation. Starter defaults omit this — only badge: tags show until a store allowlists more.",
+      "properties": {
+        "badgeTags": {
+          "type": "array",
+          "description": "Product tag names or slugs that render as pills on cards and the PDP. Case-insensitive. Tags prefixed badge: always show.",
+          "items": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "maxItems": 32
+        }
+      }
+    },
     "figma": {
       "type": "object",
       "additionalProperties": false,

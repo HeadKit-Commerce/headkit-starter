@@ -3,6 +3,7 @@ import type { SeoData } from "@headkit/sdk";
 import { decodeHtmlEntities } from "@/lib/utils";
 import { isIndexableCurrentHost } from "@/lib/indexing-decision";
 import { normalizeSiteUrl, resolveSiteUrl } from "@/lib/site-url";
+import { stripTitleMarkers } from "@/lib/title-emphasis";
 
 const SITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
 
@@ -29,7 +30,7 @@ type OptSeoStr = string | null | undefined;
 
 /** Decode + trim CMS/Yoast strings so entities never leak into `<title>` / OG. */
 function seoText(value?: OptSeoStr): string {
-  return decodeHtmlEntities(value ?? "").trim();
+  return stripTitleMarkers(decodeHtmlEntities(value ?? "")).trim();
 }
 
 function stripTags(html?: OptSeoStr): string {

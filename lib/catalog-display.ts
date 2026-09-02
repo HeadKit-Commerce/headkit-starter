@@ -6,6 +6,7 @@ import type { ProductSummaryFieldsFragment } from "@headkit/sdk";
 import { CATALOG_ROW_QUANTUM } from "@/components/headkit-ui/catalog-grid";
 import { findSwatchAttribute } from "@/lib/swatch-attribute";
 import { decodeHtmlEntities } from "@/lib/utils";
+import { stripTitleMarkers } from "@/lib/title-emphasis";
 
 export interface CatalogDisplayPrefs {
   showVariants: boolean;
@@ -185,7 +186,7 @@ function cardForColourway(
       : imageSrc
         ? {
             src: imageSrc,
-            alt: decodeHtmlEntities(product.name ?? ""),
+            alt: stripTitleMarkers(decodeHtmlEntities(product.name ?? "")),
             width: 0,
             height: 0,
           }
@@ -193,7 +194,9 @@ function cardForColourway(
     hoverImage: hoverSrc
       ? {
           src: hoverSrc,
-          alt: parentMeta?.alt ?? decodeHtmlEntities(product.name ?? ""),
+          alt: parentMeta?.alt
+            ? stripTitleMarkers(decodeHtmlEntities(parentMeta.alt))
+            : stripTitleMarkers(decodeHtmlEntities(product.name ?? "")),
           width: parentMeta?.width ?? 0,
           height: parentMeta?.height ?? 0,
         }

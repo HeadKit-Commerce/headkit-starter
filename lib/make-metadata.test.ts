@@ -263,6 +263,23 @@ describe("makeSeoMetadata fallback chain (FE-09)", () => {
     expect(meta.openGraph?.title).toBe("Beds & Mattresses – Acme");
     expect(meta.twitter?.title).toBe("Beds & Mattresses");
   });
+
+  it("strips title emphasis braces from titles and descriptions", async () => {
+    const meta = await makeSeoMetadata(
+      {
+        title: "Monogram {Bath Sheet} &#8211; Acme",
+        metaDesc: "Shop the Monogram {Bath Sheet}",
+        opengraphTitle: "Monogram {Bath Sheet}",
+        twitterTitle: "Monogram {Bath Sheet}",
+      } as Parameters<typeof makeSeoMetadata>[0],
+      { title: "Monogram {Bath Sheet}", storeName: "Acme" },
+    );
+
+    expect(meta.title).toEqual({ absolute: "Monogram Bath Sheet – Acme" });
+    expect(meta.description).toBe("Shop the Monogram Bath Sheet");
+    expect(meta.openGraph?.title).toBe("Monogram Bath Sheet");
+    expect(meta.twitter?.title).toBe("Monogram Bath Sheet");
+  });
 });
 
 describe("makeRootMetadata title template", () => {
