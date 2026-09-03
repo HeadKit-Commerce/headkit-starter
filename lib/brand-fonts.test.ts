@@ -166,7 +166,9 @@ describe("resolveBrandFonts", () => {
       subheading: empty,
       body: empty,
     });
-    expect(resolved.fontFaceCss).toContain("/api/branding-font?f=regular.woff2");
+    expect(resolved.fontFaceCss).toContain(
+      "/api/branding-font?f=regular.woff2",
+    );
     expect(resolved.fontFaceCss).toContain("/api/branding-font?f=italic.woff2");
     expect(resolved.fontFaceCss).toContain("font-style:italic");
     expect(resolved.fontFaceCss.match(/@font-face/g)?.length).toBe(5);
