@@ -389,3 +389,109 @@ describe("generateStaticParams color facet key", () => {
     expect(decoded.attributes).toEqual({ pa_color: ["black"] });
   });
 });
+
+describe("generateStaticParams category×brand emptiness", () => {
+  // Before the fix this loop emitted the GLOBAL brand list under EVERY
+  // category with no check that the pair contained a product — 100 categories
+  // × 100 brands = 10,000 params of which 9,499 rendered an empty grid on the
+  // measured store (report §7.1). getFilters now reports the category's own
+  // brand list, so only real pairs are emitted.
+  const GLOBAL_BRANDS = {
+    brands: [
+      { slug: "shimano" },
+      { slug: "abus" },
+      { slug: "basil" },
+      { slug: "4iiii" },
+    ],
+  };
+
+  /** Facet params whose filter segment decodes to a single brand. */
+  function brandFacets(params: { slug: string[] }[]): {
+    category: string;
+    brand: string;
+  }[] {
+    return params
+      .filter((p) => p.slug.includes("f"))
+      .map((p) => ({
+        category: p.slug[p.slug.indexOf("f") - 1]!,
+        decoded: decodeFilterSlug(p.slug[p.slug.length - 1]!),
+      }))
+      .filter((e) => e.decoded.brands.length === 1)
+      .map((e) => ({ category: e.category, brand: e.decoded.brands[0]! }));
+  }
+
+  it("emits only the brands a category actually stocks, not every brand in the store", async () => {
+    getCategories.mockResolvedValue([
+      { slug: "suspension", children: [] },
+      { slug: "locks", children: [] },
+    ]);
+    brandsList.mockResolvedValue(GLOBAL_BRANDS);
+    // Each category reports its OWN brand list — a strict subset of the global
+    // one. The endpoint only ever returns a brand whose in-scope count is > 0.
+    getFilters.mockImplementation((slug: string) =>
+      Promise.resolve({
+        attributes: [],
+        brands:
+          slug === "suspension"
+            ? [{ slug: "shimano", name: "Shimano", count: 12 }]
+            : [
+                { slug: "abus", name: "Abus", count: 3 },
+                { slug: "basil", name: "Basil", count: 1 },
+              ],
+      }),
+    );
+
+    const facets = brandFacets(await generateStaticParams());
+
+    expect(facets).toEqual([
+      { category: "suspension", brand: "shimano" },
+      { category: "locks", brand: "abus" },
+      { category: "locks", brand: "basil" },
+    ]);
+    // The blind cross-product would have been 2 × 4 = 8.
+    expect(facets).toHaveLength(3);
+    expect(
+      facets.some((f) => f.category === "suspension" && f.brand === "abus"),
+      "a lock brand must not be emitted under suspension",
+    ).toBe(false);
+    expect(facets.some((f) => f.brand === "4iiii")).toBe(false);
+  });
+
+  it("emits nothing for a category that stocks no brand", async () => {
+    getCategories.mockResolvedValue([
+      { slug: "bikes", children: [] },
+      { slug: "gift-cards", children: [] },
+    ]);
+    brandsList.mockResolvedValue(GLOBAL_BRANDS);
+    getFilters.mockImplementation((slug: string) =>
+      Promise.resolve({
+        attributes: [],
+        brands: slug === "bikes" ? [{ slug: "shimano", count: 4 }] : [],
+      }),
+    );
+
+    const facets = brandFacets(await generateStaticParams());
+
+    expect(facets).toEqual([{ category: "bikes", brand: "shimano" }]);
+  });
+
+  it("falls back to the global cross-product when NO category can report brands", async () => {
+    // A backend predating ProductFilters.brands (or a provider that cannot
+    // report them) returns an empty list for every category. That is not a
+    // catalogue in which nothing is branded — it is an unknowable brand list,
+    // and dropping every brand facet page silently would be worse than keeping
+    // the previous behaviour.
+    getCategories.mockResolvedValue([{ slug: "bikes", children: [] }]);
+    brandsList.mockResolvedValue({
+      brands: [{ slug: "shimano" }, { slug: "abus" }],
+    });
+    getFilters.mockResolvedValue({ attributes: [] });
+
+    const facets = brandFacets(await generateStaticParams());
+
+    expect(facets).toEqual([
+      { category: "bikes", brand: "shimano" },
+      { category: "bikes", brand: "abus" },
+    ]);
+  });
+});

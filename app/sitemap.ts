@@ -10,6 +10,7 @@ import {
   DEFAULT_FILTER_VALUES,
 } from "@/components/headkit-ui/collection/utils";
 import { toAttributeKey } from "@/lib/color-attr-slug";
+import { brandSlugsPerCategory } from "@/lib/brand-facets";
 import { walkCategoryPaths } from "./shop/shop-slug";
 import { productPath } from "@/lib/canonical-path";
 import { getPostsBasePath, postsIndexPath } from "@/lib/posts-base-path";
@@ -152,7 +153,17 @@ async function makeCollectionSitemap(siteUrl: string): Promise<SitemapItem[]> {
       ),
     );
 
-    for (const { node, filters } of filterResults) {
+    // Per-category brand slugs, resolved from the SAME `getFilters` results the
+    // colour facets use — no extra read. `lib/brand-facets.ts` is shared with
+    // `app/collections/[...slug]/page.tsx`'s generateStaticParams so the sitemap
+    // cannot advertise a pair the build declined to prerender, or vice versa.
+    const globalBrandSlugs = brandsRes.brands.map((b) => b?.slug ?? "");
+    const perCategoryBrands = brandSlugsPerCategory(
+      filterResults.map(({ filters }) => filters),
+      globalBrandSlugs,
+    );
+
+    for (const [i, { node, filters }] of filterResults.entries()) {
       const path = node.segments.join("/");
       items.push({
         url: `${siteUrl}/collections/${path}`,
@@ -177,11 +188,11 @@ async function makeCollectionSitemap(siteUrl: string): Promise<SitemapItem[]> {
           priority: 0.6,
         });
       }
-      // Tier-1 category×brand single-facet URLs (06.1). Brands are global, so the
-      // same brand set is emitted under each category — single value, no combos.
+      // Tier-1 category×brand single-facet URLs (06.1) — only for pairs that
+      // contain a product. Single value, no combos.
       const seenBrand = new Set<string>();
-      for (const brand of brandsRes.brands) {
-        const slug = brandFilterSlug(brand?.slug ?? "");
+      for (const brandSlug of perCategoryBrands[i] ?? []) {
+        const slug = brandFilterSlug(brandSlug);
         if (!slug || seenBrand.has(slug)) continue;
         seenBrand.add(slug);
         items.push({

@@ -19,6 +19,7 @@ import {
   DEFAULT_FILTER_VALUES,
 } from "@/components/headkit-ui/collection/utils";
 import { toAttributeKey } from "@/lib/color-attr-slug";
+import { brandSlugsPerCategory } from "@/lib/brand-facets";
 import {
   makeSeoMetadata,
   seoFallbackDescription,
@@ -314,15 +315,27 @@ export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
     }
 
     // Tier-1 category×brand params (06.1): one single-brand entry per category
-    // per brand. Brands are global (not exposed by getFilters), so emit the
-    // cross-product cats × brands — still linear, no combo blowup.
+    // per brand — but ONLY for pairs that actually contain a product. The
+    // per-category brand list rides along on the same `getFilters` call the
+    // colour facets above already made, so this costs no extra build-time read
+    // while removing the empty pairs of the old blind cross-product (9,499 of
+    // 10,000 on one measured store). `lib/brand-facets.ts` owns the rule and
+    // `app/sitemap.ts` calls the same helper, so the two cannot drift.
+    //
+    // Prerendering only: an un-emitted pair still routes and still 200s on
+    // demand, it just pays a cold render on first hit.
     try {
       // perPage capped at 100 — headkit/v2/brands 400s above 100 (REST max arg).
       const brandsRes = await sdk.brands.list({ perPage: 100 });
-      for (const node of nodes) {
+      const globalBrandSlugs = brandsRes.brands.map((b) => b?.slug ?? "");
+      const perCategoryBrands = brandSlugsPerCategory(
+        filterResults.map(({ filters }) => filters),
+        globalBrandSlugs,
+      );
+      for (const [i, { node }] of filterResults.entries()) {
         const seenBrand = new Set<string>();
-        for (const brand of brandsRes.brands) {
-          const slug = brandFilterSlug(brand?.slug ?? "");
+        for (const brandSlug of perCategoryBrands[i] ?? []) {
+          const slug = brandFilterSlug(brandSlug);
           if (!slug || seenBrand.has(slug)) continue;
           seenBrand.add(slug);
           paths.push({ slug: [...node.segments, "f", slug] });

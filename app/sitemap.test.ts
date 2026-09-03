@@ -534,3 +534,99 @@ describe("category color facet key", () => {
     });
   });
 });
+
+describe("category×brand facet emptiness", () => {
+  // The sitemap builds this family alongside generateStaticParams. If the two
+  // disagree the sitemap advertises URLs the build never prerendered, so the
+  // rule lives in lib/brand-facets.ts and both call it — this is the sitemap
+  // half of the same regression (report §7.1, §8).
+  const GLOBAL_BRANDS = {
+    brands: [
+      { slug: "shimano" },
+      { slug: "abus" },
+      { slug: "basil" },
+      { slug: "4iiii" },
+    ],
+  };
+
+  /** `{category, brand}` for every collection facet URL that carries a brand. */
+  async function brandFacets(): Promise<{ category: string; brand: string }[]> {
+    const entries = await sitemap();
+    return entries
+      .map((e) => new URL(e.url).pathname)
+      .filter((p) => p.startsWith("/collections/") && p.includes("/f/"))
+      .map((p) => {
+        const [base, facet] = p.split("/f/");
+        return {
+          category: base!.split("/").filter(Boolean).pop()!,
+          decoded: decodeFilterSlug(facet!),
+        };
+      })
+      .filter((e) => e.decoded.brands.length === 1)
+      .map((e) => ({ category: e.category, brand: e.decoded.brands[0]! }));
+  }
+
+  it("advertises only the brands a category actually stocks", async () => {
+    collectionsGetCategories.mockResolvedValue([
+      { slug: "suspension", children: [] },
+      { slug: "locks", children: [] },
+    ]);
+    brandsList.mockResolvedValue(GLOBAL_BRANDS);
+    collectionsGetFilters.mockImplementation((slug: string) =>
+      Promise.resolve({
+        attributes: [],
+        brands:
+          slug === "suspension"
+            ? [{ slug: "shimano", name: "Shimano", count: 12 }]
+            : [
+                { slug: "abus", name: "Abus", count: 3 },
+                { slug: "basil", name: "Basil", count: 1 },
+              ],
+      }),
+    );
+
+    const facets = await brandFacets();
+
+    expect(facets).toEqual([
+      { category: "suspension", brand: "shimano" },
+      { category: "locks", brand: "abus" },
+      { category: "locks", brand: "basil" },
+    ]);
+    // The blind cross-product would have been 2 × 4 = 8.
+    expect(facets).toHaveLength(3);
+    expect(facets.some((f) => f.brand === "4iiii")).toBe(false);
+  });
+
+  it("advertises nothing for a category that stocks no brand", async () => {
+    collectionsGetCategories.mockResolvedValue([
+      { slug: "bikes", children: [] },
+      { slug: "gift-cards", children: [] },
+    ]);
+    brandsList.mockResolvedValue(GLOBAL_BRANDS);
+    collectionsGetFilters.mockImplementation((slug: string) =>
+      Promise.resolve({
+        attributes: [],
+        brands: slug === "bikes" ? [{ slug: "shimano", count: 4 }] : [],
+      }),
+    );
+
+    await expect(brandFacets()).resolves.toEqual([
+      { category: "bikes", brand: "shimano" },
+    ]);
+  });
+
+  it("falls back to the global cross-product when NO category can report brands", async () => {
+    collectionsGetCategories.mockResolvedValue([
+      { slug: "bikes", children: [] },
+    ]);
+    brandsList.mockResolvedValue({
+      brands: [{ slug: "shimano" }, { slug: "abus" }],
+    });
+    collectionsGetFilters.mockResolvedValue({ attributes: [] });
+
+    await expect(brandFacets()).resolves.toEqual([
+      { category: "bikes", brand: "shimano" },
+      { category: "bikes", brand: "abus" },
+    ]);
+  });
+});
