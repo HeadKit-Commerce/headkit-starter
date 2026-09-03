@@ -84,6 +84,7 @@ const stubBranding: Branding = {
     italicFileUrl: "",
   },
   cornerStyle: "soft",
+  pdpGalleryLayout: "grid",
   iconLibrary: "hi2",
   showVariants: true,
   showSwatches: false,

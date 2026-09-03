@@ -123,6 +123,11 @@ interface Props {
    * add. Default off (branding.multiAddEnabled).
    */
   multiAddEnabled?: boolean;
+  /**
+   * Branding PDP gallery layout (`grid` | `thumbnails` | `carousel` | `stack`).
+   * Unknown / omitted values render today's masonry grid.
+   */
+  pdpGalleryLayout?: string;
 }
 
 const VARIABLE = "VARIABLE";
@@ -185,6 +190,7 @@ export function ProductDetail({
   stockSlot,
   stripeConfig,
   multiAddEnabled = false,
+  pdpGalleryLayout = "grid",
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -873,6 +879,7 @@ export function ProductDetail({
           isSale={isOnSale}
           isNew={product.isNew}
           badges={customBadges}
+          layout={pdpGalleryLayout}
         />
 
         {/* Right: product info */}

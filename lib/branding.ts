@@ -38,6 +38,16 @@ import { executeRequest, GetBrandingDocument } from "@headkit/sdk";
 import { env } from "@/lib/env";
 import { headkitTransportOpts } from "@/lib/headkit-transport";
 import { resolveBrandingAssets, type BrandingAssets } from "./branding-assets";
+import {
+  DEFAULT_PDP_GALLERY_LAYOUT,
+  resolvePdpGalleryLayout,
+} from "./pdp-gallery-layout";
+
+export {
+  DEFAULT_PDP_GALLERY_LAYOUT,
+  resolvePdpGalleryLayout,
+  type PdpGalleryLayout,
+} from "./pdp-gallery-layout";
 
 // ---------------------------------------------------------------------------
 // Types — mirror the dashboard-api schema (schema.graphqls)
@@ -67,6 +77,12 @@ export interface Branding {
   subheadingFont: BrandingFont;
   bodyFont: BrandingFont;
   cornerStyle: string;
+  /**
+   * PDP gallery composition. `grid` is today's masonry; `thumbnails` is
+   * hero + strip; `carousel` is one large image; `stack` is a lookbook
+   * column. Empty / unknown values coerce to `grid`.
+   */
+  pdpGalleryLayout: string;
   iconLibrary: string;
   /** Separate colourway cards on collections/carousels. Default true. */
   showVariants: boolean;
@@ -175,6 +191,7 @@ const DEFAULT_BUNDLE: BrandingBundle = {
     subheadingFont: EMPTY_FONT,
     bodyFont: EMPTY_FONT,
     cornerStyle: DEFAULT_CORNER_STYLE,
+    pdpGalleryLayout: DEFAULT_PDP_GALLERY_LAYOUT,
     iconLibrary: DEFAULT_ICON_LIBRARY,
     showVariants: DEFAULT_SHOW_VARIANTS,
     showSwatches: DEFAULT_SHOW_SWATCHES,
@@ -358,6 +375,7 @@ const BRANDING_QUERY = /* GraphQL */ `
       bodyFontFileUrl
       bodyFontItalicFileUrl
       cornerStyle
+      pdpGalleryLayout
       iconLibrary
       showVariants
       showSwatches
@@ -500,6 +518,19 @@ const PRODUCT_FEATURES_QUERY = /* GraphQL */ `
   }
 `;
 
+/**
+ * Isolated gallery-layout read so unknown-field failures on older
+ * dashboard-api do not discard branding via the main queries, and so a
+ * fallback to EXTENDED / COMPAT still overlays the merchant's choice.
+ */
+const PDP_GALLERY_LAYOUT_QUERY = /* GraphQL */ `
+  query StorefrontPdpGalleryLayout {
+    branding {
+      pdpGalleryLayout
+    }
+  }
+`;
+
 interface FlatBranding extends Partial<
   Omit<
     Branding,
@@ -617,6 +648,7 @@ function coerce(data: NonNullable<BrandingResponse["data"]>): BrandingBundle {
         b.bodyFontItalicFileUrl,
       ),
       cornerStyle: b.cornerStyle || DEFAULT_CORNER_STYLE,
+      pdpGalleryLayout: resolvePdpGalleryLayout(b.pdpGalleryLayout),
       iconLibrary: b.iconLibrary || DEFAULT_ICON_LIBRARY,
       // Defaults match dashboard-api when fields are unset / unknown.
       showVariants: b.showVariants !== false,
@@ -721,17 +753,22 @@ export async function getBranding(): Promise<BrandingBundle> {
   if (!endpoint || !token) return DEFAULT_BUNDLE;
 
   try {
-    const [bundle, checkoutType, productFeatures] = await Promise.all([
-      fetchBrandingBundle(endpoint, token),
-      fetchCheckoutType(endpoint, token),
-      fetchProductFeatures(endpoint, token),
-    ]);
+    const [bundle, checkoutType, productFeatures, pdpGalleryLayout] =
+      await Promise.all([
+        fetchBrandingBundle(endpoint, token),
+        fetchCheckoutType(endpoint, token),
+        fetchProductFeatures(endpoint, token),
+        fetchPdpGalleryLayout(endpoint, token),
+      ]);
 
     if (!bundle) return DEFAULT_BUNDLE;
 
-    const branding = productFeatures
-      ? { ...bundle.branding, ...productFeatures }
-      : bundle.branding;
+    const branding = {
+      ...(productFeatures
+        ? { ...bundle.branding, ...productFeatures }
+        : bundle.branding),
+      pdpGalleryLayout: pdpGalleryLayout ?? bundle.branding.pdpGalleryLayout,
+    };
 
     if (checkoutType === null) {
       return { ...bundle, branding };
@@ -845,6 +882,33 @@ async function fetchProductFeatures(
       defaultCollectionSort: resolveCollectionSort(b.defaultCollectionSort),
       multiAddEnabled: b.multiAddEnabled === true,
     };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Best-effort PDP gallery layout. Returns null when the field is missing or
+ * the request fails — callers keep the coerce default (`grid`).
+ */
+async function fetchPdpGalleryLayout(
+  endpoint: string,
+  token: string,
+): Promise<string | null> {
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: brandingRequestHeaders(token),
+      body: JSON.stringify({ query: PDP_GALLERY_LAYOUT_QUERY }),
+    });
+    if (!res.ok) return null;
+
+    const json = (await res.json()) as {
+      data?: { branding?: { pdpGalleryLayout?: string | null } | null } | null;
+    };
+    const raw = json.data?.branding?.pdpGalleryLayout;
+    if (raw === undefined || raw === null) return null;
+    return resolvePdpGalleryLayout(raw);
   } catch {
     return null;
   }

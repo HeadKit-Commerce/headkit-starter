@@ -652,6 +652,7 @@ export async function ProductPageContent({ params, searchParams }: Props) {
           stockSlot={stockSlot}
           stripeConfig={stripeConfig}
           multiAddEnabled={branding.multiAddEnabled}
+          pdpGalleryLayout={branding.pdpGalleryLayout}
         />
       </div>
 

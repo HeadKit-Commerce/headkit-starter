@@ -202,6 +202,7 @@ export default async function RootLayout({
       suppressHydrationWarning
       className={fonts.variableClassNames}
       {...themeAttrs}
+      data-pdp-gallery={branding.pdpGalleryLayout}
     >
       <head>
         <meta name="apple-mobile-web-app-title" content={siteName} />

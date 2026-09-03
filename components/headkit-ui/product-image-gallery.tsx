@@ -7,6 +7,12 @@ import { BadgeList } from "@/components/headkit-ui/badge-list";
 import type { CustomProductBadge } from "@/lib/product-badges";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Lightbox } from "@/components/ui/lightbox";
+import { ChevronLeftIcon, ChevronRightIcon } from "@/components/icon";
+import {
+  DEFAULT_PDP_GALLERY_LAYOUT,
+  resolvePdpGalleryLayout,
+  type PdpGalleryLayout,
+} from "@/lib/pdp-gallery-layout";
 
 interface GalleryImage {
   src: string;
@@ -18,6 +24,8 @@ interface Props {
   isSale?: boolean;
   isNew?: boolean;
   badges?: CustomProductBadge[];
+  /** Branding `pdpGalleryLayout`. Unknown values fall back to grid. */
+  layout?: string;
 }
 
 const FALLBACK_IMAGE_SRC = "/assets/HeadKit-Fallback.png";
@@ -28,8 +36,12 @@ export function ProductImageGallery({
   isSale = false,
   isNew = false,
   badges = [],
+  layout: rawLayout,
 }: Props) {
-  const [mobileIndex, setMobileIndex] = useState(0);
+  const layout: PdpGalleryLayout = resolvePdpGalleryLayout(
+    rawLayout ?? DEFAULT_PDP_GALLERY_LAYOUT,
+  );
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const touchStartX = useRef<number | null>(null);
   const touchDeltaX = useRef(0);
 
@@ -42,17 +54,17 @@ export function ProductImageGallery({
     ? images
     : [{ src: FALLBACK_IMAGE_SRC, alt: "No product image available" }];
 
-  // Reset mobile carousel when the image set changes (e.g. colourway swap).
+  // Reset selection when the image set changes (e.g. colourway swap).
   const galleryKey = galleryImages.map((img) => img.src).join("|");
   useEffect(() => {
-    setMobileIndex(0);
+    setSelectedIndex(0);
   }, [galleryKey]);
 
   const goTo = useCallback(
     (index: number) => {
       const len = galleryImages.length;
       if (len === 0) return;
-      setMobileIndex(((index % len) + len) % len);
+      setSelectedIndex(((index % len) + len) % len);
     },
     [galleryImages.length],
   );
@@ -74,12 +86,199 @@ export function ProductImageGallery({
     touchStartX.current = null;
     touchDeltaX.current = 0;
     if (galleryImages.length <= 1) return;
-    if (delta <= -SWIPE_THRESHOLD_PX) goTo(mobileIndex + 1);
-    else if (delta >= SWIPE_THRESHOLD_PX) goTo(mobileIndex - 1);
+    if (delta <= -SWIPE_THRESHOLD_PX) goTo(selectedIndex + 1);
+    else if (delta >= SWIPE_THRESHOLD_PX) goTo(selectedIndex - 1);
   };
 
+  const badgesOverlay = (
+    <div className="absolute left-2 top-2 z-10">
+      <BadgeList isSale={isSale} isNewIn={isNew} badges={badges} />
+    </div>
+  );
+
+  if (layout === "thumbnails") {
+    return (
+      <div data-pdp-gallery="thumbnails">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start">
+          <div
+            className="relative flex-1 overflow-hidden rounded-brand bg-white touch-pan-y"
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            onTouchCancel={onTouchEnd}
+          >
+            {badgesOverlay}
+            <Dialog>
+              <DialogTrigger className="block w-full appearance-none border-0 bg-transparent p-0 text-left">
+                <div className="relative aspect-square overflow-hidden bg-white md:aspect-[var(--pdp-gallery-hero-aspect,3/4)]">
+                  <Image
+                    src={
+                      galleryImages[selectedIndex]?.src ?? FALLBACK_IMAGE_SRC
+                    }
+                    alt={galleryImages[selectedIndex]?.alt || "Product image"}
+                    fill
+                    className="object-contain object-center"
+                    sizes="(min-width: 768px) 50vw, 100vw"
+                    priority
+                    fetchPriority="high"
+                    draggable={false}
+                  />
+                </div>
+              </DialogTrigger>
+              <Lightbox
+                images={galleryImages}
+                initialSelectedIndex={selectedIndex}
+              />
+            </Dialog>
+          </div>
+
+          {galleryImages.length > 1 ? (
+            <div
+              className="flex gap-2 overflow-x-auto md:w-[var(--pdp-gallery-thumb-size,4.5rem)] md:flex-col md:overflow-y-auto md:overflow-x-hidden"
+              role="listbox"
+              aria-label="Product images"
+            >
+              {galleryImages.map((item, index) => (
+                <button
+                  key={`${item.src}-${index}`}
+                  type="button"
+                  role="option"
+                  aria-selected={index === selectedIndex}
+                  aria-label={`View image ${index + 1}`}
+                  onClick={() => goTo(index)}
+                  className={cn(
+                    "relative aspect-square w-[var(--pdp-gallery-thumb-size,4.5rem)] shrink-0 overflow-hidden rounded-brand bg-white",
+                    index === selectedIndex
+                      ? "ring-2 ring-primary ring-offset-2"
+                      : "ring-1 ring-transparent hover:ring-gray-300",
+                  )}
+                >
+                  <Image
+                    src={item.src}
+                    alt={item.alt || "Product image"}
+                    fill
+                    className="object-cover object-center"
+                    sizes="72px"
+                    loading={index === 0 ? undefined : "lazy"}
+                  />
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  if (layout === "carousel") {
+    return (
+      <div
+        data-pdp-gallery="carousel"
+        className="relative overflow-hidden rounded-brand bg-white touch-pan-y"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchEnd}
+      >
+        {badgesOverlay}
+        <Dialog>
+          <DialogTrigger className="block w-full appearance-none border-0 bg-transparent p-0 text-left">
+            <div className="relative aspect-square overflow-hidden bg-white md:aspect-[var(--pdp-gallery-hero-aspect,1/1)]">
+              <Image
+                src={galleryImages[selectedIndex]?.src ?? FALLBACK_IMAGE_SRC}
+                alt={galleryImages[selectedIndex]?.alt || "Product image"}
+                fill
+                className="object-contain object-center"
+                sizes="(min-width: 768px) 50vw, 100vw"
+                priority
+                fetchPriority="high"
+                draggable={false}
+              />
+            </div>
+          </DialogTrigger>
+          <Lightbox
+            images={galleryImages}
+            initialSelectedIndex={selectedIndex}
+          />
+        </Dialog>
+
+        {galleryImages.length > 1 ? (
+          <>
+            <button
+              type="button"
+              aria-label="Previous image"
+              onClick={() => goTo(selectedIndex - 1)}
+              className="absolute left-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 text-primary shadow-sm hover:bg-white"
+            >
+              <ChevronLeftIcon className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              aria-label="Next image"
+              onClick={() => goTo(selectedIndex + 1)}
+              className="absolute right-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 text-primary shadow-sm hover:bg-white"
+            >
+              <ChevronRightIcon className="h-5 w-5" />
+            </button>
+            <div className="absolute bottom-1 left-1/2 flex -translate-x-1/2">
+              {galleryImages.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => goTo(i)}
+                  aria-label={`Go to image ${i + 1}`}
+                  className="flex h-6 w-6 cursor-pointer items-center justify-center"
+                >
+                  <span
+                    className={cn(
+                      "h-1.5 w-1.5 rounded-full transition-colors",
+                      i === selectedIndex
+                        ? "bg-black/70"
+                        : "bg-black/30 hover:bg-black/50",
+                    )}
+                  />
+                </button>
+              ))}
+            </div>
+          </>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (layout === "stack") {
+    return (
+      <div data-pdp-gallery="stack" className="flex flex-col gap-5">
+        {galleryImages.map((item, index) => (
+          <Dialog key={`${item.src}-${index}`}>
+            <DialogTrigger className="relative block w-full cursor-pointer appearance-none overflow-hidden rounded-brand border-0 bg-white p-0 text-left">
+              {index === 0 ? badgesOverlay : null}
+              <div className="relative aspect-square overflow-hidden">
+                <Image
+                  src={item.src}
+                  alt={item.alt || "Product image"}
+                  fill
+                  className={
+                    index === 0
+                      ? "object-contain object-center"
+                      : "object-cover object-top"
+                  }
+                  sizes="(min-width: 768px) 50vw, 100vw"
+                  priority={index === 0}
+                  fetchPriority={index === 0 ? "high" : "auto"}
+                  loading={index === 0 ? undefined : "lazy"}
+                />
+              </div>
+            </DialogTrigger>
+            <Lightbox images={galleryImages} initialSelectedIndex={index} />
+          </Dialog>
+        ))}
+      </div>
+    );
+  }
+
   return (
-    <div>
+    <div data-pdp-gallery="grid">
       {/* Desktop: masonry-style two-column grid.
           RC-3 perf notes:
           - Non-first images are loading="lazy": lazy images inside this
@@ -152,24 +351,29 @@ export function ProductImageGallery({
                   First slide contains; later slides cover from the top so
                   landscape lifestyle shots don't leave a bright floor band. */}
               <Image
-                src={galleryImages[mobileIndex]?.src ?? FALLBACK_IMAGE_SRC}
-                alt={galleryImages[mobileIndex]?.alt || "Product image"}
+                src={galleryImages[selectedIndex]?.src ?? FALLBACK_IMAGE_SRC}
+                alt={galleryImages[selectedIndex]?.alt || "Product image"}
                 fill
                 className={
-                  mobileIndex === 0
+                  selectedIndex === 0
                     ? "object-contain object-center"
                     : "object-cover object-top"
                 }
                 sizes={
-                  mobileIndex === 0 ? "(min-width: 768px) 50vw, 100vw" : "100vw"
+                  selectedIndex === 0
+                    ? "(min-width: 768px) 50vw, 100vw"
+                    : "100vw"
                 }
-                priority={mobileIndex === 0}
-                fetchPriority={mobileIndex === 0 ? "high" : "auto"}
+                priority={selectedIndex === 0}
+                fetchPriority={selectedIndex === 0 ? "high" : "auto"}
                 draggable={false}
               />
             </div>
           </DialogTrigger>
-          <Lightbox images={galleryImages} initialSelectedIndex={mobileIndex} />
+          <Lightbox
+            images={galleryImages}
+            initialSelectedIndex={selectedIndex}
+          />
         </Dialog>
 
         {galleryImages.length > 1 && (
@@ -178,14 +382,14 @@ export function ProductImageGallery({
               <button
                 key={i}
                 type="button"
-                onClick={() => setMobileIndex(i)}
+                onClick={() => setSelectedIndex(i)}
                 aria-label={`Go to image ${i + 1}`}
                 className="flex h-6 w-6 cursor-pointer items-center justify-center"
               >
                 <span
                   className={cn(
                     "h-1.5 w-1.5 rounded-full transition-colors",
-                    i === mobileIndex
+                    i === selectedIndex
                       ? "bg-black/70"
                       : "bg-black/30 hover:bg-black/50",
                   )}

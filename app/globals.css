@@ -9,6 +9,9 @@
   --color-text: #171717;
   --radius: 0.5rem;
   --radius-button: 0.375rem;
+  /* PDP gallery — overrides can retune per brand without a new layout mode. */
+  --pdp-gallery-hero-aspect: 3 / 4;
+  --pdp-gallery-thumb-size: 4.5rem;
   --font-heading: var(--font-slot-urbanist, var(--font-urbanist));
   --font-subheading: var(--font-slot-urbanist, var(--font-urbanist));
   --font-body: var(--font-slot-urbanist, var(--font-urbanist));
