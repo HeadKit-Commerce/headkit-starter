@@ -5,8 +5,10 @@ import { ElementType, useState } from "react";
 import { AutoplayVideo } from "@/components/headkit-ui/autoplay-video";
 import { Carousel } from "@/components/headkit-ui/carousel";
 import { InstantLink } from "@/components/headkit-ui/instant-link";
+import { TitleEmphasis } from "@/components/headkit-ui/title-emphasis";
 import { Button } from "@/components/ui/button";
 import type { HeroCarouselItem } from "@headkit/sdk";
+import { stripTitleMarkers } from "@/lib/title-emphasis";
 import { decodeHtmlEntities, cn } from "@/lib/utils";
 import {
   heroLayoutClasses,
@@ -70,7 +72,7 @@ export const MainCarousel = ({
                   <div className="mx-auto flex h-full items-center">
                     <div className="py-[20px] md:w-[400px] md:pl-[20px] lg:w-[600px] lg:pl-[100px]">
                       <HeaderTag className="text-[40px] leading-normal text-primary md:text-[48px] md:text-brand-bg!">
-                        {decodeHtmlEntities(slide?.header ?? "")}
+                        <TitleEmphasis text={slide?.header ?? ""} />
                       </HeaderTag>
                       {slide?.description ? (
                         <p className="mt-8 text-base font-semibold text-black md:text-3xl md:text-brand-bg!">
@@ -124,8 +126,11 @@ export const MainCarousel = ({
                   ) : slide?.image ? (
                     (() => {
                       const isLcp = index === 0;
+                      const headerAlt = stripTitleMarkers(
+                        decodeHtmlEntities(slide.header ?? ""),
+                      );
                       const desktop = {
-                        alt: slide.header,
+                        alt: headerAlt,
                         sizes: "100vw",
                         width: 1920,
                         height: 1080,
@@ -146,7 +151,7 @@ export const MainCarousel = ({
                       const {
                         props: { srcSet: mobileSrcSet, ...mobileRest },
                       } = getImageProps({
-                        alt: slide.header,
+                        alt: headerAlt,
                         sizes: "100vw",
                         width: 768,
                         height: 768,
@@ -169,7 +174,7 @@ export const MainCarousel = ({
                             <img
                               {...mobileRest}
                               srcSet={mobileSrcSet}
-                              alt={slide.header}
+                              alt={headerAlt}
                               className="h-full w-full object-cover"
                               width={768}
                               height={768}
