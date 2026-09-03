@@ -53,11 +53,17 @@ import { MainCarousel } from "@/components/headkit-ui/main-carousel";
 const slide = (header: string): HeroCarouselItem => ({
   id: "slide-1",
   header,
+  title: "",
   description: "Soft on one side.",
   url: "/shop",
   buttonText: "Shop now",
   image: "https://cdn.example.com/hero.jpg",
-  mobileImage: null,
+  mobileImage: "",
+  video: "",
+  mobileVideo: "",
+  startDate: "",
+  endDate: "",
+  textColor: "",
 });
 
 describe("MainCarousel title emphasis", () => {
