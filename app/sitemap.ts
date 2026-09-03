@@ -9,6 +9,7 @@ import {
   isColorAttrSlug,
   DEFAULT_FILTER_VALUES,
 } from "@/components/headkit-ui/collection/utils";
+import { toAttributeKey } from "@/lib/color-attr-slug";
 import { walkCategoryPaths } from "./shop/shop-slug";
 import { productPath } from "@/lib/canonical-path";
 import { getPostsBasePath, postsIndexPath } from "@/lib/posts-base-path";
@@ -50,12 +51,18 @@ const SITEMAP_TAGS = [
   TAG.branding,
 ] as const;
 
-/** Encode a single-color filter slug (`color.<c>`) consistent with the router. */
-function colorFilterSlug(color: string): string {
+/**
+ * Encode a single-color filter slug (`color.<c>`) consistent with the router.
+ * `attrSlug` is the store's own colour attribute slug from getFilters (prefix
+ * stripped, e.g. `colour`) — must match `app/collections/[...slug]/page.tsx`'s
+ * colorFilterSlug exactly, or the sitemap advertises URLs the collection route
+ * does not serve.
+ */
+function colorFilterSlug(attrSlug: string, color: string): string {
   if (!color) return "";
   return encodeFilterSlug({
     ...DEFAULT_FILTER_VALUES,
-    attributes: { pa_color: [color] },
+    attributes: { [toAttributeKey(attrSlug)]: [color] },
   });
 }
 
@@ -160,7 +167,7 @@ async function makeCollectionSitemap(siteUrl: string): Promise<SitemapItem[]> {
       for (const option of colorAttr?.options ?? []) {
         // colorFilterSlug yields exactly `color.<c>` for a single color, so the
         // emitted URL is `/collections/<path>/f/color.<c>` (Tier-1 only).
-        const slug = colorFilterSlug(option?.slug ?? "");
+        const slug = colorFilterSlug(colorAttr?.slug ?? "", option?.slug ?? "");
         if (!slug || seen.has(slug)) continue;
         seen.add(slug);
         items.push({

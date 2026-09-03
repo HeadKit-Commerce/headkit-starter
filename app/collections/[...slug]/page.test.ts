@@ -22,6 +22,8 @@ const { SITE_URL, bailout, BailoutSignal } = vi.hoisted(() => {
 
 const getCategory = vi.fn();
 const getFilters = vi.fn();
+const getCategories = vi.fn();
+const brandsList = vi.fn();
 const redirectedTo = vi.fn<(path: string) => void>();
 
 vi.mock("next/cache", () => ({
@@ -61,8 +63,9 @@ vi.mock("@/lib/sdk", () => ({
     collections: {
       getCategory: (slug: string): unknown => getCategory(slug),
       getFilters: (slug: string): unknown => getFilters(slug),
+      getCategories: (): unknown => getCategories(),
     },
-    brands: { list: (): Promise<unknown> => Promise.resolve({ brands: [] }) },
+    brands: { list: (): unknown => brandsList() },
   },
 }));
 
@@ -101,7 +104,8 @@ import {
   encodeFilterSlug,
 } from "@/components/headkit-ui/collection/utils";
 import { setRequestHost } from "@/lib/test-support/request-host";
-import Page, { generateMetadata } from "./page";
+import { decodeFilterSlug } from "@/components/headkit-ui/collection/utils";
+import Page, { generateMetadata, generateStaticParams } from "./page";
 
 /** A category that lives at /collections/parent/child, whatever URL asked for it. */
 function nestedCategory(): Record<string, unknown> {
@@ -155,11 +159,15 @@ beforeEach(() => {
   setRequestHost(new URL(SITE_URL).host);
   getCategory.mockReset();
   getFilters.mockReset();
+  getCategories.mockReset();
+  brandsList.mockReset();
   redirectedTo.mockReset();
   getCategory.mockResolvedValue(nestedCategory());
   getFilters.mockResolvedValue({
     attributes: [{ slug: "pa_color", options: [{ slug: "red", name: "Red" }] }],
   });
+  getCategories.mockResolvedValue([]);
+  brandsList.mockResolvedValue({ brands: [] });
 });
 
 describe("base collection canonical", () => {
@@ -329,5 +337,55 @@ describe("the flat collection shape 308s onto the nested one", () => {
     const canonical = await canonicalFor(["child"]);
 
     expect(canonical).toBe(`${SITE_URL}${target}`);
+  });
+});
+
+describe("generateStaticParams color facet key", () => {
+  // A store whose colour taxonomy is `pa_colour` (British spelling). Before
+  // the fix, colorFilterSlug hard-coded `pa_color`, so the emitted facet URL
+  // decoded to an attribute key the store's own taxonomy does not have and the
+  // gateway matched zero products (report §7.4).
+  function colorCategory(slug: string): Record<string, unknown> {
+    return { slug, children: [] };
+  }
+
+  it("emits a facet segment that decodes back to the store's own attribute slug (pa_colour)", async () => {
+    getCategories.mockResolvedValue([colorCategory("bikes")]);
+    getFilters.mockResolvedValue({
+      // SDK getFilters() returns the display slug with the `pa_` prefix
+      // stripped (see lib/color-attr-slug.ts) — not the raw taxonomy name.
+      attributes: [
+        { slug: "colour", options: [{ slug: "black", name: "Black" }] },
+      ],
+    });
+
+    const params = await generateStaticParams();
+    const facetParam = params.find((p) => p.slug.includes("f"));
+    expect(
+      facetParam,
+      "expected a category×color facet param to be emitted",
+    ).toBeDefined();
+    const facetSlug = facetParam!.slug[facetParam!.slug.length - 1]!;
+
+    const decoded = decodeFilterSlug(facetSlug);
+    expect(decoded.attributes).toEqual({ pa_colour: ["black"] });
+    expect(decoded.attributes).not.toHaveProperty("pa_color");
+  });
+
+  it("still emits pa_color correctly for a store spelled that way", async () => {
+    getCategories.mockResolvedValue([colorCategory("bikes")]);
+    getFilters.mockResolvedValue({
+      attributes: [
+        { slug: "color", options: [{ slug: "black", name: "Black" }] },
+      ],
+    });
+
+    const params = await generateStaticParams();
+    const facetParam = params.find((p) => p.slug.includes("f"));
+    expect(facetParam).toBeDefined();
+    const facetSlug = facetParam!.slug[facetParam!.slug.length - 1]!;
+
+    const decoded = decodeFilterSlug(facetSlug);
+    expect(decoded.attributes).toEqual({ pa_color: ["black"] });
   });
 });

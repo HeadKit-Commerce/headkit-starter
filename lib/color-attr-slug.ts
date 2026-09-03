@@ -14,6 +14,17 @@ export const COLOR_ATTR_SLUGS = [
   "colour",
 ] as const;
 
+/**
+ * Normalise an SDK attribute slug (prefix stripped, e.g. `colour`) into the
+ * `pa_`-prefixed key FilterValues.attributes / decodeFilterSlug use (e.g.
+ * `pa_colour`). encodeFilterSlug strips `pa_` again for the URL, so this only
+ * matters for the in-memory FilterValues key and the GraphQL filter built
+ * from it — never hard-code `pa_color` for a store's own attribute slug.
+ */
+export function toAttributeKey(sdkSlug: string): string {
+  return sdkSlug.startsWith("pa_") ? sdkSlug : `pa_${sdkSlug}`;
+}
+
 /** True if an attribute slug is a colour option, including 1-product bundles. */
 export function isColorAttrSlug(slug: string): boolean {
   const n = slug.trim().toLowerCase();

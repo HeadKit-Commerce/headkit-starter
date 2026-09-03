@@ -25,6 +25,9 @@ const menuGetMenus = vi.fn<(locations: string[]) => Promise<unknown>>();
 const contentGet = vi.fn<(slug: string, type: string) => Promise<unknown>>();
 const cacheLife = vi.fn<(profile: string) => void>();
 const cacheTag = vi.fn<(...tags: string[]) => void>();
+const collectionsGetCategories = vi.fn<() => Promise<unknown[]>>();
+const collectionsGetFilters = vi.fn<(slug: string) => Promise<unknown>>();
+const brandsList = vi.fn<() => Promise<unknown>>();
 
 vi.mock("server-only", () => ({}));
 
@@ -47,10 +50,11 @@ vi.mock("@/lib/sdk", () => ({
     // Every other section is emptied so the assertions below see only the
     // product sitemap.
     collections: {
-      getCategories: (): Promise<unknown[]> => Promise.resolve([]),
-      getFilters: (): Promise<unknown> => Promise.resolve({ attributes: [] }),
+      getCategories: (): Promise<unknown[]> => collectionsGetCategories(),
+      getFilters: (slug: string): Promise<unknown> =>
+        collectionsGetFilters(slug),
     },
-    brands: { list: (): Promise<unknown> => Promise.resolve({ brands: [] }) },
+    brands: { list: (): Promise<unknown> => brandsList() },
     posts: {
       list: (): Promise<unknown> => Promise.resolve({ posts: [] }),
       getLanding: (): Promise<null> => Promise.resolve(null),
@@ -70,6 +74,7 @@ vi.mock("@/lib/sdk", () => ({
 }));
 
 import { KNOWN_MENU_LOCATIONS } from "@/lib/cache-tags";
+import { decodeFilterSlug } from "@/components/headkit-ui/collection/utils";
 import sitemap from "./sitemap";
 import { uriToRelativePath } from "./shop/shop-slug";
 
@@ -118,10 +123,16 @@ beforeEach(() => {
   productsList.mockReset();
   menuGetMenus.mockReset();
   contentGet.mockReset();
+  collectionsGetCategories.mockReset();
+  collectionsGetFilters.mockReset();
+  brandsList.mockReset();
   // Default: no menus, so the WordPress-page section is empty and the
   // product assertions below see only product entries.
   menuGetMenus.mockResolvedValue([]);
   contentGet.mockResolvedValue(null);
+  collectionsGetCategories.mockResolvedValue([]);
+  collectionsGetFilters.mockResolvedValue({ attributes: [] });
+  brandsList.mockResolvedValue({ brands: [] });
   cacheLife.mockClear();
   cacheTag.mockClear();
 });
@@ -469,5 +480,57 @@ describe("WordPress page sitemap section", () => {
       pageUrls(),
       "a menu failure must not throw and fail the whole sitemap",
     ).resolves.toEqual([]);
+  });
+});
+
+describe("category color facet key", () => {
+  // Before the fix, the sitemap's colorFilterSlug hard-coded `pa_color`, so a
+  // store whose colour taxonomy is `pa_colour` advertised a facet URL that
+  // decoded to an attribute key its own taxonomy does not have (report §7.4).
+  async function collectionUrls(): Promise<string[]> {
+    const entries = await sitemap();
+    return entries
+      .map((e) => e.url)
+      .filter((u) => u.includes("/collections/") && u.includes("/f/"));
+  }
+
+  it("emits a facet URL keyed by the store's own attribute slug (pa_colour)", async () => {
+    collectionsGetCategories.mockResolvedValue([
+      { slug: "bikes", children: [] },
+    ]);
+    // SDK getFilters() returns the display slug with the `pa_` prefix
+    // stripped (see lib/color-attr-slug.ts) — not the raw taxonomy name.
+    collectionsGetFilters.mockResolvedValue({
+      attributes: [
+        { slug: "colour", options: [{ slug: "black", name: "Black" }] },
+      ],
+    });
+
+    const urls = await collectionUrls();
+    expect(urls).toHaveLength(1);
+    const facetSegment = new URL(urls[0]!).pathname.split("/f/")[1]!;
+
+    expect(decodeFilterSlug(facetSegment).attributes).toEqual({
+      pa_colour: ["black"],
+    });
+  });
+
+  it("still emits pa_color correctly for a store spelled that way", async () => {
+    collectionsGetCategories.mockResolvedValue([
+      { slug: "bikes", children: [] },
+    ]);
+    collectionsGetFilters.mockResolvedValue({
+      attributes: [
+        { slug: "color", options: [{ slug: "black", name: "Black" }] },
+      ],
+    });
+
+    const urls = await collectionUrls();
+    expect(urls).toHaveLength(1);
+    const facetSegment = new URL(urls[0]!).pathname.split("/f/")[1]!;
+
+    expect(decodeFilterSlug(facetSegment).attributes).toEqual({
+      pa_color: ["black"],
+    });
   });
 });

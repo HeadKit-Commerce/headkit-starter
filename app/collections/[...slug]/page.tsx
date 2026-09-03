@@ -18,6 +18,7 @@ import {
   formatOptionName,
   DEFAULT_FILTER_VALUES,
 } from "@/components/headkit-ui/collection/utils";
+import { toAttributeKey } from "@/lib/color-attr-slug";
 import {
   makeSeoMetadata,
   seoFallbackDescription,
@@ -240,13 +241,16 @@ async function CollectionProductsServer({
 
 /**
  * Encode a single-color filter slug (`color.<c>`) consistently with the URL
- * router via encodeFilterSlug. Returns "" for an empty color.
+ * router via encodeFilterSlug. `attrSlug` is the store's own colour attribute
+ * slug from getFilters (prefix stripped, e.g. `colour`) — never hard-code
+ * `pa_color`, a British-spelled (or otherwise non-`pa_color`) store's colour
+ * attribute would silently match zero products. Returns "" for an empty color.
  */
-function colorFilterSlug(color: string): string {
+function colorFilterSlug(attrSlug: string, color: string): string {
   if (!color) return "";
   return encodeFilterSlug({
     ...DEFAULT_FILTER_VALUES,
-    attributes: { pa_color: [color] },
+    attributes: { [toAttributeKey(attrSlug)]: [color] },
   });
 }
 
@@ -302,7 +306,7 @@ export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
       );
       const seen = new Set<string>();
       for (const option of colorAttr?.options ?? []) {
-        const slug = colorFilterSlug(option?.slug ?? "");
+        const slug = colorFilterSlug(colorAttr?.slug ?? "", option?.slug ?? "");
         if (!slug || seen.has(slug)) continue;
         seen.add(slug);
         paths.push({ slug: [...node.segments, "f", slug] });
