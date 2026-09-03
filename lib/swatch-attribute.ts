@@ -1,3 +1,5 @@
+import { isColorAttrSlug } from "@/lib/color-attr-slug";
+
 /**
  * Detect product attributes that should render as colour swatches.
  *
@@ -31,13 +33,9 @@ export function isSwatchAttribute(attr: SwatchAttributeLike): boolean {
   if (SWATCH_ATTRIBUTE_TYPES.has(type)) {
     return true;
   }
-  // Woo taxonomy slugs and Shopify option slugs (Color → "color").
-  if (
-    attr.slug === "pa_color" ||
-    attr.slug === "pa_colour" ||
-    attr.slug === "color" ||
-    attr.slug === "colour"
-  ) {
+  // Woo taxonomy slugs, Shopify Color/Colour, and 1-product bundle
+  // options like monogram-bath-towel-colour.
+  if (isColorAttrSlug(attr.slug)) {
     return true;
   }
   return (attr.fullOptions ?? []).some(

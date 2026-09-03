@@ -26,6 +26,18 @@ describe("isSwatchAttribute", () => {
     expect(isSwatchAttribute({ slug: "colour", type: "select" })).toBe(true);
   });
 
+  it("treats 1-product bundle option slugs as swatches", () => {
+    expect(
+      isSwatchAttribute({
+        slug: "monogram-bath-towel-colour",
+        type: "select",
+      }),
+    ).toBe(true);
+    expect(
+      isSwatchAttribute({ slug: "monogram-bath-sheet-colour", type: "" }),
+    ).toBe(true);
+  });
+
   it("falls back to term swatch colours when type is missing", () => {
     expect(
       isSwatchAttribute({

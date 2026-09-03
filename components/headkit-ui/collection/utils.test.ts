@@ -64,6 +64,14 @@ describe("isIndexableFacet (Tier-1 predicate)", () => {
     );
   });
 
+  it("does not treat 1-product bundle option slugs as collection color facets", () => {
+    expect(
+      isIndexableFacet(
+        fv({ attributes: { "monogram-bath-towel-colour": ["undergrowth"] } }),
+      ),
+    ).toBe(false);
+  });
+
   it("returns false for color + brand", () => {
     expect(
       isIndexableFacet(
@@ -169,6 +177,13 @@ describe("isColorAttrSlug (pa_ and stripped forms)", () => {
     expect(isColorAttrSlug("pa_size")).toBe(false);
     expect(isColorAttrSlug("size")).toBe(false);
     expect(isColorAttrSlug("")).toBe(false);
+    expect(isColorAttrSlug("colorway")).toBe(false);
+  });
+
+  it("recognises Shopify 1-product bundle option slugs ending in -colour", () => {
+    expect(isColorAttrSlug("monogram-bath-towel-colour")).toBe(true);
+    expect(isColorAttrSlug("monogram-bath-sheet-colour")).toBe(true);
+    expect(isColorAttrSlug("monogram-bath-towel-color")).toBe(true);
   });
 });
 

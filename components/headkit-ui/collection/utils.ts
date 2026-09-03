@@ -1,5 +1,8 @@
 import type { ProductListFilter, ProductCategoryDetail } from "@headkit/sdk";
+import { COLOR_ATTR_SLUGS, isColorAttrSlug } from "@/lib/color-attr-slug";
 import { decodeHtmlEntities } from "@/lib/utils";
+
+export { isColorAttrSlug };
 
 export const SortKey = {
   FEATURED: "FEATURED",
@@ -48,22 +51,6 @@ export const DEFAULT_FILTER_VALUES: FilterValues = {
   price_min: "",
   price_max: "",
 };
-
-/**
- * Attribute slugs treated as the indexable "color" facet (Tier-1).
- *
- * The URL/filter convention is `pa_color`/`pa_colour` (decodeFilterSlug re-adds
- * the `pa_` prefix; the backend ProductListFilter expects `pa_color`). But the
- * SDK's getFilters() returns DISPLAY attribute slugs with the prefix STRIPPED
- * (`color`/`colour`). Both forms must be recognised so the predicate works on
- * decoded filter values AND raw filter-option slugs.
- */
-const COLOR_ATTR_SLUGS = ["pa_color", "pa_colour", "color", "colour"] as const;
-
-/** True if an attribute slug is the color facet, in either pa_/stripped form. */
-export function isColorAttrSlug(slug: string): boolean {
-  return COLOR_ATTR_SLUGS.includes(slug as (typeof COLOR_ATTR_SLUGS)[number]);
-}
 
 /**
  * Tier-1 SEO predicate. Returns true ONLY for a "Nike-style" single-color
