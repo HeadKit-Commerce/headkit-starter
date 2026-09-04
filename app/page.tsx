@@ -24,6 +24,10 @@ import {
 import { collectionPathResolver } from "@/lib/collection-path";
 import { MainCarousel } from "@/components/headkit-ui/main-carousel";
 import { getStoreTheme } from "@/lib/store-theme";
+import {
+  HOMEPAGE_PENDING_HERO_CACHE_LIFE,
+  homepageHeroMediaPending,
+} from "@/lib/homepage-hero-media";
 import { BlockEditor } from "@/components/headkit-ui/block-editor";
 import { EditorialContent } from "@/components/headkit-ui/editorial-content";
 import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
@@ -112,9 +116,19 @@ export async function getHomepageData() {
     headkit.collections.list({ onSale: true }, 1, 8),
   ]);
 
+  const homepage =
+    homepageResult.status === "fulfilled" ? homepageResult.value : null;
+
+  // Shopify file_reference URLs resolve asynchronously and there is no
+  // files/update webhook. A copy-only hero fetched during that window
+  // must not pin under `days` or the blank media box stays until the
+  // next catalog edit or deploy.
+  if (homepageHeroMediaPending(homepage)) {
+    cacheLife(HOMEPAGE_PENDING_HERO_CACHE_LIFE);
+  }
+
   return {
-    homepage:
-      homepageResult.status === "fulfilled" ? homepageResult.value : null,
+    homepage,
     onSaleProducts:
       onSaleResult.status === "fulfilled"
         ? onSaleResult.value
@@ -128,6 +142,12 @@ export async function HomeContent() {
   cacheTag(...HOME_TAGS);
 
   const { homepage, onSaleProducts } = await getHomepageData();
+  // HomeContent is its own `'use cache'` entry wrapping the rendered
+  // carousel. Shorten this life too — an inner `minutes` data entry
+  // cannot evict an outer `days` prerender of the empty media box.
+  if (homepageHeroMediaPending(homepage)) {
+    cacheLife(HOMEPAGE_PENDING_HERO_CACHE_LIFE);
+  }
   const { branding } = await getBranding();
   const nonEmptySlugs = branding.hideEmptyCollections
     ? await getNonEmptyCollectionSlugs()

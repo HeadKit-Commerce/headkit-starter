@@ -7,7 +7,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * `homepage.get()` bundle. The primary tag is `route:home`; branding + collections
  * are also tagged because HomeContent reads hide-empty branding and may filter
  * featured categories. Both cached home fns (`getHomepageData` + `HomeContent`)
- * MUST carry the SAME tag union. Both use the finite `days` backstop.
+ * MUST carry the SAME tag union. Both use the finite `days` backstop
+ * unless a hero slide has copy but no media URLs — Shopify file
+ * processing is async and has no webhook, so that payload must not
+ * pin under `days`.
  *
  * `next/cache` is mocked to capture `cacheTag` / `cacheLife`; the SDK, UI
  * components and lib helpers are stubbed so the page module imports in node env.
@@ -149,6 +152,64 @@ describe("no legacy home tag / max life survives", () => {
     await HomeContent();
     expect(cacheTag.mock.calls.flat()).not.toContain("headkit:homepage");
     expect(cacheLife).not.toHaveBeenCalledWith("max");
+  });
+});
+
+const PENDING_HERO = {
+  carousels: [
+    {
+      header: "A new era of Towel",
+      title: "Soft on one side.",
+      buttonText: "Shop Velvet",
+      image: "",
+      mobileImage: "",
+      video: "",
+      mobileVideo: "",
+    },
+  ],
+};
+
+const READY_HERO = {
+  carousels: [
+    {
+      header: "A new era of Towel",
+      title: "Soft on one side.",
+      buttonText: "Shop Velvet",
+      image: "https://cdn.shopify.com/hero.jpg",
+      mobileImage: "",
+      video: "",
+      mobileVideo: "",
+    },
+  ],
+};
+
+describe("getHomepageData — pending hero media shortens cache life", () => {
+  it("overrides cacheLife to minutes when a slide has copy but no media", async () => {
+    homepageGet.mockResolvedValueOnce(PENDING_HERO);
+    await getHomepageData();
+    expect(cacheLife).toHaveBeenCalledWith("minutes");
+    expect(cacheLife.mock.calls.at(-1)?.[0]).toBe("minutes");
+  });
+
+  it("keeps cacheLife days once hero media URLs are present", async () => {
+    homepageGet.mockResolvedValueOnce(READY_HERO);
+    await getHomepageData();
+    expect(cacheLife).toHaveBeenCalledWith("days");
+    expect(cacheLife).not.toHaveBeenCalledWith("minutes");
+  });
+});
+
+describe("HomeContent — pending hero media shortens cache life", () => {
+  it("overrides its own cacheLife to minutes for an empty-media hero", async () => {
+    homepageGet.mockResolvedValue(PENDING_HERO);
+    await HomeContent();
+    // getHomepageData and HomeContent each shorten their own entry.
+    // Nested branding / collection-path helpers still call `days` after
+    // that — those are separate cache keys, not a later pin of Home.
+    const minutesCalls = cacheLife.mock.calls.filter(
+      ([profile]) => profile === "minutes",
+    );
+    expect(minutesCalls.length).toBeGreaterThanOrEqual(2);
   });
 });
 
