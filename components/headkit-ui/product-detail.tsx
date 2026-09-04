@@ -66,6 +66,7 @@ import { isBadgeTag, productBadgesFromTags } from "@/lib/product-badges";
 import { stripTitleMarkers } from "@/lib/title-emphasis";
 import { shopifyRichTextToHtml } from "@/lib/shopify-rich-text";
 import { getStoreTheme } from "@/lib/store-theme";
+import { distinctShortDescription } from "@/lib/product-excerpt";
 import { isColorAttrSlug } from "@/components/headkit-ui/collection/utils";
 import { buildEnquiryInitialValues } from "@/lib/enquiry-form-values";
 import {
@@ -872,6 +873,10 @@ export function ProductDetail({
   const hasSizeAttribute = variationAttributes.some((attr) =>
     isSizeAttrSlug(attr.slug),
   );
+  const buyBoxExcerpt = distinctShortDescription(
+    product.shortDescription,
+    product.description,
+  );
 
   return (
     <div className="headkit-product-detail">
@@ -891,14 +896,14 @@ export function ProductDetail({
             <TitleEmphasis text={product.name} highlight />
           </h1>
 
-          {product.shortDescription && (
+          {buyBoxExcerpt ? (
             <div
               className="mb-5 text-base leading-normal text-primary [&_p]:mb-3 [&_p:last-child]:mb-0"
               dangerouslySetInnerHTML={{
-                __html: formatWooRichText(product.shortDescription),
+                __html: formatWooRichText(buyBoxExcerpt),
               }}
             />
-          )}
+          ) : null}
 
           {!hasSizeAttribute && showSizeChartModal ? (
             <div className="mb-5">
