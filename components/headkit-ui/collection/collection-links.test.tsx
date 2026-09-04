@@ -78,6 +78,8 @@ describe("SubcategoryCard", () => {
       hrefs(markup),
       "a child category card knows only its slug, so the parent must hand down the ancestry — `/collections/hoodies` is the shape the route redirects",
     ).toEqual(["/collections/clothing/hoodies"]);
+    expect(markup).toContain("<h2");
+    expect(markup).not.toContain("<h3");
   });
 });
 
@@ -101,6 +103,8 @@ describe("CategoryCarousel", () => {
       hrefs(markup),
       "preferring the slug over the resolved path is what put every homepage category tile on the flat shape",
     ).toEqual(["/collections/clothing/hoodies"]);
+    expect(markup).toContain("<h2");
+    expect(markup).not.toContain("<h3");
   });
 
   it("falls back to the flat path when no caller resolved one", () => {

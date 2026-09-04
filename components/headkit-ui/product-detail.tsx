@@ -858,7 +858,7 @@ export function ProductDetail({
   const badgeAllowlist = storeTheme.catalog?.badgeTags;
   const sizeGuideHref = storeTheme.pdp?.sizeGuideHref;
   const sizeChartHtml = shopifyRichTextToHtml(product.sizeChart ?? "");
-  const showSizeChartModal = Boolean(sizeChartHtml) && !sizeGuideHref;
+  const showSizeChartModal = Boolean(sizeChartHtml) || Boolean(sizeGuideHref);
   const customBadges = productBadgesFromTags(product.tags, badgeAllowlist, {
     hideNew: Boolean(product.isNew),
     hideSale: isOnSale,
@@ -899,7 +899,10 @@ export function ProductDetail({
 
           {!hasSizeAttribute && showSizeChartModal ? (
             <div className="mb-5">
-              <SizeChartTrigger html={sizeChartHtml} />
+              <SizeChartTrigger
+                html={sizeChartHtml}
+                {...(sizeGuideHref ? { pageHref: sizeGuideHref } : {})}
+              />
             </div>
           ) : null}
 
@@ -922,7 +925,10 @@ export function ProductDetail({
                       </span>
                     )}
                     {isSizeAttrSlug(attr.slug) && showSizeChartModal ? (
-                      <SizeChartTrigger html={sizeChartHtml} />
+                      <SizeChartTrigger
+                        html={sizeChartHtml}
+                        {...(sizeGuideHref ? { pageHref: sizeGuideHref } : {})}
+                      />
                     ) : null}
                   </div>
                   <div className="flex flex-wrap gap-3">
@@ -1144,6 +1150,7 @@ export function ProductDetail({
               setTotal={setTotal}
               pieceCount={setPieceCount}
               showTotal={setPieceCount > 0}
+              {...(sizeChartHtml ? { sizeChartHtml } : {})}
               {...(sizeGuideHref ? { sizeGuideHref } : {})}
             />
           )}

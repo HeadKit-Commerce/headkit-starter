@@ -4,11 +4,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { ProductImageGallery } from "./product-image-gallery";
 
 vi.mock("next/image", () => ({
-  default: (props: { alt?: string; src?: string }) => (
+  default: (props: { alt?: string; src?: string; className?: string }) => (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       alt={props.alt ?? ""}
       src={typeof props.src === "string" ? props.src : ""}
+      className={props.className}
     />
   ),
 }));
@@ -103,4 +104,13 @@ describe("ProductImageGallery layouts", () => {
     const html = markup("masonry");
     expect(html).toContain('data-pdp-gallery="grid"');
   });
+
+  it.each(["grid", "thumbnails", "carousel", "stack"] as const)(
+    "covers the hero on desktop and mobile for %s",
+    (layout) => {
+      const html = markup(layout);
+      expect(html).toContain("object-cover object-center");
+      expect(html).not.toContain("object-contain");
+    },
+  );
 });

@@ -8,6 +8,9 @@ interface Props {
   className?: string;
 }
 
+const badgeClass =
+  "inline-flex h-6 w-fit shrink-0 items-center whitespace-nowrap rounded-brand px-2 text-center font-semibold uppercase";
+
 const BadgeList = ({ isSale, isNewIn, badges = [], className }: Props) => {
   const extras = badges.filter((badge) => {
     const key = badge.label.toLowerCase();
@@ -19,21 +22,27 @@ const BadgeList = ({ isSale, isNewIn, badges = [], className }: Props) => {
   if (!isSale && !isNewIn && extras.length === 0) return null;
 
   return (
-    <div className={cn("flex flex-col gap-2", className)}>
+    <div
+      className={cn("flex flex-row flex-wrap items-center gap-1", className)}
+    >
       {isNewIn && (
-        <span className="headkit-badge-new rounded-brand uppercase font-semibold text-center px-2 py-1 bg-lime-400 text-primary">
+        <span
+          className={`headkit-badge-new ${badgeClass} bg-lime-400 text-primary`}
+        >
           New
         </span>
       )}
       {isSale && (
-        <span className="headkit-badge-sale rounded-brand uppercase font-semibold text-center px-2 py-1 bg-pink-600 text-white">
+        <span
+          className={`headkit-badge-sale ${badgeClass} bg-pink-600 text-white`}
+        >
           Sale
         </span>
       )}
       {extras.map((badge) => (
         <span
           key={badge.slug}
-          className="headkit-badge-custom rounded-brand uppercase font-semibold text-center px-2 py-1 bg-primary text-on-primary"
+          className={`headkit-badge-custom ${badgeClass} bg-primary text-on-primary`}
         >
           {badge.label}
         </span>

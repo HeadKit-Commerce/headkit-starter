@@ -61,7 +61,7 @@ const CategoryCarousel = ({ categories }: Props) => {
               priority={false}
               className="aspect-video"
             />
-            <h3 className="pt-3 text-[17px] text-primary">{name}</h3>
+            <h2 className="pt-3 text-[17px] text-primary">{name}</h2>
           </InstantLink>
         );
       }}

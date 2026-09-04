@@ -53,9 +53,9 @@ export function SubcategoryCard({
         // Figma subcategory cards are landscape (~433×290 ≈ 3:2).
         className="aspect-[433/290] rounded-brand"
       />
-      <h3 className="pt-3 text-[17px] text-primary transition-opacity group-hover:opacity-80">
+      <h2 className="pt-3 text-[17px] text-primary transition-opacity group-hover:opacity-80">
         {name}
-      </h3>
+      </h2>
       {description ? (
         <p className="mt-1 line-clamp-2 text-sm text-gray-700">{description}</p>
       ) : null}

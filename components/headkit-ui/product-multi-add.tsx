@@ -4,8 +4,8 @@ import Image from "next/image";
 import type { MultiAddCompanion } from "@/lib/multi-add";
 import { resolveCompanionLineId } from "@/lib/multi-add";
 import { MinusIcon, PlusIcon } from "@/components/icon";
-import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { TitleEmphasis } from "@/components/headkit-ui/title-emphasis";
+import { SizeChartTrigger } from "@/components/headkit-ui/size-chart-trigger";
 import { stripTitleMarkers } from "@/lib/title-emphasis";
 import { decodeHtmlEntities, formatPrice, getFloatVal } from "@/lib/utils";
 
@@ -33,7 +33,9 @@ interface Props {
   setTotal: number;
   pieceCount: number;
   showTotal: boolean;
-  /** Internal Size Guide path; omitted when the store has no CMS page. */
+  /** Product or Shopify metafield size-chart HTML. */
+  sizeChartHtml?: string;
+  /** Internal Size Guide CMS path; opens the same modal as the PDP trigger. */
   sizeGuideHref?: string;
 }
 
@@ -95,6 +97,7 @@ export function ProductMultiAdd({
   setTotal,
   pieceCount,
   showTotal,
+  sizeChartHtml,
   sizeGuideHref,
 }: Props): React.JSX.Element {
   const heroMin = hero.minQuantity ?? 1;
@@ -103,14 +106,11 @@ export function ProductMultiAdd({
     <div className="mb-6 border-t border-gray-200 pt-5">
       <div className="headkit-complete-the-set-heading mb-3 flex items-center justify-between gap-3">
         <p className="font-semibold text-primary">Complete the set</p>
-        {sizeGuideHref ? (
-          <InstantLink
-            href={sizeGuideHref}
-            pendingVariant="text"
-            className="headkit-size-guide-link shrink-0 text-sm underline underline-offset-2 text-primary"
-          >
-            Size Guide
-          </InstantLink>
+        {sizeChartHtml || sizeGuideHref ? (
+          <SizeChartTrigger
+            html={sizeChartHtml ?? ""}
+            {...(sizeGuideHref ? { pageHref: sizeGuideHref } : {})}
+          />
         ) : null}
       </div>
       <ul className="flex flex-col gap-4">

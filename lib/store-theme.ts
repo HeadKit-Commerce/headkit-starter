@@ -21,9 +21,10 @@ export interface CatalogTheme {
 /** Optional PDP chrome owned by the customer theme. */
 export interface PdpTheme {
   /**
-   * Internal path for a Size Guide page (e.g. `/size-guide`).
-   * When set, Complete the Set shows a right-aligned link and the
-   * modal size-chart trigger is hidden so the two do not compete.
+   * Internal path for a Size Guide CMS page (e.g. `/size-guide`).
+   * The PDP opens that page's HTML in the size-guide modal. Direct
+   * visits to the path still render the full CMS page. Does not
+   * disable the modal when a product also has `sizeChart`.
    */
   sizeGuideHref?: string;
 }

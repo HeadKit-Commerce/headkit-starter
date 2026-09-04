@@ -48,7 +48,7 @@
           "minLength": 1,
           "maxLength": 256,
           "pattern": "^/(?!/)[A-Za-z0-9/_-]*$",
-          "description": "Internal Size Guide path shown right-aligned on the Complete the Set row (e.g. /size-guide)."
+          "description": "Internal Size Guide CMS path. PDP Size Guide controls open this page in a modal (e.g. /size-guide). Direct visits still render the page."
         }
       }
     },

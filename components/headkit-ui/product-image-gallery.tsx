@@ -121,7 +121,7 @@ export function ProductImageGallery({
               fill
               className={
                 selectedIndex === 0
-                  ? "object-contain object-center"
+                  ? "object-cover object-center"
                   : "object-cover object-top"
               }
               sizes={
@@ -182,7 +182,7 @@ export function ProductImageGallery({
                     }
                     alt={galleryImages[selectedIndex]?.alt || "Product image"}
                     fill
-                    className="object-contain object-center"
+                    className="object-cover object-center"
                     sizes="(min-width: 768px) 50vw, 100vw"
                     priority
                     fetchPriority="high"
@@ -254,7 +254,7 @@ export function ProductImageGallery({
                 src={galleryImages[selectedIndex]?.src ?? FALLBACK_IMAGE_SRC}
                 alt={galleryImages[selectedIndex]?.alt || "Product image"}
                 fill
-                className="object-contain object-center"
+                className="object-cover object-center"
                 sizes="(min-width: 768px) 50vw, 100vw"
                 priority
                 fetchPriority="high"
@@ -327,7 +327,7 @@ export function ProductImageGallery({
                     fill
                     className={
                       index === 0
-                        ? "object-contain object-center"
+                        ? "object-cover object-center"
                         : "object-cover object-top"
                     }
                     sizes="(min-width: 768px) 50vw, 100vw"
@@ -379,7 +379,7 @@ export function ProductImageGallery({
                   fill
                   className={
                     index === 0
-                      ? "object-contain object-center"
+                      ? "object-cover object-center"
                       : "object-cover object-top"
                   }
                   sizes={
