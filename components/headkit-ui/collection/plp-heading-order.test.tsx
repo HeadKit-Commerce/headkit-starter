@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
+vi.hoisted(() => {
+  process.env.NEXT_PUBLIC_HEADKIT_PUBLIC_KEY ??= "pk_test";
+  process.env.NEXT_PUBLIC_GRAPHQL_URL ??= "http://localhost:4000/graphql";
+  process.env.HEADKIT_PRIVATE_KEY ??= "sk_test";
+});
+
 /**
  * The PLP heading outline, read off the rendered page.
  *
@@ -172,6 +178,31 @@ describe("PLP heading order", () => {
       "Cast Iron Pan",
     ]);
     expect(cardHeadings(html, "h2")).toEqual([]);
+  });
+
+  it("applies highlight face only on wishlist h2 cards", () => {
+    // `titleAs` must stay in scope after the TitleTag alias — renaming the
+    // prop at destructure (`titleAs: TitleTag`) made `highlight={titleAs ===
+    // "h2"}` a TS2304 and a runtime ReferenceError. Wishlist is the only
+    // surface that passes `h2`.
+    const marked = product("3", "Monogram {Bath Sheet}");
+    const wishlist = renderToStaticMarkup(
+      <CatalogDisplayProvider prefs={PREFS}>
+        <ProductCard product={marked} titleAs="h2" />
+      </CatalogDisplayProvider>,
+    );
+    expect(wishlist).toContain("headkit-title-emphasis");
+    expect(wishlist).toContain("Bath Sheet");
+    expect(wishlist).not.toContain("{Bath Sheet}");
+
+    const plp = renderToStaticMarkup(
+      <CatalogDisplayProvider prefs={PREFS}>
+        <ProductCard product={marked} titleAs="h3" />
+      </CatalogDisplayProvider>,
+    );
+    expect(plp).not.toContain("headkit-title-emphasis");
+    expect(plp).toContain("Monogram Bath Sheet");
+    expect(plp).not.toContain("{");
   });
 
   it("keeps h3 for a card nested under a section heading (carousels)", () => {

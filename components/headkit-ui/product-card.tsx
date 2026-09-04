@@ -56,8 +56,9 @@ export const ProductCard = ({
   mobileCol = false,
   isNew = false,
   priority = false,
-  titleAs: TitleTag = "h3",
+  titleAs = "h3",
 }: Props) => {
+  const TitleTag = titleAs;
   const { showSwatches, imageRollover } = useCatalogDisplay();
   const lockedColour = product.colorwaySlug ?? null;
 
