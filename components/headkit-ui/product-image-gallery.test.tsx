@@ -88,6 +88,8 @@ describe("ProductImageGallery layouts", () => {
     expect(html).toContain("Next image");
     expect(html).toContain("Go to image 2");
     expect(html).toContain('data-icon="chevron-left"');
+    expect(html).not.toContain("rounded-full bg-white");
+    expect(html).not.toContain("bg-white/80");
   });
 
   it("renders a stacked lookbook on desktop and carousel on mobile", () => {

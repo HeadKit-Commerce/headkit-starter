@@ -33,9 +33,7 @@ interface Props {
   setTotal: number;
   pieceCount: number;
   showTotal: boolean;
-  /** Product or Shopify metafield size-chart HTML. */
-  sizeChartHtml?: string;
-  /** Internal Size Guide CMS path; opens the same modal as the PDP trigger. */
+  /** Theme `pdp.sizeGuideHref` — the one shopper Size Guide, as a modal. */
   sizeGuideHref?: string;
 }
 
@@ -97,7 +95,6 @@ export function ProductMultiAdd({
   setTotal,
   pieceCount,
   showTotal,
-  sizeChartHtml,
   sizeGuideHref,
 }: Props): React.JSX.Element {
   const heroMin = hero.minQuantity ?? 1;
@@ -106,12 +103,7 @@ export function ProductMultiAdd({
     <div className="mb-6 border-t border-gray-200 pt-5">
       <div className="headkit-complete-the-set-heading mb-3 flex items-center justify-between gap-3">
         <p className="font-semibold text-primary">Complete the set</p>
-        {sizeChartHtml || sizeGuideHref ? (
-          <SizeChartTrigger
-            html={sizeChartHtml ?? ""}
-            {...(sizeGuideHref ? { pageHref: sizeGuideHref } : {})}
-          />
-        ) : null}
+        {sizeGuideHref ? <SizeChartTrigger pageHref={sizeGuideHref} /> : null}
       </div>
       <ul className="flex flex-col gap-4">
         <li className="flex items-center gap-3">

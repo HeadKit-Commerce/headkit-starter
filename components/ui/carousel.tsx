@@ -2,7 +2,7 @@
 import { cn } from "@/lib/utils";
 import { useEffect, useState, useRef, ReactNode, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowLeftIcon, ArrowRightIcon } from "@/components/icon";
+import { ChevronLeftIcon, ChevronRightIcon } from "@/components/icon";
 
 interface CarouselProps<T> {
   items: T[];
@@ -273,11 +273,11 @@ const Carousel = <T,>({
           <Button
             variant="ghost"
             size="icon"
-            className="h-5 w-5 rounded-full hidden md:flex items-center justify-center"
+            className="h-5 w-5 rounded-none bg-transparent shadow-none hover:bg-transparent hidden md:flex items-center justify-center"
             disabled={!canScrollPrev}
             onClick={scrollToPrev}
           >
-            <ArrowLeftIcon
+            <ChevronLeftIcon
               className={cn(
                 "h-5 w-5 text-primary transition-opacity hover:opacity-70",
                 !canScrollPrev && "text-gray-300",
@@ -288,11 +288,11 @@ const Carousel = <T,>({
           <Button
             variant="ghost"
             size="icon"
-            className="h-5 w-5 hidden md:flex items-center justify-center"
+            className="h-5 w-5 rounded-none bg-transparent shadow-none hover:bg-transparent hidden md:flex items-center justify-center"
             disabled={!canScrollNext}
             onClick={scrollToNext}
           >
-            <ArrowRightIcon
+            <ChevronRightIcon
               className={cn(
                 "h-5 w-5 text-primary transition-opacity hover:opacity-70",
                 !canScrollNext && "text-gray-300",

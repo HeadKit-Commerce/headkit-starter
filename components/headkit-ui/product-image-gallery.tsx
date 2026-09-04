@@ -274,7 +274,7 @@ export function ProductImageGallery({
               type="button"
               aria-label="Previous image"
               onClick={() => goTo(selectedIndex - 1)}
-              className="absolute left-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 text-primary shadow-sm hover:bg-white"
+              className="absolute left-2 top-1/2 z-10 flex -translate-y-1/2 items-center justify-center bg-transparent text-primary"
             >
               <ChevronLeftIcon className="h-5 w-5" />
             </button>
@@ -282,7 +282,7 @@ export function ProductImageGallery({
               type="button"
               aria-label="Next image"
               onClick={() => goTo(selectedIndex + 1)}
-              className="absolute right-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 text-primary shadow-sm hover:bg-white"
+              className="absolute right-2 top-1/2 z-10 flex -translate-y-1/2 items-center justify-center bg-transparent text-primary"
             >
               <ChevronRightIcon className="h-5 w-5" />
             </button>

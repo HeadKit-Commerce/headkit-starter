@@ -371,7 +371,7 @@ const Carousel = <T,>({
           <Button
             variant="ghost"
             size="icon"
-            className="h-5 w-5 rounded-full hidden md:flex items-center justify-center"
+            className="h-5 w-5 rounded-none bg-transparent shadow-none hover:bg-transparent hidden md:flex items-center justify-center"
             disabled={!canScrollPrev}
             onClick={scrollToPrev}
           >
@@ -386,7 +386,7 @@ const Carousel = <T,>({
           <Button
             variant="ghost"
             size="icon"
-            className="h-5 w-5 hidden md:flex items-center justify-center"
+            className="h-5 w-5 rounded-none bg-transparent shadow-none hover:bg-transparent hidden md:flex items-center justify-center"
             disabled={!canScrollNext}
             onClick={scrollToNext}
           >

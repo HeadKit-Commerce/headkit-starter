@@ -27,10 +27,15 @@ describe("SizeChartTrigger", () => {
 
     expect(html).toContain('type="button"');
     expect(html).toContain("Size Guide");
-    expect(html).toContain("Loading size guide…");
+    expect(html).not.toContain("Loading size guide…");
     expect(html).not.toContain("Size guide is not available yet.");
     expect(html).not.toContain('href="/size-guide"');
     expect(html).not.toContain("<a ");
+  });
+
+  it("hides the trigger when no chart HTML and no Size Guide page are set", () => {
+    const html = renderToStaticMarkup(<SizeChartTrigger />);
+    expect(html).toBe("");
   });
 
   it("renders supplied chart HTML in the dialog", () => {
