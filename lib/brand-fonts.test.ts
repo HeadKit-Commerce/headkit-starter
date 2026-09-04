@@ -133,6 +133,38 @@ describe("resolveBrandFonts", () => {
     expect(resolved.fontFaceCss).not.toContain("latin-400-italic");
   });
 
+  it("ignores leftover italic settings on subheading and body", () => {
+    const resolved = resolveBrandFonts({
+      heading: {
+        source: "google",
+        family: "Inter",
+        googleSlug: "Inter",
+        fileUrl: "",
+        googleWeights: [400],
+      },
+      subheading: {
+        source: "google",
+        family: "Inter",
+        googleSlug: "Inter",
+        fileUrl: "",
+        googleWeights: [400],
+        googleItalic: true,
+      },
+      body: {
+        source: "upload",
+        family: "Brand Sans",
+        googleSlug: "",
+        fileUrl:
+          "https://storage.googleapis.com/headkit-storage/branding/regular.woff2",
+        italicFileUrl:
+          "https://storage.googleapis.com/headkit-storage/branding/italic.woff2",
+      },
+    });
+    expect(resolved.fontFaceCss).not.toContain("latin-400-italic");
+    expect(resolved.fontFaceCss).not.toContain("font-style:italic");
+    expect(resolved.fontFaceCss).not.toContain("italic.woff2");
+  });
+
   it("emits italic Fontsource faces when googleItalic is opted in", () => {
     const resolved = resolveBrandFonts({
       heading: {

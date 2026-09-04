@@ -334,7 +334,8 @@ export function resolveBrandFonts(input: {
     const curated = curatedBySlot[slot];
     if (!curated) return;
     const requested = normalizeGoogleWeights(slots[slot].googleWeights);
-    const italic = slots[slot].googleItalic === true;
+    // Highlight face is heading-only (H1/H2 `{ }` markers).
+    const italic = slot === "heading" && slots[slot].googleItalic === true;
     const existing = faces.get(curated.cssVar);
     if (existing) {
       for (const w of requested) existing.weights.add(w);
@@ -378,7 +379,7 @@ export function resolveBrandFonts(input: {
       fontFaceParts.push(
         `@font-face{font-family:${family};src:url(${JSON.stringify(srcUrl)})${format ? ` format(${JSON.stringify(format)})` : ""};font-weight:100 900;font-style:normal;font-display:swap;}`,
       );
-      if (font.italicFileUrl) {
+      if (slot === "heading" && font.italicFileUrl) {
         const italicSrc = toSameOriginBrandFontUrl(font.italicFileUrl);
         const italicFormat = fontFormat(font.italicFileUrl);
         fontFaceParts.push(

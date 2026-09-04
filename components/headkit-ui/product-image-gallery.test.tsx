@@ -67,12 +67,16 @@ describe("ProductImageGallery layouts", () => {
     expect(html).not.toContain('role="listbox"');
   });
 
-  it("renders hero + thumbnail strip", () => {
+  it("renders hero + thumbnail strip on desktop and carousel on mobile", () => {
     const html = markup("thumbnails");
     expect(html).toContain('data-pdp-gallery="thumbnails"');
     expect(html).toContain('role="listbox"');
     expect(html).toContain("View image 2");
     expect(html).toContain("md:aspect-[var(--pdp-gallery-hero-aspect,3/4)]");
+    expect(html).toContain("hidden flex-col gap-3 md:flex");
+    expect(html).toContain("md:hidden");
+    expect(html).toContain("Go to image 2");
+    expect(html).not.toContain("Previous image");
     expect(html).not.toContain("md:grid md:grid-cols-2");
   });
 
@@ -85,10 +89,12 @@ describe("ProductImageGallery layouts", () => {
     expect(html).toContain('data-icon="chevron-left"');
   });
 
-  it("renders a stacked lookbook column", () => {
+  it("renders a stacked lookbook on desktop and carousel on mobile", () => {
     const html = markup("stack");
     expect(html).toContain('data-pdp-gallery="stack"');
-    expect(html).toContain("flex flex-col gap-5");
+    expect(html).toContain("hidden flex-col gap-5 md:flex");
+    expect(html).toContain("md:hidden");
+    expect(html).toContain("Go to image 2");
     expect(html).not.toContain("Previous image");
     expect(html).not.toContain("md:grid md:grid-cols-2");
   });

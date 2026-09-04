@@ -885,7 +885,7 @@ export function ProductDetail({
         {/* Right: product info */}
         <div className="flex flex-col">
           <h1 className="mb-3 text-primary">
-            <TitleEmphasis text={product.name} />
+            <TitleEmphasis text={product.name} highlight />
           </h1>
 
           {product.shortDescription && (

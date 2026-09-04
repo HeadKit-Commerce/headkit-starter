@@ -1,7 +1,7 @@
 /**
- * Merchant title markers: `{Bath Sheet}` emphasises that span on catalog
- * surfaces. Braces are display-only — strip them from SEO, JSON-LD, alts,
- * and cart/checkout names.
+ * Merchant title markers: `{Bath Sheet}` uses the heading highlight face
+ * on H1 / H2 only. Braces are display-only — strip them from every other
+ * surface, plus SEO, JSON-LD, alts, and cart/checkout names.
  */
 
 export interface TitlePart {

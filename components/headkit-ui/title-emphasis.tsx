@@ -1,14 +1,26 @@
 import { Fragment } from "react";
-import { parseTitleEmphasis } from "@/lib/title-emphasis";
+import { parseTitleEmphasis, stripTitleMarkers } from "@/lib/title-emphasis";
 import { decodeHtmlEntities } from "@/lib/utils";
 
 interface Props {
   text: string;
+  /**
+   * `{ }` highlight face is reserved for heading font (H1 / H2).
+   * Other surfaces strip the markers and render plain text.
+   */
+  highlight?: boolean;
 }
 
-/** Render a product title with `{…}` spans italicised (see globals.css). */
-export function TitleEmphasis({ text }: Props): React.JSX.Element {
-  const parts = parseTitleEmphasis(decodeHtmlEntities(text));
+/** Render `{…}` as the heading highlight face, or strip markers elsewhere. */
+export function TitleEmphasis({
+  text,
+  highlight = false,
+}: Props): React.JSX.Element {
+  const decoded = decodeHtmlEntities(text);
+  if (!highlight) {
+    return <>{stripTitleMarkers(decoded)}</>;
+  }
+  const parts = parseTitleEmphasis(decoded);
   return (
     <>
       {parts.map((part, i) =>

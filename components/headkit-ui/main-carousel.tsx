@@ -72,7 +72,7 @@ export const MainCarousel = ({
                   <div className="mx-auto flex h-full items-center">
                     <div className="py-[20px] md:w-[400px] md:pl-[20px] lg:w-[600px] lg:pl-[100px]">
                       <HeaderTag className="text-[40px] leading-normal text-primary md:text-[48px] md:text-brand-bg!">
-                        <TitleEmphasis text={slide?.header ?? ""} />
+                        <TitleEmphasis text={slide?.header ?? ""} highlight />
                       </HeaderTag>
                       {slide?.description ? (
                         <p className="mt-8 text-base font-semibold text-black md:text-3xl md:text-brand-bg!">

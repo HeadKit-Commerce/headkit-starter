@@ -257,7 +257,7 @@
   }
 }
 
-/* `{Bath Sheet}` title marker — italic by default; stores override colour/weight. */
+/* `{Bath Sheet}` heading highlight — H1/H2 only; italic by default. */
 .headkit-title-emphasis {
   font-style: italic;
   font-synthesis: style;

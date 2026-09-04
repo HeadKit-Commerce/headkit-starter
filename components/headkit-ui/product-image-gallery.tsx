@@ -96,10 +96,75 @@ export function ProductImageGallery({
     </div>
   );
 
+  // Every layout keeps the swipe carousel below `md`. Desktop chrome
+  // (masonry / thumbs / stack) is `hidden md:*` so phones never download
+  // those extra images — same first-src/sizes as this carousel so the
+  // priority preload still dedupes.
+  const mobileCarousel = (
+    <div
+      className="relative overflow-hidden rounded-brand bg-white md:hidden touch-pan-y"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchEnd}
+    >
+      <div className="absolute left-2 top-2 z-10">
+        <BadgeList isSale={isSale} isNewIn={isNew} badges={badges} />
+      </div>
+
+      <Dialog>
+        <DialogTrigger className="block w-full appearance-none border-0 bg-transparent p-0 text-left">
+          <div className="relative aspect-square overflow-hidden bg-white">
+            <Image
+              src={galleryImages[selectedIndex]?.src ?? FALLBACK_IMAGE_SRC}
+              alt={galleryImages[selectedIndex]?.alt || "Product image"}
+              fill
+              className={
+                selectedIndex === 0
+                  ? "object-contain object-center"
+                  : "object-cover object-top"
+              }
+              sizes={
+                selectedIndex === 0 ? "(min-width: 768px) 50vw, 100vw" : "100vw"
+              }
+              priority={selectedIndex === 0}
+              fetchPriority={selectedIndex === 0 ? "high" : "auto"}
+              draggable={false}
+            />
+          </div>
+        </DialogTrigger>
+        <Lightbox images={galleryImages} initialSelectedIndex={selectedIndex} />
+      </Dialog>
+
+      {galleryImages.length > 1 ? (
+        <div className="absolute bottom-1 left-1/2 flex -translate-x-1/2">
+          {galleryImages.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => goTo(i)}
+              aria-label={`Go to image ${i + 1}`}
+              className="flex h-6 w-6 cursor-pointer items-center justify-center"
+            >
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full transition-colors",
+                  i === selectedIndex
+                    ? "bg-black/70"
+                    : "bg-black/30 hover:bg-black/50",
+                )}
+              />
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+
   if (layout === "thumbnails") {
     return (
       <div data-pdp-gallery="thumbnails">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start">
+        <div className="hidden flex-col gap-3 md:flex md:flex-row md:items-start">
           <div
             className="relative flex-1 overflow-hidden rounded-brand bg-white touch-pan-y"
             onTouchStart={onTouchStart}
@@ -166,6 +231,7 @@ export function ProductImageGallery({
             </div>
           ) : null}
         </div>
+        {mobileCarousel}
       </div>
     );
   }
@@ -248,31 +314,34 @@ export function ProductImageGallery({
 
   if (layout === "stack") {
     return (
-      <div data-pdp-gallery="stack" className="flex flex-col gap-5">
-        {galleryImages.map((item, index) => (
-          <Dialog key={`${item.src}-${index}`}>
-            <DialogTrigger className="relative block w-full cursor-pointer appearance-none overflow-hidden rounded-brand border-0 bg-white p-0 text-left">
-              {index === 0 ? badgesOverlay : null}
-              <div className="relative aspect-square overflow-hidden">
-                <Image
-                  src={item.src}
-                  alt={item.alt || "Product image"}
-                  fill
-                  className={
-                    index === 0
-                      ? "object-contain object-center"
-                      : "object-cover object-top"
-                  }
-                  sizes="(min-width: 768px) 50vw, 100vw"
-                  priority={index === 0}
-                  fetchPriority={index === 0 ? "high" : "auto"}
-                  loading={index === 0 ? undefined : "lazy"}
-                />
-              </div>
-            </DialogTrigger>
-            <Lightbox images={galleryImages} initialSelectedIndex={index} />
-          </Dialog>
-        ))}
+      <div data-pdp-gallery="stack">
+        <div className="hidden flex-col gap-5 md:flex">
+          {galleryImages.map((item, index) => (
+            <Dialog key={`${item.src}-${index}`}>
+              <DialogTrigger className="relative block w-full cursor-pointer appearance-none overflow-hidden rounded-brand border-0 bg-white p-0 text-left">
+                {index === 0 ? badgesOverlay : null}
+                <div className="relative aspect-square overflow-hidden">
+                  <Image
+                    src={item.src}
+                    alt={item.alt || "Product image"}
+                    fill
+                    className={
+                      index === 0
+                        ? "object-contain object-center"
+                        : "object-cover object-top"
+                    }
+                    sizes="(min-width: 768px) 50vw, 100vw"
+                    priority={index === 0}
+                    fetchPriority={index === 0 ? "high" : "auto"}
+                    loading={index === 0 ? undefined : "lazy"}
+                  />
+                </div>
+              </DialogTrigger>
+              <Lightbox images={galleryImages} initialSelectedIndex={index} />
+            </Dialog>
+          ))}
+        </div>
+        {mobileCarousel}
       </div>
     );
   }
@@ -329,76 +398,7 @@ export function ProductImageGallery({
         ))}
       </div>
 
-      {/* Mobile: touch-swipe carousel (no arrow controls) */}
-      <div
-        className="relative block overflow-hidden rounded-brand bg-white md:hidden touch-pan-y"
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-        onTouchCancel={onTouchEnd}
-      >
-        <div className="absolute left-2 top-2 z-10">
-          <BadgeList isSale={isSale} isNewIn={isNew} badges={badges} />
-        </div>
-
-        <Dialog>
-          {/* `block p-0` kills UA button padding/baseline gap that otherwise
-              shows as a white strip under cover slides on mobile Safari. */}
-          <DialogTrigger className="block w-full appearance-none border-0 bg-transparent p-0 text-left">
-            <div className="relative aspect-square overflow-hidden bg-white">
-              {/* First image mirrors the desktop hero's sizes so the two
-                  priority preloads/fetches dedupe into one (RC-3).
-                  First slide contains; later slides cover from the top so
-                  landscape lifestyle shots don't leave a bright floor band. */}
-              <Image
-                src={galleryImages[selectedIndex]?.src ?? FALLBACK_IMAGE_SRC}
-                alt={galleryImages[selectedIndex]?.alt || "Product image"}
-                fill
-                className={
-                  selectedIndex === 0
-                    ? "object-contain object-center"
-                    : "object-cover object-top"
-                }
-                sizes={
-                  selectedIndex === 0
-                    ? "(min-width: 768px) 50vw, 100vw"
-                    : "100vw"
-                }
-                priority={selectedIndex === 0}
-                fetchPriority={selectedIndex === 0 ? "high" : "auto"}
-                draggable={false}
-              />
-            </div>
-          </DialogTrigger>
-          <Lightbox
-            images={galleryImages}
-            initialSelectedIndex={selectedIndex}
-          />
-        </Dialog>
-
-        {galleryImages.length > 1 && (
-          <div className="absolute bottom-1 left-1/2 flex -translate-x-1/2">
-            {galleryImages.map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => setSelectedIndex(i)}
-                aria-label={`Go to image ${i + 1}`}
-                className="flex h-6 w-6 cursor-pointer items-center justify-center"
-              >
-                <span
-                  className={cn(
-                    "h-1.5 w-1.5 rounded-full transition-colors",
-                    i === selectedIndex
-                      ? "bg-black/70"
-                      : "bg-black/30 hover:bg-black/50",
-                  )}
-                />
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      {mobileCarousel}
     </div>
   );
 }

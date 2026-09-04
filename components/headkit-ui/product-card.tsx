@@ -218,7 +218,10 @@ export const ProductCard = ({
                   dark && "text-white",
                 )}
               >
-                <TitleEmphasis text={product?.name ?? ""} />
+                <TitleEmphasis
+                  text={product?.name ?? ""}
+                  highlight={titleAs === "h2"}
+                />
               </TitleTag>
             </InstantLink>
             <div className="flex min-w-0 flex-wrap items-center gap-2 py-1.5">

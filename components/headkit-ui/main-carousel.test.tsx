@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 
 /**
  * Shopify / CMS hero titles use the same `{Towel}` markers as product names.
- * The heading must run them through TitleEmphasis — braces are display-only.
+ * The heading (H1/H2) must run them through TitleEmphasis with highlight.
  */
 
 vi.mock("next/image", () => ({
