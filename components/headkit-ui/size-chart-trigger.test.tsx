@@ -28,6 +28,7 @@ describe("SizeChartTrigger", () => {
     expect(html).toContain('type="button"');
     expect(html).toContain("Size Guide");
     expect(html).toContain("Loading size guide…");
+    expect(html).not.toContain("Size guide is not available yet.");
     expect(html).not.toContain('href="/size-guide"');
     expect(html).not.toContain("<a ");
   });

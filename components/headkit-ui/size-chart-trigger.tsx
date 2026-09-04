@@ -5,6 +5,12 @@ import { formatWooRichText } from "@/lib/utils";
 import { shopifyRichTextToHtml } from "@/lib/shopify-rich-text";
 import { getSizeGuidePageHtml } from "@/lib/size-guide-actions";
 import {
+  SIZE_GUIDE_EMPTY_COPY,
+  SIZE_GUIDE_LOADING_COPY,
+  sizeGuideDialogKind,
+  type SizeGuideFetchState,
+} from "@/lib/size-guide-modal";
+import {
   Dialog,
   DialogContent,
   DialogTitle,
@@ -25,17 +31,30 @@ export function SizeChartTrigger({
   label = "Size Guide",
 }: Props): React.JSX.Element | null {
   const [remoteHtml, setRemoteHtml] = useState("");
+  const [fetchState, setFetchState] = useState<SizeGuideFetchState>(
+    html.trim() === "" && pageHref ? "loading" : "idle",
+  );
 
   useEffect(() => {
     if (html.trim() !== "" || !pageHref) {
+      setFetchState("idle");
       return;
     }
     let cancelled = false;
-    void getSizeGuidePageHtml(pageHref).then((body) => {
-      if (!cancelled) {
-        setRemoteHtml(body);
-      }
-    });
+    setFetchState("loading");
+    void getSizeGuidePageHtml(pageHref)
+      .then((body) => {
+        if (!cancelled) {
+          setRemoteHtml(body);
+          setFetchState("done");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRemoteHtml("");
+          setFetchState("done");
+        }
+      });
     return () => {
       cancelled = true;
     };
@@ -46,6 +65,11 @@ export function SizeChartTrigger({
   if (!body && !pageHref) {
     return null;
   }
+  const kind = sizeGuideDialogKind({
+    formattedHtml: body,
+    ...(pageHref ? { pageHref } : {}),
+    fetchState,
+  });
 
   return (
     <Dialog>
@@ -61,13 +85,17 @@ export function SizeChartTrigger({
         <DialogTitle className="mb-4 text-lg font-semibold text-primary">
           {label}
         </DialogTitle>
-        {body ? (
+        {kind === "html" ? (
           <div
             className="headkit-size-chart-body prose prose-sm max-w-none text-primary [&_table]:w-full [&_td]:border [&_td]:border-primary/20 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-primary/20 [&_th]:px-2 [&_th]:py-1"
             dangerouslySetInnerHTML={{ __html: body }}
           />
         ) : (
-          <p className="text-sm text-gray-600">Loading size guide…</p>
+          <p className="text-sm text-gray-600">
+            {kind === "loading"
+              ? SIZE_GUIDE_LOADING_COPY
+              : SIZE_GUIDE_EMPTY_COPY}
+          </p>
         )}
       </DialogContent>
     </Dialog>
