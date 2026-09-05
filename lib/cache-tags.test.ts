@@ -48,6 +48,7 @@ describe("TAG builders emit the D2 taxonomy strings", () => {
     expect(TAG.route("shop")).toBe("headkit:route:shop");
     expect(TAG.route("sale")).toBe("headkit:route:sale");
     expect(TAG.route("new")).toBe("headkit:route:new");
+    expect(TAG.route("featured")).toBe("headkit:route:featured");
     expect(TAG.catalog).toBe("headkit:catalog");
     expect(TAG.settings).toBe("headkit:settings");
   });

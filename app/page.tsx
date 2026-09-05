@@ -28,6 +28,7 @@ import {
   HOMEPAGE_PENDING_HERO_CACHE_LIFE,
   homepageHeroMediaPending,
 } from "@/lib/homepage-hero-media";
+import { shouldShowHomepageFeaturedProducts } from "@/lib/homepage-featured";
 import { BlockEditor } from "@/components/headkit-ui/block-editor";
 import { EditorialContent } from "@/components/headkit-ui/editorial-content";
 import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
@@ -200,26 +201,14 @@ export async function HomeContent() {
   const showHardcodedHero =
     !hasEditorSectionClass(editorBlocks, "headkit-hero-carousel") &&
     carousels.length > 0;
+  const featuredProducts = (homepage?.featuredProducts ?? []) as Product[];
+  const showHardcodedFeatured = shouldShowHomepageFeaturedProducts({
+    featuredProducts,
+    editorBlocks,
+  });
 
   const heroLayout = getStoreTheme().layout.heroLayout;
 
-  // The hardcoded "Featured Products" carousel USED TO RENDER HERE, together
-  // with a <CarouselProductJsonLD> describing it. Both are gone: merchants
-  // choose their own product sections from the CMS now, and unlike the three
-  // hardcoded blocks below this one carried no WP-duplication guard, so on any
-  // store whose WP front page includes a product carousel it re-advertised
-  // products the shopper had already scrolled past.
-  //
-  // The JSON-LD went WITH it rather than being left behind. It was an ItemList
-  // of exactly the products that carousel showed and had no other input, so
-  // keeping it would leave the page publishing structured data for a carousel
-  // that is not on the page — the mismatch between markup and visible content
-  // that Google's structured-data policy calls out, and a worse outcome than
-  // having no ItemList. The COMPONENT stays; only this call site is removed.
-  //
-  // `/featured` still exists as a route and is still in the sitemap; whether it
-  // should survive as a standalone landing page without a homepage entry point
-  // is a separate call and is deliberately not made here.
   return (
     <>
       {showHardcodedHero && (
@@ -242,6 +231,25 @@ export async function HomeContent() {
       })}
 
       {/* Platform commerce modules (not WP page blocks) */}
+
+      {/* Featured Products — skipped when WP already provides a product carousel */}
+      {showHardcodedFeatured && (
+        <section className="headkit-product-carousel overflow-x-clip py-10">
+          <SectionHeader
+            title="Featured Products"
+            description=""
+            allButton="View All"
+            allButtonPath="/featured"
+            className="px-5 md:px-10"
+          />
+          <div className="mt-8">
+            <ProductCarousel
+              products={featuredProducts.slice(0, 12)}
+              id="featured-products"
+            />
+          </div>
+        </section>
+      )}
 
       {/* On Sale — skipped when WP already provides a product-on-sale carousel */}
       {showHardcodedSale && (

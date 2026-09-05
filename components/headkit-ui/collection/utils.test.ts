@@ -469,4 +469,11 @@ describe("buildProductListFilter defaultSort", () => {
     expect(filter.search).toBe("hoodie");
     expect(filter.orderby).toBeUndefined();
   });
+
+  it("maps featured: true onto ProductListFilter", () => {
+    const filter = buildProductListFilter(fv({}), { featured: true });
+    expect(filter.featured).toBe(true);
+    expect(filter.onSale).toBeUndefined();
+    expect(filter.isNew).toBeUndefined();
+  });
 });

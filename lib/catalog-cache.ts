@@ -8,7 +8,7 @@ export type CatalogScope =
   | { kind: "shop" }
   | { kind: "category"; slug: string }
   | { kind: "brand"; slug: string }
-  | { kind: "route"; route: "sale" | "new" };
+  | { kind: "route"; route: "sale" | "new" | "featured" };
 
 /**
  * Durable remote catalog page — shared by PLP RSC pages and Server Actions so
@@ -92,6 +92,9 @@ export function scopeFromFilter(
   }
   if (filter?.isNew) {
     return { kind: "route", route: "new" };
+  }
+  if (filter?.featured) {
+    return { kind: "route", route: "featured" };
   }
   return { kind: "shop" };
 }

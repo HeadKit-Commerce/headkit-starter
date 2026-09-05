@@ -73,7 +73,8 @@ export const TAG = {
   /** Store email marketing (Klaviyo / HubSpot) connection status — layout chrome. */
   emailMarketing: "headkit:email-marketing",
   // route / synthetic-landing (filter pages have no collection entity)
-  route: (r: "home" | "shop" | "sale" | "new"): string => `headkit:route:${r}`,
+  route: (r: "home" | "shop" | "sale" | "new" | "featured"): string =>
+    `headkit:route:${r}`,
   // global
   catalog: "headkit:catalog",
   settings: "headkit:settings",

@@ -32,7 +32,7 @@ describe("scopeFromFilter", () => {
     });
   });
 
-  it("maps onSale / isNew to route scopes", () => {
+  it("maps onSale / isNew / featured to route scopes", () => {
     expect(scopeFromFilter({ onSale: true })).toEqual({
       kind: "route",
       route: "sale",
@@ -40,6 +40,10 @@ describe("scopeFromFilter", () => {
     expect(scopeFromFilter({ isNew: true })).toEqual({
       kind: "route",
       route: "new",
+    });
+    expect(scopeFromFilter({ featured: true })).toEqual({
+      kind: "route",
+      route: "featured",
     });
   });
 

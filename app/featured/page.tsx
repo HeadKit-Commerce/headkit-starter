@@ -2,16 +2,15 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
-import { TAG } from "@/lib/cache-tags";
 import { CollectionHeader } from "@/components/headkit-ui/collection/collection-header";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
 import {
   buildProductListFilter,
-  normalizeFilterKey,
   parseSearchParams,
 } from "@/components/headkit-ui/collection/utils";
 import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import { CATALOG_PAGE_SIZE } from "@/components/headkit-ui/catalog-grid";
+import { getCachedCatalogPage } from "@/lib/catalog-cache";
 import { getBranding } from "@/lib/branding";
 import { storefrontUrl } from "@/lib/make-metadata";
 
@@ -49,21 +48,6 @@ interface Props {
 
 const PER_PAGE = CATALOG_PAGE_SIZE;
 
-/**
- * Durable, shared catalog read keyed on a STABLE normalized filter key + page
- * (never raw searchParams). Featured items are a public catalog read (no
- * PII/auth), so a remote cache is safe (mirrors /shop, plan 03-04).
- */
-async function getCatalogPage(filterKey: string, page: number) {
-  "use cache: remote";
-  cacheLife("hours");
-  cacheTag(TAG.products, TAG.catalog, `catalog:${filterKey}`);
-  const filter = JSON.parse(filterKey) as Parameters<
-    typeof sdk.collections.list
-  >[0];
-  return sdk.collections.list(filter, page, PER_PAGE);
-}
-
 /** Aggregated facet options. Shared + durable. */
 async function getFilters() {
   "use cache: remote";
@@ -74,26 +58,27 @@ async function getFilters() {
 
 /**
  * Dynamic island: reads searchParams (must live inside <Suspense> under
- * cacheComponents). Featured = menu_order/asc ordering (the route's existing
- * filter); folded into the built filter before keying so the cache stays
- * correct.
+ * cacheComponents). Featured = ProductListFilter.featured plus menu_order/asc
+ * when the shopper has not chosen a sort.
  */
 async function LandingResults({ searchParams }: Props) {
   const sp = await searchParams;
   const parsed = parseSearchParams(sp);
   const page = parsed.page;
 
-  const filter = buildProductListFilter(parsed);
+  const filter = buildProductListFilter(parsed, { featured: true });
   // Preserve the route's existing featured ordering (was set after build in the
   // pre-Suspense page). A user-selected sort still wins via filterValues.sort.
   if (!parsed.sort) {
     filter.orderby = "menu_order";
     filter.order = "asc";
   }
-  const filterKey = normalizeFilterKey(filter);
 
   const [productsResult, productFilter] = await Promise.all([
-    getCatalogPage(filterKey, page),
+    getCachedCatalogPage(filter, page, PER_PAGE, {
+      kind: "route",
+      route: "featured",
+    }),
     getFilters(),
   ]);
 

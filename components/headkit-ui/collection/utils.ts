@@ -143,6 +143,7 @@ export function buildProductListFilter(
     categorySlug?: string;
     onSale?: boolean;
     isNew?: boolean;
+    featured?: boolean;
     search?: string;
     brandSlug?: string;
     /** In-stock toggle (mapped onto the filter for server-side filtering). */
@@ -182,6 +183,7 @@ export function buildProductListFilter(
 
   if (options.onSale) filter.onSale = true;
   if (options.isNew) filter.isNew = true;
+  if (options.featured) filter.featured = true;
   if (options.search) filter.search = options.search;
   // NOTE: in-stock has no ProductListFilter field in the commerce schema; it
   // remains a client-side grid filter (existing behavior). `options.instock`
