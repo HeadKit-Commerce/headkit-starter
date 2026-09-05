@@ -126,7 +126,8 @@ async function makeProductSitemap(siteUrl: string): Promise<SitemapItem[]> {
     }
 
     return items;
-  } catch {
+  } catch (err) {
+    logSitemapFailure("products", err);
     return [];
   }
 }
@@ -135,8 +136,15 @@ async function makeCollectionSitemap(siteUrl: string): Promise<SitemapItem[]> {
   try {
     const [categories, brandsRes] = await Promise.all([
       headkit.collections.getCategories(),
-      // perPage capped at 100 — the headkit/v2/brands WP endpoint 400s above 100.
-      headkit.brands.list({ perPage: 100 }).catch(() => ({ brands: [] })),
+      // perPage capped at 100 — the headkit/v2/brands WP endpoint 400s above
+      // 100. Only page 1 is read here: this list is a fallback for the SCOPED
+      // per-category brands from getFilters (see brandSlugsPerCategory), so a
+      // store with more than 100 brands loses facet urls for the overflow, not
+      // brand pages — those are paginated in makeBrandSitemap below.
+      headkit.brands.list({ perPage: 100 }).catch((err: unknown) => {
+        logSitemapFailure("collections/brand facets", err);
+        return { brands: [] };
+      }),
     ]);
     const nodes = walkCategoryPaths(categories);
     const items: SitemapItem[] = [];
@@ -149,7 +157,10 @@ async function makeCollectionSitemap(siteUrl: string): Promise<SitemapItem[]> {
         headkit.collections
           .getFilters(node.slug)
           .then((f) => ({ node, filters: f }))
-          .catch(() => ({ node, filters: null })),
+          .catch((err: unknown) => {
+            logSitemapFailure(`collections/filters ${node.slug}`, err);
+            return { node, filters: null };
+          }),
       ),
     );
 
@@ -205,7 +216,8 @@ async function makeCollectionSitemap(siteUrl: string): Promise<SitemapItem[]> {
     }
 
     return items;
-  } catch {
+  } catch (err) {
+    logSitemapFailure("collections", err);
     return [];
   }
 }
@@ -489,55 +501,136 @@ async function makePageSitemap(
         changeFrequency: "monthly" as const,
         priority: 0.6,
       }));
-  } catch {
+  } catch (err) {
+    logSitemapFailure("pages", err);
     return [];
   }
 }
 
-async function makeBrandSitemap(siteUrl: string): Promise<SitemapItem[]> {
+/**
+ * WordPress caps `per_page` on every `headkit/v2` list endpoint at 100 and
+ * REJECTS a larger ask with HTTP 400 (`rest_invalid_param`) — it does not clamp.
+ * The brand, post and project sections each asked for 200, so each one 400ed,
+ * was swallowed by its `catch`, and contributed ZERO urls on every store built
+ * from this starter: `/brand`, `/news` and `/projects` were advertised while
+ * not one of their children was. Measured on Bike Society, 2026-09-05.
+ *
+ * The cap is declared per endpoint in the theme
+ * (`integrations/wordpress/theme/inc/rest-api/headkit-{brands,posts,projects}.php`,
+ * `'maximum' => 100`). Asking for exactly 100 stops the 400 but silently
+ * truncates any store with more than 100 of a thing — Bike Society already sits
+ * at ~100 brands — so every family is PAGINATED instead. All three list results
+ * carry a `totalPages` computed by the endpoint itself and preserved end to end
+ * (WP `total_pages` → Go `TotalPages` → GraphQL `totalPages: Int!` → SDK), so
+ * there is a reliable terminator; `makeProductSitemap` above already walks it.
+ */
+const LIST_PER_PAGE = 100;
+
+/**
+ * Fail-safe bound on pages walked per family: 100 pages × 100 rows = 10,000
+ * entries. It exists so a provider that reports a wrong `totalPages` cannot
+ * spin the build, not as a content limit — a family that reaches it is
+ * truncated AND logged, which is the one truncation this file still has.
+ */
+const MAX_LIST_PAGES = 100;
+
+/**
+ * Report a section that could not be assembled.
+ *
+ * Each section swallows its own failure so one broken family cannot 500 the
+ * whole document — a sitemap missing its brands is worth far more than no
+ * sitemap. But swallowing it SILENTLY is what let the 400 above live in this
+ * file unnoticed through several store launches, so every catch names the
+ * family and the error in the build/function log.
+ */
+function logSitemapFailure(family: string, err: unknown): void {
+  console.error(`[sitemap] ${family} section failed`, err);
+}
+
+/**
+ * Walk a paginated `headkit/v2` list to completion, page size {@link LIST_PER_PAGE}.
+ *
+ * Returns whatever was collected before a failure rather than discarding it: a
+ * store whose page 3 read fails still advertises pages 1-2, and the gap is
+ * logged. Stops on the endpoint's own `totalPages`, and also on an EMPTY page
+ * so a nonsense `totalPages` cannot spin. A SHORT page is deliberately not a
+ * terminator: only the endpoint knows whether it dropped a row, and treating a
+ * short page as the last one is how a paginated walk quietly truncates.
+ */
+async function collectListPages<T>(
+  family: string,
+  fetchPage: (
+    page: number,
+  ) => Promise<{ items: readonly T[]; totalPages: number }>,
+): Promise<T[]> {
+  const items: T[] = [];
   try {
-    const result = await headkit.brands.list({ perPage: 200 });
-    return result.brands.map((b) => ({
-      url: `${siteUrl}/brand/${b.slug}`,
-      lastModified: new Date(),
-      changeFrequency: "weekly" as const,
-      priority: 0.8,
-    }));
-  } catch {
-    return [];
+    for (let page = 1; page <= MAX_LIST_PAGES; page++) {
+      const result = await fetchPage(page);
+      items.push(...result.items);
+      const totalPages = result.totalPages;
+      if (result.items.length === 0) return items;
+      if (!Number.isFinite(totalPages) || page >= totalPages) return items;
+    }
+    logSitemapFailure(
+      family,
+      new Error(
+        `stopped at the ${MAX_LIST_PAGES}-page cap (${items.length} entries); the remaining pages are NOT in the sitemap`,
+      ),
+    );
+  } catch (err) {
+    logSitemapFailure(family, err);
   }
+  return items;
+}
+
+async function makeBrandSitemap(siteUrl: string): Promise<SitemapItem[]> {
+  const brands = await collectListPages("brands", (page) =>
+    headkit.brands.list({ page, perPage: LIST_PER_PAGE }).then((result) => ({
+      items: result.brands,
+      totalPages: result.totalPages,
+    })),
+  );
+  return brands.map((b) => ({
+    url: `${siteUrl}/brand/${b.slug}`,
+    lastModified: new Date(),
+    changeFrequency: "weekly" as const,
+    priority: 0.8,
+  }));
 }
 
 async function makePostSitemap(
   siteUrl: string,
   postsBase: string,
 ): Promise<SitemapItem[]> {
-  try {
-    const result = await headkit.posts.list({ perPage: 200 });
-    const index = postsIndexPath(postsBase);
-    return result.posts.map((p) => ({
-      url: `${siteUrl}${index}/${p.slug}`,
-      lastModified: p.date ? new Date(p.date) : new Date(),
-      changeFrequency: "weekly" as const,
-      priority: 0.8,
-    }));
-  } catch {
-    return [];
-  }
+  const posts = await collectListPages("posts", (page) =>
+    headkit.posts.list({ page, perPage: LIST_PER_PAGE }).then((result) => ({
+      items: result.posts,
+      totalPages: result.totalPages,
+    })),
+  );
+  const index = postsIndexPath(postsBase);
+  return posts.map((p) => ({
+    url: `${siteUrl}${index}/${p.slug}`,
+    lastModified: p.date ? new Date(p.date) : new Date(),
+    changeFrequency: "weekly" as const,
+    priority: 0.8,
+  }));
 }
 
 async function makeProjectSitemap(siteUrl: string): Promise<SitemapItem[]> {
-  try {
-    const result = await headkit.projects.list({ perPage: 200 });
-    return result.projects.map((p) => ({
-      url: `${siteUrl}/projects/${p.slug}`,
-      lastModified: p.date ? new Date(p.date) : new Date(),
-      changeFrequency: "weekly" as const,
-      priority: 0.8,
-    }));
-  } catch {
-    return [];
-  }
+  const projects = await collectListPages("projects", (page) =>
+    headkit.projects.list({ page, perPage: LIST_PER_PAGE }).then((result) => ({
+      items: result.projects,
+      totalPages: result.totalPages,
+    })),
+  );
+  return projects.map((p) => ({
+    url: `${siteUrl}/projects/${p.slug}`,
+    lastModified: p.date ? new Date(p.date) : new Date(),
+    changeFrequency: "weekly" as const,
+    priority: 0.8,
+  }));
 }
 
 /**
