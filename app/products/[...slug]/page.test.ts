@@ -79,6 +79,21 @@ vi.mock("@/lib/stripe-config", () => ({
     }),
 }));
 
+// lib/product-cache.ts itself imports lib/env too, for the bulk-prefetch
+// discriminators (`NEXT_PHASE`, `HEADKIT_BULK_PREFETCH*`), and CI runs this
+// suite with no storefront env — so the same module-scope parse would delete
+// every guard below at COLLECT time. Same stand-in `lib/stripe-config.test.ts`
+// uses. `NEXT_PHASE` is deliberately absent: off the build phase the prefetch
+// is inert and `getCachedProduct` must be exactly the per-slug read
+// (asserted below).
+vi.mock("@/lib/env", () => ({
+  env: {
+    NEXT_PUBLIC_HEADKIT_PUBLIC_KEY: "pk_store",
+    NEXT_PUBLIC_GRAPHQL_URL: "https://graph.example.test/graphql",
+    HEADKIT_PRIVATE_KEY: "sk_store",
+  },
+}));
+
 vi.mock("@/lib/make-metadata", () => ({
   makeSeoMetadata: (): Record<string, unknown> => ({}),
   seoFallbackDescription: (): string => "",
@@ -173,6 +188,16 @@ describe("shared getCachedProduct is the single PDP cache entry", () => {
     expect(pageTags?.[0]).toBe(EXPECTED_ENTITY_TAG);
     expect(libTags?.[0]).toBe(EXPECTED_ENTITY_TAG);
     expect(pageTags?.[0]).toBe(libTags?.[0]);
+  });
+});
+
+describe("getCachedProduct off the build phase", () => {
+  it("is the per-slug SDK read — the bulk prefetch is inert without NEXT_PHASE", async () => {
+    const product = { slug: SLUG };
+    productsGet.mockResolvedValue(product);
+    await expect(getCachedProduct(SLUG)).resolves.toBe(product);
+    expect(productsGet).toHaveBeenCalledTimes(1);
+    expect(productsGet).toHaveBeenCalledWith(SLUG);
   });
 });
 

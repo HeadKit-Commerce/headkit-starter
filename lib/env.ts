@@ -47,6 +47,19 @@ const clientSchema = z.object({
 
 const serverSchema = clientSchema.extend({
   HEADKIT_PRIVATE_KEY: z.string().min(1),
+  // Set by `next build` on itself and inherited by its prerender workers
+  // (`phase-production-build`); absent at runtime. The ONLY discriminator
+  // `lib/bulk-product-prefetch.ts` uses to stay inert outside a build.
+  NEXT_PHASE: z.string().optional(),
+  // "0" skips the build-time bulk product prefetch entirely — not even the
+  // status query. Unset/"1" = consult commerce's per-store gate.
+  HEADKIT_BULK_PREFETCH: z.enum(["0", "1"]).optional(),
+  // Bulk pages one prefetch keeps in flight (default 3). Each page is ~5 s of
+  // origin PHP, so 3 is ~0.6 req/s against a 2 req/s origin.
+  HEADKIT_BULK_PREFETCH_CONCURRENCY: z
+    .string()
+    .regex(/^[1-9]\d*$/)
+    .optional(),
   REVALIDATION_SECRET: z.string().optional(),
   DASHBOARD_API_URL: z.string().url().optional(),
   DASHBOARD_API_TOKEN: z.string().min(1).optional(),

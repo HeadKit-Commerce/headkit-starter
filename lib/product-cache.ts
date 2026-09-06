@@ -1,6 +1,14 @@
+import path from "node:path";
 import { cacheLife, cacheTag } from "next/cache";
 import { TAG } from "@/lib/cache-tags";
+import { env } from "@/lib/env";
+import { logger } from "@/lib/logger";
 import { headkit } from "@/lib/sdk";
+import {
+  BULK_PREFETCH_DEFAULT_CONCURRENCY,
+  BULK_PREFETCH_DIRNAME,
+  createBulkPrefetch,
+} from "@/lib/bulk-product-prefetch";
 
 export type ProductPageLoadOptions = {
   /** Shopify Admin preview_key — bypasses cache and loads draft products. */
@@ -24,8 +32,33 @@ export async function getCachedProduct(slug: string) {
   // ~1 day (threat T-09.5-12) instead of sticking until redeploy.
   cacheLife("days");
   cacheTag(TAG.product(slug), TAG.products);
+  // Build-time only: a product the bulk prefetch already holds is returned
+  // from the per-build store instead of costing its own origin request. Off
+  // the build phase, or on a store whose gate is closed, `get` resolves null
+  // and this is exactly the per-slug read it always was.
+  const prefetched = await bulkPrefetch.get(slug);
+  if (prefetched) return prefetched;
   return headkit.products.get(slug);
 }
+
+/**
+ * The per-process bulk prefetch handle (see `lib/bulk-product-prefetch.ts`).
+ * Inert unless `NEXT_PHASE` says this process is a `next build`, so runtime
+ * and revalidation reads keep their single-product path and cache semantics.
+ */
+const bulkPrefetch = createBulkPrefetch({
+  dir: path.join(process.cwd(), ".next", BULK_PREFETCH_DIRNAME),
+  sdk: {
+    bulkStatus: () => headkit.products.bulkStatus(),
+    bulkPage: (page, perPage) => headkit.products.bulkPage(page, perPage),
+  },
+  isBuild: env.NEXT_PHASE === "phase-production-build",
+  disabled: env.HEADKIT_BULK_PREFETCH === "0",
+  concurrency: env.HEADKIT_BULK_PREFETCH_CONCURRENCY
+    ? Number(env.HEADKIT_BULK_PREFETCH_CONCURRENCY)
+    : BULK_PREFETCH_DEFAULT_CONCURRENCY,
+  log: (message) => logger.info("bulk_prefetch", { message }),
+});
 
 /**
  * Product read for PDP routes. Uses the shared cache for normal traffic; Shopify
