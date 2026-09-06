@@ -14,6 +14,12 @@ import { TAG } from "@/lib/cache-tags";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { CmsPageBody } from "@/components/headkit-ui/cms-page-body";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  isShopifyFormGuaranteeSlug,
+  withGuaranteedFormMarker,
+} from "@/lib/gravity-form-content";
+import { env } from "@/lib/env";
+import { isShopifyStorefront } from "@/lib/shopify-storefront";
 
 /** Satisfies Cache Components: `generateStaticParams` must not return []. */
 const STATIC_GEN_PLACEHOLDER_SLUG = "__hk_static_placeholder";
@@ -283,6 +289,14 @@ async function CmsRoute({ params }: Props) {
     { name: page.title, href: `/${slug.join("/")}` },
   ];
 
+  // Shopify has one built-in contact inbox. Partnerships pages have no
+  // dedicated route and no Gravity Forms shortcode, so guarantee the same
+  // form marker /contact uses. Woo pages are left untouched.
+  let html = page.content ?? "";
+  if (isShopifyStorefront(env) && isShopifyFormGuaranteeSlug(contentSlug)) {
+    html = withGuaranteedFormMarker(html, "1");
+  }
+
   // No outer px/my — CmsPageBody pads HTML/GF segments like the homepage and
   // leaves hero carousels full-bleed (`mx-5` inside MainCarousel). Outer
   // `px-5 md:px-10 my-10` previously double-inset carousels and left a gap
@@ -292,7 +306,7 @@ async function CmsRoute({ params }: Props) {
       <BreadcrumbJsonLD items={breadcrumbItems} />
       <CmsPageBody
         title={page.title}
-        html={page.content}
+        html={html}
         editorBlocks={
           (page.editorBlocks ?? []) as Array<{
             products?: unknown[];

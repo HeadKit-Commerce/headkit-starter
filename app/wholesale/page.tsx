@@ -9,6 +9,7 @@ import {
 import { getBranding } from "@/lib/branding";
 import { EditorialContent } from "@/components/headkit-ui/editorial-content";
 import { env } from "@/lib/env";
+import { wholesaleFormId } from "@/lib/shopify-storefront";
 import { getPageData } from "@/app/[...slug]/page";
 
 /**
@@ -22,9 +23,10 @@ import { getPageData } from "@/app/[...slug]/page";
  * `notFound()` for the life of the deployment, so a page published after the
  * first miss would stay 404 forever.
  *
- * The Gravity Forms id is configuration, not a literal: Dishee mounts its
- * enquiry form on /contact instead, and a per-store difference must not fork a
- * shared route. Unset → content renders with no form.
+ * The Gravity Forms id is configuration, not a literal: a per-store
+ * difference must not fork a shared route. Woo: unset env → content only,
+ * no form. Shopify: unset env defaults to the built-in Online Store contact
+ * form (id 1) via `wholesaleFormId`.
  */
 const WHOLESALE_SLUG = "wholesale";
 
@@ -68,7 +70,7 @@ export default async function WholesalePage(): Promise<React.ReactElement> {
     return notFound();
   }
 
-  const formId = env.NEXT_PUBLIC_WHOLESALE_FORM_ID;
+  const formId = wholesaleFormId(env);
 
   return (
     <div className="px-5 py-10 md:px-10 md:py-16">
@@ -79,7 +81,7 @@ export default async function WholesalePage(): Promise<React.ReactElement> {
           <EditorialContent html={page.content ?? ""} />
         </div>
 
-        {/* Right column — enquiry form, only when this store configures one */}
+        {/* Right column — enquiry form when this store has one (Woo env, or Shopify default) */}
         {formId ? (
           <div>
             <GravityForm formId={formId} />

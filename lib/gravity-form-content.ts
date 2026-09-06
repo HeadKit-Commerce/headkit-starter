@@ -62,6 +62,20 @@ function marker(formId: string): string {
  * no contact form, answering 200. That is invisible to a status sweep and was
  * found by eye during the Dishee migration.
  */
+/** CMS slugs that are a form page on Shopify and have no dedicated route. */
+const SHOPIFY_FORM_GUARANTEE_SLUGS = new Set(["partnerships", "partnership"]);
+
+/**
+ * True when a catch-all CMS slug should receive the Shopify contact-form
+ * marker if the page placed none of its own. Woo pages are left untouched —
+ * injecting form 1 there would fetch a real Gravity Form that may not exist.
+ */
+export function isShopifyFormGuaranteeSlug(slug: string): boolean {
+  const parts = slug.split("/").filter(Boolean);
+  const last = (parts[parts.length - 1] ?? slug).toLowerCase();
+  return SHOPIFY_FORM_GUARANTEE_SLUGS.has(last);
+}
+
 export function withGuaranteedFormMarker(
   html: string | null | undefined,
   defaultFormId: string,
