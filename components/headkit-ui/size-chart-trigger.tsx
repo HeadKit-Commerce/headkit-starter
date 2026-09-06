@@ -65,7 +65,12 @@ export function SizeChartTrigger({
           {label}
         </button>
       </DialogTrigger>
-      <DialogContent className="headkit-size-chart-dialog max-h-[85vh] overflow-y-auto bg-brand-bg p-6 text-primary md:p-8">
+      <DialogContent
+        className="headkit-size-chart-dialog max-h-[85vh] overflow-y-auto bg-brand-bg p-6 text-primary md:p-8"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+        }}
+      >
         <DialogTitle className="sr-only">{label}</DialogTitle>
         {kind === "html" ? (
           <div
