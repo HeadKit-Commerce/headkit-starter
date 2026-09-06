@@ -11,7 +11,13 @@ import { TAG } from "@/lib/cache-tags";
 import { errorFields, logger } from "@/lib/logger";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { CmsPageBody } from "@/components/headkit-ui/cms-page-body";
-import { withGuaranteedFormMarker } from "@/lib/gravity-form-content";
+import { ShopifyContactForm } from "@/components/shopify-contact-form";
+import {
+  removeGravityFormMarkers,
+  withGuaranteedFormMarker,
+} from "@/lib/gravity-form-content";
+import { env } from "@/lib/env";
+import { isShopifyStorefront } from "@/lib/shopify-storefront";
 import { getPageData } from "@/app/[...slug]/page";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -160,7 +166,13 @@ async function ContactRoute(): Promise<React.ReactElement> {
   const copy =
     page?.content ??
     "<p>Have a question? Fill in the form and our team will get back to you shortly.</p>";
-  const html = withGuaranteedFormMarker(copy, CONTACT_FORM_ID);
+  const shopify = isShopifyStorefront(env);
+  // Woo: guarantee a Gravity Forms marker so a migrated Contact page still
+  // has a form. Shopify: never inject or hydrate Gravity Forms — strip any
+  // leftover WP markers and render the built-in Online Store contact form.
+  const html = shopify
+    ? removeGravityFormMarkers(copy)
+    : withGuaranteedFormMarker(copy, CONTACT_FORM_ID);
 
   // Padding lives in CmsPageBody (same as other CMS pages) so a Contact page
   // with a hero carousel stays flush with the homepage layout.
@@ -182,8 +194,15 @@ async function ContactRoute(): Promise<React.ReactElement> {
             queryType?: string | null;
           }>
         }
-        formFallback={<ContactFormFallback />}
+        {...(shopify ? {} : { formFallback: <ContactFormFallback /> })}
       />
+      {shopify ? (
+        <div className="px-5 pb-10 md:px-10 md:pb-16">
+          <div className="mx-auto max-w-xl">
+            <ShopifyContactForm context="contact" />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

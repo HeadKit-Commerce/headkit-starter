@@ -16,13 +16,12 @@ const clientSchema = z.object({
   // configuration rather than a literal in the shared route, and a per-store
   // difference must not fork the page.
   //
-  // Unset = Woo routes render content only, with NO FORM. Shopify storefronts
-  // default to the built-in Online Store contact form (id 1) via
-  // `wholesaleFormId` in lib/shopify-storefront.ts — Hydrogen has no separate
-  // wholesale form API. `/wholesale` answers 200 either way on Woo, so a Woo
-  // store that should have a wholesale form and lacks this value looks healthy
-  // from outside. Nothing in Woo provisioning sets it — check it when standing
-  // up a store whose predecessor had a wholesale form.
+  // Unset = the Woo route renders content only, with NO FORM. `/wholesale`
+  // answers 200 either way, so a Woo store that should have a wholesale form
+  // and lacks this value looks healthy from outside. Nothing in provisioning
+  // sets it — check it when standing up a store whose predecessor had a
+  // wholesale form. Shopify storefronts ignore this and render the built-in
+  // Online Store contact form instead (see ShopifyContactForm).
   //
   // This comment previously read "Dishee mounts its enquiry form on /contact
   // instead" as the justification for leaving it unset. That was wrong, and it

@@ -36,6 +36,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductPageShell } from "./product-page-shell";
 import { stripTitleMarkers } from "@/lib/title-emphasis";
+import { env } from "@/lib/env";
+import { isShopifyStorefront } from "@/lib/shopify-storefront";
 
 // Cache Components requires generateStaticParams to return ≥1 param. When the
 // catalog API is unreachable at build we emit this single placeholder (which
@@ -653,6 +655,7 @@ export async function ProductPageContent({ params, searchParams }: Props) {
           stripeConfig={stripeConfig}
           multiAddEnabled={branding.multiAddEnabled}
           pdpGalleryLayout={branding.pdpGalleryLayout}
+          shopifyContact={isShopifyStorefront(env)}
         />
       </div>
 

@@ -3,7 +3,6 @@ import {
   extractGravityFormIds,
   removeGravityFormMarkers,
   hasGravityFormMarker,
-  isShopifyFormGuaranteeSlug,
   withGuaranteedFormMarker,
 } from "./gravity-form-content";
 
@@ -87,18 +86,5 @@ describe("withGuaranteedFormMarker", () => {
   it("emits a marker the extractor round-trips", () => {
     const html = withGuaranteedFormMarker("<p>hi</p>", "42");
     expect(removeGravityFormMarkers(html)).toBe("<p>hi</p>");
-  });
-});
-
-describe("isShopifyFormGuaranteeSlug", () => {
-  it("matches partnerships (and nested) slugs", () => {
-    expect(isShopifyFormGuaranteeSlug("partnerships")).toBe(true);
-    expect(isShopifyFormGuaranteeSlug("partnership")).toBe(true);
-    expect(isShopifyFormGuaranteeSlug("info/partnerships")).toBe(true);
-  });
-
-  it("does not inject on unrelated CMS pages", () => {
-    expect(isShopifyFormGuaranteeSlug("about")).toBe(false);
-    expect(isShopifyFormGuaranteeSlug("shipping")).toBe(false);
   });
 });

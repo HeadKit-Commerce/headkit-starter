@@ -52,6 +52,24 @@ vi.mock("@/lib/sdk", () => ({
   },
 }));
 
+// ContactRoute calls `isShopifyStorefront(env)`. The Shopify helper is mocked
+// above; env still has to parse so the page module can load.
+vi.mock("@/lib/env", () => ({
+  env: {
+    NEXT_PUBLIC_HEADKIT_PUBLIC_KEY: "pk_test",
+    NEXT_PUBLIC_GRAPHQL_URL: "https://graph.example/graphql",
+    HEADKIT_PRIVATE_KEY: "sk_test",
+  },
+}));
+
+const { isShopifyStorefrontMock } = vi.hoisted(() => ({
+  isShopifyStorefrontMock: vi.fn(() => false),
+}));
+
+vi.mock("@/lib/shopify-storefront", () => ({
+  isShopifyStorefront: (): boolean => isShopifyStorefrontMock(),
+}));
+
 vi.mock("@/lib/branding", () => ({
   getBranding: (): Promise<unknown> =>
     Promise.resolve({
@@ -64,6 +82,12 @@ vi.mock("@/lib/make-metadata", () => ({
   makeSeoMetadata: (): Record<string, unknown> => ({ title: "From WordPress" }),
   seoFallbackDescription: (): string => "",
   storefrontUrl: (path: string): string => `https://shop.example${path}`,
+}));
+
+vi.mock("@/components/shopify-contact-form", () => ({
+  ShopifyContactForm: (): ReactElement => (
+    <form data-testid="shopify-contact-form" />
+  ),
 }));
 
 vi.mock("@/components/seo/breadcrumb-json-ld", () => ({
@@ -102,6 +126,7 @@ const outage = (): Error =>
 beforeEach(() => {
   contentGet.mockReset();
   loggerError.mockClear();
+  isShopifyStorefrontMock.mockReturnValue(false);
 });
 
 /**
@@ -205,6 +230,35 @@ describe("a CMS outage degrades /contact instead of failing it", () => {
       "notFound()/redirect() signal by throwing; absorbing one here would " +
         "silently turn it into a 200 page of default copy.",
     ).rejects.toThrow(/NEXT_HTTP_ERROR_FALLBACK/);
+  });
+});
+
+describe("Shopify /contact uses the built-in form, not Gravity Forms", () => {
+  it("renders the Shopify form and does not inject a GF marker", async () => {
+    isShopifyStorefrontMock.mockReturnValue(true);
+    contentGet.mockResolvedValue({
+      title: "Talk To Us",
+      content: "<p>Real Shopify page copy.</p>",
+      seo: null,
+      editorBlocks: [],
+    });
+
+    const html = await renderContact();
+
+    expect(html).toContain("Talk To Us");
+    expect(html).toContain("Real Shopify page copy.");
+    expect(html).toContain("shopify-contact-form");
+    expect(html).not.toContain("headkit-gravity-form");
+  });
+
+  it("still shows the Shopify form when the page read throws", async () => {
+    isShopifyStorefrontMock.mockReturnValue(true);
+    contentGet.mockRejectedValue(outage());
+
+    const html = await renderContact();
+
+    expect(html).toContain("shopify-contact-form");
+    expect(html).not.toContain("headkit-gravity-form");
   });
 });
 

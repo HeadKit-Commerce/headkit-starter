@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { GravityForm } from "@/components/gravity-form";
+import { ShopifyContactForm } from "@/components/shopify-contact-form";
 import {
   makeSeoMetadata,
   seoFallbackDescription,
@@ -9,7 +10,7 @@ import {
 import { getBranding } from "@/lib/branding";
 import { EditorialContent } from "@/components/headkit-ui/editorial-content";
 import { env } from "@/lib/env";
-import { wholesaleFormId } from "@/lib/shopify-storefront";
+import { isShopifyStorefront } from "@/lib/shopify-storefront";
 import { getPageData } from "@/app/[...slug]/page";
 
 /**
@@ -23,10 +24,9 @@ import { getPageData } from "@/app/[...slug]/page";
  * `notFound()` for the life of the deployment, so a page published after the
  * first miss would stay 404 forever.
  *
- * The Gravity Forms id is configuration, not a literal: a per-store
- * difference must not fork a shared route. Woo: unset env → content only,
- * no form. Shopify: unset env defaults to the built-in Online Store contact
- * form (id 1) via `wholesaleFormId`.
+ * Woo: the Gravity Forms id is configuration, not a literal. Unset env →
+ * content only, no form. Shopify: the built-in Online Store contact form
+ * (Name / Email / Phone / Comment) — not Gravity Forms.
  */
 const WHOLESALE_SLUG = "wholesale";
 
@@ -70,21 +70,25 @@ export default async function WholesalePage(): Promise<React.ReactElement> {
     return notFound();
   }
 
-  const formId = wholesaleFormId(env);
+  const shopify = isShopifyStorefront(env);
+  const wooFormId = env.NEXT_PUBLIC_WHOLESALE_FORM_ID;
 
   return (
     <div className="px-5 py-10 md:px-10 md:py-16">
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-        {/* Left column — editorial content from WordPress */}
+        {/* Left column — editorial content from WordPress / Shopify page */}
         <div>
           <h1 className="mb-6 text-3xl font-bold">{page.title}</h1>
           <EditorialContent html={page.content ?? ""} />
         </div>
 
-        {/* Right column — enquiry form when this store has one (Woo env, or Shopify default) */}
-        {formId ? (
+        {shopify ? (
           <div>
-            <GravityForm formId={formId} />
+            <ShopifyContactForm context="general" />
+          </div>
+        ) : wooFormId ? (
+          <div>
+            <GravityForm formId={wooFormId} />
           </div>
         ) : null}
       </div>

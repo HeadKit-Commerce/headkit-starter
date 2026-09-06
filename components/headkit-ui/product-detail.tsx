@@ -129,6 +129,11 @@ interface Props {
    * Unknown / omitted values render today's masonry grid.
    */
   pdpGalleryLayout?: string;
+  /**
+   * Shopify storefronts have no Gravity Forms. When true, the PDP enquiry
+   * uses the built-in Online Store contact form.
+   */
+  shopifyContact?: boolean;
 }
 
 const VARIABLE = "VARIABLE";
@@ -192,6 +197,7 @@ export function ProductDetail({
   stripeConfig,
   multiAddEnabled = false,
   pdpGalleryLayout = "grid",
+  shopifyContact = false,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -1256,6 +1262,7 @@ export function ProductDetail({
                   decodeHtmlEntities(product.name),
                 )}
                 initialValues={enquiryInitialValues}
+                shopifyContact={shopifyContact}
               />
             </div>
           )}

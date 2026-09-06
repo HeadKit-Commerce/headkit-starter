@@ -7,7 +7,6 @@ export type ShopifyStorefrontEnv = {
   NEXT_PUBLIC_SHOPIFY_CAA_ENABLED?: string | undefined;
   NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN?: string | undefined;
   SHOPIFY_STORE_DOMAIN?: string | undefined;
-  NEXT_PUBLIC_WHOLESALE_FORM_ID?: string | undefined;
 };
 
 /**
@@ -37,26 +36,14 @@ export function isShopifyStorefront(env: ShopifyStorefrontEnv): boolean {
   });
 }
 
-/**
- * Gravity Forms id mounted on /wholesale.
- *
- * Woo stores keep the existing contract: unset env → no form. Shopify has no
- * Gravity Forms, so the built-in Online Store contact form (id 1) is the
- * Hydrogen-equivalent default.
- */
-export function resolveWholesaleFormId(
-  configured: string | undefined,
-  shopify: boolean,
-): string | undefined {
-  if (configured) return configured;
-  if (shopify) return "1";
-  return undefined;
-}
+const PARTNERSHIP_SLUGS = new Set(["partnerships", "partnership"]);
 
-/** Runtime wholesale form id from validated env. */
-export function wholesaleFormId(env: ShopifyStorefrontEnv): string | undefined {
-  return resolveWholesaleFormId(
-    env.NEXT_PUBLIC_WHOLESALE_FORM_ID,
-    isShopifyStorefront(env),
-  );
+/**
+ * Catch-all CMS slugs that are a Shopify enquiry page (no dedicated route).
+ * Woo pages must not use this — they keep Gravity Forms shortcodes.
+ */
+export function isShopifyPartnershipsSlug(slug: string): boolean {
+  const parts = slug.split("/").filter(Boolean);
+  const last = (parts[parts.length - 1] ?? slug).toLowerCase();
+  return PARTNERSHIP_SLUGS.has(last);
 }

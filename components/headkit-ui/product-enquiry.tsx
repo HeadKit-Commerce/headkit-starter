@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { GravityForm } from "@/components/gravity-form-lazy";
+import { ShopifyContactForm } from "@/components/shopify-contact-form";
 import { getGravityFormById } from "@/lib/gravity-form-actions";
+import { extrasFromEnquiryValues } from "@/lib/shopify-contact";
 
 interface ProductEnquiryProps {
-  /** Gravity Forms form id for the product-enquiry form. */
+  /** Gravity Forms form id for the product-enquiry form (Woo only). */
   formId: string;
   /** Product name, shown in the panel copy. */
   productName: string;
@@ -16,32 +18,45 @@ interface ProductEnquiryProps {
    * Hidden) so it attaches to the correct entry — e.g. `product_name`,
    * `product_url`, `product_options` (catch-all), `product_size` / `size`,
    * `product_colour` / `colour`, or the attribute name (`finish`, etc.).
+   * Shopify appends the matching extras onto `contact[body]`.
    */
   initialValues: { fieldName: string; value: string }[];
   /** Disable the trigger (e.g. before the product has fully loaded). */
   disabled?: boolean;
+  /**
+   * Shopify storefronts have no Gravity Forms. When true, skip the GF probe
+   * and render the built-in Online Store contact form.
+   */
+  shopifyContact?: boolean;
 }
 
 /**
- * PDP "Enquire about this product" control. Toggles an inline panel containing
- * the Gravity Forms product-enquiry form, injecting the current product context
- * (name, URL, selected size/colour) as hidden fields (ENG-794).
+ * PDP "Enquire about this product" control. Toggles an inline panel.
  *
- * Renders nothing when the form can't load — Gravity Forms not installed or the
- * form id missing — so the template degrades cleanly instead of showing an
- * Enquire button that dead-ends. Availability is checked once on mount.
+ * Woo: Gravity Forms product-enquiry form, injecting the current product
+ * context as hidden fields (ENG-794). Renders nothing when GF can't load.
+ *
+ * Shopify: always available; built-in Online Store contact form with the
+ * same product extras appended to `contact[body]`.
  */
 export function ProductEnquiry({
   formId,
   productName,
   initialValues,
   disabled = false,
+  shopifyContact = false,
 }: ProductEnquiryProps): React.ReactElement | null {
   const [open, setOpen] = useState(false);
   // null = still checking, true/false = form availability resolved.
-  const [available, setAvailable] = useState<boolean | null>(null);
+  const [available, setAvailable] = useState<boolean | null>(
+    shopifyContact ? true : null,
+  );
 
   useEffect(() => {
+    if (shopifyContact) {
+      setAvailable(true);
+      return;
+    }
     let active = true;
     getGravityFormById(formId)
       .then((res) => {
@@ -53,7 +68,7 @@ export function ProductEnquiry({
     return () => {
       active = false;
     };
-  }, [formId]);
+  }, [formId, shopifyContact]);
 
   // While checking, or when Gravity Forms/the form is unavailable, render
   // nothing — no Enquire button at all.
@@ -79,12 +94,20 @@ export function ProductEnquiry({
             Ask us anything about {productName} — we&apos;ll get back to you
             shortly.
           </p>
-          <GravityForm
-            id="productEnquiryForm"
-            formId={formId}
-            initialValues={initialValues}
-            disabled={disabled}
-          />
+          {shopifyContact ? (
+            <ShopifyContactForm
+              context="product"
+              disabled={disabled}
+              extras={extrasFromEnquiryValues(initialValues)}
+            />
+          ) : (
+            <GravityForm
+              id="productEnquiryForm"
+              formId={formId}
+              initialValues={initialValues}
+              disabled={disabled}
+            />
+          )}
         </div>
       )}
     </div>

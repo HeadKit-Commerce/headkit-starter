@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   detectShopifyStorefront,
-  resolveWholesaleFormId,
+  isShopifyPartnershipsSlug,
 } from "./shopify-storefront";
 
 describe("detectShopifyStorefront", () => {
@@ -24,17 +24,16 @@ describe("detectShopifyStorefront", () => {
   });
 });
 
-describe("resolveWholesaleFormId", () => {
-  it("keeps an explicit env id on every provider", () => {
-    expect(resolveWholesaleFormId("8", false)).toBe("8");
-    expect(resolveWholesaleFormId("8", true)).toBe("8");
+describe("isShopifyPartnershipsSlug", () => {
+  it("matches partnerships (and nested) slugs", () => {
+    expect(isShopifyPartnershipsSlug("partnerships")).toBe(true);
+    expect(isShopifyPartnershipsSlug("partnership")).toBe(true);
+    expect(isShopifyPartnershipsSlug("info/partnerships")).toBe(true);
   });
 
-  it("defaults Shopify to the built-in contact form", () => {
-    expect(resolveWholesaleFormId(undefined, true)).toBe("1");
-  });
-
-  it("leaves Woo unset so the route renders content only", () => {
-    expect(resolveWholesaleFormId(undefined, false)).toBeUndefined();
+  it("does not match unrelated CMS pages", () => {
+    expect(isShopifyPartnershipsSlug("about")).toBe(false);
+    expect(isShopifyPartnershipsSlug("shipping")).toBe(false);
+    expect(isShopifyPartnershipsSlug("contact")).toBe(false);
   });
 });

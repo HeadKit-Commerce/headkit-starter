@@ -13,13 +13,13 @@ import { getPostsBasePath, postsIndexPath } from "@/lib/posts-base-path";
 import { TAG } from "@/lib/cache-tags";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { CmsPageBody } from "@/components/headkit-ui/cms-page-body";
+import { ShopifyContactForm } from "@/components/shopify-contact-form";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  isShopifyFormGuaranteeSlug,
-  withGuaranteedFormMarker,
-} from "@/lib/gravity-form-content";
 import { env } from "@/lib/env";
-import { isShopifyStorefront } from "@/lib/shopify-storefront";
+import {
+  isShopifyPartnershipsSlug,
+  isShopifyStorefront,
+} from "@/lib/shopify-storefront";
 
 /** Satisfies Cache Components: `generateStaticParams` must not return []. */
 const STATIC_GEN_PLACEHOLDER_SLUG = "__hk_static_placeholder";
@@ -289,13 +289,9 @@ async function CmsRoute({ params }: Props) {
     { name: page.title, href: `/${slug.join("/")}` },
   ];
 
-  // Shopify has one built-in contact inbox. Partnerships pages have no
-  // dedicated route and no Gravity Forms shortcode, so guarantee the same
-  // form marker /contact uses. Woo pages are left untouched.
-  let html = page.content ?? "";
-  if (isShopifyStorefront(env) && isShopifyFormGuaranteeSlug(contentSlug)) {
-    html = withGuaranteedFormMarker(html, "1");
-  }
+  const html = page.content ?? "";
+  const shopifyPartnerships =
+    isShopifyStorefront(env) && isShopifyPartnershipsSlug(contentSlug);
 
   // No outer px/my — CmsPageBody pads HTML/GF segments like the homepage and
   // leaves hero carousels full-bleed (`mx-5` inside MainCarousel). Outer
@@ -315,6 +311,13 @@ async function CmsRoute({ params }: Props) {
           }>
         }
       />
+      {shopifyPartnerships ? (
+        <div className="px-5 pb-10 md:px-10 md:pb-16">
+          <div className="mx-auto max-w-xl">
+            <ShopifyContactForm context="general" />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
