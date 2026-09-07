@@ -118,7 +118,9 @@ export function buildShopifyContactBody(input: ShopifyContactInput): string {
   return parts.join("\n\n");
 }
 
-export function encodeShopifyContactForm(input: ShopifyContactInput): URLSearchParams {
+export function encodeShopifyContactForm(
+  input: ShopifyContactInput,
+): URLSearchParams {
   const email = input.email.trim();
   if (!email) {
     throw new Error("email is required");

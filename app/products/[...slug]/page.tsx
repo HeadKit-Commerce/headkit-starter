@@ -8,6 +8,10 @@ import type {
 } from "@headkit/sdk";
 import { headkit } from "@/lib/sdk";
 import { getCachedProduct, getProductForPage } from "@/lib/product-cache";
+import {
+  getCachedProductBrand,
+  resolveDisplayBrand,
+} from "@/lib/product-brand";
 import { TAG } from "@/lib/cache-tags";
 import { errorFields, logger } from "@/lib/logger";
 import { ProductDetail } from "@/components/headkit-ui/product-detail";
@@ -506,7 +510,23 @@ export async function ProductPageContent({ params, searchParams }: Props) {
     notFound();
   }
 
-  const brandName = resolveStoreName(storeSettings.name);
+  // Display brand: the product's first brand term, with its logo from ONE
+  // cached brand read per brand (`lib/product-brand.ts`). A product without
+  // brand terms — every product on a store that has none, and every product
+  // read through a theme that predates the `brands` selection — resolves null:
+  // no logo slot, and JSON-LD names the STORE as the brand exactly as before.
+  // The read cannot fail the page: it returns null on any error.
+  const displayBrandTerm = resolveDisplayBrand(product.brands ?? []);
+  const displayBrand = displayBrandTerm
+    ? ((await getCachedProductBrand(displayBrandTerm.slug)) ?? {
+        name: displayBrandTerm.name,
+        slug: displayBrandTerm.slug,
+        logoUrl: null,
+      })
+    : null;
+  const brandName = displayBrand
+    ? displayBrand.name
+    : resolveStoreName(storeSettings.name);
   const relatedAsProducts = product.related.map(mapRelatedToProduct);
   const upsellsAsProducts = product.upsells.map(mapRelatedToProduct);
   const bundlesAsProducts = (product.includedInBundles ?? []).map(
@@ -665,6 +685,7 @@ export async function ProductPageContent({ params, searchParams }: Props) {
           stripeConfig={stripeConfig}
           multiAddEnabled={branding.multiAddEnabled}
           pdpGalleryLayout={branding.pdpGalleryLayout}
+          brand={displayBrand}
           shopifyContact={
             isShopifyStorefront(env) && getStoreTheme().layout.productEnquiry
           }

@@ -13,10 +13,17 @@ import {
   resolvePdpGalleryLayout,
   type PdpGalleryLayout,
 } from "@/lib/pdp-gallery-layout";
+import { youtubeThumbnailUrl, youtubeVideoId } from "@/lib/youtube";
 
 interface GalleryImage {
   src: string;
   alt: string;
+  /**
+   * Set on the ONE synthetic tile a product video adds at the end of the
+   * gallery: `src` is then the YouTube poster frame and the lightbox slide is
+   * the embed rather than a zoomable image.
+   */
+  videoId?: string;
 }
 
 interface Props {
@@ -26,10 +33,82 @@ interface Props {
   badges?: CustomProductBadge[];
   /** Branding `pdpGalleryLayout`. Unknown values fall back to grid. */
   layout?: string;
+  /**
+   * WooCommerce "Product Video" URL (`product.productVideoUrl`). When it parses
+   * as a YouTube video the gallery appends one video tile as its LAST item and
+   * the lightbox gains a matching embed slide; null/unset/unparseable renders
+   * exactly the image gallery it always did.
+   */
+  videoUrl?: string | null | undefined;
 }
 
 const FALLBACK_IMAGE_SRC = "/assets/HeadKit-Fallback.png";
+const FALLBACK_ITEM: GalleryImage = {
+  src: FALLBACK_IMAGE_SRC,
+  alt: "No product image available",
+};
 const SWIPE_THRESHOLD_PX = 40;
+
+interface GalleryTileProps {
+  item: GalleryImage;
+  className: string;
+  sizes: string;
+  priority?: boolean;
+  fetchPriority?: "high" | "auto";
+  loading?: "lazy" | undefined;
+  draggable?: boolean;
+}
+
+/**
+ * One gallery image, or the video tile: the YouTube poster frame under a play
+ * glyph. The poster is served `unoptimized` because `i.ytimg.com` is not — and
+ * should not be — in the image-optimizer allowlist; it is a third-party host
+ * the merchant chose by pasting the URL, not one the store serves.
+ */
+function GalleryTile({
+  item,
+  className,
+  sizes,
+  priority,
+  fetchPriority,
+  loading,
+  draggable,
+}: GalleryTileProps) {
+  const isVideo = Boolean(item.videoId);
+  return (
+    <>
+      <Image
+        src={item.src}
+        alt={item.alt || (isVideo ? "Product video" : "Product image")}
+        fill
+        className={className}
+        sizes={sizes}
+        unoptimized={isVideo}
+        {...(priority !== undefined ? { priority } : {})}
+        {...(fetchPriority !== undefined ? { fetchPriority } : {})}
+        {...(loading !== undefined ? { loading } : {})}
+        {...(draggable !== undefined ? { draggable } : {})}
+      />
+      {isVideo ? (
+        <span
+          data-testid="gallery-video-tile"
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/20"
+        >
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-gray-900 shadow">
+            <svg
+              viewBox="0 0 24 24"
+              className="ml-1 h-6 w-6"
+              fill="currentColor"
+            >
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </span>
+        </span>
+      ) : null}
+    </>
+  );
+}
 
 export function ProductImageGallery({
   images: rawImages,
@@ -37,6 +116,7 @@ export function ProductImageGallery({
   isNew = false,
   badges = [],
   layout: rawLayout,
+  videoUrl,
 }: Props) {
   const layout: PdpGalleryLayout = resolvePdpGalleryLayout(
     rawLayout ?? DEFAULT_PDP_GALLERY_LAYOUT,
@@ -50,9 +130,20 @@ export function ProductImageGallery({
   const images: GalleryImage[] = rawImages?.length
     ? rawImages.filter((img) => img.src)
     : [];
-  const galleryImages: GalleryImage[] = images.length
-    ? images
-    : [{ src: FALLBACK_IMAGE_SRC, alt: "No product image available" }];
+  const baseImages: GalleryImage[] = images.length ? images : [FALLBACK_ITEM];
+  // The video tile is always LAST, after the placeholder too: the hero slot
+  // stays an image, so the priority preload and the badge overlay are unchanged.
+  const videoId = youtubeVideoId(videoUrl);
+  const galleryImages: GalleryImage[] = videoId
+    ? [
+        ...baseImages,
+        {
+          src: youtubeThumbnailUrl(videoId),
+          alt: "Product video",
+          videoId,
+        },
+      ]
+    : baseImages;
 
   // Reset selection when the image set changes (e.g. colourway swap).
   const galleryKey = galleryImages.map((img) => img.src).join("|");
@@ -115,10 +206,8 @@ export function ProductImageGallery({
       <Dialog>
         <DialogTrigger className="block w-full appearance-none border-0 bg-transparent p-0 text-left">
           <div className="relative aspect-square overflow-hidden bg-white">
-            <Image
-              src={galleryImages[selectedIndex]?.src ?? FALLBACK_IMAGE_SRC}
-              alt={galleryImages[selectedIndex]?.alt || "Product image"}
-              fill
+            <GalleryTile
+              item={galleryImages[selectedIndex] ?? FALLBACK_ITEM}
               className={
                 selectedIndex === 0
                   ? "object-cover object-center"
@@ -176,12 +265,8 @@ export function ProductImageGallery({
             <Dialog>
               <DialogTrigger className="block w-full appearance-none border-0 bg-transparent p-0 text-left">
                 <div className="relative aspect-square overflow-hidden bg-white md:aspect-[var(--pdp-gallery-hero-aspect,3/4)]">
-                  <Image
-                    src={
-                      galleryImages[selectedIndex]?.src ?? FALLBACK_IMAGE_SRC
-                    }
-                    alt={galleryImages[selectedIndex]?.alt || "Product image"}
-                    fill
+                  <GalleryTile
+                    item={galleryImages[selectedIndex] ?? FALLBACK_ITEM}
                     className="object-cover object-center"
                     sizes="(min-width: 768px) 50vw, 100vw"
                     priority
@@ -218,10 +303,8 @@ export function ProductImageGallery({
                       : "ring-1 ring-transparent hover:ring-gray-300",
                   )}
                 >
-                  <Image
-                    src={item.src}
-                    alt={item.alt || "Product image"}
-                    fill
+                  <GalleryTile
+                    item={item}
                     className="object-cover object-center"
                     sizes="72px"
                     loading={index === 0 ? undefined : "lazy"}
@@ -250,10 +333,8 @@ export function ProductImageGallery({
         <Dialog>
           <DialogTrigger className="block w-full appearance-none border-0 bg-transparent p-0 text-left">
             <div className="relative aspect-square overflow-hidden bg-white md:aspect-[var(--pdp-gallery-hero-aspect,1/1)]">
-              <Image
-                src={galleryImages[selectedIndex]?.src ?? FALLBACK_IMAGE_SRC}
-                alt={galleryImages[selectedIndex]?.alt || "Product image"}
-                fill
+              <GalleryTile
+                item={galleryImages[selectedIndex] ?? FALLBACK_ITEM}
                 className="object-cover object-center"
                 sizes="(min-width: 768px) 50vw, 100vw"
                 priority
@@ -321,10 +402,8 @@ export function ProductImageGallery({
               <DialogTrigger className="relative block w-full cursor-pointer appearance-none overflow-hidden rounded-brand border-0 bg-white p-0 text-left">
                 {index === 0 ? badgesOverlay : null}
                 <div className="relative aspect-square overflow-hidden">
-                  <Image
-                    src={item.src}
-                    alt={item.alt || "Product image"}
-                    fill
+                  <GalleryTile
+                    item={item}
                     className={
                       index === 0
                         ? "object-cover object-center"
@@ -373,10 +452,8 @@ export function ProductImageGallery({
                 </div>
               )}
               <div className="relative aspect-square overflow-hidden">
-                <Image
-                  src={item.src}
-                  alt={item.alt || "Product image"}
-                  fill
+                <GalleryTile
+                  item={item}
                   className={
                     index === 0
                       ? "object-cover object-center"

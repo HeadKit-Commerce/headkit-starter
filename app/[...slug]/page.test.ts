@@ -28,6 +28,18 @@ vi.mock("next/cache", () => ({
   cacheLife: (profile: string): void => cacheLife(profile),
 }));
 
+// The page module under test imports `@/lib/env` (for `isShopifyStorefront`),
+// which parses `process.env` with Zod at import time and throws in a bare test
+// process. A WooCommerce-shaped env: no Shopify domain, so every Shopify branch
+// stays off and the assertions below describe the WooCommerce path.
+vi.mock("@/lib/env", () => ({
+  env: {
+    NEXT_PUBLIC_HEADKIT_PUBLIC_KEY: "pk_store",
+    NEXT_PUBLIC_GRAPHQL_URL: "https://graph.example.test/graphql",
+    HEADKIT_PRIVATE_KEY: "sk_store",
+  },
+}));
+
 vi.mock("@/lib/sdk", () => ({
   headkit: {
     content: {

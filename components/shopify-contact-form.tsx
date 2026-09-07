@@ -204,11 +204,7 @@ export function ShopifyContactForm({
                 <FormItem>
                   <FormLabel>Venue</FormLabel>
                   <FormControl>
-                    <Input
-                      disabled={disabled}
-                      placeholder="Venue"
-                      {...field}
-                    />
+                    <Input disabled={disabled} placeholder="Venue" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -284,7 +280,10 @@ export function ShopifyContactForm({
             {error}
           </p>
         ) : null}
-        <Button disabled={disabled || form.formState.isSubmitting} type="submit">
+        <Button
+          disabled={disabled || form.formState.isSubmitting}
+          type="submit"
+        >
           {form.formState.isSubmitting ? "Sending…" : "Send"}
         </Button>
       </form>

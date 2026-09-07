@@ -34,8 +34,12 @@ vi.mock("@/components/ui/dialog", () => ({
   ),
 }));
 
+const lightboxImages = vi.fn<(images: unknown[]) => void>();
 vi.mock("@/components/ui/lightbox", () => ({
-  Lightbox: (): null => null,
+  Lightbox: ({ images }: { images: unknown[] }): null => {
+    lightboxImages(images);
+    return null;
+  },
 }));
 
 vi.mock("@/components/headkit-ui/badge-list", () => ({
@@ -115,4 +119,92 @@ describe("ProductImageGallery layouts", () => {
       expect(html).not.toContain("object-contain");
     },
   );
+});
+
+/**
+ * The product-video tile (Bike Society PDP gap #3). Present ONLY when
+ * `videoUrl` parses as a YouTube video; a store whose products carry no
+ * `productVideoUrl` (null from commerce, or a theme that predates the field)
+ * renders the identical image gallery.
+ */
+describe("ProductImageGallery product video", () => {
+  const VIDEO_URL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+
+  it.each(["grid", "thumbnails", "carousel", "stack"] as const)(
+    "appends ONE video tile as the LAST item for %s",
+    (layout) => {
+      lightboxImages.mockClear();
+      const html = renderToStaticMarkup(
+        <ProductImageGallery
+          images={IMAGES}
+          layout={layout}
+          videoUrl={VIDEO_URL}
+        />,
+      );
+      // The carousel layout paints only the selected slide, so the tile itself
+      // shows up there once the shopper reaches it; every other layout paints
+      // all tiles at once.
+      if (layout !== "carousel") {
+        expect(html).toContain('data-testid="gallery-video-tile"');
+        expect(html).toContain(
+          "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+        );
+      }
+      // The mobile carousel (every layout) counts the video as a slide.
+      expect(html).toContain("Go to image 4");
+      expect(html).not.toContain("Go to image 5");
+
+      // The lightbox receives the SAME list, with the video slide last.
+      const passed = lightboxImages.mock.calls[0]?.[0] as
+        | { src: string; videoId?: string }[]
+        | undefined;
+      expect(passed).toHaveLength(4);
+      expect(passed?.[3]).toMatchObject({ videoId: "dQw4w9WgXcQ" });
+      expect(passed?.slice(0, 3).every((i) => i.videoId === undefined)).toBe(
+        true,
+      );
+    },
+  );
+
+  it("keeps the hero an image so the priority preload is unchanged", () => {
+    const html = renderToStaticMarkup(
+      <ProductImageGallery images={IMAGES} videoUrl={VIDEO_URL} />,
+    );
+    // First tile in the desktop grid is still the first product image; the
+    // video tile comes after it (and after every other image).
+    const grid = html.slice(html.indexOf('data-pdp-gallery="grid"'));
+    const firstImgTag = grid.slice(grid.indexOf("<img"));
+    expect(firstImgTag.slice(0, firstImgTag.indexOf(">"))).toContain(
+      'src="/a.jpg"',
+    );
+    const desktopGrid = grid.slice(0, grid.indexOf("md:hidden"));
+    expect(desktopGrid.lastIndexOf("i.ytimg.com")).toBeGreaterThan(
+      desktopGrid.lastIndexOf('src="/c.jpg"'),
+    );
+  });
+
+  it.each([null, undefined, "", "https://vimeo.com/1", "not a url"])(
+    "renders the plain image gallery when videoUrl is %s",
+    (videoUrl) => {
+      lightboxImages.mockClear();
+      const withVideoProp = renderToStaticMarkup(
+        <ProductImageGallery images={IMAGES} videoUrl={videoUrl} />,
+      );
+      const without = renderToStaticMarkup(
+        <ProductImageGallery images={IMAGES} />,
+      );
+      expect(withVideoProp).toBe(without);
+      expect(withVideoProp).not.toContain("gallery-video-tile");
+      expect(withVideoProp).not.toContain("i.ytimg.com");
+      expect(lightboxImages.mock.calls[0]?.[0]).toHaveLength(3);
+    },
+  );
+
+  it("still shows the video after the placeholder when there are no images", () => {
+    const html = renderToStaticMarkup(
+      <ProductImageGallery images={[]} videoUrl={VIDEO_URL} />,
+    );
+    expect(html).toContain("/assets/HeadKit-Fallback.png");
+    expect(html).toContain('data-testid="gallery-video-tile"');
+  });
 });

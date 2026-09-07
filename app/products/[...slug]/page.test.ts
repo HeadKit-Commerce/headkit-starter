@@ -15,6 +15,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 const cacheTag = vi.fn<(...tags: string[]) => void>();
 const cacheLife = vi.fn<(profile: string) => void>();
 const productsGet = vi.fn<(slug: string) => Promise<unknown>>();
+const brandsGet = vi.fn<(slug: string) => Promise<unknown>>();
 const withShopifyPreviewKey =
   vi.fn<(key: string) => { products: { get: typeof productsGet } }>();
 
@@ -45,6 +46,7 @@ vi.mock("next/cache", () => ({
 vi.mock("@/lib/sdk", () => ({
   headkit: {
     products: { get: (slug: string): Promise<unknown> => productsGet(slug) },
+    brands: { get: (slug: string): Promise<unknown> => brandsGet(slug) },
     withShopifyPreviewKey: (key: string) => {
       withShopifyPreviewKey(key);
       return { products: { get: productsGet } };
@@ -97,13 +99,22 @@ vi.mock("@/lib/env", () => ({
 vi.mock("@/lib/make-metadata", () => ({
   makeSeoMetadata: (): Record<string, unknown> => ({}),
   seoFallbackDescription: (): string => "",
-  resolveStoreName: (): Promise<string> => Promise.resolve("Test Store"),
+  resolveStoreName: (): string => "Test Store",
   storefrontUrl: (path: string, domain?: string | null): string =>
     `https://${domain ?? "shop.example"}${path}`,
 }));
 
+/** Prop recorders for the two consumers of the display brand. */
+const { productDetailProps, productJsonLdProps } = vi.hoisted(() => ({
+  productDetailProps: vi.fn<(props: Record<string, unknown>) => void>(),
+  productJsonLdProps: vi.fn<(props: Record<string, unknown>) => void>(),
+}));
+
 vi.mock("@/components/headkit-ui/product-detail", () => ({
-  ProductDetail: (): null => null,
+  ProductDetail: (props: Record<string, unknown>): null => {
+    productDetailProps(props);
+    return null;
+  },
 }));
 vi.mock("@/components/headkit-ui/product-stock", () => ({
   ProductStock: (): null => null,
@@ -115,7 +126,10 @@ vi.mock("@/components/headkit-ui/section-header", () => ({
   SectionHeader: (): null => null,
 }));
 vi.mock("@/components/seo/product-json-ld", () => ({
-  ProductJsonLD: (): null => null,
+  ProductJsonLD: (props: Record<string, unknown>): null => {
+    productJsonLdProps(props);
+    return null;
+  },
 }));
 vi.mock("@/components/seo/breadcrumb-json-ld", () => ({
   BreadcrumbJsonLD: (): null => null,
@@ -159,9 +173,13 @@ beforeEach(() => {
   cacheTag.mockClear();
   cacheLife.mockClear();
   productsGet.mockReset();
+  brandsGet.mockReset();
   withShopifyPreviewKey.mockReset();
   loggerError.mockClear();
+  productDetailProps.mockClear();
+  productJsonLdProps.mockClear();
   productsGet.mockResolvedValue(null);
+  brandsGet.mockResolvedValue(null);
 });
 
 describe("products/[...slug] getProduct — TAG.product + days", () => {
@@ -397,5 +415,113 @@ describe("the FLAT /products route does not subscribe to the whole-catalogue tag
       tags,
       "WordPress fires headkit:collections on ANY product or category change, so a PDP that subscribes to it turns one product save into a purge of every PDP on the store (the Bike Society hazard in lib/cache-tags.ts)",
     ).not.toContain(TAG.collections);
+  });
+});
+
+/**
+ * Display brand (Bike Society PDP gaps #5 and #28). `ProductFields` now selects
+ * `brands`; the page resolves the first term, reads its logo through ONE cached
+ * brand entry, hands `ProductDetail` a `brand` and names the brand — not the
+ * store — in JSON-LD.
+ *
+ * The multi-tenant half is the one that matters: a product with NO brand terms
+ * (every product on Dishee/Pebblr today, and every product read through a theme
+ * that predates the selection) must produce exactly what it produced before —
+ * no brand prop, store name in JSON-LD, and NO brand read at all.
+ */
+describe("ProductPageContent display brand", () => {
+  const BRANDED_PRODUCT = {
+    ...NO_ANCESTRY_PRODUCT,
+    brands: [
+      { id: "b2", name: "S-Works", slug: "s-works" },
+      { id: "b1", name: "Specialized", slug: "specialized" },
+    ],
+  };
+
+  it("resolves the FIRST brand term, fetches its logo once under TAG.brand, and names it in JSON-LD", async () => {
+    productsGet.mockResolvedValue(BRANDED_PRODUCT);
+    brandsGet.mockResolvedValue({
+      name: "S-Works",
+      slug: "s-works",
+      thumbnail: "https://cms.example/S-Works.svg",
+      image: null,
+    });
+
+    renderToStaticMarkup(
+      (await ProductPageContent({
+        params: Promise.resolve({ slug: [SLUG] }),
+      })) as ReactElement,
+    );
+
+    expect(brandsGet).toHaveBeenCalledTimes(1);
+    expect(brandsGet).toHaveBeenCalledWith("s-works");
+    expect(cacheTag).toHaveBeenCalledWith(TAG.brand("s-works"));
+    expect(
+      cacheTag.mock.calls.flat(),
+      "the index tag buys nothing here and would widen the purge surface",
+    ).not.toContain(TAG.brands);
+
+    expect(productDetailProps).toHaveBeenCalledTimes(1);
+    expect(productDetailProps.mock.calls[0]![0]["brand"]).toEqual({
+      name: "S-Works",
+      slug: "s-works",
+      logoUrl: "https://cms.example/S-Works.svg",
+    });
+    expect(productJsonLdProps.mock.calls[0]![0]["brandName"]).toBe("S-Works");
+  });
+
+  it("renders no brand and keeps the STORE name in JSON-LD when the product has none", async () => {
+    productsGet.mockResolvedValue(NO_ANCESTRY_PRODUCT);
+
+    renderToStaticMarkup(
+      (await ProductPageContent({
+        params: Promise.resolve({ slug: [SLUG] }),
+      })) as ReactElement,
+    );
+
+    expect(brandsGet, "no brand terms → no brand read").not.toHaveBeenCalled();
+    expect(productDetailProps.mock.calls[0]![0]["brand"]).toBeNull();
+    expect(productJsonLdProps.mock.calls[0]![0]["brandName"]).toBe(
+      "Test Store",
+    );
+  });
+
+  it("treats a payload with no `brands` key at all (older SDK/theme) exactly like an empty list", async () => {
+    const { brands: _omitted, ...withoutKey } = BRANDED_PRODUCT;
+    void _omitted;
+    productsGet.mockResolvedValue(withoutKey);
+
+    renderToStaticMarkup(
+      (await ProductPageContent({
+        params: Promise.resolve({ slug: [SLUG] }),
+      })) as ReactElement,
+    );
+
+    expect(brandsGet).not.toHaveBeenCalled();
+    expect(productDetailProps.mock.calls[0]![0]["brand"]).toBeNull();
+    expect(productJsonLdProps.mock.calls[0]![0]["brandName"]).toBe(
+      "Test Store",
+    );
+  });
+
+  it("falls back to the term name with no logo when the brand read fails — never a failed PDP", async () => {
+    productsGet.mockResolvedValue(BRANDED_PRODUCT);
+    brandsGet.mockRejectedValue(new Error("brand endpoint down"));
+
+    const rendered = await ProductPageContent({
+      params: Promise.resolve({ slug: [SLUG] }),
+    });
+    expect(rendered).toBeDefined();
+    renderToStaticMarkup(rendered as ReactElement);
+    expect(
+      loggerError,
+      "a missing logo is not an error",
+    ).not.toHaveBeenCalled();
+    expect(productDetailProps.mock.calls[0]![0]["brand"]).toEqual({
+      name: "S-Works",
+      slug: "s-works",
+      logoUrl: null,
+    });
+    expect(productJsonLdProps.mock.calls[0]![0]["brandName"]).toBe("S-Works");
   });
 });

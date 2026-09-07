@@ -18,6 +18,7 @@ import type {
   ProductVariation,
 } from "@headkit/sdk";
 import { ProductImageGallery } from "@/components/headkit-ui/product-image-gallery";
+import { ProductBrandLink } from "@/components/headkit-ui/product-brand-link";
 import { ProductPrice } from "@/components/headkit-ui/product-price";
 import { pickFirstPrice } from "@/lib/price-display";
 import { VariantSwatch } from "@/components/headkit-ui/variant-swatch";
@@ -130,6 +131,15 @@ interface Props {
    */
   pdpGalleryLayout?: string;
   /**
+   * Display brand resolved by the page (`lib/product-brand.ts`): logo (or name)
+   * rendered above the title, linking to `/brand/{slug}`. Omit / null renders
+   * nothing, so a product without brand terms is laid out exactly as before.
+   */
+  brand?:
+    | { name: string; slug: string; logoUrl?: string | null | undefined }
+    | null
+    | undefined;
+  /**
    * Shopify storefronts have no Gravity Forms. When true, the PDP enquiry
    * uses the built-in Online Store contact form.
    */
@@ -197,6 +207,7 @@ export function ProductDetail({
   stripeConfig,
   multiAddEnabled = false,
   pdpGalleryLayout = "grid",
+  brand,
   shopifyContact = false,
 }: Props) {
   const router = useRouter();
@@ -894,10 +905,12 @@ export function ProductDetail({
           isNew={product.isNew}
           badges={customBadges}
           layout={pdpGalleryLayout}
+          videoUrl={product.productVideoUrl}
         />
 
         {/* Right: product info */}
         <div className="flex flex-col">
+          <ProductBrandLink brand={brand} />
           <h1 className="mb-3 text-primary">
             <TitleEmphasis text={product.name} highlight />
           </h1>

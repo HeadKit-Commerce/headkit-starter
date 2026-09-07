@@ -104,7 +104,9 @@ describe("encodeShopifyContactForm", () => {
     expect(shopifyUpdatesSubscribeLabel("Velvet")).toBe(
       "I want to receive updates from Velvet",
     );
-    expect(shopifyUpdatesSubscribeLabel("  ")).toBe("I want to receive updates");
+    expect(shopifyUpdatesSubscribeLabel("  ")).toBe(
+      "I want to receive updates",
+    );
   });
 
   it("requires email", () => {
@@ -149,7 +151,9 @@ describe("postShopifyContact", () => {
       "Content-Type": "application/x-www-form-urlencoded",
     });
     expect(String(init?.body)).toContain("form_type=contact");
-    expect(String(init?.body)).toContain("contact%5Bemail%5D=ada%40example.com");
+    expect(String(init?.body)).toContain(
+      "contact%5Bemail%5D=ada%40example.com",
+    );
   });
 
   it("rejects a 4xx from the shop", async () => {

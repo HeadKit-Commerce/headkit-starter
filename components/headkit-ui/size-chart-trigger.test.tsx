@@ -68,9 +68,9 @@ describe("SizeChartTrigger", () => {
 
     expect(typeof dialogContentProps.onOpenAutoFocus).toBe("function");
     const preventDefault = vi.fn();
-    dialogContentProps.onOpenAutoFocus?.(
-      { preventDefault } as unknown as Event,
-    );
+    dialogContentProps.onOpenAutoFocus?.({
+      preventDefault,
+    } as unknown as Event);
     expect(preventDefault).toHaveBeenCalled();
   });
 });

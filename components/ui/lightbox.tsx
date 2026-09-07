@@ -19,6 +19,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { youtubeEmbedUrl } from "@/lib/youtube";
 import {
   applyLightboxPan,
   lightboxCursorClass,
@@ -28,7 +29,12 @@ import {
 } from "@/lib/lightbox-zoom";
 
 interface Props {
-  images: { src: string; alt: string }[];
+  /**
+   * Slides in gallery order. An entry with `videoId` is the product-video
+   * slide: it renders the privacy-enhanced YouTube embed instead of a zoomable
+   * image, and `src` (the poster frame) is not shown.
+   */
+  images: { src: string; alt: string; videoId?: string }[];
   initialSelectedIndex: number;
 }
 
@@ -148,6 +154,7 @@ const Lightbox = ({ images, initialSelectedIndex }: Props) => {
   };
 
   const current = images[currentIndex];
+  const currentVideoId = current?.videoId;
   const cursorClass = lightboxCursorClass(scale, dragging);
 
   return (
@@ -158,7 +165,23 @@ const Lightbox = ({ images, initialSelectedIndex }: Props) => {
       </DialogDescription>
 
       <div className="relative flex h-full w-full items-center justify-center px-4 md:px-16">
-        {current && (
+        {current && currentVideoId ? (
+          <div
+            className="relative flex h-full w-full items-center justify-center"
+            data-lightbox-video={currentVideoId}
+          >
+            <iframe
+              src={youtubeEmbedUrl(currentVideoId)}
+              title={current.alt || "Product video"}
+              className="aspect-video w-full max-h-full max-w-5xl"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              referrerPolicy="strict-origin-when-cross-origin"
+              allowFullScreen
+              loading="lazy"
+            />
+          </div>
+        ) : null}
+        {current && !currentVideoId && (
           <div
             className={`relative h-full w-full overflow-hidden ${cursorClass}`}
             data-lightbox-zoom={scale}
@@ -194,7 +217,7 @@ const Lightbox = ({ images, initialSelectedIndex }: Props) => {
               event.stopPropagation();
               setZoom("in");
             }}
-            disabled={zoomed}
+            disabled={zoomed || Boolean(currentVideoId)}
             className="cursor-pointer rounded-full bg-primary/10 p-2 text-primary backdrop-blur-sm transition hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-40"
             aria-label="Zoom in"
           >

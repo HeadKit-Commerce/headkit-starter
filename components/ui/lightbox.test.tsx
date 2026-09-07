@@ -80,3 +80,39 @@ describe("Dialog close pointer", () => {
     );
   });
 });
+
+describe("Lightbox product-video slide", () => {
+  const SLIDES = [
+    ...IMAGES,
+    {
+      src: "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+      alt: "Product video",
+      videoId: "dQw4w9WgXcQ",
+    },
+  ];
+
+  it("renders the privacy-enhanced embed instead of an image on the video slide", () => {
+    const html = renderToStaticMarkup(
+      <Lightbox images={SLIDES} initialSelectedIndex={2} />,
+    );
+    expect(html).toContain('data-lightbox-video="dQw4w9WgXcQ"');
+    expect(html).toContain(
+      'src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0"',
+    );
+    expect(html).toContain('loading="lazy"');
+    expect(html).toContain('title="Product video"');
+    // The poster frame is not rendered as an <img>, and zoom-in is disabled.
+    expect(html).not.toContain('src="https://i.ytimg.com');
+    expect(html).not.toContain("data-lightbox-zoom=");
+    expect(html).toContain("3 / 3");
+  });
+
+  it("renders an image slide exactly as before when a video is elsewhere in the list", () => {
+    const withVideo = renderToStaticMarkup(
+      <Lightbox images={SLIDES} initialSelectedIndex={0} />,
+    );
+    expect(withVideo).toContain('data-lightbox-zoom="1"');
+    expect(withVideo).toContain('src="/a.jpg"');
+    expect(withVideo).not.toContain("youtube-nocookie");
+  });
+});
