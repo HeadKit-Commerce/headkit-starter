@@ -9,6 +9,7 @@ import { getCustomer } from "@/lib/account-actions";
 import { getAuthToken } from "@/lib/auth-cookie";
 import { resolveCheckoutEmail } from "@/lib/checkout-email";
 import { hostedCheckoutUrl } from "@/lib/hosted-checkout";
+import { hostedCheckoutCookieOptions } from "@/lib/hosted-cart-sync";
 import { getFloatVal } from "@/lib/utils";
 import { createServerHeadkit } from "@/lib/sdk.server";
 import { PaymentFailedBanner } from "@/components/checkout/payment-failed-banner";
@@ -71,6 +72,11 @@ export default async function CheckoutPage({
   // Primary CTA is cart-drawer → checkoutUrl; this remains a deep-link safety net.
   const shopifyCheckout = hostedCheckoutUrl(cart);
   if (shopifyCheckout) {
+    // Server redirect has no client JS — stamp the pending cookie so a later
+    // tab-focus sync still rotates the bag if they never click Continue.
+    const cookieStore = await cookies();
+    const { name, ...opts } = hostedCheckoutCookieOptions();
+    cookieStore.set({ name, value: "1", ...opts });
     redirect(shopifyCheckout);
   }
 

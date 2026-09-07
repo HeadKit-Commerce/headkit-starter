@@ -9,6 +9,7 @@ import {
   getFooterMenus,
 } from "@/components/headkit-ui/navigation-wrapper";
 import { CartProvider } from "@/components/headkit-ui/cart-context";
+import { HostedCartSync } from "@/components/checkout/hosted-cart-sync";
 import { AuthProvider } from "@/components/headkit-ui/auth-context";
 import { Footer } from "@/components/headkit-ui/footer";
 import { LazyCartDrawer } from "@/components/headkit-ui/lazy-cart-drawer";
@@ -279,6 +280,7 @@ export default async function RootLayout({
             <CheckoutModeProvider mode={checkoutMode}>
               <AuthProvider>
                 <CartProvider>
+                  <HostedCartSync />
                   <LazyCartDrawer />
                   <NavigationWrapper />
                   <main className="headkit-main pb-10">{children}</main>

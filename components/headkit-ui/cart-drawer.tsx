@@ -18,6 +18,7 @@ import { useChromeIcons } from "@/components/branding/branding-icons-provider";
 import { useIsQuoteMode } from "@/components/checkout/checkout-mode-provider";
 import { getCartAction } from "@/lib/cart-actions";
 import { hostedCheckoutUrl, isHostedCheckoutHref } from "@/lib/hosted-checkout";
+import { markHostedCheckoutPending } from "@/lib/hosted-cart-sync";
 import { formatPrice, getStoreCurrency } from "@/lib/utils";
 import { cartItemsDisplayTotal } from "@/lib/cart-prices";
 import { PlusIcon } from "@/components/icon";
@@ -127,7 +128,10 @@ export function CartDrawer() {
                   <Button
                     fullWidth
                     suppressHydrationWarning
-                    onClick={() => toggleCart(false)}
+                    onClick={() => {
+                      markHostedCheckoutPending();
+                      toggleCart(false);
+                    }}
                     className="mt-3 shadow-none focus-visible:ring-0"
                   >
                     Checkout

@@ -150,12 +150,18 @@ export async function getCartAction(): Promise<CartFieldsFragment | null> {
     if (!cartToken) return null;
     const cookieStore = await cookies();
     const authToken = getAuthToken(cookieStore);
-    const cart = await createServerHeadkit(
+    const cart = (await createServerHeadkit(
       cartToken,
       undefined,
       authToken,
-    ).cart.get();
-    return cart as unknown as CartFieldsFragment;
+    ).cart.get()) as unknown as CartFieldsFragment;
+    // Shopify GIDs are not JWTs — persist whenever commerce rotated the token
+    // (ORDERS_PAID consume → fresh empty cart).
+    if (cart?.token && cart.token !== cartToken) {
+      const { name: cookieName, ...cookieOpts } = cartTokenCookieOptions();
+      cookieStore.set({ name: cookieName, value: cart.token, ...cookieOpts });
+    }
+    return cart;
   } catch {
     return null;
   }
