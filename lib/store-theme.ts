@@ -15,7 +15,11 @@ export type HomepageNav = "solid" | "overlay-hero";
 
 /** Product-tag names/slugs that render as card/PDP pills. */
 export interface CatalogTheme {
-  badgeTags: string[];
+  badgeTags?: string[];
+  /** Ordered collection slugs on the homepage category carousel. Omit = first N. */
+  homepageCollections?: string[];
+  /** Ordered collection slugs on the Shop header carousel. Omit = all roots. */
+  shopCollections?: string[];
 }
 
 /** Optional PDP chrome owned by the customer theme. */
@@ -53,8 +57,16 @@ const layoutSchema = z.object({
   homepageNav: z.enum(["solid", "overlay-hero"]),
 });
 
+const collectionSlugSchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .regex(/^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/);
+
 const catalogSchema = z.object({
-  badgeTags: z.array(z.string().min(1).max(64)).max(32),
+  badgeTags: z.array(z.string().min(1).max(64)).max(32).optional(),
+  homepageCollections: z.array(collectionSlugSchema).max(32).optional(),
+  shopCollections: z.array(collectionSlugSchema).max(32).optional(),
 });
 
 const pdpSchema = z.object({
@@ -96,7 +108,17 @@ function normalizeTheme(data: z.infer<typeof themeSchema>): StoreTheme {
     layout: data.layout,
   };
   if (data.catalog !== undefined) {
-    theme.catalog = data.catalog;
+    const catalog: CatalogTheme = {};
+    if (data.catalog.badgeTags !== undefined) {
+      catalog.badgeTags = data.catalog.badgeTags;
+    }
+    if (data.catalog.homepageCollections !== undefined) {
+      catalog.homepageCollections = data.catalog.homepageCollections;
+    }
+    if (data.catalog.shopCollections !== undefined) {
+      catalog.shopCollections = data.catalog.shopCollections;
+    }
+    theme.catalog = catalog;
   }
   if (data.pdp !== undefined) {
     theme.pdp = data.pdp;

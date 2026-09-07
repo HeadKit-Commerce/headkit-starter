@@ -21,6 +21,11 @@ import {
   filterCategoriesByNonEmptySlugs,
   getNonEmptyCollectionSlugs,
 } from "@/lib/hide-empty-collections";
+import { getStoreTheme } from "@/lib/store-theme";
+import {
+  collectionSlugsForSurface,
+  pickCollectionsBySlugs,
+} from "@/lib/collection-surfaces";
 
 export async function generateMetadata(): Promise<Metadata> {
   try {
@@ -71,16 +76,20 @@ async function getRootCategories(): Promise<ProductCategoryDetail[]> {
     sdk.collections.getCategories(),
     getBranding(),
   ]);
-  const roots = categories.filter((cat) => !isUncategorizedCategory(cat));
-  if (!branding.hideEmptyCollections) {
-    return roots;
+  let roots = categories.filter((cat) => !isUncategorizedCategory(cat));
+  if (branding.hideEmptyCollections) {
+    // getCategories already hides empty by default; keep an explicit filter so
+    // hand-rolled parentSlug lists stay consistent with the branding toggle.
+    // null = catalog listing failed → fail open (do not blank the shop roots).
+    const nonEmptySlugs = await getNonEmptyCollectionSlugs();
+    if (nonEmptySlugs) {
+      roots = filterCategoriesByNonEmptySlugs(roots, nonEmptySlugs);
+    }
   }
-  // getCategories already hides empty by default; keep an explicit filter so
-  // hand-rolled parentSlug lists stay consistent with the branding toggle.
-  // null = catalog listing failed → fail open (do not blank the shop roots).
-  const nonEmptySlugs = await getNonEmptyCollectionSlugs();
-  if (!nonEmptySlugs) return roots;
-  return filterCategoriesByNonEmptySlugs(roots, nonEmptySlugs);
+  return pickCollectionsBySlugs(
+    roots,
+    collectionSlugsForSurface(getStoreTheme().catalog, "shop"),
+  );
 }
 
 /** Aggregated facet options (categories/attributes/price bounds). Shared + durable. */

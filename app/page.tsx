@@ -25,6 +25,10 @@ import { collectionPathResolver } from "@/lib/collection-path";
 import { MainCarousel } from "@/components/headkit-ui/main-carousel";
 import { getStoreTheme } from "@/lib/store-theme";
 import {
+  collectionSlugsForSurface,
+  pickCollectionsBySlugs,
+} from "@/lib/collection-surfaces";
+import {
   HOMEPAGE_PENDING_HERO_CACHE_LIFE,
   homepageHeroMediaPending,
 } from "@/lib/homepage-hero-media";
@@ -158,9 +162,12 @@ export async function HomeContent() {
     []) as unknown as HeroCarouselItem[];
   const featuredCategoriesRaw = (homepage?.featuredCategories ??
     []) as unknown as FeaturedCategory[];
-  const featuredCategoriesFiltered = nonEmptySlugs
-    ? filterCategoriesByNonEmptySlugs(featuredCategoriesRaw, nonEmptySlugs)
-    : featuredCategoriesRaw;
+  const featuredCategoriesFiltered = pickCollectionsBySlugs(
+    nonEmptySlugs
+      ? filterCategoriesByNonEmptySlugs(featuredCategoriesRaw, nonEmptySlugs)
+      : featuredCategoriesRaw,
+    collectionSlugsForSurface(getStoreTheme().catalog, "homepage"),
+  );
   // `FeaturedCategory` carries a slug and the raw WordPress permalink, neither
   // of which is a storefront path — resolve each tile's CANONICAL collection
   // path from the category tree so a nested category's tile does not link the

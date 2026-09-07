@@ -16,6 +16,7 @@ describe("getStoreTheme", () => {
     expect(theme.layout.heroLayout).toBe("inset");
     expect(theme.layout.homepageNav).toBe("solid");
     expect(theme.pdp).toBeUndefined();
+    expect(theme.catalog).toBeUndefined();
   });
 });
 
