@@ -16,6 +16,7 @@ import { CmsPageBody } from "@/components/headkit-ui/cms-page-body";
 import { ShopifyContactForm } from "@/components/shopify-contact-form";
 import { Skeleton } from "@/components/ui/skeleton";
 import { env } from "@/lib/env";
+import { shopifyContactSubscribeProps } from "@/lib/shopify-contact-subscribe";
 import {
   isShopifyPartnershipsSlug,
   isShopifyStorefront,
@@ -292,6 +293,9 @@ async function CmsRoute({ params }: Props) {
   const html = page.content ?? "";
   const shopifyPartnerships =
     isShopifyStorefront(env) && isShopifyPartnershipsSlug(contentSlug);
+  const subscribe = shopifyPartnerships
+    ? await shopifyContactSubscribeProps()
+    : null;
 
   // No outer px/my — CmsPageBody pads HTML/GF segments like the homepage and
   // leaves hero carousels full-bleed (`mx-5` inside MainCarousel). Outer
@@ -314,7 +318,12 @@ async function CmsRoute({ params }: Props) {
       {shopifyPartnerships ? (
         <div className="px-5 pb-10 md:px-10 md:pb-16">
           <div className="mx-auto max-w-xl">
-            <ShopifyContactForm context="general" />
+            <ShopifyContactForm
+              context="partnerships"
+              variant="partnerships"
+              subscribeEnabled={subscribe?.subscribeEnabled ?? false}
+              subscribeLabel={subscribe?.subscribeLabel ?? ""}
+            />
           </div>
         </div>
       ) : null}

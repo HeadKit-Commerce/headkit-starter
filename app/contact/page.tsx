@@ -12,6 +12,7 @@ import { errorFields, logger } from "@/lib/logger";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { CmsPageBody } from "@/components/headkit-ui/cms-page-body";
 import { ShopifyContactForm } from "@/components/shopify-contact-form";
+import { shopifyContactSubscribeProps } from "@/lib/shopify-contact-subscribe";
 import {
   removeGravityFormMarkers,
   withGuaranteedFormMarker,
@@ -167,6 +168,7 @@ async function ContactRoute(): Promise<React.ReactElement> {
     page?.content ??
     "<p>Have a question? Fill in the form and our team will get back to you shortly.</p>";
   const shopify = isShopifyStorefront(env);
+  const subscribe = shopify ? await shopifyContactSubscribeProps() : null;
   // Woo: guarantee a Gravity Forms marker so a migrated Contact page still
   // has a form. Shopify: never inject or hydrate Gravity Forms — strip any
   // leftover WP markers and render the built-in Online Store contact form.
@@ -199,7 +201,12 @@ async function ContactRoute(): Promise<React.ReactElement> {
       {shopify ? (
         <div className="px-5 pb-10 md:px-10 md:pb-16">
           <div className="mx-auto max-w-xl">
-            <ShopifyContactForm context="contact" />
+            <ShopifyContactForm
+              context="contact"
+              variant="contact"
+              subscribeEnabled={subscribe?.subscribeEnabled ?? false}
+              subscribeLabel={subscribe?.subscribeLabel ?? ""}
+            />
           </div>
         </div>
       ) : null}

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { GravityForm } from "@/components/gravity-form";
 import { ShopifyContactForm } from "@/components/shopify-contact-form";
+import { shopifyContactSubscribeProps } from "@/lib/shopify-contact-subscribe";
 import {
   makeSeoMetadata,
   seoFallbackDescription,
@@ -26,7 +27,7 @@ import { getPageData } from "@/app/[...slug]/page";
  *
  * Woo: the Gravity Forms id is configuration, not a literal. Unset env →
  * content only, no form. Shopify: the built-in Online Store contact form
- * (Name / Email / Phone / Comment) — not Gravity Forms.
+ * (Name / Email / Phone / Venue / Location / space notes) — not Gravity Forms.
  */
 const WHOLESALE_SLUG = "wholesale";
 
@@ -72,6 +73,7 @@ export default async function WholesalePage(): Promise<React.ReactElement> {
 
   const shopify = isShopifyStorefront(env);
   const wooFormId = env.NEXT_PUBLIC_WHOLESALE_FORM_ID;
+  const subscribe = shopify ? await shopifyContactSubscribeProps() : null;
 
   return (
     <div className="px-5 py-10 md:px-10 md:py-16">
@@ -84,7 +86,12 @@ export default async function WholesalePage(): Promise<React.ReactElement> {
 
         {shopify ? (
           <div>
-            <ShopifyContactForm context="general" />
+            <ShopifyContactForm
+              context="partnerships"
+              variant="partnerships"
+              subscribeEnabled={subscribe?.subscribeEnabled ?? false}
+              subscribeLabel={subscribe?.subscribeLabel ?? ""}
+            />
           </div>
         ) : wooFormId ? (
           <div>

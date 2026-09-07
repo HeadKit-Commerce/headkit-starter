@@ -4,6 +4,7 @@ import {
   encodeShopifyContactForm,
   extrasFromEnquiryValues,
   postShopifyContact,
+  shopifyUpdatesSubscribeLabel,
   shopifyContactAccepted,
   shopifyContactBodyPrefix,
   shopifyContactEndpoint,
@@ -26,11 +27,12 @@ describe("shopifyContactOrigin / endpoint", () => {
 });
 
 describe("body prefix and extras", () => {
-  it("prefixes product and general enquiries only", () => {
+  it("prefixes product, general, and partnerships enquiries only", () => {
     expect(shopifyContactBodyPrefix("contact")).toBe("");
     expect(shopifyContactBodyPrefix(undefined)).toBe("");
     expect(shopifyContactBodyPrefix("product")).toBe("Product enquiry");
     expect(shopifyContactBodyPrefix("general")).toBe("Enquiry");
+    expect(shopifyContactBodyPrefix("partnerships")).toBe("Partnerships");
   });
 
   it("appends product extras after the message", () => {
@@ -47,6 +49,23 @@ describe("body prefix and extras", () => {
       }),
     ).toBe(
       "Product enquiry\n\nNeed a sample\n\nProduct Name: Velvet Sofa\nProduct URL: https://shop.example/sofa",
+    );
+  });
+
+  it("prefixes partnerships with venue and location extras", () => {
+    expect(
+      buildShopifyContactBody({
+        name: "Ada",
+        email: "ada@example.com",
+        body: "Rooftop terrace, 80 covers",
+        context: "partnerships",
+        extras: [
+          { label: "Venue", value: "The Lantern" },
+          { label: "Location", value: "Surry Hills" },
+        ],
+      }),
+    ).toBe(
+      "Partnerships\n\nRooftop terrace, 80 covers\n\nVenue: The Lantern\nLocation: Surry Hills",
     );
   });
 
@@ -79,6 +98,13 @@ describe("encodeShopifyContactForm", () => {
     expect(vals.get("contact[name]")).toBe("Ada Lovelace");
     expect(vals.get("contact[phone]")).toBe("0400 000 000");
     expect(vals.get("contact[body]")).toBe("Hello");
+  });
+
+  it("builds a Velvet-named updates label", () => {
+    expect(shopifyUpdatesSubscribeLabel("Velvet")).toBe(
+      "I want to receive updates from Velvet",
+    );
+    expect(shopifyUpdatesSubscribeLabel("  ")).toBe("I want to receive updates");
   });
 
   it("requires email", () => {

@@ -4,6 +4,7 @@
     "navLayout": "left-logo",
     "navStyle": "icons",
     "heroLayout": "inset",
-    "homepageNav": "solid"
+    "homepageNav": "solid",
+    "productEnquiry": true
   }
 }

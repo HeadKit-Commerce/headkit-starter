@@ -1,6 +1,7 @@
 "use server";
 
 import { env } from "@/lib/env";
+import { subscribeEmailAction } from "@/lib/email-marketing-actions";
 import {
   postShopifyContact,
   type ShopifyContactInput,
@@ -9,6 +10,10 @@ import {
 export type SubmitShopifyContactResult =
   | { ok: true }
   | { ok: false; error: string };
+
+export type SubmitShopifyContactInput = ShopifyContactInput & {
+  subscribe?: boolean;
+};
 
 function shopifyStoreDomain(): string | undefined {
   const domain =
@@ -22,7 +27,7 @@ function shopifyStoreDomain(): string | undefined {
  * Origin/Referer are the shop host so the Online Store accepts the request.
  */
 export async function submitShopifyContact(
-  input: ShopifyContactInput,
+  input: SubmitShopifyContactInput,
 ): Promise<SubmitShopifyContactResult> {
   const domain = shopifyStoreDomain();
   if (!domain) {
@@ -43,11 +48,23 @@ export async function submitShopifyContact(
       context: input.context,
       extras: input.extras,
     });
-    return { ok: true };
   } catch {
     return {
       ok: false,
       error: "We couldn't send your message. Please try again shortly.",
     };
   }
+
+  if (input.subscribe === true) {
+    try {
+      await subscribeEmailAction({
+        email,
+        source: "form",
+      });
+    } catch {
+      // The Shopify enquiry already landed; do not fail the form on list signup.
+    }
+  }
+
+  return { ok: true };
 }

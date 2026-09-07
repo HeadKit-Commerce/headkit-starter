@@ -34,6 +34,10 @@
           "type": "string",
           "enum": ["solid", "overlay-hero"],
           "description": "Nav chrome on the homepage."
+        },
+        "productEnquiry": {
+          "type": "boolean",
+          "description": "Show the Shopify PDP product-enquiry form. Default true."
         }
       },
       "required": ["navLayout", "navStyle", "heroLayout", "homepageNav"]

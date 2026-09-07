@@ -11,7 +11,11 @@
  * extension only). The redirect theme cannot host a shopper form.
  */
 
-export type ShopifyContactContext = "contact" | "product" | "general";
+export type ShopifyContactContext =
+  | "contact"
+  | "product"
+  | "general"
+  | "partnerships";
 
 export type ShopifyContactExtra = {
   label: string;
@@ -59,9 +63,22 @@ export function shopifyContactBodyPrefix(
       return "Product enquiry";
     case "general":
       return "Enquiry";
+    case "partnerships":
+      return "Partnerships";
     default:
       return "";
   }
+}
+
+/** Klaviyo checkbox copy. Uses the store name so Velvet reads “from Velvet”. */
+export function shopifyUpdatesSubscribeLabel(
+  storeName: string | null | undefined,
+): string {
+  const name = storeName?.trim();
+  if (!name) {
+    return "I want to receive updates";
+  }
+  return `I want to receive updates from ${name}`;
 }
 
 export function extrasFromEnquiryValues(

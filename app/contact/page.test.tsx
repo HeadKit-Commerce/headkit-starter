@@ -74,7 +74,17 @@ vi.mock("@/lib/branding", () => ({
   getBranding: (): Promise<unknown> =>
     Promise.resolve({
       seoSettings: { allowIndexing: true },
-      storeSettings: { domain: "shop.example" },
+      storeSettings: { domain: "shop.example", name: "Example" },
+    }),
+}));
+
+vi.mock("@/lib/email-marketing", () => ({
+  getEmailMarketingStatus: (): Promise<unknown> =>
+    Promise.resolve({
+      enabled: false,
+      provider: "",
+      publicApiKey: null,
+      listConfigured: false,
     }),
 }));
 

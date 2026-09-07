@@ -17,6 +17,7 @@ describe("getStoreTheme", () => {
     expect(theme.layout.homepageNav).toBe("solid");
     expect(theme.pdp).toBeUndefined();
     expect(theme.catalog).toBeUndefined();
+    expect(theme.layout.productEnquiry).toBe(true);
   });
 });
 
@@ -29,6 +30,7 @@ describe("getThemeHtmlAttributes", () => {
         navStyle: "text-labels",
         heroLayout: "fixed-height",
         homepageNav: "overlay-hero",
+        productEnquiry: true,
       },
     });
     expect(attrs).toEqual({

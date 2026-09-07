@@ -15,44 +15,79 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { submitShopifyContact } from "@/lib/shopify-contact-actions";
 import type {
   ShopifyContactContext,
   ShopifyContactExtra,
 } from "@/lib/shopify-contact";
 
-const schema = z.object({
-  name: z.string().trim().min(1, "Name is required"),
-  email: z.string().trim().email("Enter a valid email"),
-  phone: z.string().optional(),
-  body: z.string().trim().min(1, "Message is required"),
-});
-
-type FormValues = z.infer<typeof schema>;
+export type ShopifyContactFormVariant = "contact" | "partnerships";
 
 const SUCCESS_COPY =
   "Thanks — we received your message and will get back to you shortly.";
 
+const contactSchema = z.object({
+  name: z.string().trim().min(1, "Name is required"),
+  email: z.string().trim().email("Enter a valid email"),
+  phone: z.string().optional(),
+  venue: z.string().optional(),
+  location: z.string().optional(),
+  body: z.string().trim().min(1, "Message is required"),
+  subscribe: z.boolean(),
+});
+
+const partnershipsSchema = z.object({
+  name: z.string().trim().min(1, "Name is required"),
+  email: z.string().trim().email("Enter a valid email"),
+  phone: z.string().trim().min(1, "Phone is required"),
+  venue: z.string().trim().min(1, "Venue is required"),
+  location: z.string().trim().min(1, "Location is required"),
+  body: z.string().trim().min(1, "Tell us about the space"),
+  subscribe: z.boolean(),
+});
+
+type FormValues = z.infer<typeof partnershipsSchema>;
+
 interface ShopifyContactFormProps {
   context?: ShopifyContactContext;
+  variant?: ShopifyContactFormVariant;
   extras?: readonly ShopifyContactExtra[];
   disabled?: boolean;
+  subscribeEnabled?: boolean;
+  subscribeLabel?: string;
 }
 
 /**
- * Shopify built-in contact fields (Dawn / Horizon): Name, Email, Phone, Comment.
+ * Shopify built-in contact fields.
+ * Contact: Name, Email, Phone, Comment.
+ * Partnerships / wholesale: Name, Email, Phone, Venue, Location, space notes.
  * Submits via server action to `https://{shop}.myshopify.com/contact`.
  */
 export function ShopifyContactForm({
-  context = "contact",
+  context,
+  variant = "contact",
   extras,
   disabled = false,
+  subscribeEnabled = false,
+  subscribeLabel = "I want to receive updates",
 }: ShopifyContactFormProps): React.ReactElement {
+  const resolvedContext =
+    context ?? (variant === "partnerships" ? "partnerships" : "contact");
+  const isPartnerships = variant === "partnerships";
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: { name: "", email: "", phone: "", body: "" },
+    resolver: zodResolver(isPartnerships ? partnershipsSchema : contactSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      venue: "",
+      location: "",
+      body: "",
+      subscribe: true,
+    },
   });
 
   if (success) {
@@ -72,16 +107,25 @@ export function ShopifyContactForm({
       <form
         className="space-y-4"
         data-testid="shopify-contact-form"
+        data-variant={variant}
         noValidate
         onSubmit={form.handleSubmit(async (values) => {
           setError(null);
+          const extraFields: ShopifyContactExtra[] = [...(extras ?? [])];
+          if (isPartnerships) {
+            extraFields.push(
+              { label: "Venue", value: values.venue },
+              { label: "Location", value: values.location },
+            );
+          }
           const result = await submitShopifyContact({
             name: values.name,
             email: values.email,
             phone: values.phone,
             body: values.body,
-            context,
-            extras,
+            context: resolvedContext,
+            extras: extraFields,
+            subscribe: subscribeEnabled ? values.subscribe : false,
           });
           if (result.ok) {
             setSuccess(true);
@@ -137,7 +181,7 @@ export function ShopifyContactForm({
                 <Input
                   autoComplete="tel"
                   disabled={disabled}
-                  placeholder="Phone (optional)"
+                  placeholder={isPartnerships ? "Phone" : "Phone (optional)"}
                   type="tel"
                   {...field}
                 />
@@ -146,16 +190,60 @@ export function ShopifyContactForm({
             </FormItem>
           )}
         />
+        {isPartnerships ? (
+          <>
+            <FormField
+              control={form.control}
+              name="venue"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Venue</FormLabel>
+                  <FormControl>
+                    <Input
+                      disabled={disabled}
+                      placeholder="Venue"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="location"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Location</FormLabel>
+                  <FormControl>
+                    <Input
+                      disabled={disabled}
+                      placeholder="Location"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </>
+        ) : null}
         <FormField
           control={form.control}
           name="body"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Comment</FormLabel>
+              <FormLabel>
+                {isPartnerships ? "Tell us about the space" : "Comment"}
+              </FormLabel>
               <FormControl>
                 <Textarea
                   disabled={disabled}
-                  placeholder="How can we help?"
+                  placeholder={
+                    isPartnerships
+                      ? "Tell us about the space"
+                      : "How can we help?"
+                  }
                   rows={5}
                   {...field}
                 />
@@ -164,6 +252,28 @@ export function ShopifyContactForm({
             </FormItem>
           )}
         />
+        {subscribeEnabled ? (
+          <FormField
+            control={form.control}
+            name="subscribe"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start space-x-2 space-y-0">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    disabled={disabled}
+                    onCheckedChange={(checked) =>
+                      field.onChange(checked === true)
+                    }
+                  />
+                </FormControl>
+                <FormLabel className="font-normal leading-snug">
+                  {subscribeLabel}
+                </FormLabel>
+              </FormItem>
+            )}
+          />
+        ) : null}
         {error ? (
           <p className="text-sm text-red-600" role="alert">
             {error}

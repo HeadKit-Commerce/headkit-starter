@@ -41,6 +41,8 @@ export interface StoreTheme {
     navStyle: NavStyle;
     heroLayout: HeroLayout;
     homepageNav: HomepageNav;
+    /** Shopify PDP “Enquire about this product”. Default true; Velvet sets false. */
+    productEnquiry: boolean;
   };
   catalog?: CatalogTheme;
   pdp?: PdpTheme;
@@ -55,6 +57,7 @@ const layoutSchema = z.object({
   navStyle: z.enum(["icons", "text-labels"]),
   heroLayout: z.enum(["inset", "full-bleed", "fixed-height"]),
   homepageNav: z.enum(["solid", "overlay-hero"]),
+  productEnquiry: z.boolean().default(true),
 });
 
 const collectionSlugSchema = z
@@ -97,6 +100,7 @@ const STARTER_DEFAULTS: StoreTheme = {
     navStyle: "icons",
     heroLayout: "inset",
     homepageNav: "solid",
+    productEnquiry: true,
   },
 };
 
