@@ -22,6 +22,26 @@ export interface CatalogTheme {
   shopCollections?: string[];
 }
 
+/** Optional override for one SectionHeader (omit = starter hardcoded copy). */
+export interface SectionCopyFields {
+  title?: string;
+  eyebrow?: string;
+  allButton?: string;
+  allButtonPath?: string;
+}
+
+/**
+ * Customer-owned section strings. Starter omits this — hardcoded titles stay.
+ * `{word}` in title uses the heading highlight face (same as product names).
+ */
+export interface CopyTheme {
+  homepageFeatured?: SectionCopyFields;
+  pdpBundles?: SectionCopyFields;
+  pdpRelated?: SectionCopyFields;
+  /** Link text under a homepage collection-card title. Omit = title only. */
+  collectionCardLink?: string;
+}
+
 /** Optional PDP chrome owned by the customer theme. */
 export interface PdpTheme {
   /**
@@ -46,6 +66,7 @@ export interface StoreTheme {
   };
   catalog?: CatalogTheme;
   pdp?: PdpTheme;
+  copy?: CopyTheme;
   figma?: {
     fileKey: string;
     referenceFrames: Record<string, string>;
@@ -80,11 +101,31 @@ const pdpSchema = z.object({
     .regex(/^\/(?!\/)[A-Za-z0-9/_-]*$/),
 });
 
+const sectionCopySchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  eyebrow: z.string().max(200).optional(),
+  allButton: z.string().max(80).optional(),
+  allButtonPath: z
+    .string()
+    .min(1)
+    .max(256)
+    .regex(/^\/(?!\/)[A-Za-z0-9/_-]*$/)
+    .optional(),
+});
+
+const copySchema = z.object({
+  homepageFeatured: sectionCopySchema.optional(),
+  pdpBundles: sectionCopySchema.optional(),
+  pdpRelated: sectionCopySchema.optional(),
+  collectionCardLink: z.string().min(1).max(80).optional(),
+});
+
 const themeSchema = z.object({
   version: z.number().int().min(1),
   layout: layoutSchema,
   catalog: catalogSchema.optional(),
   pdp: pdpSchema.optional(),
+  copy: copySchema.optional(),
   figma: z
     .object({
       fileKey: z.string(),
@@ -126,6 +167,22 @@ function normalizeTheme(data: z.infer<typeof themeSchema>): StoreTheme {
   }
   if (data.pdp !== undefined) {
     theme.pdp = data.pdp;
+  }
+  if (data.copy !== undefined) {
+    const copy: CopyTheme = {};
+    if (data.copy.homepageFeatured !== undefined) {
+      copy.homepageFeatured = data.copy.homepageFeatured;
+    }
+    if (data.copy.pdpBundles !== undefined) {
+      copy.pdpBundles = data.copy.pdpBundles;
+    }
+    if (data.copy.pdpRelated !== undefined) {
+      copy.pdpRelated = data.copy.pdpRelated;
+    }
+    if (data.copy.collectionCardLink !== undefined) {
+      copy.collectionCardLink = data.copy.collectionCardLink;
+    }
+    theme.copy = copy;
   }
   if (data.figma !== undefined) {
     theme.figma = data.figma;

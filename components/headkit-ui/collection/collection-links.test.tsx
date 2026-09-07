@@ -105,6 +105,27 @@ describe("CategoryCarousel", () => {
     ).toEqual(["/collections/clothing/hoodies"]);
     expect(markup).toContain("<h2");
     expect(markup).not.toContain("<h3");
+    expect(markup).not.toContain("headkit-collection-card-cta");
+  });
+
+  it("renders optional card CTA text inside the same link", () => {
+    const markup = renderToStaticMarkup(
+      <CategoryCarousel
+        cardLinkText="Discover Collection"
+        categories={[
+          {
+            name: "Monogram",
+            slug: "monogram",
+            uri: "/collections/monogram",
+            thumbnail: "",
+          },
+        ]}
+      />,
+    );
+
+    expect(hrefs(markup)).toEqual(["/collections/monogram"]);
+    expect(markup).toContain("headkit-collection-card-cta");
+    expect(markup).toContain("Discover Collection");
   });
 
   it("falls back to the flat path when no caller resolved one", () => {

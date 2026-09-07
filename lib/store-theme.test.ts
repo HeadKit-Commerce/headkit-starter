@@ -17,6 +17,7 @@ describe("getStoreTheme", () => {
     expect(theme.layout.homepageNav).toBe("solid");
     expect(theme.pdp).toBeUndefined();
     expect(theme.catalog).toBeUndefined();
+    expect(theme.copy).toBeUndefined();
     expect(theme.layout.productEnquiry).toBe(true);
   });
 });

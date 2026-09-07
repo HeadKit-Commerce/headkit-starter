@@ -83,25 +83,26 @@ The starter ships **hook classes** on key layout regions so you can target them 
 
 ### Homepage & CMS sections
 
-| Hook class                   | Where                                  | Use for                                            |
-| ---------------------------- | -------------------------------------- | -------------------------------------------------- |
-| `headkit-home`               | Homepage root wrapper                  | Homepage-only rules (section backgrounds, spacing) |
-| `headkit-cms-page`           | CMS page content padding wrappers      | Inner-page typography / max-width                  |
-| `headkit-cms-html`           | Homepage leftover WP HTML segments     | Editorial copy between HeadKit sections            |
-| `headkit-hero-carousel`      | Hero / main carousel                   | Slide overlay, CTA, pagination dots                |
-| `headkit-callout`            | Callout / promo box                    | Background, text colour, button row                |
-| `headkit-callout-section`    | Outer padding around a callout         | Section vertical rhythm                            |
-| `headkit-brand-carousel`     | Brand carousel sections                | Logo sizing, section padding, dots                 |
-| `headkit-client-carousel`    | Client carousel sections               | Same for client logo rails                         |
-| `headkit-category-carousel`  | Category carousel sections             | Category rail styling                              |
-| `headkit-product-carousel`   | Product carousel sections (CMS + home) | Product rail styling                               |
-| `headkit-post-carousel`      | News / blog carousel sections          | Post card styling                                  |
-| `headkit-project-carousel`   | Projects carousel sections             | Project card styling                               |
-| `headkit-section-header`     | Section title + description + View all | Heading colour, CTA underline                      |
-| `headkit-gallery`            | WP gallery media blocks                | Gallery layout / gaps                              |
-| `headkit-embed`              | WP embed / iframe blocks               | Embed sizing                                       |
-| `headkit-video-feature-wrap` | Video feature sections                 | Two-column video + copy layout                     |
-| `headkit-media`              | Other sanitized media HTML blocks      | Generic media section styling                      |
+| Hook class                    | Where                                  | Use for                                            |
+| ----------------------------- | -------------------------------------- | -------------------------------------------------- |
+| `headkit-home`                | Homepage root wrapper                  | Homepage-only rules (section backgrounds, spacing) |
+| `headkit-cms-page`            | CMS page content padding wrappers      | Inner-page typography / max-width                  |
+| `headkit-cms-html`            | Homepage leftover WP HTML segments     | Editorial copy between HeadKit sections            |
+| `headkit-hero-carousel`       | Hero / main carousel                   | Slide overlay, CTA, pagination dots                |
+| `headkit-callout`             | Callout / promo box                    | Background, text colour, button row                |
+| `headkit-callout-section`     | Outer padding around a callout         | Section vertical rhythm                            |
+| `headkit-brand-carousel`      | Brand carousel sections                | Logo sizing, section padding, dots                 |
+| `headkit-client-carousel`     | Client carousel sections               | Same for client logo rails                         |
+| `headkit-category-carousel`   | Category carousel sections             | Category rail styling                              |
+| `headkit-product-carousel`    | Product carousel sections (CMS + home) | Product rail styling                               |
+| `headkit-post-carousel`       | News / blog carousel sections          | Post card styling                                  |
+| `headkit-project-carousel`    | Projects carousel sections             | Project card styling                               |
+| `headkit-section-header`      | Section title + description + View all | Heading colour, CTA underline                      |
+| `headkit-collection-card-cta` | Homepage collection-card link text     | “Discover Collection” under the tile title         |
+| `headkit-gallery`             | WP gallery media blocks                | Gallery layout / gaps                              |
+| `headkit-embed`               | WP embed / iframe blocks               | Embed sizing                                       |
+| `headkit-video-feature-wrap`  | Video feature sections                 | Two-column video + copy layout                     |
+| `headkit-media`               | Other sanitized media HTML blocks      | Generic media section styling                      |
 
 ### Catalog & commerce
 

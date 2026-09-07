@@ -91,6 +91,28 @@
         }
       }
     },
+    "copy": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional section strings. Starter omits this — hardcoded titles stay. `{word}` in title uses the heading highlight face.",
+      "properties": {
+        "homepageFeatured": {
+          "$ref": "#/$defs/sectionCopy"
+        },
+        "pdpBundles": {
+          "$ref": "#/$defs/sectionCopy"
+        },
+        "pdpRelated": {
+          "$ref": "#/$defs/sectionCopy"
+        },
+        "collectionCardLink": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Link text under a homepage collection-card title. Omit = title only."
+        }
+      }
+    },
     "figma": {
       "type": "object",
       "additionalProperties": false,
@@ -103,5 +125,37 @@
       }
     }
   },
-  "required": ["version", "layout"]
+  "required": ["version", "layout"],
+  "$defs": {
+    "sectionCopy": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional SectionHeader strings. Omit each field to keep the starter default. Empty eyebrow or allButton hides that slot.",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Section heading. `{word}` uses the heading highlight face."
+        },
+        "eyebrow": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "SectionHeader description slot (Velvet CSS stacks it above the title)."
+        },
+        "allButton": {
+          "type": "string",
+          "maxLength": 80,
+          "description": "View-all CTA label. Empty string hides the button."
+        },
+        "allButtonPath": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^/(?!/)[A-Za-z0-9/_-]*$",
+          "description": "Internal path for the View-all CTA (e.g. /featured, /collections/bundles)."
+        }
+      }
+    }
+  }
 }

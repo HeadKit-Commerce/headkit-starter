@@ -1,5 +1,6 @@
 import sanitize from "sanitize-html";
 import { InstantLink } from "@/components/headkit-ui/instant-link";
+import { TitleEmphasis } from "@/components/headkit-ui/title-emphasis";
 import { cn, decodeHtmlEntities } from "@/lib/utils";
 
 interface SectionHeaderProps {
@@ -31,7 +32,9 @@ export function SectionHeader({
       )}
     >
       <div className="flex min-w-0 max-w-2xl flex-col gap-2">
-        <h2 className="text-primary">{decodeHtmlEntities(title)}</h2>
+        <h2 className="text-primary">
+          <TitleEmphasis text={title} highlight />
+        </h2>
         {description ? (
           <div
             className="font-medium text-primary [&_p]:m-0"
@@ -43,7 +46,7 @@ export function SectionHeader({
       {allButton ? (
         <div className="shrink-0 font-semibold md:pb-0.5">
           <InstantLink
-            href={allButtonPath ?? "/"}
+            href={allButtonPath || "/"}
             pendingVariant="text"
             target={allButtonTarget ?? ""}
             className="underline"

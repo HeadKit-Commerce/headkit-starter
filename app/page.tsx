@@ -24,6 +24,7 @@ import {
 import { collectionPathResolver } from "@/lib/collection-path";
 import { MainCarousel } from "@/components/headkit-ui/main-carousel";
 import { getStoreTheme } from "@/lib/store-theme";
+import { collectionCardLinkText, resolveSectionCopy } from "@/lib/section-copy";
 import {
   collectionSlugsForSurface,
   pickCollectionsBySlugs,
@@ -154,6 +155,13 @@ export async function HomeContent() {
     cacheLife(HOMEPAGE_PENDING_HERO_CACHE_LIFE);
   }
   const { branding } = await getBranding();
+  const theme = getStoreTheme();
+  const featuredCopy = resolveSectionCopy(theme.copy, "homepageFeatured", {
+    title: "Featured Products",
+    allButton: "View All",
+    allButtonPath: "/featured",
+  });
+  const homepageCardLink = collectionCardLinkText(theme.copy);
   const nonEmptySlugs = branding.hideEmptyCollections
     ? await getNonEmptyCollectionSlugs()
     : null;
@@ -166,7 +174,7 @@ export async function HomeContent() {
     nonEmptySlugs
       ? filterCategoriesByNonEmptySlugs(featuredCategoriesRaw, nonEmptySlugs)
       : featuredCategoriesRaw,
-    collectionSlugsForSurface(getStoreTheme().catalog, "homepage"),
+    collectionSlugsForSurface(theme.catalog, "homepage"),
   );
   // `FeaturedCategory` carries a slug and the raw WordPress permalink, neither
   // of which is a storefront path — resolve each tile's CANONICAL collection
@@ -214,7 +222,7 @@ export async function HomeContent() {
     editorBlocks,
   });
 
-  const heroLayout = getStoreTheme().layout.heroLayout;
+  const heroLayout = theme.layout.heroLayout;
 
   return (
     <>
@@ -243,10 +251,10 @@ export async function HomeContent() {
       {showHardcodedFeatured && (
         <section className="headkit-product-carousel overflow-x-clip py-10">
           <SectionHeader
-            title="Featured Products"
-            description=""
-            allButton="View All"
-            allButtonPath="/featured"
+            title={featuredCopy.title}
+            description={featuredCopy.description}
+            allButton={featuredCopy.allButton}
+            allButtonPath={featuredCopy.allButtonPath}
             className="px-5 md:px-10"
           />
           <div className="mt-8">
@@ -288,7 +296,10 @@ export async function HomeContent() {
             className="px-5 md:px-10"
           />
           <div className="mt-8">
-            <CategoryCarousel categories={featuredCategories} />
+            <CategoryCarousel
+              categories={featuredCategories}
+              {...(homepageCardLink ? { cardLinkText: homepageCardLink } : {})}
+            />
           </div>
         </section>
       )}

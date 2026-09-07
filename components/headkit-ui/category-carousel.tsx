@@ -9,6 +9,11 @@ import type { FeaturedCategory } from "@headkit/sdk";
 
 interface Props {
   categories: Pick<FeaturedCategory, "name" | "slug" | "uri" | "thumbnail">[];
+  /**
+   * Optional CTA under the collection title (e.g. “Discover Collection”).
+   * Omit on starter — title only. The whole card stays one InstantLink.
+   */
+  cardLinkText?: string;
 }
 
 /**
@@ -16,7 +21,8 @@ interface Props {
  * Prefetch={true} (via InstantLink) so Partial Prefetching can warm each
  * collection PLP before click (Next.js 16.3 Instant Navigation).
  */
-const CategoryCarousel = ({ categories }: Props) => {
+const CategoryCarousel = ({ categories, cardLinkText }: Props) => {
+  const cardCta = cardLinkText?.trim() ?? "";
   return (
     <Carousel
       items={categories}
@@ -62,6 +68,11 @@ const CategoryCarousel = ({ categories }: Props) => {
               className="aspect-video"
             />
             <h2 className="pt-3 text-[17px] text-primary">{name}</h2>
+            {cardCta ? (
+              <span className="headkit-collection-card-cta mt-1 block font-semibold underline">
+                {decodeHtmlEntities(cardCta)}
+              </span>
+            ) : null}
           </InstantLink>
         );
       }}

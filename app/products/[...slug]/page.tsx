@@ -39,6 +39,7 @@ import { stripTitleMarkers } from "@/lib/title-emphasis";
 import { env } from "@/lib/env";
 import { isShopifyStorefront } from "@/lib/shopify-storefront";
 import { getStoreTheme } from "@/lib/store-theme";
+import { resolveSectionCopy } from "@/lib/section-copy";
 
 // Cache Components requires generateStaticParams to return ≥1 param. When the
 // catalog API is unreachable at build we emit this single placeholder (which
@@ -637,6 +638,14 @@ export async function ProductPageContent({ params, searchParams }: Props) {
     </Suspense>
   );
 
+  const themeCopy = getStoreTheme().copy;
+  const bundlesCopy = resolveSectionCopy(themeCopy, "pdpBundles", {
+    title: "Available in bundles",
+  });
+  const relatedCopy = resolveSectionCopy(themeCopy, "pdpRelated", {
+    title: "Something similar",
+  });
+
   return (
     <div>
       <ProductJsonLD
@@ -696,8 +705,10 @@ export async function ProductPageContent({ params, searchParams }: Props) {
       {bundlesAsProducts.length > 0 && (
         <section className="overflow-x-clip py-10">
           <SectionHeader
-            title="Available in bundles"
-            description=""
+            title={bundlesCopy.title}
+            description={bundlesCopy.description}
+            allButton={bundlesCopy.allButton}
+            allButtonPath={bundlesCopy.allButtonPath}
             className="px-5 md:px-10"
           />
           <div className="mt-5">
@@ -712,8 +723,10 @@ export async function ProductPageContent({ params, searchParams }: Props) {
       {relatedAsProducts.length > 0 && (
         <section className="overflow-x-clip py-10">
           <SectionHeader
-            title="Something similar"
-            description=""
+            title={relatedCopy.title}
+            description={relatedCopy.description}
+            allButton={relatedCopy.allButton}
+            allButtonPath={relatedCopy.allButtonPath}
             className="px-5 md:px-10"
           />
           <div className="mt-5">
