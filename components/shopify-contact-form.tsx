@@ -27,27 +27,32 @@ export type ShopifyContactFormVariant = "contact" | "partnerships";
 const SUCCESS_COPY =
   "Thanks — we received your message and will get back to you shortly.";
 
-const contactSchema = z.object({
-  name: z.string().trim().min(1, "Name is required"),
-  email: z.string().trim().email("Enter a valid email"),
-  phone: z.string().optional(),
-  venue: z.string().optional(),
-  location: z.string().optional(),
-  body: z.string().trim().min(1, "Message is required"),
-  subscribe: z.boolean(),
-});
+/**
+ * One output shape for both variants. Optional partnership fields stay
+ * `string` (empty default) so `useForm` + `zodResolver` agree under
+ * `exactOptionalPropertyTypes`.
+ */
+function contactFormSchema(isPartnerships: boolean) {
+  return z.object({
+    name: z.string().trim().min(1, "Name is required"),
+    email: z.string().trim().email("Enter a valid email"),
+    phone: isPartnerships
+      ? z.string().trim().min(1, "Phone is required")
+      : z.string(),
+    venue: isPartnerships
+      ? z.string().trim().min(1, "Venue is required")
+      : z.string(),
+    location: isPartnerships
+      ? z.string().trim().min(1, "Location is required")
+      : z.string(),
+    body: isPartnerships
+      ? z.string().trim().min(1, "Tell us about the space")
+      : z.string().trim().min(1, "Message is required"),
+    subscribe: z.boolean(),
+  });
+}
 
-const partnershipsSchema = z.object({
-  name: z.string().trim().min(1, "Name is required"),
-  email: z.string().trim().email("Enter a valid email"),
-  phone: z.string().trim().min(1, "Phone is required"),
-  venue: z.string().trim().min(1, "Venue is required"),
-  location: z.string().trim().min(1, "Location is required"),
-  body: z.string().trim().min(1, "Tell us about the space"),
-  subscribe: z.boolean(),
-});
-
-type FormValues = z.infer<typeof partnershipsSchema>;
+type FormValues = z.infer<ReturnType<typeof contactFormSchema>>;
 
 interface ShopifyContactFormProps {
   context?: ShopifyContactContext;
@@ -78,7 +83,7 @@ export function ShopifyContactForm({
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const form = useForm<FormValues>({
-    resolver: zodResolver(isPartnerships ? partnershipsSchema : contactSchema),
+    resolver: zodResolver(contactFormSchema(isPartnerships)),
     defaultValues: {
       name: "",
       email: "",

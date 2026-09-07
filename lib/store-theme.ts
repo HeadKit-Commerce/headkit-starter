@@ -134,6 +134,25 @@ const themeSchema = z.object({
     .optional(),
 });
 
+function pickSectionCopy(
+  fields: z.infer<typeof sectionCopySchema>,
+): SectionCopyFields {
+  const picked: SectionCopyFields = {};
+  if (fields.title !== undefined) {
+    picked.title = fields.title;
+  }
+  if (fields.eyebrow !== undefined) {
+    picked.eyebrow = fields.eyebrow;
+  }
+  if (fields.allButton !== undefined) {
+    picked.allButton = fields.allButton;
+  }
+  if (fields.allButtonPath !== undefined) {
+    picked.allButtonPath = fields.allButtonPath;
+  }
+  return picked;
+}
+
 const STARTER_DEFAULTS: StoreTheme = {
   version: 1,
   layout: {
@@ -171,13 +190,13 @@ function normalizeTheme(data: z.infer<typeof themeSchema>): StoreTheme {
   if (data.copy !== undefined) {
     const copy: CopyTheme = {};
     if (data.copy.homepageFeatured !== undefined) {
-      copy.homepageFeatured = data.copy.homepageFeatured;
+      copy.homepageFeatured = pickSectionCopy(data.copy.homepageFeatured);
     }
     if (data.copy.pdpBundles !== undefined) {
-      copy.pdpBundles = data.copy.pdpBundles;
+      copy.pdpBundles = pickSectionCopy(data.copy.pdpBundles);
     }
     if (data.copy.pdpRelated !== undefined) {
-      copy.pdpRelated = data.copy.pdpRelated;
+      copy.pdpRelated = pickSectionCopy(data.copy.pdpRelated);
     }
     if (data.copy.collectionCardLink !== undefined) {
       copy.collectionCardLink = data.copy.collectionCardLink;
