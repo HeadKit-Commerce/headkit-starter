@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyCartNoun,
   getStoreTheme,
   getThemeHtmlAttributes,
   heroLayoutClasses,
@@ -40,6 +41,33 @@ describe("getThemeHtmlAttributes", () => {
       "data-hero-layout": "fixed-height",
       "data-homepage-nav": "overlay-hero",
     });
+  });
+});
+
+describe("applyCartNoun", () => {
+  const setTotalLabel = "Add set to cart · $120.00";
+
+  it("leaves starter cart labels including the set total unchanged", () => {
+    expect(applyCartNoun("Add to cart", undefined)).toBe("Add to cart");
+    expect(applyCartNoun("Added to cart!", undefined)).toBe("Added to cart!");
+    expect(applyCartNoun(setTotalLabel, undefined)).toBe(setTotalLabel);
+    expect(applyCartNoun(setTotalLabel, "cart")).toBe(setTotalLabel);
+  });
+
+  it("swaps only the word cart for bag and keeps the set total", () => {
+    expect(applyCartNoun("Add to cart", "bag")).toBe("Add to bag");
+    expect(applyCartNoun("Added to cart!", "bag")).toBe("Added to bag!");
+    expect(applyCartNoun(setTotalLabel, "bag")).toBe(
+      "Add set to bag · $120.00",
+    );
+  });
+
+  it("does not rewrite quote labels", () => {
+    expect(applyCartNoun("Add to Quote", "bag")).toBe("Add to Quote");
+    expect(applyCartNoun("Added to quote!", "bag")).toBe("Added to quote!");
+    expect(applyCartNoun("Add set to quote · $120.00", "bag")).toBe(
+      "Add set to quote · $120.00",
+    );
   });
 });
 

@@ -40,6 +40,32 @@ export interface CopyTheme {
   pdpRelated?: SectionCopyFields;
   /** Link text under a homepage collection-card title. Omit = title only. */
   collectionCardLink?: string;
+  /**
+   * ATC noun. Omit = cart. `bag` replaces only the word "cart" so the
+   * companion set-total (`Add set to cart · $X`) stays dynamic.
+   */
+  cartNoun?: CartNoun;
+}
+
+/** Shopper-facing cart word on add-to-cart labels. */
+export type CartNoun = "cart" | "bag";
+
+const CART_NOUN_WORD = /\bcart\b/gi;
+
+/**
+ * Swap the cart noun in an already-built ATC label. Quote copy is unchanged
+ * because it has no "cart" word. Never rebuilds the set-total suffix.
+ */
+export function applyCartNoun(
+  label: string,
+  noun: CartNoun | undefined,
+): string {
+  if (noun !== "bag") {
+    return label;
+  }
+  return label.replace(CART_NOUN_WORD, (word) =>
+    word === word.toUpperCase() ? "BAG" : word[0] === "C" ? "Bag" : "bag",
+  );
 }
 
 /** Optional PDP chrome owned by the customer theme. */
@@ -118,6 +144,7 @@ const copySchema = z.object({
   pdpBundles: sectionCopySchema.optional(),
   pdpRelated: sectionCopySchema.optional(),
   collectionCardLink: z.string().min(1).max(80).optional(),
+  cartNoun: z.enum(["cart", "bag"]).optional(),
 });
 
 const themeSchema = z.object({
@@ -200,6 +227,9 @@ function normalizeTheme(data: z.infer<typeof themeSchema>): StoreTheme {
     }
     if (data.copy.collectionCardLink !== undefined) {
       copy.collectionCardLink = data.copy.collectionCardLink;
+    }
+    if (data.copy.cartNoun !== undefined) {
+      copy.cartNoun = data.copy.cartNoun;
     }
     theme.copy = copy;
   }
