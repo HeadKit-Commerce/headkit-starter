@@ -8,6 +8,7 @@ import {
   resolveFooterDescription,
   resolveStoreName,
   resolveOgImageUrl,
+  firstHomepageShareImage,
   isRealSeoTitle,
   resolveRobots,
 } from "./make-metadata";
@@ -152,6 +153,38 @@ describe("resolveOgImageUrl precedence", () => {
       }),
     ).toBeUndefined();
   });
+
+  it("skips SVG at every layer so a raster fallback can win", () => {
+    expect(
+      resolveOgImageUrl({
+        entityImageUrl: null,
+        dashboardOgImageUrl: null,
+        brandingIconUrl:
+          "https://storage.googleapis.com/headkit-storage/branding/icon.svg?v=1",
+      }),
+    ).toBeUndefined();
+
+    expect(
+      resolveOgImageUrl({
+        entityImageUrl: null,
+        dashboardOgImageUrl:
+          "https://storage.googleapis.com/headkit-storage/branding/icon.svg",
+        brandingIconUrl: "https://cdn.example/icon.png",
+      }),
+    ).toBe("https://cdn.example/icon.png");
+  });
+});
+
+describe("firstHomepageShareImage", () => {
+  it("picks the first raster hero and skips SVG", () => {
+    expect(
+      firstHomepageShareImage([
+        { image: "https://cdn.example/hero.svg" },
+        { image: "https://cdn.example/hero.jpg?w=1600" },
+      ]),
+    ).toBe("https://cdn.example/hero.jpg?w=1600");
+    expect(firstHomepageShareImage([])).toBeUndefined();
+  });
 });
 
 describe("makeRootMetadata OG + store name", () => {
@@ -187,6 +220,15 @@ describe("makeRootMetadata OG + store name", () => {
     expect(meta.openGraph?.images).toEqual([
       { url: "https://cdn.example/icon.png" },
     ]);
+  });
+
+  it("does not emit SVG branding icon as og:image", async () => {
+    const meta = await makeRootMetadata({
+      siteName: "Acme",
+      iconUrl:
+        "https://storage.googleapis.com/headkit-storage/branding/icon.svg?v=1",
+    });
+    expect(meta.openGraph?.images).toBeUndefined();
   });
 
   it("noindexes when allowIndexing is false", async () => {

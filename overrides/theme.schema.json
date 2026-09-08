@@ -110,6 +110,11 @@
           "minLength": 1,
           "maxLength": 80,
           "description": "Link text under a homepage collection-card title. Omit = title only."
+        },
+        "cartNoun": {
+          "type": "string",
+          "enum": ["cart", "bag"],
+          "description": "ATC noun. Starter default is cart. bag keeps the set-total label (Add set to bag · $total)."
         }
       }
     },

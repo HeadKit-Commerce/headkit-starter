@@ -59,6 +59,7 @@ vi.mock("@/lib/make-metadata", () => ({
   resolveHomeTitle: (): string => "",
   resolveHomeDescription: (): string => "",
   resolveStoreName: (): string => "Store",
+  firstHomepageShareImage: (): undefined => undefined,
 }));
 vi.mock("@/lib/branding", () => ({
   getBranding: (): Promise<{

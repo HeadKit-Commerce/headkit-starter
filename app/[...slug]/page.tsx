@@ -8,7 +8,7 @@ import {
   seoFallbackDescription,
   storefrontUrl,
 } from "@/lib/make-metadata";
-import { getBranding } from "@/lib/branding";
+import { getBranding, getBrandingAssets } from "@/lib/branding";
 import { getPostsBasePath, postsIndexPath } from "@/lib/posts-base-path";
 import { TAG } from "@/lib/cache-tags";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
@@ -194,9 +194,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { robots: { index: false, follow: false } };
   }
   const path = slug.join("/");
-  const [page, { seoSettings, storeSettings }] = await Promise.all([
+  const [page, { seoSettings, storeSettings }, { iconUrl }] = await Promise.all([
     getPageData(path),
     getBranding(),
+    getBrandingAssets(),
   ]);
   if (!page) {
     return { robots: { index: false, follow: false } };
@@ -211,6 +212,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     // shipped none, and Yoast's own value names the WordPress host.
     canonical: storefrontUrl(`/${path}`, storeSettings.domain),
     siteUrl: storeSettings.domain,
+    // Woo: page OG → dashboard OG → raster icon. Shopify page SEO has no
+    // image field; commerce fills shop.brand.coverImage onto page.seo.
+    dashboardOgImageUrl: seoSettings.ogImageUrl ?? undefined,
+    brandingIconUrl: iconUrl ?? undefined,
     // Without this the page-level `robots` defaulted to index and OVERRODE the
     // layout's correct value, so the store's indexing switch never reached
     // any CMS page.

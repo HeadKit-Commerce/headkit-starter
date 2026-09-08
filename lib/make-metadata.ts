@@ -44,6 +44,43 @@ function normalizeUrl(url?: OptSeoStr): string | undefined {
 }
 
 /**
+ * Messengers (WhatsApp / iMessage / Slack / Facebook) ignore SVG. The
+ * branding-icon fallback is often `.svg`, which looks like a missing OG
+ * image. Strip the query/hash before the suffix check.
+ */
+export function isRasterShareImage(url: string): boolean {
+  const path = url.split(/[?#]/, 1)[0] ?? url;
+  return !path.toLowerCase().endsWith(".svg");
+}
+
+/** Drop empty and SVG URLs so the next OG fallback can run. */
+export function rasterShareImageUrl(url?: OptSeoStr): string | undefined {
+  const normalized = normalizeUrl(url);
+  if (!normalized || !isRasterShareImage(normalized)) {
+    return undefined;
+  }
+  return normalized;
+}
+
+/**
+ * First homepage hero raster — Woo featured-image analogue when the
+ * Shopify page SEO panel has no image field.
+ */
+export function firstHomepageShareImage(
+  carousels:
+    | ReadonlyArray<{ image?: string | null; mobileImage?: string | null }>
+    | null
+    | undefined,
+): string | undefined {
+  for (const slide of carousels ?? []) {
+    const image =
+      rasterShareImageUrl(slide.image) ?? rasterShareImageUrl(slide.mobileImage);
+    if (image) return image;
+  }
+  return undefined;
+}
+
+/**
  * Absolute storefront URL for a site-relative path — the self-referencing
  * canonical a route emits when neither the CMS nor a more specific rule
  * supplies one.
@@ -245,8 +282,9 @@ export function resolveHomeDescription(options: {
 }
 
 /**
- * OG / Twitter image precedence:
- * Provider entity image → dashboard `ogImageUrl` → branding icon → none.
+ * OG / Twitter image precedence (same layers as Woo Yoast):
+ * per-page / entity → dashboard `ogImageUrl` → raster branding icon → none.
+ * SVG at any layer is skipped so the next raster can win.
  */
 export function resolveOgImageUrl(options: {
   entityImageUrl?: OptSeoStr;
@@ -254,9 +292,9 @@ export function resolveOgImageUrl(options: {
   brandingIconUrl?: OptSeoStr;
 }): string | undefined {
   return (
-    normalizeUrl(options.entityImageUrl) ??
-    normalizeUrl(options.dashboardOgImageUrl) ??
-    normalizeUrl(options.brandingIconUrl)
+    rasterShareImageUrl(options.entityImageUrl) ??
+    rasterShareImageUrl(options.dashboardOgImageUrl) ??
+    rasterShareImageUrl(options.brandingIconUrl)
   );
 }
 

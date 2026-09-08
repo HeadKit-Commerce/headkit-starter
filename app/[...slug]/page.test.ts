@@ -69,6 +69,8 @@ vi.mock("@/lib/branding", () => ({
       seoSettings: { allowIndexing: allowIndexing() },
       storeSettings: { domain: storeDomain() },
     }),
+  getBrandingAssets: (): Promise<{ iconUrl: null }> =>
+    Promise.resolve({ iconUrl: null }),
 }));
 vi.mock("@/components/seo/breadcrumb-json-ld", () => ({
   BreadcrumbJsonLD: (): null => null,

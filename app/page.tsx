@@ -10,6 +10,7 @@ import {
   hasEditorSectionClass,
 } from "@/lib/process-editor-blocks";
 import {
+  firstHomepageShareImage,
   makeRootMetadata,
   resolveHomeTitle,
   resolveHomeDescription,
@@ -60,7 +61,9 @@ export async function generateMetadata(): Promise<Metadata> {
     const yoastSeo = homepage?.page?.seo;
     const entityOg =
       (yoastSeo as { opengraphImageUrl?: string | null } | null | undefined)
-        ?.opengraphImageUrl ?? null;
+        ?.opengraphImageUrl ||
+      firstHomepageShareImage(homepage?.carousels) ||
+      null;
 
     return await makeRootMetadata({
       title: resolveHomeTitle({
