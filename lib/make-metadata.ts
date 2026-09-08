@@ -74,8 +74,7 @@ export function firstHomepageShareImage(
 ): string | undefined {
   for (const slide of carousels ?? []) {
     const image =
-      rasterShareImageUrl(slide.image) ??
-      rasterShareImageUrl(slide.mobileImage);
+      rasterShareImageUrl(slide.image) ?? rasterShareImageUrl(slide.mobileImage);
     if (image) return image;
   }
   return undefined;
@@ -284,19 +283,16 @@ export function resolveHomeDescription(options: {
 
 /**
  * OG / Twitter image precedence (same layers as Woo Yoast):
- * per-page / entity → shop-wide cover (Yoast `og_frontpage_image` /
- * homepage hero) → dashboard `ogImageUrl` → raster branding icon → none.
+ * per-page / entity → dashboard `ogImageUrl` → raster branding icon → none.
  * SVG at any layer is skipped so the next raster can win.
  */
 export function resolveOgImageUrl(options: {
   entityImageUrl?: OptSeoStr;
-  siteShareImageUrl?: OptSeoStr;
   dashboardOgImageUrl?: OptSeoStr;
   brandingIconUrl?: OptSeoStr;
 }): string | undefined {
   return (
     rasterShareImageUrl(options.entityImageUrl) ??
-    rasterShareImageUrl(options.siteShareImageUrl) ??
     rasterShareImageUrl(options.dashboardOgImageUrl) ??
     rasterShareImageUrl(options.brandingIconUrl)
   );
@@ -506,13 +502,7 @@ export type MakeSeoMetadataFallback = {
   canonical?: string | undefined;
   /** Explicit OG image the caller computed (e.g. variant / Yoast image). */
   ogImage?: string | undefined;
-  /**
-   * Shop-wide raster (Shopify `shop.brand.coverImage` or homepage hero).
-   * Woo analogue: Yoast `og_frontpage_image` / Rank Math Facebook image.
-   * After per-page / entity, before the HeadKit dashboard upload.
-   */
-  siteShareImageUrl?: string | undefined;
-  /** Dashboard SEO OG image (after entity and shop-wide, before branding icon). */
+  /** Dashboard SEO OG image (after entity, before branding icon). */
   dashboardOgImageUrl?: string | undefined;
   /** Branding icon as last OG fallback. */
   brandingIconUrl?: string | undefined;
@@ -573,7 +563,6 @@ export async function makeSeoMetadata(
 
   const ogImage = resolveOgImageUrl({
     entityImageUrl: fallback?.ogImage ?? entityOg,
-    siteShareImageUrl: fallback?.siteShareImageUrl,
     dashboardOgImageUrl: fallback?.dashboardOgImageUrl,
     brandingIconUrl: fallback?.brandingIconUrl,
   });

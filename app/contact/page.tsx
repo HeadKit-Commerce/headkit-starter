@@ -6,8 +6,7 @@ import {
   seoFallbackDescription,
   storefrontUrl,
 } from "@/lib/make-metadata";
-import { getBranding, getBrandingAssets } from "@/lib/branding";
-import { getSiteShareImageUrl } from "@/lib/site-share-image";
+import { getBranding } from "@/lib/branding";
 import { TAG } from "@/lib/cache-tags";
 import { errorFields, logger } from "@/lib/logger";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
@@ -106,24 +105,15 @@ async function loadContactPage(): Promise<Awaited<
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const [page, { seoSettings, storeSettings }, { iconUrl }, siteShareImageUrl] =
-    await Promise.all([
-      loadContactPage(),
-      getBranding(),
-      getBrandingAssets(),
-      getSiteShareImageUrl(),
-    ]);
-  const shareFallbacks = {
-    siteShareImageUrl,
-    dashboardOgImageUrl: seoSettings.ogImageUrl ?? undefined,
-    brandingIconUrl: iconUrl ?? undefined,
-  };
+  const [page, { seoSettings, storeSettings }] = await Promise.all([
+    loadContactPage(),
+    getBranding(),
+  ]);
   if (!page) {
-    return await makeSeoMetadata(null, {
+    return {
       title: "Contact Us",
       description: "Get in touch with our team.",
-      ...shareFallbacks,
-    });
+    };
   }
   return await makeSeoMetadata(page.seo ?? null, {
     title: page.title,
@@ -131,7 +121,6 @@ export async function generateMetadata(): Promise<Metadata> {
     canonical: storefrontUrl(`/${CONTACT_SLUG}`, storeSettings.domain),
     siteUrl: storeSettings.domain,
     allowIndexing: seoSettings.allowIndexing,
-    ...shareFallbacks,
   });
 }
 
