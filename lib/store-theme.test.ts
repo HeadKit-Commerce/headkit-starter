@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  addToCartCopy,
   getStoreTheme,
   getThemeHtmlAttributes,
   heroLayoutClasses,
@@ -41,22 +40,6 @@ describe("getThemeHtmlAttributes", () => {
       "data-hero-layout": "fixed-height",
       "data-homepage-nav": "overlay-hero",
     });
-  });
-});
-
-describe("addToCartCopy", () => {
-  it("keeps starter cart labels including the set total", () => {
-    const copy = addToCartCopy(undefined);
-    expect(copy.add).toBe("Add to cart");
-    expect(copy.added).toBe("Added to cart!");
-    expect(copy.addSet("$120.00")).toBe("Add set to cart · $120.00");
-  });
-
-  it("swaps only the noun for bag", () => {
-    const copy = addToCartCopy("bag");
-    expect(copy.add).toBe("Add to Bag");
-    expect(copy.added).toBe("Added to bag!");
-    expect(copy.addSet("$120.00")).toBe("Add set to bag · $120.00");
   });
 });
 

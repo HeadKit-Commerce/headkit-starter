@@ -66,7 +66,7 @@ import { SizeChartTrigger } from "@/components/headkit-ui/size-chart-trigger";
 import { isBadgeTag, productBadgesFromTags } from "@/lib/product-badges";
 import { stripTitleMarkers } from "@/lib/title-emphasis";
 import { shopifyRichTextToHtml } from "@/lib/shopify-rich-text";
-import { addToCartCopy, getStoreTheme } from "@/lib/store-theme";
+import { getStoreTheme } from "@/lib/store-theme";
 import { distinctShortDescription } from "@/lib/product-excerpt";
 import { isColorAttrSlug } from "@/components/headkit-ui/collection/utils";
 import { buildEnquiryInitialValues } from "@/lib/enquiry-form-values";
@@ -663,12 +663,11 @@ export function ProductDetail({
     return () => observer.disconnect();
   }, []);
 
-  const cartCopy = addToCartCopy(getStoreTheme().copy?.cartNoun);
   const addToCartLabel =
     cartFeedback === "success"
       ? isQuoteMode
         ? "Added to quote!"
-        : cartCopy.added
+        : "Added to cart!"
       : cartFeedback === "error"
         ? "Error — try again"
         : isOutOfStock
@@ -680,10 +679,10 @@ export function ProductDetail({
               : hasCompanionLines
                 ? isQuoteMode
                   ? `Add set to quote · ${formatPrice(setTotal)}`
-                  : cartCopy.addSet(formatPrice(setTotal))
+                  : `Add set to cart · ${formatPrice(setTotal)}`
                 : isQuoteMode
                   ? "Add to Quote"
-                  : cartCopy.add;
+                  : "Add to cart";
 
   /**
    * Land a rejection against the group it belongs to, or in the banner when it
