@@ -8,7 +8,8 @@ import { PostPage } from "@/components/headkit-ui/post/post-page";
 import { EditorialGridSkeleton } from "@/components/headkit-ui/skeletons/editorial-grid-skeleton";
 import { CarouselPostJsonLD } from "@/components/seo/carousel-post-json-ld";
 import { makeSeoMetadata, storefrontUrl } from "@/lib/make-metadata";
-import { getBranding } from "@/lib/branding";
+import { getBranding, getBrandingAssets } from "@/lib/branding";
+import { getSiteShareImageUrl } from "@/lib/site-share-image";
 import { TAG } from "@/lib/cache-tags";
 import { getPostsBasePath, postsIndexPath } from "@/lib/posts-base-path";
 
@@ -34,9 +35,19 @@ function canonicalForPostsBase(
 
 export async function generateMetadata(): Promise<Metadata> {
   try {
-    const [page, { seoSettings, storeSettings }, postsBase] = await Promise.all(
-      [getNewsLanding(), getBranding(), getPostsBasePath()],
-    );
+    const [
+      page,
+      { seoSettings, storeSettings },
+      postsBase,
+      { iconUrl },
+      siteShareImageUrl,
+    ] = await Promise.all([
+      getNewsLanding(),
+      getBranding(),
+      getPostsBasePath(),
+      getBrandingAssets(),
+      getSiteShareImageUrl(),
+    ]);
     return await makeSeoMetadata(page?.seo ?? null, {
       title: page?.title?.trim() || FALLBACK_TITLE,
       description: page?.seo?.metaDesc?.trim() || FALLBACK_DESCRIPTION,
@@ -44,6 +55,9 @@ export async function generateMetadata(): Promise<Metadata> {
       allowIndexing: seoSettings.allowIndexing,
       canonical: canonicalForPostsBase(postsBase, storeSettings.domain),
       siteUrl: storeSettings.domain,
+      siteShareImageUrl,
+      dashboardOgImageUrl: seoSettings.ogImageUrl ?? undefined,
+      brandingIconUrl: iconUrl ?? undefined,
     });
   } catch (error) {
     unstable_rethrow(error);

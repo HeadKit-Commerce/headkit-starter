@@ -60,6 +60,12 @@ vi.mock("@/lib/make-metadata", () => ({
   seoFallbackDescription: (): string => "",
   storefrontUrl: (path: string, domain?: string | null): string =>
     `https://${domain ?? "shop.example"}${path}`,
+  firstHomepageShareImage: (
+    carousels?: ReadonlyArray<{ image?: string | null }> | null,
+  ): string | undefined => {
+    const image = carousels?.[0]?.image;
+    return image ?? undefined;
+  },
 }));
 // generateMetadata now reads the store's indexing switch; `lib/branding`
 // validates server env at import, so it is stubbed like the SDK above.
@@ -71,6 +77,11 @@ vi.mock("@/lib/branding", () => ({
     }),
   getBrandingAssets: (): Promise<{ iconUrl: null }> =>
     Promise.resolve({ iconUrl: null }),
+}));
+const homepageCarousels: Array<{ image: string }> = [];
+vi.mock("@/lib/site-share-image", () => ({
+  getSiteShareImageUrl: (): Promise<string | undefined> =>
+    Promise.resolve(homepageCarousels[0]?.image),
 }));
 vi.mock("@/components/seo/breadcrumb-json-ld", () => ({
   BreadcrumbJsonLD: (): null => null,
@@ -98,6 +109,7 @@ beforeEach(() => {
   allowIndexing.mockReturnValue(true);
   storeDomain.mockReset();
   storeDomain.mockReturnValue(null);
+  homepageCarousels.splice(0, homepageCarousels.length);
 });
 
 describe("getPageData — params-safe cached CMS helper", () => {
@@ -168,6 +180,16 @@ describe("generateMetadata — canonical + indexing switch", () => {
   it("forwards allowIndexing when the store has indexing on", async () => {
     const fallback = await fallbackFor(["about"]);
     expect(fallback["allowIndexing"]).toBe(true);
+  });
+
+  it("forwards the homepage hero as the shop-wide OG fallback", async () => {
+    homepageCarousels.splice(0, homepageCarousels.length, {
+      image: "https://cdn.shopify.com/files/Velvet_Hero.jpg",
+    });
+    const fallback = await fallbackFor(["size-guide"]);
+    expect(fallback["siteShareImageUrl"]).toBe(
+      "https://cdn.shopify.com/files/Velvet_Hero.jpg",
+    );
   });
 
   it("builds the canonical from the runtime store domain, not the baked env", async () => {

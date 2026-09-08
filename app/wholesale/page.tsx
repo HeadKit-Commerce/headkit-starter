@@ -8,7 +8,8 @@ import {
   seoFallbackDescription,
   storefrontUrl,
 } from "@/lib/make-metadata";
-import { getBranding } from "@/lib/branding";
+import { getBranding, getBrandingAssets } from "@/lib/branding";
+import { getSiteShareImageUrl } from "@/lib/site-share-image";
 import { EditorialContent } from "@/components/headkit-ui/editorial-content";
 import { env } from "@/lib/env";
 import { isShopifyStorefront } from "@/lib/shopify-storefront";
@@ -45,10 +46,13 @@ const WHOLESALE_SLUG = "wholesale";
 export const instant = false;
 
 export async function generateMetadata(): Promise<Metadata> {
-  const [page, { seoSettings, storeSettings }] = await Promise.all([
-    getPageData(WHOLESALE_SLUG),
-    getBranding(),
-  ]);
+  const [page, { seoSettings, storeSettings }, { iconUrl }, siteShareImageUrl] =
+    await Promise.all([
+      getPageData(WHOLESALE_SLUG),
+      getBranding(),
+      getBrandingAssets(),
+      getSiteShareImageUrl(),
+    ]);
   if (!page) {
     return {
       title: "Wholesale",
@@ -61,6 +65,9 @@ export async function generateMetadata(): Promise<Metadata> {
     canonical: storefrontUrl(`/${WHOLESALE_SLUG}`, storeSettings.domain),
     siteUrl: storeSettings.domain,
     allowIndexing: seoSettings.allowIndexing,
+    siteShareImageUrl,
+    dashboardOgImageUrl: seoSettings.ogImageUrl ?? undefined,
+    brandingIconUrl: iconUrl ?? undefined,
   });
 }
 

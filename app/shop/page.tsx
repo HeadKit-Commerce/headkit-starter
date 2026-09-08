@@ -12,7 +12,8 @@ import {
   type SortKeyType,
 } from "@/components/headkit-ui/collection/utils";
 import { makeSeoMetadata, storefrontUrl } from "@/lib/make-metadata";
-import { getBranding } from "@/lib/branding";
+import { getBranding, getBrandingAssets } from "@/lib/branding";
+import { getSiteShareImageUrl } from "@/lib/site-share-image";
 import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import { CATALOG_PAGE_SIZE } from "@/components/headkit-ui/catalog-grid";
 import { getCachedCatalogPage } from "@/lib/catalog-cache";
@@ -29,7 +30,12 @@ import {
 
 export async function generateMetadata(): Promise<Metadata> {
   try {
-    const { seoSettings, storeSettings } = await getBranding();
+    const [{ seoSettings, storeSettings }, { iconUrl }, siteShareImageUrl] =
+      await Promise.all([
+        getBranding(),
+        getBrandingAssets(),
+        getSiteShareImageUrl(),
+      ]);
     return await makeSeoMetadata(null, {
       title: "Shop",
       description: "Browse our full product catalog.",
@@ -37,6 +43,9 @@ export async function generateMetadata(): Promise<Metadata> {
       allowIndexing: seoSettings.allowIndexing,
       canonical: storefrontUrl("/shop", storeSettings.domain),
       siteUrl: storeSettings.domain,
+      siteShareImageUrl,
+      dashboardOgImageUrl: seoSettings.ogImageUrl ?? undefined,
+      brandingIconUrl: iconUrl ?? undefined,
     });
   } catch (error) {
     unstable_rethrow(error);

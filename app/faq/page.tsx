@@ -5,7 +5,8 @@ import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
 import { FAQPageJsonLD } from "@/components/seo/faq-page-json-ld";
 import { makeSeoMetadata, storefrontUrl } from "@/lib/make-metadata";
-import { getBranding } from "@/lib/branding";
+import { getBranding, getBrandingAssets } from "@/lib/branding";
+import { getSiteShareImageUrl } from "@/lib/site-share-image";
 import { EditorialContent } from "@/components/headkit-ui/editorial-content";
 import { FaqList } from "@/components/headkit-ui/faq-list";
 
@@ -31,9 +32,16 @@ async function getFaqPage() {
  */
 export async function generateMetadata(): Promise<Metadata> {
   try {
-    const [[page], { seoSettings, storeSettings }] = await Promise.all([
+    const [
+      [page],
+      { seoSettings, storeSettings },
+      { iconUrl },
+      siteShareImageUrl,
+    ] = await Promise.all([
       getFaqPage(),
       getBranding(),
+      getBrandingAssets(),
+      getSiteShareImageUrl(),
     ]);
     return await makeSeoMetadata(page?.seo ?? null, {
       title: page?.title?.trim() || "FAQ",
@@ -43,6 +51,9 @@ export async function generateMetadata(): Promise<Metadata> {
       allowIndexing: seoSettings.allowIndexing,
       canonical: storefrontUrl("/faq", storeSettings.domain),
       siteUrl: storeSettings.domain,
+      siteShareImageUrl,
+      dashboardOgImageUrl: seoSettings.ogImageUrl ?? undefined,
+      brandingIconUrl: iconUrl ?? undefined,
     });
   } catch (error) {
     unstable_rethrow(error);

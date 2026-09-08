@@ -120,14 +120,24 @@ describe("resolveFooterDescription", () => {
 });
 
 describe("resolveOgImageUrl precedence", () => {
-  it("Yoast entity → dashboard → branding icon", async () => {
+  it("Yoast entity → shop-wide → dashboard → branding icon", async () => {
     expect(
       resolveOgImageUrl({
         entityImageUrl: "https://cdn.example/yoast.jpg",
+        siteShareImageUrl: "https://cdn.example/cover.jpg",
         dashboardOgImageUrl: "https://cdn.example/dash.jpg",
         brandingIconUrl: "https://cdn.example/icon.png",
       }),
     ).toBe("https://cdn.example/yoast.jpg");
+
+    expect(
+      resolveOgImageUrl({
+        entityImageUrl: null,
+        siteShareImageUrl: "https://cdn.example/cover.jpg",
+        dashboardOgImageUrl: "https://cdn.example/dash.jpg",
+        brandingIconUrl: "https://cdn.example/icon.png",
+      }),
+    ).toBe("https://cdn.example/cover.jpg");
 
     expect(
       resolveOgImageUrl({
@@ -172,6 +182,16 @@ describe("resolveOgImageUrl precedence", () => {
         brandingIconUrl: "https://cdn.example/icon.png",
       }),
     ).toBe("https://cdn.example/icon.png");
+
+    expect(
+      resolveOgImageUrl({
+        entityImageUrl: null,
+        siteShareImageUrl:
+          "https://storage.googleapis.com/headkit-storage/branding/icon.svg",
+        dashboardOgImageUrl: "https://cdn.example/dash.jpg",
+        brandingIconUrl: "https://cdn.example/icon.png",
+      }),
+    ).toBe("https://cdn.example/dash.jpg");
   });
 });
 
@@ -405,6 +425,19 @@ describe("makeSeoMetadata fallback canonical + ogImage overrides (07-01)", () =>
 
     expect(meta.openGraph?.images).toEqual([
       { url: "https://cdn.example/blue-variation.jpg" },
+    ]);
+  });
+
+  it("shop-wide cover beats dashboard when the page has no image", async () => {
+    const meta = await makeSeoMetadata(null, {
+      title: "Size Guide",
+      siteShareImageUrl: "https://cdn.example/hero.jpg",
+      dashboardOgImageUrl: "https://cdn.example/dash.jpg",
+      brandingIconUrl: "https://cdn.example/icon.svg",
+      storeName: "Acme",
+    });
+    expect(meta.openGraph?.images).toEqual([
+      { url: "https://cdn.example/hero.jpg" },
     ]);
   });
 

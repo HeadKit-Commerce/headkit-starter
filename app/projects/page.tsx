@@ -7,7 +7,8 @@ import { PostHeader } from "@/components/headkit-ui/post/post-header";
 import { ProjectPage } from "@/components/headkit-ui/project/project-page";
 import { EditorialGridSkeleton } from "@/components/headkit-ui/skeletons/editorial-grid-skeleton";
 import { makeSeoMetadata, storefrontUrl } from "@/lib/make-metadata";
-import { getBranding } from "@/lib/branding";
+import { getBranding, getBrandingAssets } from "@/lib/branding";
+import { getSiteShareImageUrl } from "@/lib/site-share-image";
 import { TAG } from "@/lib/cache-tags";
 
 const FALLBACK_TITLE = "Projects";
@@ -24,9 +25,16 @@ async function getProjectsLanding() {
 
 export async function generateMetadata(): Promise<Metadata> {
   try {
-    const [page, { seoSettings, storeSettings }] = await Promise.all([
+    const [
+      page,
+      { seoSettings, storeSettings },
+      { iconUrl },
+      siteShareImageUrl,
+    ] = await Promise.all([
       getProjectsLanding(),
       getBranding(),
+      getBrandingAssets(),
+      getSiteShareImageUrl(),
     ]);
     return await makeSeoMetadata(page?.seo ?? null, {
       title: page?.title?.trim() || FALLBACK_TITLE,
@@ -35,6 +43,9 @@ export async function generateMetadata(): Promise<Metadata> {
       allowIndexing: seoSettings.allowIndexing,
       canonical: storefrontUrl("/projects", storeSettings.domain),
       siteUrl: storeSettings.domain,
+      siteShareImageUrl,
+      dashboardOgImageUrl: seoSettings.ogImageUrl ?? undefined,
+      brandingIconUrl: iconUrl ?? undefined,
     });
   } catch (error) {
     unstable_rethrow(error);

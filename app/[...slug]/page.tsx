@@ -9,6 +9,7 @@ import {
   storefrontUrl,
 } from "@/lib/make-metadata";
 import { getBranding, getBrandingAssets } from "@/lib/branding";
+import { getSiteShareImageUrl } from "@/lib/site-share-image";
 import { getPostsBasePath, postsIndexPath } from "@/lib/posts-base-path";
 import { TAG } from "@/lib/cache-tags";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
@@ -194,11 +195,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { robots: { index: false, follow: false } };
   }
   const path = slug.join("/");
-  const [page, { seoSettings, storeSettings }, { iconUrl }] = await Promise.all([
-    getPageData(path),
-    getBranding(),
-    getBrandingAssets(),
-  ]);
+  const [page, { seoSettings, storeSettings }, { iconUrl }, siteShareImageUrl] =
+    await Promise.all([
+      getPageData(path),
+      getBranding(),
+      getBrandingAssets(),
+      getSiteShareImageUrl(),
+    ]);
   if (!page) {
     return { robots: { index: false, follow: false } };
   }
@@ -212,8 +215,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     // shipped none, and Yoast's own value names the WordPress host.
     canonical: storefrontUrl(`/${path}`, storeSettings.domain),
     siteUrl: storeSettings.domain,
-    // Woo: page OG → dashboard OG → raster icon. Shopify page SEO has no
-    // image field; commerce fills shop.brand.coverImage onto page.seo.
+    // Woo: page OG → Yoast site-wide → dashboard OG → raster icon.
+    // Shopify page SEO often has no image; commerce may fill shop cover
+    // onto page.seo. Until that lands (or when cover is empty), the
+    // homepage hero is the shop-wide raster — same layer as Yoast
+    // og_frontpage_image. Dashboard upload still wins over the icon.
+    siteShareImageUrl,
     dashboardOgImageUrl: seoSettings.ogImageUrl ?? undefined,
     brandingIconUrl: iconUrl ?? undefined,
     // Without this the page-level `robots` defaulted to index and OVERRODE the
