@@ -66,7 +66,7 @@ import { SizeChartTrigger } from "@/components/headkit-ui/size-chart-trigger";
 import { isBadgeTag, productBadgesFromTags } from "@/lib/product-badges";
 import { stripTitleMarkers } from "@/lib/title-emphasis";
 import { shopifyRichTextToHtml } from "@/lib/shopify-rich-text";
-import { applyCartNoun, getStoreTheme } from "@/lib/store-theme";
+import { getStoreTheme } from "@/lib/store-theme";
 import { distinctShortDescription } from "@/lib/product-excerpt";
 import { isColorAttrSlug } from "@/components/headkit-ui/collection/utils";
 import { buildEnquiryInitialValues } from "@/lib/enquiry-form-values";
@@ -663,7 +663,7 @@ export function ProductDetail({
     return () => observer.disconnect();
   }, []);
 
-  const addToCartLabel = applyCartNoun(
+  const addToCartLabel =
     cartFeedback === "success"
       ? isQuoteMode
         ? "Added to quote!"
@@ -682,9 +682,7 @@ export function ProductDetail({
                   : `Add set to cart · ${formatPrice(setTotal)}`
                 : isQuoteMode
                   ? "Add to Quote"
-                  : "Add to cart",
-    getStoreTheme().copy?.cartNoun,
-  );
+                  : "Add to cart";
 
   /**
    * Land a rejection against the group it belongs to, or in the banner when it
