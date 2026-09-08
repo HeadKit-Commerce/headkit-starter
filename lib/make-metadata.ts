@@ -74,7 +74,8 @@ export function firstHomepageShareImage(
 ): string | undefined {
   for (const slide of carousels ?? []) {
     const image =
-      rasterShareImageUrl(slide.image) ?? rasterShareImageUrl(slide.mobileImage);
+      rasterShareImageUrl(slide.image) ??
+      rasterShareImageUrl(slide.mobileImage);
     if (image) return image;
   }
   return undefined;

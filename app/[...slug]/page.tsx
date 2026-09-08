@@ -194,11 +194,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { robots: { index: false, follow: false } };
   }
   const path = slug.join("/");
-  const [page, { seoSettings, storeSettings }, { iconUrl }] = await Promise.all([
-    getPageData(path),
-    getBranding(),
-    getBrandingAssets(),
-  ]);
+  const [page, { seoSettings, storeSettings }, { iconUrl }] = await Promise.all(
+    [getPageData(path), getBranding(), getBrandingAssets()],
+  );
   if (!page) {
     return { robots: { index: false, follow: false } };
   }
