@@ -342,6 +342,57 @@ shared Posts-page read is `getPostsLanding` in `lib/posts-base-path.ts`, not an 
 `sdk.posts.getLanding()`. `components/headkit-ui/post/post-body.test.tsx` asserts the
 zero-read path; extend it rather than adding a mock of the decision.
 
+### Request-time metadata costs the function resume, not cache lookups
+
+Every route's `generateMetadata` is request-time by design (the `robots` meta reads the
+request Host; `components/seo/dynamic-metadata-marker.tsx` is the hole that makes that
+legal), and it reads `getBranding()` / `getBrandingAssets()` — two `"use cache: remote"`
+entries. It is tempting to read the per-request tail on a CDN HIT as "two Runtime Cache
+round trips" and to try to move those reads out of metadata. MEASURED, it is not:
+
+- The prerender's postponed state carries the **Resume Data Cache** — every `use cache`
+  entry the prerender read, `remote` ones included (`next/dist/server/resume-data-cache/`
+  serialises all kinds; only `revalidate: 0` / short-`expire` entries are dropped). On a
+  resume the platform POSTs that state back to the function (`x-nextjs-resume`,
+  `base-server.js`) and `use cache` reads it BEFORE any cache handler. A counting
+  `cacheHandlers` wrapper on a Next 16.3 production build (2026-09-10, PR #470) saw **0
+  handler `get`s per warm request** on `/`, a CMS page, a post, a collection, a nested
+  PDP, `/brand` and `/brand/{slug}` — for these two keys and for every other layout
+  read. Both keys were present in every route's postponed state (decode a
+  `.next/server/app/<route>.meta` `postponed` string: `<len>:<state><base64 deflate>`).
+- Within one request the layout body reads the same keys, and `use cache` de-duplicates
+  identical in-flight invocations (`pendingCacheInvocations` in `use-cache-wrapper.js`),
+  so metadata could never add a lookup the body did not already pay.
+- What the tail IS: one function invocation per HIT that re-renders the RSC tree from the
+  postponed state and streams the holes — metadata, the marker, and the route's other
+  holes (locally 4 on home/CMS/post, 5 on a collection, 6 on a PDP: product grids and
+  carousels, `ProductStock`, the `searchParams` grid). The only per-request cache
+  lookups measured were outside metadata: the `searchParams`-keyed catalogue page on
+  collection and brand routes, and the Stripe config read on a PDP.
+
+So do not spend a change on taking `use cache` reads out of `generateMetadata`; it makes the
+code harder to read and the tail no shorter. A `generateMetadata` result is also
+indivisible — wholly prerenderable or wholly deferred (Next 16.3 bundled docs,
+`generate-metadata.md`, "With Cache Components") — so a host-dependent `robots` key keeps
+`<title>`, canonical and OG out of the static shell as well. Two shapes that would change
+that were evaluated for PR #470 and REJECTED, and lever 2 of the scout report was closed as a
+false premise (captain, 2026-09-10). Neither is a refactor; both alter what a non-indexable
+host emits:
+
+- **A rendered `<meta name="robots">` from the marker's hole, with `generateMetadata`
+  static.** Puts `<title>`, canonical and OG into the shell but shortens nothing — the
+  function still runs for the hole — and a rehearsal host then carries TWO robots metas,
+  `index, follow` from the shell beside `noindex, nofollow` from the hole. Google applies
+  the more restrictive rule, but `e2e/port-verify` deliberately reports a duplicate robots
+  meta as a finding and `e2e/not-found-status.spec.ts` asserts at most one on a 404.
+  Dropping the explicit `index, follow` instead leaves the live host with no robots meta.
+- **An `X-Robots-Tag` header from `proxy.ts`, marker removed.** The only shape under which
+  metadata needs no function, but the HTML robots tag stops being host-dependent — the
+  header becomes the host signal — which is the ENG-868 / ENG-876 constraint, and the route
+  still needs a function for its other holes. That is lever 11 of
+  `data/260910-bikesociety-edge-cache-scout/report.md`: a separate decision for the
+  captain, not something to fold into a metadata change.
+
 ## Maintaining this file
 
 Keep this file for knowledge useful to almost every future agent session in this app.
