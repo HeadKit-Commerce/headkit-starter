@@ -61,6 +61,11 @@ const serverSchema = clientSchema.extend({
     .string()
     .regex(/^[1-9]\d*$/)
     .optional(),
+  // How many of the MOST RECENT posts `app/news/[...slug]` prerenders at build
+  // (default `PRERENDER_POST_LIMIT_DEFAULT` there, 100). Each one is a single
+  // paced content read, so the number is minutes of build time: 100 ≈ 1 min
+  // at commerce's 1.8 req/s origin bucket. "0" = the placeholder param only.
+  HEADKIT_PRERENDER_POST_LIMIT: z.string().regex(/^\d+$/).optional(),
   REVALIDATION_SECRET: z.string().optional(),
   DASHBOARD_API_URL: z.string().url().optional(),
   DASHBOARD_API_TOKEN: z.string().min(1).optional(),
