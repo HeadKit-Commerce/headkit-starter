@@ -20,9 +20,11 @@ import {
 import { getBranding, getBrandingAssets } from "@/lib/branding";
 import {
   getPostsBasePath,
+  getPostsLanding,
   postsArticlePath,
   postsIndexPath,
 } from "@/lib/posts-base-path";
+import type { RawEditorBlock } from "@/lib/process-editor-blocks";
 
 interface Props {
   params: Promise<{ slug: string[] }>;
@@ -163,7 +165,10 @@ async function NewsArticleContent({ params }: Props): Promise<ReactNode> {
     getPost(postSlug),
     getBranding(),
     getPostsBasePath(),
-    sdk.posts.getLanding().catch(() => null),
+    // Cached (`hours`, `TAG.posts` + `TAG.pages`) — an uncached read here cost
+    // ~0.5 s of origin time on EVERY post view for a payload the base-path
+    // entry already held.
+    getPostsLanding(),
   ]);
   if (!post) return notFound();
 
@@ -198,9 +203,15 @@ async function NewsArticleContent({ params }: Props): Promise<ReactNode> {
           image={post.featuredImage?.src ?? null}
         />
 
-        {/* HeadKit sections (callouts, etc.) hydrate via PostBody; leftover
-              HTML keeps EditorialContent so .alignwide/.alignfull still work. */}
-        <PostBody html={post.content ?? ""} />
+        {/* HeadKit sections (callouts, carousels) hydrate via PostBody; leftover
+              HTML keeps EditorialContent so .alignwide/.alignfull still work.
+              `editorBlocks` carries the products the theme already resolved
+              for each product carousel — the same raw-block cast `app/page.tsx`
+              uses. Without it every carousel product was re-read per request. */}
+        <PostBody
+          html={post.content ?? ""}
+          editorBlocks={(post.editorBlocks ?? []) as RawEditorBlock[]}
+        />
 
         {related.length > 0 && (
           <div className="overflow-hidden py-[30px] lg:pt-[60px] lg:pb-[30px]">

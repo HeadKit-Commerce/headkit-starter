@@ -328,6 +328,20 @@ Three things about it are not derivable from the code and get people into troubl
 Prove changes to it with `bun run test:smoke:maintenance` — a production build plus a live
 flip. A unit test cannot make the claim that matters ("no redeploy").
 
+### A content body that hands `processHomepageContent` `[]` re-reads every carousel product per request
+
+`editorBlocks[].products` in a `GetContent` / homepage payload IS the product carousel's
+data (the theme hydrates posts exactly as pages). `BlockEditor` falls back to an HTML scan
+plus one product read per product only when a block carries no products — so a body that
+passes `[]` instead of the payload's blocks turns a cached read into N paced origin reads
+on every request: a six-carousel post measured 14 s → 1.0 s once the blocks were threaded
+(`data/260908-bs-posts-page-latency/report.md`). `PostBody`, `CmsPageBody` and
+`app/page.tsx` all thread them; a new surface must too. The fallback itself reads through
+`getCachedProduct` (the PDP entry) — never a bare `headkit.products.get` — and the
+shared Posts-page read is `getPostsLanding` in `lib/posts-base-path.ts`, not an inline
+`sdk.posts.getLanding()`. `components/headkit-ui/post/post-body.test.tsx` asserts the
+zero-read path; extend it rather than adding a mock of the decision.
+
 ## Maintaining this file
 
 Keep this file for knowledge useful to almost every future agent session in this app.
