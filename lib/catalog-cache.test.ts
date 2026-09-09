@@ -54,6 +54,73 @@ describe("scopeFromFilter", () => {
 });
 
 describe("getCachedCatalogPage tags", () => {
+  /**
+   * The subscribing half of `docs/cache-revalidation-contract.md`. After D3
+   * (2026-09-10) the theme fires `headkit:products` only when the set of
+   * listed products changes; a stock or price save reaches a grid ONLY
+   * through its scope tag, so every scope must carry the one the theme
+   * fires for it: `catalog:cat:{slug}` (category, incl. ancestors),
+   * `brand:{slug}`, `route:{sale|new|featured}`. The all-products grid has no
+   * per-product tag by design — `route:shop` fires on listing events only,
+   * which is the accepted trade-off.
+   */
+  it.each([
+    ["shop", { kind: "shop" } as const, undefined, TAG.route("shop")],
+    [
+      "category",
+      { kind: "category", slug: "electric-bikes" } as const,
+      { category: "electric-bikes" },
+      TAG.catalogCat("electric-bikes"),
+    ],
+    [
+      "brand",
+      { kind: "brand", slug: "trek" } as const,
+      { brand: "trek" },
+      TAG.brand("trek"),
+    ],
+    [
+      "route sale",
+      { kind: "route", route: "sale" } as const,
+      { onSale: true },
+      TAG.route("sale"),
+    ],
+    [
+      "route new",
+      { kind: "route", route: "new" } as const,
+      { isNew: true },
+      TAG.route("new"),
+    ],
+    [
+      "route featured",
+      { kind: "route", route: "featured" } as const,
+      { featured: true },
+      TAG.route("featured"),
+    ],
+  ])(
+    "%s scope carries its scope tag, headkit:products and no other blanket tag",
+    async (_name, scope, filter, scopeTag) => {
+      vi.mocked(headkit.collections.list).mockResolvedValue({
+        products: [],
+        total: 0,
+        totalPages: 0,
+        page: 1,
+        perPage: 24,
+      } as never);
+      vi.mocked(cacheTag).mockClear();
+
+      await getCachedCatalogPage(filter, 1, 24, scope);
+
+      const tags = vi.mocked(cacheTag).mock.calls.flat();
+      // Exactly the scope tag plus the two blanket tags — no other scope's
+      // tag (a category grid must not also listen to `route:shop`), and no
+      // new blanket subscription.
+      const contractTags = tags.filter((t) => t.startsWith("headkit:"));
+      expect(contractTags.sort()).toEqual(
+        [scopeTag, TAG.products, TAG.catalog].sort(),
+      );
+    },
+  );
+
   it("subscribes category PLPs to headkit:products so Shopify product webhooks drop the grid", async () => {
     vi.mocked(headkit.collections.list).mockResolvedValue({
       products: [],
