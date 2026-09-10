@@ -2,13 +2,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ProductCardSkeleton } from "@/components/headkit-ui/skeletons/product-card-skeleton";
 
 /**
- * The page-level `<Suspense>` fallback for both routes that render the PDP.
+ * The `<Suspense>` fallback for the flat PDP's REQUEST-TIME branch only.
  *
- * It is still the Instant Navigation App Shell on the canonical
- * `/shop/[...slug]`, whose default export stays sync and awaits nothing above
- * this boundary. It is NOT one on the flat `/products/[...slug]` any more: that
- * route awaits `getCachedProduct` above the boundary so its 308 is a real
- * redirect, which forfeits Partial Prefetching there — see the altitude note on
+ * A product the public catalogue can see is composed by `ProductPageBody`
+ * outside any boundary on both PDP routes, so this skeleton is never shown for
+ * it. `/products/[...slug]` renders it only around `ProductPageContent`, the
+ * branch that runs when the public read returned null — a Shopify draft under
+ * Admin preview, a missing product, or a failed read — because that branch
+ * awaits `searchParams` and must sit below a boundary. The nested
+ * `/shop/[...slug]` route no longer uses it at all; see the altitude note on
  * `ProductPage` in `./page.tsx`.
  */
 export function ProductPageShell(): React.JSX.Element {

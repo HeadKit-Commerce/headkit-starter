@@ -37,7 +37,6 @@ import {
   productCategorySegments,
   productPath,
 } from "@/lib/canonical-path";
-import { Skeleton } from "@/components/ui/skeleton";
 import { ProductPageShell } from "./product-page-shell";
 import { stripTitleMarkers } from "@/lib/title-emphasis";
 import { env } from "@/lib/env";
@@ -141,10 +140,6 @@ function mapRelatedToProduct(
       attributes: v.attributes,
     })),
   };
-}
-
-function StockSkeleton() {
-  return <Skeleton className="h-5 w-24" />;
 }
 
 export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
@@ -322,11 +317,10 @@ export async function generateMetadata({
  * `e2e/canonical-url-308.spec.ts` is what fails, on the status code itself.
  *
  * The deletion is not free, and the cost is worth stating plainly rather than
- * claiming nothing is lost. The `<Suspense>` below renders the identical
- * `<ProductPageShell />`, but it sits INSIDE a default export that now awaits
- * `getCachedProduct` before returning anything, so on a cache miss — a product
- * past the `HEADKIT_PRERENDER_PRODUCT_LIMIT` seed, or after the `cacheLife`
- * window — a soft navigation paints nothing until the backend responds, where
+ * claiming nothing is lost. The default export awaits `getCachedProduct` before
+ * returning anything, so on a cache miss — a product past the
+ * `HEADKIT_PRERENDER_PRODUCT_LIMIT` seed, or after the `cacheLife` window — a
+ * soft navigation paints nothing until the backend responds, where
  * `loading.tsx` supplied a route-level skeleton instantly. `instant = true`
  * stays on this route but can no longer produce a static App Shell for the same
  * reason (the collections route documents the same forfeit). Both are accepted:
@@ -338,14 +332,44 @@ export async function generateMetadata({
  * usable `/shop` permalink), so the comparison is what prevents a loop: such a
  * product is served here, self-canonical, and never redirected.
  *
+ * ### The public product renders OUTSIDE the boundary; only a null read goes inside one
+ *
+ * The same `getCachedProduct` read that decides the redirect IS the product the
+ * page renders, so when it resolves, `ProductPageBody` composes the whole PDP
+ * (gallery, price, description, stock, carousels) directly in the route with
+ * no `<Suspense>` around it, and that markup is baked into the prerendered
+ * static shell — a shopper with JavaScript off, or a crawler that does not run
+ * it, sees the product. It used to sit behind one route-level boundary that
+ * landed the ENTIRE product in the streamed tail whatever the cache state
+ * (measured on the Bike Society rehearsal store, 2026-09-10: 826 visible
+ * characters in the shell — nav and footer — and every product byte behind
+ * `B:2` behind a `ProductPageShell` fallback). Two distinct mechanisms did
+ * that, and closing one without the other changes nothing:
+ *
+ *   - the boundary's subtree awaited `searchParams` (the Shopify preview key),
+ *     a request-time read that POSTPONES the boundary at prerender — measured
+ *     locally, the prerendered file holds the 4 946-byte skeleton and not one
+ *     byte of product; remove the boundary instead and the route flips from
+ *     `◐` to `ƒ` with a 0-byte shell;
+ *   - React outlines any COMPLETED boundary larger than `progressiveChunkSize`
+ *     (12 800 bytes; `flushSegment` in react-dom's Fizz) into a
+ *     `<div hidden id="S:…">` plus an inline `$RC` swap that never runs with
+ *     JavaScript off — so a product inside ANY boundary is hidden even when
+ *     fully cached.
+ *
+ * "Cached content renders OUTSIDE the boundary" in `apps/starter/AGENTS.md`
+ * owns the rule; `scripts/static-shell-split.ts` measures a built file.
+ *
  * ### `searchParams` is forwarded, never awaited here
  *
  * The Shopify Admin preview key lives in the query string, and a 308 drops it —
  * but awaiting `searchParams` in THIS function to exempt a preview request is a
- * dynamic read above every boundary, which under Cache Components fails the
- * build on a route with `generateStaticParams`. Passing the unawaited promise
- * down is not a read; `ProductPageContent` awaits it inside the boundary below,
- * where it is legal.
+ * dynamic read above every boundary, which under Cache Components turns the
+ * whole route dynamic (`ƒ`, empty prerendered shell — measured, see above).
+ * Passing the unawaited promise down is not a read; `ProductPageContent`
+ * awaits it inside the boundary below, which renders ONLY when the public read
+ * returned null — the position a draft occupies. A product the public read can
+ * see never pays that read at all.
  *
  * No exemption is needed anyway, and this is why the gate above is the PUBLIC
  * `getCachedProduct` rather than `getProductForPage`: a draft is invisible to
@@ -360,15 +384,17 @@ export default async function ProductPage({ params, searchParams }: Props) {
   const productSlug = slug[0]!;
   const colorSlug = slug[1];
 
+  let product: Awaited<ReturnType<typeof getCachedProduct>> = null;
   if (productSlug !== STATIC_GEN_PLACEHOLDER_SLUG) {
     // This read is the THIRD provider call on the PDP path and the only one
-    // above the Suspense boundary, so a provider auth/scope failure here aborts
+    // above a Suspense boundary, so a provider auth/scope failure here aborts
     // the whole tenant static export — the failure `ProductPageContent` and
     // `generateMetadata` were both hardened against (#332). Degrade the same
     // way, but to SERVING rather than to notFound: the redirect is a
     // consolidation, so losing it costs one duplicate URL, while refusing to
-    // render costs the page. Next control-flow still propagates.
-    let product: Awaited<ReturnType<typeof getCachedProduct>> = null;
+    // render costs the page. A null here sends the request down the
+    // request-time branch below, whose own read retries and degrades honestly.
+    // Next control-flow still propagates.
     try {
       product = await getCachedProduct(productSlug);
     } catch (error) {
@@ -379,6 +405,16 @@ export default async function ProductPage({ params, searchParams }: Props) {
       const requested = `/products/${slug.join("/")}`;
       if (canonical !== requested) permanentRedirect(canonical);
     }
+  }
+
+  if (product) {
+    return (
+      <ProductPageBody
+        product={product}
+        productSlug={productSlug}
+        colorSlug={colorSlug}
+      />
+    );
   }
 
   return (
@@ -411,9 +447,21 @@ function ProductTemporarilyUnavailable(): React.ReactElement {
 }
 
 /**
- * Exported so the nested `/shop/[...slug]` PDP renders the IDENTICAL product
- * composition rather than duplicating it (D-15-04). The two routes serve two
- * valid URL shapes for one product; only their canonicals differ.
+ * The REQUEST-TIME branch: a product the public catalogue could not resolve.
+ *
+ * The route renders this only when `getCachedProduct` answered null (or threw)
+ * above — a Shopify draft under Admin preview, a missing product, the
+ * build-time placeholder, or a provider failure — and it is the ONE place on
+ * the PDP that awaits `searchParams`: the preview key lives there, and reading
+ * it is the request-time read that postpones the boundary this sits inside.
+ * A product the public read CAN see never reaches this function; the route
+ * composes it through {@link ProductPageBody} outside any boundary.
+ *
+ * Exported for the route's own tests, which drive it with a resolvable product
+ * to exercise the shared body composition. The nested `/shop/[...slug]` route
+ * does NOT use it: a draft can never reach that route (it verifies every
+ * candidate against the public read before serving), so it renders
+ * `ProductPageBody` directly.
  */
 export async function ProductPageContent({ params, searchParams }: Props) {
   const { slug } = await params;
@@ -432,70 +480,49 @@ export async function ProductPageContent({ params, searchParams }: Props) {
   // Neither of the two obvious alternatives is available, and the reason each
   // is closed is worth keeping:
   //
-  //  - `notFound()` is wrong at runtime. A THROWN provider read is not evidence
-  //    that the product is missing, so reporting it to shoppers and crawlers as
-  //    a missing product is a lie — and one Next cannot back with a status
+  //  - `notFound()` is wrong. A THROWN provider read is not evidence that the
+  //    product is missing, so reporting it to shoppers and crawlers as a
+  //    missing product is a lie — and one Next cannot back with a status
   //    anyway, because this component runs BELOW the `<Suspense>` that already
   //    committed the 200.
-  //  - Rethrowing is wrong at build. This route's `generateStaticParams`
-  //    enumerates REAL products, so an escaping error aborts the whole tenant
-  //    static export (#332) — the same failure `generateMetadata` above is
-  //    hardened against. news/projects/client carry no such exposure; their
-  //    params are placeholder-only, so they simply let the read throw.
+  //  - Rethrowing is wrong. At runtime it renders `app/error.tsx` for a
+  //    product the shopper can otherwise be shown; on a build resume it aborts
+  //    the render of a route whose `generateStaticParams` enumerates REAL
+  //    products (#332).
   //
-  // So it degrades, UNCONDITIONALLY. No build-phase discriminator picks between
-  // the two — not `process.env.NEXT_PHASE`, not any other — for two reasons
-  // that each stand on their own:
+  // So it degrades, UNCONDITIONALLY, with no build-phase discriminator — a
+  // direct `process.env` read outside `lib/env.ts` is banned (root
+  // `AGENTS.md`, "Never"), and none is needed: the degraded body is the right
+  // answer whenever this read fails.
   //
-  //  - It would be UNNECESSARY. The degraded body is the right answer in both
-  //    phases; the two paragraphs below state each half. A fork could only buy
-  //    the option to FAIL the build, which is the trade weighed and rejected in
-  //    the asymmetry note further down.
-  //  - It is BANNED. A direct `process.env` read outside `lib/env.ts` is listed
-  //    under "Never" in `AGENTS.md`.
-  //
-  // The build half is the expensive one, so state it rather than let the
-  // runtime half stand for both.
-  //
-  // AT BUILD the degraded body IS the artifact. `generateStaticParams` above
-  // enumerates REAL products up to `HEADKIT_PRERENDER_PRODUCT_LIMIT`; a blip
-  // while prerendering ONE of them makes this read throw, the catch returns the
-  // degraded body, the render SUCCEEDS, and that product's prerendered HTML
-  // permanently reads "temporarily unavailable". The throwing read stores no
-  // cache entry, so nothing guarantees a re-render: recovery is a redeploy, or
-  // `revalidateTag(TAG.product(slug))` (`lib/cache-tags.ts`). That is why the
-  // catch LOGS — a build that shipped one degraded PDP must be distinguishable
-  // from a clean one by its output alone, and the line carries the slug so the
-  // recovery lever can be aimed.
-  //
-  // AT RUNTIME it is simply the least-wrong response: not a false 404, not an
-  // error boundary, and `generateMetadata`'s own catch has already marked the
-  // page `noindex`, so nothing degraded is offered to a crawler.
+  // What a build blip produces has CHANGED with the route split, and the new
+  // shape is the better one. The public read now runs in the route above,
+  // outside every boundary; when it throws there the route falls through to
+  // this branch, and at prerender the `searchParams` await above POSTPONES the
+  // boundary before this read ever runs. So a blip while prerendering one
+  // product no longer bakes "temporarily unavailable" into that product's
+  // HTML — it bakes the `ProductPageShell` skeleton, and the first request
+  // resumes here with a fresh read. This catch is therefore a RUNTIME degrade:
+  // the least-wrong response when the retry fails too — not a false 404, not
+  // an error boundary, and `generateMetadata`'s own catch has already marked
+  // the page `noindex`, so nothing degraded is offered to a crawler. It LOGS,
+  // with the slug, so the recovery lever (`revalidateTag(TAG.product(slug))`,
+  // `lib/cache-tags.ts`) can be aimed.
   //
   // THE ASYMMETRY WITH `getPageData` IS DELIBERATE, not a contradiction.
   // `app/[...slug]/page.tsx` chooses to FAIL the build for `/[...slug]` and
   // `/wholesale` on this same class of failure (see the accepted-trade block
   // there). Those routes have NO degraded content to fall back to, so their
   // only options are fail-loud or bake a WRONG page — a 404 — and fail-loud
-  // wins. A PDP has a degraded body, and one transient blip must not throw away
-  // an export covering every prerendered product. Different options, same
-  // policy: never bake a lie, and never be silent about degrading.
+  // wins. A PDP has a degraded body. Different options, same policy: never
+  // bake a lie, and never be silent about degrading.
   //
   // Next control flow is re-raised first and never absorbed.
   let product: Awaited<ReturnType<typeof getProductForPage>>;
-  let branding: Awaited<ReturnType<typeof getBranding>>["branding"];
-  let storeSettings: Awaited<ReturnType<typeof getBranding>>["storeSettings"];
-  let stripeConfig: Awaited<ReturnType<typeof getStripeConfig>>;
   try {
-    const loaded = await Promise.all([
-      getProductForPage(productSlug, { shopifyPreviewKey: previewKey }),
-      getBranding(),
-      getStripeConfig(),
-    ]);
-    product = loaded[0];
-    branding = loaded[1].branding;
-    storeSettings = loaded[1].storeSettings;
-    stripeConfig = loaded[2];
+    product = await getProductForPage(productSlug, {
+      shopifyPreviewKey: previewKey,
+    });
   } catch (error) {
     unstable_rethrow(error);
     logger.error("pdp.degraded_render", {
@@ -508,6 +535,61 @@ export async function ProductPageContent({ params, searchParams }: Props) {
 
   if (!product) {
     notFound();
+  }
+
+  // Called rather than rendered as an element, so the value returned is the
+  // composed page tree itself — what the route tests and the canonical-shape
+  // sweep inspect for crumbs, JSON-LD and the ProductDetail base path.
+  return ProductPageBody({ product, productSlug, colorSlug });
+}
+
+type ProductPageBodyProps = {
+  product: NonNullable<Awaited<ReturnType<typeof getCachedProduct>>>;
+  productSlug: string;
+  /** undefined for simple products or the base variable-product URL. */
+  colorSlug: string | undefined;
+};
+
+/**
+ * The PDP composition for a product already in hand.
+ *
+ * Every read below is a `"use cache"` entry — branding, Stripe config, one
+ * brand — so this renders OUTSIDE any Suspense boundary and is baked into the
+ * prerendered static shell; see the altitude note on `ProductPage` above.
+ * Both PDP routes render it (D-15-04): they serve two valid URL shapes for one
+ * product, and only their canonicals differ. Only `ProductStock` beneath it
+ * reads on its own, and it reads the same cached product entry.
+ *
+ * The branding and Stripe reads never throw by contract (each degrades to its
+ * defaults), but the catch stays: this runs above every boundary at BUILD for
+ * every enumerated product, where an escaping error would abort the whole
+ * tenant static export (#332). Same degrade and the same log line as the
+ * product read in `ProductPageContent`, for the same reasons.
+ */
+export async function ProductPageBody({
+  product,
+  productSlug,
+  colorSlug,
+}: ProductPageBodyProps) {
+  let branding: Awaited<ReturnType<typeof getBranding>>["branding"];
+  let storeSettings: Awaited<ReturnType<typeof getBranding>>["storeSettings"];
+  let stripeConfig: Awaited<ReturnType<typeof getStripeConfig>>;
+  try {
+    const [brandingBundle, stripe] = await Promise.all([
+      getBranding(),
+      getStripeConfig(),
+    ]);
+    branding = brandingBundle.branding;
+    storeSettings = brandingBundle.storeSettings;
+    stripeConfig = stripe;
+  } catch (error) {
+    unstable_rethrow(error);
+    logger.error("pdp.degraded_render", {
+      productSlug,
+      recovery: `revalidateTag(${TAG.product(productSlug)})`,
+      ...errorFields(error),
+    });
+    return <ProductTemporarilyUnavailable />;
   }
 
   // Display brand: the product's first brand term, with its logo from ONE
@@ -649,13 +731,13 @@ export async function ProductPageContent({ params, searchParams }: Props) {
     current: i === breadcrumbs.length - 1,
   }));
 
+  // No boundary: `ProductStock` reads the same cached product entry this page
+  // rendered from, so it is prerendered inline with the price beside it.
   const stockSlot = (
-    <Suspense fallback={<StockSkeleton />}>
-      <ProductStock
-        productSlug={productSlug}
-        {...(colorSlug !== undefined ? { colorSlug } : {})}
-      />
-    </Suspense>
+    <ProductStock
+      productSlug={productSlug}
+      {...(colorSlug !== undefined ? { colorSlug } : {})}
+    />
   );
 
   const themeCopy = getStoreTheme().copy;

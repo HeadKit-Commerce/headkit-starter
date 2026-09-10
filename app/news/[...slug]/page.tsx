@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Suspense } from "react";
 import { notFound, unstable_rethrow } from "next/navigation";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
@@ -13,7 +12,6 @@ import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { ArticleJsonLD } from "@/components/seo/article-json-ld";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { CarouselPostJsonLD } from "@/components/seo/carousel-post-json-ld";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   makeSeoMetadata,
   resolveStoreName,
@@ -30,25 +28,6 @@ import type { RawEditorBlock } from "@/lib/process-editor-blocks";
 
 interface Props {
   params: Promise<{ slug: string[] }>;
-}
-
-function NewsArticleSkeleton(): ReactNode {
-  return (
-    <div className="space-y-6 px-5 py-8 md:px-10">
-      <Skeleton animated={false} className="h-4 w-40" />
-      <Skeleton animated={false} className="h-10 w-2/3 max-w-xl" />
-      <Skeleton
-        animated={false}
-        className="aspect-[16/9] w-full max-w-4xl rounded-brand"
-      />
-      <div className="max-w-3xl space-y-3">
-        <Skeleton animated={false} className="h-4 w-full" />
-        <Skeleton animated={false} className="h-4 w-full" />
-        <Skeleton animated={false} className="h-4 w-11/12" />
-        <Skeleton animated={false} className="h-4 w-4/5" />
-      </div>
-    </div>
-  );
 }
 
 /**
@@ -242,47 +221,59 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * Blocking route so `notFound()` can still set a real 404: under Cache
  * Components the response commits as 200 the moment a `<Suspense>` fallback
  * renders, and a `notFound()` raised inside the boundary only earns a `noindex`
- * meta tag. The existence check therefore runs in the default export, above the
- * boundary, forfeiting this route's App Shell. What that costs, what else can
- * commit the 200 first, and why `instant` is NOT one of those things live once
- * in "Setting a status code needs THREE conditions" in `apps/starter/AGENTS.md`.
- * `instant = false` is that section's declaration rule: this route blocks on a
- * cached read before it responds.
+ * meta tag. The existence check therefore runs in the default export, above
+ * any boundary, forfeiting this route's App Shell. What that costs, what else
+ * can commit the 200 first, and why `instant` is NOT one of those things live
+ * once in "Setting a status code needs THREE conditions" in
+ * `apps/starter/AGENTS.md`. `instant = false` is that section's declaration
+ * rule: this route blocks on a cached read before it responds.
+ *
+ * There is no `<Suspense>` on this route at all any more, and that is the
+ * point. Every read the article needs is a `"use cache"` entry (`getPost`,
+ * branding, the Posts base path and landing, the carousels from the payload's
+ * hydrated `editorBlocks`), so nothing here is request-time — MEASURED on a
+ * Next 16.3 production build, 2026-09-10: with the boundary removed the build
+ * succeeds and a prerendered post is entirely inline. Yet with a boundary
+ * around the article the very same build put the whole article in a
+ * `<div hidden id="S:3">` after the shell (locally 124 visible characters in
+ * the shell, 286 hidden; on the Bike Society rehearsal store 772 / 3 287),
+ * because React outlines any COMPLETED boundary larger than
+ * `progressiveChunkSize` (12 800 bytes; `flushSegment` in react-dom's Fizz)
+ * into a hidden segment plus an inline `$RC` swap — which never runs with
+ * JavaScript off. A boundary belongs next to a request-time read, and this
+ * route has none. "Cached content renders OUTSIDE the boundary" in
+ * `apps/starter/AGENTS.md` owns the rule; `scripts/static-shell-split.ts`
+ * measures a built file.
  */
 export const instant = false;
 
 export default async function Page(props: Props): Promise<ReactNode> {
-  // Pre-commit gate — an unknown post slug must answer 404. The `"use cache"`
-  // post read dedupes with `NewsArticleContent`'s own read below.
+  // Pre-commit gate — an unknown post slug must answer 404. The post it reads
+  // is the post the article renders from: one `"use cache"` read, handed down.
   const { slug } = await props.params;
   const postSlug = slug[slug.length - 1];
   if (!postSlug || postSlug === STATIC_GEN_PLACEHOLDER_SLUG) notFound();
-  if (!(await getPost(postSlug))) notFound();
+  const post = await getPost(postSlug);
+  if (!post) notFound();
 
-  return (
-    <Suspense fallback={<NewsArticleSkeleton />}>
-      <NewsArticleContent {...props} />
-    </Suspense>
-  );
+  return <NewsArticleContent post={post} postSlug={postSlug} />;
 }
 
-async function NewsArticleContent({ params }: Props): Promise<ReactNode> {
-  const { slug } = await params;
-  const postSlug = slug[slug.length - 1];
-  if (!postSlug || postSlug === STATIC_GEN_PLACEHOLDER_SLUG) return notFound();
+type NewsArticleContentProps = {
+  post: NonNullable<Awaited<ReturnType<typeof getPost>>>;
+  postSlug: string;
+};
 
-  // Deliberately UNCAUGHT, and the reason is NOT the status code. This
-  // component runs BELOW the `<Suspense>` that already committed the 200, so
-  // neither a `notFound()` nor a thrown error can set a status here — both
-  // answer 200. What changes is the BODY and its robots meta: a late
-  // `notFound()` tells a shopper this post does not exist when the gate in
-  // the default export just proved it does, while a throw renders
-  // `app/error.tsx`, is loggable, and commits no wrong content as the page.
-  // `generateMetadata`'s catch marks that render `noindex` so the error body
-  // is never offered to a crawler. The miss case is the null below, owned
-  // jointly with that gate.
-  const [post, { storeSettings }, postsBase, landing] = await Promise.all([
-    getPost(postSlug),
+async function NewsArticleContent({
+  post,
+  postSlug,
+}: NewsArticleContentProps): Promise<ReactNode> {
+  // Deliberately UNCAUGHT. A thrown read here is transport/infra: it renders
+  // `app/error.tsx`, is loggable, and commits no wrong content as the page,
+  // where a recovering catch would have to invent a body for a post the gate
+  // above just proved exists. `generateMetadata`'s catch marks that render
+  // `noindex` so the error body is never offered to a crawler.
+  const [{ storeSettings }, postsBase, landing] = await Promise.all([
     getBranding(),
     getPostsBasePath(),
     // Cached (`hours`, `TAG.posts` + `TAG.pages`) — an uncached read here cost
@@ -290,7 +281,6 @@ async function NewsArticleContent({ params }: Props): Promise<ReactNode> {
     // entry already held.
     getPostsLanding(),
   ]);
-  if (!post) return notFound();
 
   const related = post.relatedPosts ?? [];
   const siteName = resolveStoreName(storeSettings.name);

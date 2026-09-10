@@ -1,5 +1,4 @@
-import { connection } from "next/server";
-import { headkit } from "@/lib/sdk";
+import { getCachedProduct } from "@/lib/product-cache";
 import { AvailabilityStatus } from "@/components/headkit-ui/availability-status";
 import { findSwatchAttribute } from "@/lib/swatch-attribute";
 
@@ -9,9 +8,17 @@ interface Props {
 }
 
 /**
- * Server component that fetches fresh stock data, bypassing the static cache.
- * Intended to be wrapped in <Suspense> inside a PPR-enabled page so the rest
- * of the page remains statically pre-rendered.
+ * The PDP stock line, read from the SAME `"use cache"` product entry the page
+ * renders from (`getCachedProduct`), so it is prerendered inline beside the
+ * price and shows with JavaScript off.
+ *
+ * It used to opt itself into request-time rendering — `connection()` plus an
+ * uncached `products.get` — to bypass the static cache, which made it a
+ * streamed island on every view (and, before the route split, part of the
+ * reason the whole PDP boundary streamed). Freshness now comes from the
+ * theme's tag purges instead: a stock or price save fires
+ * `headkit:product:<slug>` (`docs/cache-revalidation-contract.md`), which
+ * expires this entry and the page together, so the two can never disagree.
  *
  * Uses `products.get` until a lean `getStock` SDK method ships (ENG-853).
  *
@@ -20,9 +27,7 @@ interface Props {
  */
 export async function ProductStock({ productSlug, colorSlug }: Props) {
   try {
-    await connection(); // opts this component into dynamic rendering
-
-    const product = await headkit.products.get(productSlug);
+    const product = await getCachedProduct(productSlug);
     if (!product) return null;
     const swatchAttr = findSwatchAttribute(product.attributes);
     const variation = colorSlug

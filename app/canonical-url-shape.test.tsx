@@ -1123,7 +1123,7 @@ describe("no route family emits the flat shape", () => {
         );
         if (resolved.kind === "category") return false;
         if (resolved.kind === "product") {
-          // Mirror `resolveProductParams` exactly: a reading off a VALIDATED
+          // Mirror `resolveShopProduct` exactly: a reading off a VALIDATED
           // chain needs the product to exist, and a containment reading needs
           // the product's own permalink to reproduce the requested path. A
           // doubled colourway (`…/red/blue`) offers `blue` then `red`, and even

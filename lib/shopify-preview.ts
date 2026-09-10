@@ -56,7 +56,7 @@ export function shopifyProductIdFromSearchParams(
  * ordinary traffic, but it is the only shape a DRAFT product can be served on.
  *
  * The nested `/shop/…` route verifies its candidate against
- * `getCachedProduct` before serving (`resolveProductParams` in
+ * `getCachedProduct` before serving (`resolveShopProduct` in
  * `app/shop/[...slug]/page.tsx`) — the public catalogue read, which a draft
  * fails by construction — so a draft sent there answers notFound(). The flat
  * route gates its 308 on that same read, so a draft is not redirected and

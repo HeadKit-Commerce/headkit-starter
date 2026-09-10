@@ -80,7 +80,8 @@ index equity, and deliberately NOT configurable). The flat `/products/<slug>` an
   under every arrangement — so `e2e/canonical-url-308.spec.ts` is what holds it, by asserting
   the status code over real HTTP against a built, running app. A root boundary also empties the
   prerendered shell: measured JS-off, the home page carried 0 visible characters with it and
-  409 without.
+  409 without. The same goes for a route-level boundary around a page's own cached content —
+  see "Cached content renders OUTSIDE the boundary" below.
 
 **One recorded exception to "every signal", and it is not small.** On a store using
 WooCommerce's default `/product/` permalink base, `productCategorySegments` returns `[]` for
@@ -142,7 +143,7 @@ of with a query parameter is not a redirect.
 The corollary is the part that looks wrong and is not: `resolveShopifyPreviewProductPath`
 (`lib/shopify-preview.ts`) returns the FLAT `/products/{handle}`, the losing shape, and must
 keep doing so. The nested route verifies its candidate against `getCachedProduct` before
-serving (`resolveProductParams`), so a draft sent there answers notFound() — the flat route
+serving (`resolveShopProduct`), so a draft sent there answers notFound() — the flat route
 is the only shape that can render one. Both entry points the HeadKit redirect theme rewrites
 to (`integrations/shopify/theme/layout/theme.liquid`) land on it.
 
@@ -261,8 +262,47 @@ directions — a gate that 404s a route family's REAL pages is worse than the bu
 
 **The cost is stated, not hidden.** Each gated route forfeits its static App Shell skeleton:
 TTFB now waits on one `"use cache"` read (warm: memory) instead of painting a skeleton first.
-Everything expensive still streams behind the boundary, so time-to-content is broadly
-unchanged. Accepted — a 200 on every missing URL of every store is the larger cost.
+Accepted — a 200 on every missing URL of every store is the larger cost. What the gate's read
+resolves is then RENDERED, not re-read behind a boundary: the post and PDP routes hand it
+straight to the page composition (next section), so the gate is also the page's data read.
+
+### Cached content renders OUTSIDE the boundary, or it is hidden with JavaScript off
+
+With JavaScript off a shopper (and any crawler that does not run scripts) sees only what
+sits BEFORE the first `<div hidden id="S:…">` in the HTML. Under Cache Components TWO
+things put content after it, and closing one without the other changes nothing:
+
+- **A boundary whose subtree performs a request-time read** (`searchParams`, `cookies()`,
+  `headers()`, `connection()`, an uncached read) is POSTPONED at prerender: the static file
+  holds its fallback and not one byte of content. Without a boundary that read turns the
+  whole route dynamic (`ƒ`, 0-byte shell) instead of failing the build — measured on a
+  Next 16.3 production build, 2026-09-10, on `/shop/[...slug]`.
+- **A COMPLETED boundary larger than React's `progressiveChunkSize` (12 800 bytes)** is
+  outlined by Fizz (`flushSegment`, `isEligibleForOutlining` in
+  `next/dist/compiled/react-dom`) into a hidden segment plus an inline `$RC` swap, even in a
+  prerendered file where every read was cached. So a whole article or product inside ANY
+  `<Suspense>` is invisible with JavaScript off. Measured the same day: the post route had
+  no request-time read at all, yet 124 visible characters in the shell with its boundary
+  and the entire article in `S:3`; 411 with the boundary removed and nothing hidden.
+
+So a boundary belongs NEXT TO a request-time read and nowhere else; cached content renders
+in the route itself. `app/news/[...slug]` has no boundary. Both PDP routes compose the
+product the gate resolved through `ProductPageBody` outside any boundary; the flat
+`/products/[...slug]` keeps ONE boundary, around `ProductPageContent`, and renders it only
+when the public read returned null — the one branch that must await `searchParams` (the
+Shopify preview key). `ProductStock` reads the same cached product entry (freshness is the
+theme's `headkit:product:<slug>` purge), so it is inline too. The `/shop` category branch
+keeps its boundary because `CollectionRoute` reads `searchParams` for its grid.
+
+Measure, do not infer: `bun run scripts/static-shell-split.ts <.next/server/app/….html | url>`
+prints the split, the visible characters on each side, and every hidden segment. The route
+tests (`app/products/[...slug]/page.composition.test.tsx`, `app/shop/[...slug]/page.composition.test.tsx`,
+`app/news/[...slug]/page.test.tsx`) pin the element tree that decides it. The same rule
+reached one shared component: `ProductCarousel` used to wrap itself in an inert
+`<Suspense fallback={null}>`, which put every related / upsell / editorial carousel's tiles
+in the tail; it no longer does. React also outlines a boundary in the shell that contains
+an eager `<img>` (`hasSuspenseyContent`), so a gallery or carousel that must be JS-off
+visible gets no boundary of its own.
 
 ### The footer ships NO social links, and that is the fix
 
@@ -366,9 +406,11 @@ round trips" and to try to move those reads out of metadata. MEASURED, it is not
 - What the tail IS: one function invocation per HIT that re-renders the RSC tree from the
   postponed state and streams the holes — metadata, the marker, and the route's other
   holes (locally 4 on home/CMS/post, 5 on a collection, 6 on a PDP: product grids and
-  carousels, `ProductStock`, the `searchParams` grid). The only per-request cache
-  lookups measured were outside metadata: the `searchParams`-keyed catalogue page on
-  collection and brand routes, and the Stripe config read on a PDP.
+  carousels, `ProductStock`, the `searchParams` grid — counted BEFORE the post and PDP
+  routes moved their cached content out of the boundary; see "Cached content renders
+  OUTSIDE the boundary"). The only per-request cache lookups measured were outside
+  metadata: the `searchParams`-keyed catalogue page on collection and brand routes, and
+  the Stripe config read on a PDP.
 
 So do not spend a change on taking `use cache` reads out of `generateMetadata`; it makes the
 code harder to read and the tail no shorter. A `generateMetadata` result is also

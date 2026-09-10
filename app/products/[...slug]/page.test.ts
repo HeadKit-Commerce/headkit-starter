@@ -384,7 +384,7 @@ const NO_ANCESTRY_PRODUCT = {
  * on a store using WooCommerce's default `/product/` permalink base.
  *
  * IT DOES NOT COVER the nested `/shop/[...slug]` route, which STILL carries
- * `TAG.collections`: `ShopRouteContent` awaits `getShopCategoryTree()` outside
+ * `TAG.collections`: its default export awaits `getShopCategoryTree()` outside
  * any enclosing `"use cache"` scope, so the tag lands on that route's entry and
  * one product save purges every canonical PDP on a nested-permalink store —
  * which is the class both cutover stores (Pebblr, Dishee) are in. That read is

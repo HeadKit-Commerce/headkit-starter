@@ -10,17 +10,16 @@ import { makeSeoMetadata, storefrontUrl } from "@/lib/make-metadata";
 import { TAG } from "@/lib/cache-tags";
 import {
   generateMetadata as productMetadata,
-  ProductPageContent,
+  ProductPageBody,
 } from "@/app/products/[...slug]/page";
-import { ProductPageShell } from "@/app/products/[...slug]/product-page-shell";
 import { CollectionRoute } from "@/app/collections/[...slug]/page";
+import { CollectionPageSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import { collectionPathFromCategory } from "@/components/headkit-ui/collection/utils";
 import { productPath, productShopSegments } from "@/lib/canonical-path";
 import { getCachedProduct } from "@/lib/product-cache";
 import {
   resolveShopPath,
   SHOP_PATH_PREFIX,
-  type ShopCategoryNode,
   type ShopProductCandidate,
 } from "../shop-slug";
 
@@ -38,6 +37,12 @@ function candidateParams(candidate: ShopProductCandidate): string[] {
   return candidate.colourSlug !== undefined
     ? [candidate.productSlug, candidate.colourSlug]
     : [candidate.productSlug];
+}
+
+/** A candidate reading that survived, with the product the probe resolved. */
+interface AcceptedProduct {
+  candidate: ShopProductCandidate;
+  product: NonNullable<Awaited<ReturnType<typeof getCachedProduct>>>;
 }
 
 /**
@@ -63,23 +68,24 @@ function candidateParams(candidate: ShopProductCandidate): string[] {
  *    determinism rule the canonical itself rests on, one level down.
  *
  * `getCachedProduct` is the shared `"use cache"` entry both PDP routes read, so
- * a probe costs a cached lookup and the accepted one is a hit again when the
- * delegated component reads it.
+ * a probe costs a cached lookup — and the product the accepted probe resolved
+ * is handed back with it, so the route renders the very object it verified
+ * rather than reading again below a boundary.
  *
  * Null means no reading survived: the caller answers not-found / noindex.
  */
-async function resolveProductParams(
+async function resolveShopProduct(
   slug: readonly string[],
   candidates: readonly ShopProductCandidate[],
-): Promise<string[] | null> {
+): Promise<AcceptedProduct | null> {
   const requestedPath = `/${SHOP_PATH_PREFIX}/${slug.join("/")}`;
 
   for (const candidate of candidates) {
     const product = await getCachedProduct(candidate.productSlug);
     if (!product) continue;
-    if (candidate.ancestryValidated) return candidateParams(candidate);
+    if (candidate.ancestryValidated) return { candidate, product };
     if (productPath(product, candidate.colourSlug) === requestedPath) {
-      return candidateParams(candidate);
+      return { candidate, product };
     }
   }
   return null;
@@ -230,11 +236,8 @@ export async function generateMetadata({
     const resolved = resolveShopPath(slug, categories);
 
     if (resolved.kind === "product") {
-      const productParams = await resolveProductParams(
-        slug,
-        resolved.candidates,
-      );
-      if (!productParams) return NOINDEX;
+      const accepted = await resolveShopProduct(slug, resolved.candidates);
+      if (!accepted) return NOINDEX;
 
       // Delegate to the flat PDP's own metadata, exactly as the page delegates
       // rendering. It resolves the canonical from `productPath(product, …)`,
@@ -246,7 +249,7 @@ export async function generateMetadata({
       // title, the variant OG image and the noindex-an-invalid-colour rule
       // rather than acquiring a thinner copy here.
       return productMetadata({
-        params: Promise.resolve({ slug: productParams }),
+        params: Promise.resolve({ slug: candidateParams(accepted.candidate) }),
       });
     }
 
@@ -303,62 +306,42 @@ export const instant = false;
 
 export default async function Page(props: Props): Promise<ReactNode> {
   // Pre-commit gate. This route DELEGATES rendering to the PDP and collection
-  // views, so it must REPRODUCE their existence decision here rather than let
-  // them 404 mid-stream — and reproducing it means the whole decision, not just
-  // the classification: `resolveShopPath` reads `/shop/{slug}` as a PRODUCT
+  // views, so it must make their existence decision here rather than let them
+  // 404 mid-stream — and making it means the whole decision, not just the
+  // classification: `resolveShopPath` reads `/shop/{slug}` as a PRODUCT
   // candidate (see `shop-slug.test.ts`), so an unknown one-segment path only
-  // fails once `resolveProductParams` has probed every candidate and found
-  // none. That is the same function `ShopRouteContent` calls below, and every
-  // probe it makes is a `"use cache"` `getCachedProduct` read, so the repeat
-  // costs cache hits rather than round trips.
+  // fails once `resolveShopProduct` has probed every candidate and found none.
+  // Every probe is a `"use cache"` `getCachedProduct` read.
   //
   // The `category` branch needs no lookup: a path only classifies as a category
   // by already matching the tree that was just read.
   //
   // The build-time placeholder param 404s HERE. It is never served from a
-  // prerender, so skipping the gate for it sent a runtime request down into
-  // `ShopRouteContent`, whose `notFound()` fires below the boundary — the soft
-  // 404 this gate exists to close.
+  // prerender, so skipping the gate for it would send a runtime request down
+  // into a `notFound()` below the boundary — the soft 404 this gate closes.
   const { slug } = await props.params;
   if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) notFound();
   // Not caught, deliberately — same rule as `getShopCategoryTree`: a thrown
   // read is transport/infra and must propagate, never become a sticky 404.
   const resolved = resolveShopPath(slug, await getShopCategoryTree());
   if (resolved.kind === "index" || resolved.kind === "unknown") notFound();
-  if (
-    resolved.kind === "product" &&
-    !(await resolveProductParams(slug, resolved.candidates))
-  ) {
-    notFound();
-  }
-
-  return (
-    <Suspense fallback={<ProductPageShell />}>
-      <ShopRouteContent {...props} />
-    </Suspense>
-  );
-}
-
-async function ShopRouteContent({
-  params,
-  searchParams,
-}: Props): Promise<ReactNode> {
-  const { slug } = await params;
-
-  // Build-time placeholder param (see generateStaticParams) is never served.
-  if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) notFound();
-
-  const categories: ShopCategoryNode[] = await getShopCategoryTree();
-  const resolved = resolveShopPath(slug, categories);
 
   if (resolved.kind === "product") {
-    const productParams = await resolveProductParams(slug, resolved.candidates);
-    if (!productParams) notFound();
+    const accepted = await resolveShopProduct(slug, resolved.candidates);
+    if (!accepted) notFound();
 
-    // Delegate to the flat PDP's own content component: identical composition,
-    // and identical links — it builds every href from `productPath(product)`,
-    // so the colourway links it renders are the nested ones this catch-all now
-    // classifies, not the `/products/…` shape that 308s here.
+    // The product the gate just verified is rendered HERE, outside any
+    // Suspense boundary, so the whole PDP is baked into the prerendered static
+    // shell and shows with JavaScript off. Wrapping it — as this route did
+    // until 2026-09-10 — put every product byte in the streamed tail whatever
+    // the cache state: `ProductPageContent` awaited `searchParams` (a
+    // request-time read that postpones the boundary), and React outlines any
+    // completed boundary over 12 800 bytes regardless. The composition is the
+    // flat PDP's own `ProductPageBody`: identical markup and identical links —
+    // every href is built from `productPath(product)`, so the colourway links
+    // it renders are the nested ones this catch-all classifies, not the
+    // `/products/…` shape that 308s here. "Cached content renders OUTSIDE the
+    // boundary" in `apps/starter/AGENTS.md` owns the rule.
     //
     // A chain that is reachable but is NOT the product's own permalink chain
     // (a product filed under two categories) is served here rather than
@@ -366,30 +349,35 @@ async function ShopRouteContent({
     // decision that put a 308 on the flat shapes did not name this one — a 308
     // is the single act a rollback cannot undo, so it is spent only where the
     // decision asked for it.
+    //
+    // A draft cannot reach this branch: the probe above is the PUBLIC read,
+    // which a draft fails by construction, so this route never needs the
+    // request-time preview branch the flat route keeps behind its boundary.
     return (
-      <ProductPageContent
-        params={Promise.resolve({ slug: productParams })}
-        {...(searchParams !== undefined ? { searchParams } : {})}
+      <ProductPageBody
+        product={accepted.product}
+        productSlug={accepted.candidate.productSlug}
+        colorSlug={accepted.candidate.colourSlug}
       />
     );
   }
 
-  if (resolved.kind === "category") {
-    // Delegate to the collection view with the category's own segments, so its
-    // facet links stay in the served /collections namespace (see the export
-    // comment there). The canonical emitted by `generateMetadata` above points
-    // at that same `/collections/…` path, NOT at this `/shop` URL — a category
-    // archive served here is a duplicate that consolidates by canonical tag,
-    // which is why the two agree on the collections shape.
-    return (
+  // Category: delegate to the collection view with the category's own
+  // segments, so its facet links stay in the served /collections namespace
+  // (see the export comment there). The canonical emitted by `generateMetadata`
+  // above points at that same `/collections/…` path, NOT at this `/shop` URL —
+  // a category archive served here is a duplicate that consolidates by
+  // canonical tag, which is why the two agree on the collections shape.
+  //
+  // This branch keeps a boundary because `CollectionRoute` reads
+  // `searchParams` for its product grid — a request-time read that must sit
+  // below one. It is the collection route's own skeleton, not the PDP's.
+  return (
+    <Suspense fallback={<CollectionPageSkeleton />}>
       <CollectionRoute
         params={Promise.resolve({ slug: resolved.segments })}
-        searchParams={searchParams ?? Promise.resolve({})}
+        searchParams={props.searchParams ?? Promise.resolve({})}
       />
-    );
-  }
-
-  // index / unknown — an explicit failure to decide is a not-found, never a
-  // guessed product lookup and never a permanent redirect.
-  notFound();
+    </Suspense>
+  );
 }
