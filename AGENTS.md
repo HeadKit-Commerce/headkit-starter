@@ -442,6 +442,28 @@ host emits:
   `data/260910-bikesociety-edge-cache-scout/report.md`: a separate decision for the
   captain, not something to fold into a metadata change.
 
+### A WordPress mega-menu column is a `hidden` Custom Link, not a link
+
+Themes have no column primitive, so a merchant expresses one as a destination-less
+Custom Link (URI collapses to `/`) carrying the CSS class `hidden`, with the real
+links as its children. Its label ("Column 1"…) is scaffolding: `lib/menu-columns.ts`
+turns each container into ONE mega-menu column, gives every non-container sibling a
+column of its own, drops a column that would be empty, and splices containers away at
+every depth for flat surfaces (the mobile sheet). Never key this on the label or on
+"URI is `/`" — the class is the merchant's own convention, and both alternatives were
+measured wrong in `data/260910-bikesociety-full-gap-scout/report.md` §3.3.
+
+The same WordPress menu usually still feeds the store's LIVE v1 site, which depends on
+those containers for its layout, so deleting them in WordPress is not a fix available
+before cutover. `lib/hide-empty-collections.ts` drops a container left with no
+surviving children; without that the container outlives its own links (a container's
+URI yields no collection slug, so nothing else can drop it).
+
+**A dropdown parent renders as a `<button>`, never a link.** Radix's own trigger, no
+`asChild`: a parent whose URI is `/` used to send a shopper home on the way to the
+panel. A real destination is not lost — `MegaMenu`'s `viewAll` renders it as the
+panel's first entry.
+
 ### The `breadcrumbs` prop on PDP/brand/collection headers used to be dead — collection now renders it
 
 `ProductDetail`, `brand-header.tsx` and `CollectionHeader` all accept a `breadcrumbItems`/

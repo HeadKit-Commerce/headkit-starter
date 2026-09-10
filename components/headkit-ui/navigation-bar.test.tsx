@@ -1,13 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
+  MegaMenu,
+  MobileMenuSection,
   NavigationBar,
   type NavMenuItem,
 } from "@/components/headkit-ui/navigation-bar";
+import { NavigationMenu } from "@/components/ui/navigation-menu";
+import {
+  BIKES,
+  CLOTHING_AND_GEAR,
+  EQUIPMENT,
+} from "@/lib/__fixtures__/bikesociety-nav";
 
 /**
  * Desktop nav: every WordPress parent that HAS children must render a dropdown
- * trigger, including the ones whose Custom Link URL is `#`.
+ * trigger — a <button> that only opens the panel, never a link that navigates.
  *
  * Shaped on Pebblr's real PRIMARY menu (headkit/v2/menus/location/primary):
  * four parents with children, of which "Events" is authored as a `#` Custom
@@ -131,11 +139,14 @@ describe("NavigationBar desktop dropdowns", () => {
     expect(events).not.toContain("href");
   });
 
-  it("keeps a navigable parent an anchor carrying its href", () => {
+  it("makes a NAVIGABLE parent a button too, so a click cannot navigate", () => {
+    // The regression this locks: Bike Society's EQUIPMENT and CLOTHING & GEAR
+    // are Custom Links whose URI collapses to `/`, so the anchor branch sent a
+    // shopper to the home page on the way to the panel.
     const packages = rootControl(renderNav(), "Photobooth Packages");
 
-    expect(packages).toMatch(/^<a\b/);
-    expect(packages).toContain('href="/packages"');
+    expect(packages).toMatch(/^<button\b/);
+    expect(packages).not.toContain("href");
     expect(packages).toContain('data-state="closed"');
     expect(packages).toContain("data-radix-collection-item");
     expect(packages).toContain('aria-expanded="false"');
@@ -154,5 +165,113 @@ describe("NavigationBar desktop dropdowns", () => {
     expect(hasTrigger("Customise")).toBe(true);
     // The childless leaf stays a plain link.
     expect(hasTrigger("FAQ")).toBe(false);
+  });
+});
+
+/**
+ * The panel itself. Radix keeps `NavigationMenuContent` unmounted until the
+ * menu opens, so these render `MegaMenu` directly — the same component the
+ * content wraps.
+ */
+describe("MegaMenu panel", () => {
+  // `NavigationMenuLink` reads the root Radix context, so the panel is
+  // rendered inside a bare `NavigationMenu` exactly as the open menu does.
+  const panel = (
+    item: NavMenuItem,
+    viewAll?: { href: string; label: string },
+  ): string =>
+    renderToStaticMarkup(
+      <NavigationMenu>
+        <MegaMenu items={item.children} {...(viewAll ? { viewAll } : {})} />
+      </NavigationMenu>,
+    );
+
+  it("renders no WordPress column-container label", () => {
+    const html = panel(EQUIPMENT) + panel(CLOTHING_AND_GEAR);
+
+    expect(html).not.toMatch(/Column\s*\d/i);
+  });
+
+  it("renders one column per container, and its children as the headings", () => {
+    const html = panel(EQUIPMENT);
+    const columns = html.match(/<li class="flex flex-col gap-5">/g) ?? [];
+
+    expect(columns).toHaveLength(6);
+    expect(html).toContain(">Bags &amp; Storage<");
+    expect(html).toContain(">Components<");
+    expect(html).toContain(">Tyres<");
+  });
+
+  it("renders no empty column", () => {
+    // A container left with no children by hide-empty must vanish entirely.
+    const emptied: NavMenuItem = {
+      ...CLOTHING_AND_GEAR,
+      children: CLOTHING_AND_GEAR.children.map((child, i) =>
+        i === 3 || i === 4 ? { ...child, children: [] } : child,
+      ),
+    };
+    const html = panel(emptied);
+
+    expect(html.match(/<li class="flex flex-col gap-5">/g) ?? []).toHaveLength(
+      4,
+    );
+    expect(html).not.toContain('<li class="flex flex-col gap-5"></li>');
+  });
+
+  it("keeps a container-free panel one column per child", () => {
+    const html = panel(BIKES);
+
+    expect(html.match(/<li class="flex flex-col gap-5">/g) ?? []).toHaveLength(
+      5,
+    );
+    expect(html).toContain(">Electric Bikes<");
+  });
+
+  it("moves a parent's own destination into the panel as a View all link", () => {
+    const html = panel(BIKES, { href: "/collections/bikes", label: "BIKES" });
+
+    expect(html).toContain('href="/collections/bikes"');
+    expect(html).toContain("View all BIKES");
+  });
+});
+
+/**
+ * The mobile sheet is flat, so a column container has no meaning there: it is
+ * spliced away and its children take its place.
+ *
+ * A closed Radix collapsible does not render its content, so what is observable
+ * server-side is the CHOICE the normalized children drive — a collapsible
+ * <button> for an item that really has links under it, a plain <a> for one
+ * whose only child was an emptied container.
+ */
+describe("MobileMenuSection", () => {
+  const sheet = (items: NavMenuItem[]): string =>
+    renderToStaticMarkup(
+      <MobileMenuSection items={items} highlightedLinks={[]} />,
+    );
+
+  it("never renders a container label as a row", () => {
+    expect(sheet([EQUIPMENT, CLOTHING_AND_GEAR])).not.toMatch(/Column\s*\d/i);
+  });
+
+  it("still opens a section whose links only exist inside containers", () => {
+    // EQUIPMENT's children are SIX containers and nothing else. Before the
+    // splice the sheet saw six rows named "Column N"; after it, one expandable
+    // EQUIPMENT carrying the real categories.
+    const html = sheet([EQUIPMENT]);
+
+    expect(html).toContain("<button");
+    expect(html).toContain(">EQUIPMENT<");
+  });
+
+  it("degrades a parent whose containers are all empty to a plain link", () => {
+    const hollow: NavMenuItem = {
+      ...EQUIPMENT,
+      children: EQUIPMENT.children.map((child) => ({ ...child, children: [] })),
+    };
+    const html = sheet([hollow]);
+
+    expect(html).not.toContain("<button");
+    expect(html).toContain('href="/collections/equipment"');
   });
 });

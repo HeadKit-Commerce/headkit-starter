@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { ChevronDownIcon, MenuIcon, XIcon } from "@/components/icon";
 import {
@@ -27,6 +26,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { isAppNavigationHref } from "@/lib/convert-uri";
+import { normalizeMenuTree, toMegaMenuColumns } from "@/lib/menu-columns";
 import { cn, decodeHtmlEntities } from "@/lib/utils";
 import { HeaderActions } from "@/components/headkit-ui/header-actions";
 import { CartTriggerButton } from "@/components/headkit-ui/cart-drawer";
@@ -351,7 +351,6 @@ function DesktopMenuSection({
   /** Visibility classes for each top-level item (responsive collapse). */
   itemClassName?: string;
 }) {
-  const router = useRouter();
   return (
     <>
       {items.map((item) => {
@@ -367,46 +366,28 @@ function DesktopMenuSection({
             {item.children.length > 0 ? (
               <>
                 {/*
-                  This gate routes EVERY non-app-navigable dropdown parent to
-                  the hrefless <button> branch. Absolute http(s) Custom Links
-                  reach this component already collapsed to a path by
-                  convertToRelativePath() (lib/convert-uri.ts) via
-                  normalizeMenuItems() (navigation-wrapper.tsx), so in practice
-                  only truly non-navigable parents — `#`, `tel:`, `mailto:` —
-                  take the button branch.
+                  A parent that HAS a panel only opens the panel. Radix renders
+                  its own <button> here (no `asChild`), so there is no href for
+                  a click, Enter or a tap to follow — which is what the v1 site
+                  did, and what stopped a WordPress mega-menu parent whose
+                  Custom Link URI is `/` from throwing the shopper back to the
+                  home page mid-hover.
+
+                  The parent's own destination is not lost: when it is a real
+                  in-app path, MegaMenu renders it as the panel's first entry
+                  (see `viewAll`), where it is clickable, focusable and read out
+                  in the panel's own list.
                 */}
-                {isAppNavigationHref(href) ? (
-                  <NavigationMenuTrigger asChild className={triggerClassName}>
-                    {/*
-                      Radix Trigger's onClick preventDefault()s before Next
-                      Link's navigation, so a plain <Link> only toggles the
-                      dropdown. Drive navigation explicitly so click → parent
-                      uri while the href stays for SEO/a11y and hover still
-                      opens the MegaMenu.
-                    */}
-                    <InstantLink
-                      href={href}
-                      pendingVariant="text"
-                      onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
-                        e.preventDefault();
-                        router.push(href);
-                      }}
-                    >
-                      {label}
-                    </InstantLink>
-                  </NavigationMenuTrigger>
-                ) : (
-                  // A dropdown parent whose WordPress Custom Link URL is not an
-                  // in-app path (`#`, `tel:`, `mailto:`) navigates nowhere.
-                  // Radix renders its own <button>, so there is no href for the
-                  // browser to follow and click / Enter / touch all open the
-                  // menu.
-                  <NavigationMenuTrigger className={triggerClassName}>
-                    {label}
-                  </NavigationMenuTrigger>
-                )}
+                <NavigationMenuTrigger className={triggerClassName}>
+                  {label}
+                </NavigationMenuTrigger>
                 <NavigationMenuContent className="w-screen! rounded-none! bg-brand-bg">
-                  <MegaMenu items={item.children} />
+                  <MegaMenu
+                    items={item.children}
+                    {...(hasOwnDestination(href)
+                      ? { viewAll: { href, label } }
+                      : {})}
+                  />
                 </NavigationMenuContent>
               </>
             ) : (
@@ -436,40 +417,93 @@ function DesktopMenuSection({
 // Desktop – MegaMenu
 // ---------------------------------------------------------------------------
 
-function MegaMenu({ items }: { items: NavMenuItem[] }) {
+/**
+ * A dropdown parent's URI is worth surfacing only when it is a real in-app
+ * destination. `#`, `tel:` and `mailto:` are not navigable at all, and `/` is
+ * what WordPress collapses a destination-less Custom Link to — a "View all"
+ * pointing at the home page is noise, not a link.
+ */
+function hasOwnDestination(href: string): boolean {
+  return isAppNavigationHref(href) && href !== "/";
+}
+
+/**
+ * The desktop panel.
+ *
+ * Exported for `navigation-bar.test.tsx`: Radix keeps panel content unmounted
+ * until the menu opens, so server markup of the whole bar cannot show what a
+ * panel renders.
+ *
+ * `items` are the parent's raw children, so they may still contain WordPress
+ * column containers; `toMegaMenuColumns` turns them into the columns to render
+ * and drops any that would be empty (see `lib/menu-columns.ts`).
+ */
+export function MegaMenu({
+  items,
+  viewAll,
+}: {
+  items: NavMenuItem[];
+  /** The parent's own destination, moved off the trigger into the panel. */
+  viewAll?: { href: string; label: string };
+}) {
+  const columns = toMegaMenuColumns(items);
   return (
     <ul className="grid gap-5 w-full px-5 md:px-10 py-6 grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
-      {items.map((item) => (
-        <li key={item.id}>
+      {viewAll && (
+        <li className="col-span-full">
           <NavigationMenuLink asChild>
             <InstantLink
-              href={removeTrailingSlash(item.uri)}
+              href={viewAll.href}
               pendingVariant="text"
-              className="font-semibold text-primary hover:opacity-80 uppercase block mb-2"
+              className="font-semibold text-primary hover:opacity-80 underline block"
             >
-              {decodeHtmlEntities(item.label)}
+              View all {viewAll.label}
             </InstantLink>
           </NavigationMenuLink>
-          {item.children.length > 0 && (
-            <ul className="flex flex-col gap-1">
-              {item.children.map((child) => (
-                <li key={child.id}>
-                  <NavigationMenuLink asChild>
-                    <InstantLink
-                      href={removeTrailingSlash(child.uri)}
-                      pendingVariant="text"
-                      className="text-primary/70 hover:opacity-80 text-[15px] block py-0.5"
-                    >
-                      {decodeHtmlEntities(child.label)}
-                    </InstantLink>
-                  </NavigationMenuLink>
-                </li>
-              ))}
-            </ul>
-          )}
+        </li>
+      )}
+      {columns.map((column, index) => (
+        <li key={column[0]?.id ?? index} className="flex flex-col gap-5">
+          {column.map((item) => (
+            <div key={item.id}>
+              <NavigationMenuLink asChild>
+                <InstantLink
+                  href={removeTrailingSlash(item.uri)}
+                  pendingVariant="text"
+                  className="font-semibold text-primary hover:opacity-80 uppercase block mb-2"
+                >
+                  {decodeHtmlEntities(item.label)}
+                </InstantLink>
+              </NavigationMenuLink>
+              {item.children.length > 0 && (
+                <ul className="flex flex-col gap-1">
+                  {item.children.map((child) => (
+                    <MegaMenuChild key={child.id} item={child} />
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
         </li>
       ))}
     </ul>
+  );
+}
+
+/** One link inside a column, under its column heading. */
+function MegaMenuChild({ item }: { item: NavMenuItem }) {
+  return (
+    <li>
+      <NavigationMenuLink asChild>
+        <InstantLink
+          href={removeTrailingSlash(item.uri)}
+          pendingVariant="text"
+          className="text-primary/70 hover:opacity-80 text-[15px] block py-0.5"
+        >
+          {decodeHtmlEntities(item.label)}
+        </InstantLink>
+      </NavigationMenuLink>
+    </li>
   );
 }
 
@@ -477,7 +511,11 @@ function MegaMenu({ items }: { items: NavMenuItem[] }) {
 // Mobile – MobileMenuSection
 // ---------------------------------------------------------------------------
 
-function MobileMenuSection({
+/**
+ * The mobile sheet's list. Exported for `navigation-bar.test.tsx`: the sheet is
+ * a Radix dialog and stays unmounted until it opens.
+ */
+export function MobileMenuSection({
   items,
   onSelect,
   highlightedLinks,
@@ -509,7 +547,11 @@ function MobileMenuItem({
   onSelect?: (() => void) | undefined;
   highlightedLinks: string[];
 }) {
-  if (item.children.length > 0) {
+  // The sheet is a flat list, so a WordPress column container has no meaning
+  // here at all: splice it away at every depth and show the real links.
+  const children = normalizeMenuTree(item.children);
+
+  if (children.length > 0) {
     return (
       <Collapsible>
         <CollapsibleTrigger className="text-xl font-semibold font-body text-primary flex w-full justify-between items-center group focus-visible:outline-none">
@@ -524,7 +566,7 @@ function MobileMenuItem({
           </span>
         </CollapsibleTrigger>
         <CollapsibleContent className="flex flex-col gap-2 pt-2">
-          {item.children.map((child) => (
+          {children.map((child) => (
             <div key={child.id}>
               {child.children.length > 0 ? (
                 <>

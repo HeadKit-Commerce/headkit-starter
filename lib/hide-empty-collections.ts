@@ -3,6 +3,7 @@ import type { ProductCategoryDetail } from "@headkit/sdk";
 import { TAG } from "@/lib/cache-tags";
 import { headkit } from "@/lib/sdk";
 import { collectCategorySlugsDeep } from "@/lib/category-slugs";
+import { isMegaMenuColumnContainer } from "@/lib/menu-columns";
 
 /**
  * URI patterns that point at a product category / collection page.
@@ -142,6 +143,20 @@ export function filterMenuItemsByNonEmptyCollections<T extends MenuNodeLike>(
         slug !== null && slug.length > 0 && !nonEmptySlugs.has(slug);
 
       if (isEmptyCollection && children.length === 0) {
+        return null;
+      }
+
+      // A mega-menu column container is pure layout: its URI yields no
+      // collection slug, so the check above can never drop it, and one left
+      // with no surviving children used to render as an empty column (Bike
+      // Society's "Column 4" / "Column 5", whose only child was an empty
+      // collection). Drop the container with its last child.
+      if (
+        isMegaMenuColumnContainer(item) &&
+        Array.isArray(item.children) &&
+        item.children.length > 0 &&
+        children.length === 0
+      ) {
         return null;
       }
 

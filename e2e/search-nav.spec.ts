@@ -86,25 +86,50 @@ test.describe("Search + navigation (P1-26..P1-30, P1-36, P1-39)", () => {
     ).toBeVisible({ timeout: 20_000 });
   });
 
-  test("P1-28: desktop nav — parent item WITH children navigates on click (Radix trigger+link fix)", async ({
+  test("P1-28: desktop nav — parent item WITH children opens the panel and does NOT navigate", async ({
     page,
   }) => {
     await page.goto(`${BASE_URL}/`);
 
-    // "Men" is a seeded WP menu item WITH children — it renders as a Radix
-    // NavigationMenuTrigger wrapping a Link. The regression this guards: the
-    // Radix Trigger swallows the Link click, so without the router.push
-    // onClick (navigation-bar.tsx DesktopMenuSection) clicking the parent
-    // only toggled the dropdown and never navigated.
+    // "Men" is a seeded WP menu item WITH children. A parent that has a panel
+    // renders as Radix's own <button>, so a click only opens the panel — the
+    // regression that guards: a WordPress mega-menu parent whose Custom Link
+    // URI collapses to `/` used to throw the shopper to the home page on the
+    // way to the menu. The parent's own destination lives inside the panel as
+    // its first entry ("View all Men").
     const menTrigger = page
-      .locator("nav a[aria-expanded], a[aria-controls]")
+      .locator("nav button[aria-expanded]")
       .filter({ hasText: /^Men$/ })
       .first();
     await expect(
       menTrigger,
-      "the seeded 'Men' parent menu item (with children) is not in the header nav",
+      "the seeded 'Men' parent menu item (with children) is not a nav dropdown button",
     ).toBeVisible({ timeout: 15_000 });
+    expect(
+      await menTrigger.getAttribute("href"),
+      "a dropdown parent must carry no href for the browser to follow",
+    ).toBeNull();
+
+    const before = page.url();
     await menTrigger.click();
+    await expect
+      .poll(async () => menTrigger.getAttribute("aria-expanded"), {
+        message: "clicking the Men trigger did not open its panel",
+        timeout: 15_000,
+      })
+      .toBe("true");
+    expect(page.url(), "clicking a dropdown parent navigated").toBe(before);
+
+    const panelId = await menTrigger.getAttribute("aria-controls");
+    expect(panelId, "trigger has no aria-controls panel id").toBeTruthy();
+    const viewAll = page
+      .locator(`#${panelId} a[href^="/collections/men"]`)
+      .first();
+    await expect(
+      viewAll,
+      "the parent's own destination is not reachable inside the panel",
+    ).toBeVisible({ timeout: 10_000 });
+    await viewAll.click();
     await page.waitForURL(/\/collections\/men/, { timeout: 20_000 });
     await expect(page).toHaveURL(/\/collections\/men/);
   });
@@ -115,7 +140,7 @@ test.describe("Search + navigation (P1-26..P1-30, P1-36, P1-39)", () => {
     await page.goto(`${BASE_URL}/`);
 
     const womenTrigger = page
-      .locator("a[aria-expanded]")
+      .locator("button[aria-expanded]")
       .filter({ hasText: /^Women$/ })
       .first();
     await expect(womenTrigger).toBeVisible({ timeout: 15_000 });
