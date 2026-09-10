@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { XIcon } from "@/components/icon";
 import { cn, decodeHtmlEntities } from "@/lib/utils";
+import { resolveCartItemPath } from "@/lib/cart-item-path";
 import {
   getCartAction,
   removeCartItemAction,
@@ -53,6 +54,21 @@ function QuoteCartItem({
     setQuantity(item.quantity);
   }, [item.quantity]);
 
+  const [canonicalHref, setCanonicalHref] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCanonicalHref(null);
+    const slug = item.slug;
+    if (!slug) return;
+    let cancelled = false;
+    resolveCartItemPath(slug).then((path) => {
+      if (!cancelled && path) setCanonicalHref(path);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [item.slug]);
+
   const isOutOfStock = item.stockStatus?.toLowerCase() === "outofstock";
   const isOnBackorder = item.stockStatus?.toLowerCase() === "onbackorder";
   const maxStock =
@@ -91,30 +107,20 @@ function QuoteCartItem({
   const imageAlt = stripTitleMarkers(
     decodeHtmlEntities(item.images[0]?.alt ?? item.name),
   );
-  // The cart fragment selects a slug and no permalink, so this is one of the
-  // two storefront surfaces that cannot build the canonical `/shop/{cat…}/{slug}`
-  // path (`lib/canonical-path.ts`) — it 308s on click instead.
-  //
-  // What keeps that out of the consolidation is the EMPTY CART, not robots.txt
-  // and not "this is a client component". `/quote` IS a real route and it is NOT
-  // disallowed (see `app/robots.ts`, which lists `/account`, `/checkout`, `/api`
-  // and `/search` and no cart or quote path), and `app/quote/page.tsx` is a
-  // SERVER component that awaits `getFullCartAction()` and hands the cart to
-  // `QuoteCheckout`, which Next server-renders — so a request that DOES carry a
-  // cart cookie puts these hrefs into server-rendered HTML today.
-  //
-  // The actual mechanism is that an anonymous crawler carries no cart session,
-  // so the cart is empty, `app/quote/page.tsx` short-circuits to `<QuoteEmpty />`
-  // and this component never renders an item at all. (Contrast the cart drawer,
-  // which has a second and stronger protection: `lazy-cart-drawer.tsx` loads it
-  // via `dynamic(..., { ssr: false })`, so it never server-renders. The quote
-  // summary has only the empty-cart short-circuit.)
-  //
-  // Anything that server-renders a POPULATED cart or quote summary therefore
-  // puts `/products/<slug>` links into crawlable HTML and must switch to
-  // `productPath` first. Closing the gap properly means adding `permalink` to
-  // the cart items selection, which is an SDK/schema change.
-  const productHref = item.slug ? `/products/${item.slug}` : null;
+  // The cart fragment selects a slug and no permalink, so this component
+  // cannot build the canonical `/shop/{cat…}/{slug}` path
+  // (`lib/canonical-path.ts`) from `item` alone (G23).
+  // `resolveCartItemPath` (`lib/cart-item-path.ts`) looks the product up by
+  // slug through the same cache the PDP routes read and resolves the real
+  // canonical without an SDK/schema change; until that resolves (or if it
+  // misses), this falls back to the flat `/products/{slug}` guess, which
+  // still reaches the product via the 308. That fallback matters here more
+  // than on the drawer: `app/quote/page.tsx` server-renders a populated cart
+  // (short-circuiting to `<QuoteEmpty />` only when it's empty), so this can
+  // put the flat guess into crawlable HTML for the brief window before the
+  // client resolves the canonical.
+  const productHref =
+    canonicalHref ?? (item.slug ? `/products/${item.slug}` : null);
   const variation = item.variation ?? [];
 
   return (

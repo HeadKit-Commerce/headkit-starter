@@ -111,18 +111,25 @@ keeps `/shop/junk/junk/{real}` at not-found. The `categorySegments` it returns c
 chain the tree confirmed, deliberately. Derive ancestry from the product's own permalink
 (`productCategorySegments`), never from the requested segments.
 
-Known gap: the cart drawer and quote cart link `/products/<slug>` and rely on the 308,
-because the cart fragment selects no permalink. robots.txt is NOT what keeps those links
-out of the crawled graph — there is no `/cart` route and no `/cart` disallow rule (the cart
-is a drawer in the layout), and `/quote` is a real, crawlable, non-disallowed route. The
-mechanism is the EMPTY CART: an anonymous crawler carries no cart session, so the cart has
-zero items and no product href is emitted. `app/quote/page.tsx` short-circuits to
-`<QuoteEmpty />`; the drawer additionally never server-renders at all, because
-`lazy-cart-drawer.tsx` loads it via `dynamic(..., { ssr: false })`. Note the asymmetry: the
-quote summary IS server-rendered for a request that carries a cart cookie, so it relies
-solely on the empty-cart short-circuit. Anything that server-renders a POPULATED cart or
-quote summary therefore puts `/products/<slug>` links into crawlable HTML and must switch
-to `productPath` first. Closing the gap properly needs an SDK change.
+The cart drawer and quote cart (G23) resolve their canonical `/shop/{cat…}/{slug}` link
+client-side: the cart fragment selects a slug and no permalink, so
+`components/headkit-ui/cart-item.tsx` and `components/quote/quote-cart-items.tsx` call
+`resolveCartItemPath` (`lib/cart-item-path.ts`), which looks the product up by slug through
+the same `getCachedProduct` cache the PDP routes read and derives `productPath` from its
+`uri` — no SDK/schema change needed, since `ProductFields` already selects `uri`. Until that
+resolves (or on a miss), both fall back to the flat `/products/{slug}` guess, which still
+reaches the product via the 308.
+
+That fallback window is why robots.txt is NOT what keeps the flat guess out of the crawled
+graph on its own — there is no `/cart` route and no `/cart` disallow rule (the cart is a
+drawer in the layout), and `/quote` is a real, crawlable, non-disallowed route. The mechanism
+is the EMPTY CART: an anonymous crawler carries no cart session, so the cart has zero items
+and no product href is emitted at all. `app/quote/page.tsx` short-circuits to `<QuoteEmpty />`;
+the drawer additionally never server-renders, because `lazy-cart-drawer.tsx` loads it via
+`dynamic(..., { ssr: false })`. Note the asymmetry: the quote summary IS server-rendered for a
+request that carries a cart cookie, so it relies solely on the empty-cart short-circuit —
+anything that server-renders a POPULATED cart or quote summary still puts the flat guess into
+crawlable HTML for the brief window before the client resolves the canonical.
 
 **Shopify Admin preview needs no exemption from the 308, and must not be given one.** A 308
 drops the query string, so `?preview_key=` cannot survive one — yet the exemption that would

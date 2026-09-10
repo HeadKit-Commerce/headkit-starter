@@ -54,6 +54,14 @@ vi.mock("@/lib/cart-actions", () => ({
   updateCartItemAction: vi.fn(),
 }));
 
+// `resolveCartItemPath` (G23) reaches `lib/product-cache.ts`, which imports
+// `lib/env.ts` at module scope — a Zod parse that throws under Vitest with no
+// storefront env configured (same reason `page.test.ts` stubs `lib/stripe-config`).
+// Stubbed to a no-op resolution so this render-shape test never loads that chain.
+vi.mock("@/lib/cart-item-path", () => ({
+  resolveCartItemPath: vi.fn().mockResolvedValue(null),
+}));
+
 vi.mock("@/components/headkit-ui/cart-context", () => ({
   useCartContext: () => ({
     toggleCart: vi.fn(),
