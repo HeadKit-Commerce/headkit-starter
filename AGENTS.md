@@ -435,6 +435,22 @@ host emits:
   `data/260910-bikesociety-edge-cache-scout/report.md`: a separate decision for the
   captain, not something to fold into a metadata change.
 
+### The `breadcrumbs` prop on PDP/brand/collection headers used to be dead — collection now renders it
+
+`ProductDetail`, `brand-header.tsx` and `CollectionHeader` all accept a `breadcrumbItems`/
+`breadcrumbs` prop of `{ name, uri, current }[]`, and every route already computes it correctly
+(PDP: `productCategorySegments` + `collectionPathFromCategory`; collection:
+`buildBreadcrumbFromCategory` in `components/headkit-ui/collection/utils.ts`) and feeds the
+identical data to `BreadcrumbJsonLD`. Before 2026-09-11 none of the three actually rendered a
+visual trail — the prop was accepted and the doc comment said so ("kept for callers / agent
+reference — not rendered on the storefront"), so only the JSON-LD `<script>` existed and no
+shopper ever saw a breadcrumb. `CollectionHeader` now renders it (`components/ui/breadcrumb.tsx`'s
+`Breadcrumb` — the one styled `Home > Shop > …`) above the `<h1>`, gated on
+`breadcrumbs?.length > 0` so an omitted prop renders exactly as before. PDP and brand headers were
+left alone — the 2026-09-11 decision scoped this to collection pages only (`plp-breadcrumb-owner`);
+if a future task extends it there, reuse the same `Breadcrumb` component and the same gate, not a
+new implementation.
+
 ## Maintaining this file
 
 Keep this file for knowledge useful to almost every future agent session in this app.

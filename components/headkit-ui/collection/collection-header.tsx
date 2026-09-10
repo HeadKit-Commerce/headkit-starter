@@ -3,13 +3,16 @@ import Image from "next/image";
 import type { ProductCategoryDetail } from "@headkit/sdk";
 import { decodeHtmlEntities } from "@/lib/utils";
 import { SubcategoryCarousel } from "@/components/headkit-ui/collection/subcategory-carousel";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 
 interface CollectionHeaderProps {
   name: string;
   description?: string;
   /**
-   * Kept for callers / agent reference — not rendered on the storefront.
-   * BreadcrumbList JSON-LD is emitted separately for bots.
+   * Rendered above the heading (`Home > Shop > … > {category}`), plus fed to
+   * `BreadcrumbJsonLD` by the caller so the two stay consistent. Root-first,
+   * with `current: true` on the trailing (non-linked) crumb — the shape
+   * `buildBreadcrumbFromCategory` in `collection/utils.ts` produces.
    */
   breadcrumbs?: { name: string; uri: string; current: boolean }[];
   thumbnail?: string;
@@ -36,6 +39,7 @@ interface CollectionHeaderProps {
 export function CollectionHeader({
   name,
   description,
+  breadcrumbs,
   thumbnail,
   childBasePath,
   children: subcategories,
@@ -46,12 +50,24 @@ export function CollectionHeader({
   // Aligns with PDP content inset (px-5 / md:px-10). Parent with children:
   // title + description only, then image-card carousel.
   const showLeafFeatured = !hasChildren && Boolean(thumbnail);
+  const hasBreadcrumbs = Boolean(breadcrumbs && breadcrumbs.length > 0);
 
   return (
     <div className="overflow-x-clip">
+      {hasBreadcrumbs ? (
+        <div className="px-5 pt-5 md:px-10">
+          <Breadcrumb items={breadcrumbs!} />
+        </div>
+      ) : null}
       {showLeafFeatured ? (
-        <div className="mb-5 grid grid-cols-1 gap-6 px-5 md:grid-cols-12 md:gap-8 md:px-10 md:pt-8">
-          <div className="pt-5 md:col-span-4 md:pt-0">
+        <div
+          className={`mb-5 grid grid-cols-1 gap-6 px-5 md:grid-cols-12 md:gap-8 md:px-10 ${hasBreadcrumbs ? "pt-2 md:pt-4" : "md:pt-8"}`}
+        >
+          <div
+            className={
+              hasBreadcrumbs ? "md:col-span-4" : "pt-5 md:col-span-4 md:pt-0"
+            }
+          >
             <h1 className="mb-[10px]">{decodedName}</h1>
             {description ? (
               <div
@@ -74,8 +90,12 @@ export function CollectionHeader({
           </div>
         </div>
       ) : (
-        <div className="mb-5 px-5 pt-5 md:px-10">
-          <h1 className="mb-[10px] mt-5">{decodedName}</h1>
+        <div
+          className={`mb-5 px-5 md:px-10 ${hasBreadcrumbs ? "pt-2" : "pt-5"}`}
+        >
+          <h1 className={`mb-[10px] ${hasBreadcrumbs ? "mt-2" : "mt-5"}`}>
+            {decodedName}
+          </h1>
           {description ? (
             <div
               className="max-w-2xl text-base text-gray-800"
