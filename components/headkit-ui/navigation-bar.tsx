@@ -478,7 +478,7 @@ export function MegaMenu({
               {item.children.length > 0 && (
                 <ul className="flex flex-col gap-1">
                   {item.children.map((child) => (
-                    <MegaMenuChild key={child.id} item={child} />
+                    <MegaMenuChild key={child.id} item={child} depth={0} />
                   ))}
                 </ul>
               )}
@@ -490,19 +490,36 @@ export function MegaMenu({
   );
 }
 
-/** One link inside a column, under its column heading. */
-function MegaMenuChild({ item }: { item: NavMenuItem }) {
+/**
+ * One link inside a column, under its column heading, plus anything beneath it.
+ *
+ * Recursive: Bike Society's menu is four levels deep
+ * (`EQUIPMENT → column → category → subcategory`), so a category heading in a
+ * column carries its own subcategory list. Sub-levels indent and lighten rather
+ * than repeating the heading treatment.
+ */
+function MegaMenuChild({ item, depth }: { item: NavMenuItem; depth: number }) {
   return (
     <li>
       <NavigationMenuLink asChild>
         <InstantLink
           href={removeTrailingSlash(item.uri)}
           pendingVariant="text"
-          className="text-primary/70 hover:opacity-80 text-[15px] block py-0.5"
+          className={cn(
+            "hover:opacity-80 text-[15px] block py-0.5",
+            depth === 0 ? "text-primary/70" : "text-primary/50",
+          )}
         >
           {decodeHtmlEntities(item.label)}
         </InstantLink>
       </NavigationMenuLink>
+      {item.children.length > 0 && (
+        <ul className="flex flex-col gap-1 pl-3">
+          {item.children.map((child) => (
+            <MegaMenuChild key={child.id} item={child} depth={depth + 1} />
+          ))}
+        </ul>
+      )}
     </li>
   );
 }
@@ -538,6 +555,60 @@ export function MobileMenuSection({
   );
 }
 
+/**
+ * One row inside an open mobile section, plus everything under it.
+ *
+ * Recursive, so the sheet carries however many levels the menu has — Bike
+ * Society's is four (`EQUIPMENT → column → category → subcategory`), and the
+ * columns are already spliced out by the time this renders. `depth` only drives
+ * indentation and weight: the first row under a section stands out, everything
+ * below it is a sub-link.
+ *
+ * Exported for `navigation-bar.test.tsx`: a closed Radix collapsible renders no
+ * content, so the sheet's rows are not reachable through `MobileMenuSection`.
+ */
+export function MobileMenuBranch({
+  item,
+  depth,
+  onSelect,
+}: {
+  item: NavMenuItem;
+  depth: number;
+  onSelect?: (() => void) | undefined;
+}) {
+  const hasChildren = item.children.length > 0;
+  return (
+    <div>
+      <InstantLink
+        href={removeTrailingSlash(item.uri)}
+        pendingVariant="text"
+        className={cn(
+          "block text-[15px]",
+          depth === 0 && hasChildren
+            ? "font-medium text-primary hover:opacity-70 py-1"
+            : "text-primary/70 hover:opacity-70",
+          depth === 0 && !hasChildren ? "py-1" : "py-0.5",
+        )}
+        {...(onSelect ? { onClick: onSelect } : {})}
+      >
+        {decodeHtmlEntities(item.label)}
+      </InstantLink>
+      {hasChildren && (
+        <div className="flex flex-col gap-1 pl-3">
+          {item.children.map((child) => (
+            <MobileMenuBranch
+              key={child.id}
+              item={child}
+              depth={depth + 1}
+              {...(onSelect ? { onSelect } : {})}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MobileMenuItem({
   item,
   onSelect,
@@ -567,42 +638,12 @@ function MobileMenuItem({
         </CollapsibleTrigger>
         <CollapsibleContent className="flex flex-col gap-2 pt-2">
           {children.map((child) => (
-            <div key={child.id}>
-              {child.children.length > 0 ? (
-                <>
-                  <InstantLink
-                    href={removeTrailingSlash(child.uri)}
-                    pendingVariant="text"
-                    className="font-medium text-[15px] text-primary hover:opacity-70 block py-1"
-                    {...(onSelect ? { onClick: onSelect } : {})}
-                  >
-                    {decodeHtmlEntities(child.label)}
-                  </InstantLink>
-                  <div className="flex flex-col gap-1 pl-3">
-                    {child.children.map((sub) => (
-                      <InstantLink
-                        key={sub.id}
-                        href={removeTrailingSlash(sub.uri)}
-                        pendingVariant="text"
-                        className="text-primary/70 hover:opacity-70 text-[15px] block py-0.5"
-                        {...(onSelect ? { onClick: onSelect } : {})}
-                      >
-                        {decodeHtmlEntities(sub.label)}
-                      </InstantLink>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <InstantLink
-                  href={removeTrailingSlash(child.uri)}
-                  pendingVariant="text"
-                  className="text-primary/70 hover:opacity-70 text-[15px] block py-1"
-                  {...(onSelect ? { onClick: onSelect } : {})}
-                >
-                  {decodeHtmlEntities(child.label)}
-                </InstantLink>
-              )}
-            </div>
+            <MobileMenuBranch
+              key={child.id}
+              item={child}
+              depth={0}
+              {...(onSelect ? { onSelect } : {})}
+            />
           ))}
         </CollapsibleContent>
       </Collapsible>

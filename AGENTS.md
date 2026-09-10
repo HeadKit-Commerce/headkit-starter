@@ -459,6 +459,13 @@ before cutover. `lib/hide-empty-collections.ts` drops a container left with no
 surviving children; without that the container outlives its own links (a container's
 URI yields no collection slug, so nothing else can drop it).
 
+**The menu query carries FOUR levels** (`NavigationMenuFields` in
+`packages/sdk/src/operations/navigation.graphql`), because a container spends one of
+them on layout. Commerce builds the tree to arbitrary depth from `parentId`, so depth
+is an SDK-query question only. Both renderers recurse (`MegaMenuChild`,
+`MobileMenuBranch`), so a deeper menu needs one more `children` in that fragment and no
+component change.
+
 **A dropdown parent renders as a `<button>`, never a link.** Radix's own trigger, no
 `asChild`: a parent whose URI is `/` used to send a shopper home on the way to the
 panel. A real destination is not lost — `MegaMenu`'s `viewAll` renders it as the

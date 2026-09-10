@@ -2,15 +2,18 @@ import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   MegaMenu,
+  MobileMenuBranch,
   MobileMenuSection,
   NavigationBar,
   type NavMenuItem,
 } from "@/components/headkit-ui/navigation-bar";
 import { NavigationMenu } from "@/components/ui/navigation-menu";
+import { normalizeMenuTree } from "@/lib/menu-columns";
 import {
   BIKES,
   CLOTHING_AND_GEAR,
   EQUIPMENT,
+  link,
 } from "@/lib/__fixtures__/bikesociety-nav";
 
 /**
@@ -273,5 +276,91 @@ describe("MobileMenuSection", () => {
 
     expect(html).not.toContain("<button");
     expect(html).toContain('href="/collections/equipment"');
+  });
+});
+
+/**
+ * The fourth level. Bike Society's menu is `EQUIPMENT → column → category →
+ * subcategory`, and `NavigationMenuFields` now selects all four, so the
+ * subcategories must reach both surfaces.
+ */
+describe("fourth menu level", () => {
+  it("renders subcategory links under their category heading in the panel", () => {
+    const html = renderToStaticMarkup(
+      <NavigationMenu>
+        <MegaMenu items={EQUIPMENT.children} />
+      </NavigationMenu>,
+    );
+
+    // The container spends level 2, so the panel's heading is level 3 and the
+    // links under it are the level-4 subcategories the old query dropped.
+    expect(html).toContain(">Bags &amp; Storage<");
+    expect(html).toContain(">Backpacks<");
+    expect(html).toContain(">Travel Bags<");
+  });
+
+  it("indents a fourth level that sits under a CONTAINER-FREE parent", () => {
+    // No container, so the four levels land one deeper in the panel: column
+    // heading, sub-link, and a sub-sub-list beneath it.
+    const html = renderToStaticMarkup(
+      <NavigationMenu>
+        <MegaMenu
+          items={[
+            link("Electric Bikes", [
+              link("E-Bikes Mountain", [link("Full Suspension")]),
+            ]),
+          ]}
+        />
+      </NavigationMenu>,
+    );
+
+    expect(html).toContain(">Full Suspension<");
+    expect(html).toContain('<ul class="flex flex-col gap-1 pl-3">');
+  });
+
+  it("renders every subcategory the fixture carries", () => {
+    const html = renderToStaticMarkup(
+      <NavigationMenu>
+        <MegaMenu items={CLOTHING_AND_GEAR.children} />
+      </NavigationMenu>,
+    );
+
+    for (const label of [
+      "Base Layer",
+      "Sunglasses",
+      "Cold Weather",
+      "Kids &amp; Youth",
+      "Hydration",
+      "Lakers Triathlon Club",
+    ]) {
+      expect(html).toContain(`>${label}<`);
+    }
+  });
+
+  it("carries the fourth level into the mobile sheet", () => {
+    const bags = normalizeMenuTree(EQUIPMENT.children)[0]!;
+    const html = renderToStaticMarkup(
+      <MobileMenuBranch item={bags} depth={0} />,
+    );
+
+    expect(html).toContain(">Bags &amp; Storage<");
+    expect(html).toContain(">Backpacks<");
+    expect(html).toContain('<div class="flex flex-col gap-1 pl-3">');
+  });
+
+  it("stops where the menu stops — a three-level menu renders no sub-list", () => {
+    const threeDeep: NavMenuItem[] = BIKES.children.map((child) => ({
+      ...child,
+      children: child.children.map((sub) => ({ ...sub, children: [] })),
+    }));
+    const html = renderToStaticMarkup(
+      <NavigationMenu>
+        <MegaMenu items={threeDeep} />
+      </NavigationMenu>,
+    );
+
+    expect(html).toContain(">Electric Bikes<");
+    expect(html).toContain(">E-Bikes Mountain<");
+    expect(html).not.toContain('<ul class="flex flex-col gap-1 pl-3">');
   });
 });
