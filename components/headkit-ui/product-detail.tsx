@@ -19,6 +19,7 @@ import type {
 } from "@headkit/sdk";
 import { ProductImageGallery } from "@/components/headkit-ui/product-image-gallery";
 import { ProductBrandLink } from "@/components/headkit-ui/product-brand-link";
+import { ProductIdentifiers } from "@/components/headkit-ui/product-identifiers";
 import { ProductPrice } from "@/components/headkit-ui/product-price";
 import { pickFirstPrice } from "@/lib/price-display";
 import { VariantSwatch } from "@/components/headkit-ui/variant-swatch";
@@ -827,6 +828,14 @@ export function ProductDetail({
     ? product.specifications
     : null;
 
+  // GTIN/MPN: the selected variation's own identifiers when it has one, else
+  // the product-level identifiers (simple products, or before a variation is
+  // selected). Never mixed — a variation with neither falls through to the
+  // product's, not to a half-variation/half-product pair.
+  const identifierSource = selectedVariation ?? product;
+  const gtin = identifierSource.gtin?.trim() || null;
+  const mpn = identifierSource.mpn?.trim() || null;
+
   const tabs: Array<{
     key: string;
     label: string;
@@ -1366,6 +1375,8 @@ export function ProductDetail({
               </Accordion>
             </div>
           )}
+
+          <ProductIdentifiers gtin={gtin} mpn={mpn} />
         </div>
       </div>
 

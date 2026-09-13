@@ -45,6 +45,31 @@ function matchAvailability(stockStatus: string): string {
   }
 }
 
+/**
+ * `gtin` alone is always valid, but Google prefers the length-specific key
+ * (`gtin8`/`gtin12`/`gtin13`/`gtin14`) when the digit count is unambiguous —
+ * a wrong key is worse than the generic one, so anything else falls back to
+ * plain `gtin`.
+ */
+function gtinProperty(gtin: string | null | undefined): Record<string, string> {
+  const value = gtin?.trim();
+  if (!value) {
+    return {};
+  }
+  switch (value.replace(/\D/g, "").length) {
+    case 8:
+      return { gtin8: value };
+    case 12:
+      return { gtin12: value };
+    case 13:
+      return { gtin13: value };
+    case 14:
+      return { gtin14: value };
+    default:
+      return { gtin: value };
+  }
+}
+
 function collectImages(product: ProductFieldsFragment): string[] {
   return [product.image?.src, ...product.images.map((img) => img.src)].filter(
     (src): src is string => Boolean(src),
@@ -83,6 +108,8 @@ function buildVariantProduct(
         .map((a) => decodeHtmlEntities(a.value))
         .join(" / ") || "Variant",
     ...(sku ? { sku } : {}),
+    ...gtinProperty(variation.gtin),
+    ...(variation.mpn?.trim() ? { mpn: variation.mpn.trim() } : {}),
     image: variation.image?.src ? [variation.image.src] : undefined,
     offers: {
       "@type": "Offer",
@@ -178,6 +205,8 @@ export async function ProductJsonLD({
     name: stripTitleMarkers(decodeHtmlEntities(product.name)),
     description: decodedDescription,
     ...(product.sku ? { sku: product.sku } : {}),
+    ...gtinProperty(product.gtin),
+    ...(product.mpn?.trim() ? { mpn: product.mpn.trim() } : {}),
     image: images,
     url: productUrl,
     ...(brand ? { brand } : {}),
