@@ -12,6 +12,7 @@ import { normalizeMenuTree } from "@/lib/menu-columns";
 import {
   BIKES,
   CLOTHING_AND_GEAR,
+  column,
   EQUIPMENT,
   link,
 } from "@/lib/__fixtures__/bikesociety-nav";
@@ -236,6 +237,114 @@ describe("MegaMenu panel", () => {
     expect(html).toContain('href="/collections/bikes"');
     expect(html).toContain("View all BIKES");
   });
+
+  /**
+   * EQUIPMENT's "Column 3" is exactly this shape on Bike Society: twelve
+   * second-level items, none with a sub-menu (`reference-megamenu.png`). None
+   * of them may carry the heading treatment (bold/uppercase/teal) — they must
+   * read as ordinary links, like BAGS & STORAGE's children in Column 1.
+   */
+  it("renders a childless second-level item as an ordinary link, not a heading", () => {
+    const html = panel(EQUIPMENT);
+    const link = /<a[^>]*>Electronic Components<\/a>/.exec(html)?.[0];
+
+    expect(link).toBeDefined();
+    expect(link).not.toContain("font-semibold");
+    expect(link).not.toContain("uppercase");
+    expect(link).toContain("text-primary/70");
+  });
+
+  it("keeps the heading treatment for a second-level item that has children", () => {
+    const html = panel(EQUIPMENT);
+    const link = /<a[^>]*>Bags &amp; Storage<\/a>/.exec(html)?.[0];
+
+    expect(link).toBeDefined();
+    expect(link).toContain("font-semibold");
+    expect(link).toContain("uppercase");
+  });
+
+  /**
+   * The class string alone doesn't prove the rhythm: a childless item styled
+   * like a link but still spaced by the column's `gap-5` (one per `<div>`)
+   * reads exactly as bold-stripped headings, which was the captain's
+   * follow-up complaint. Consecutive childless items must share ONE `gap-1`
+   * list — the same wrapper their heading siblings' own children use — not
+   * sit each in their own `gap-5` slot.
+   */
+  it("groups a run of consecutive childless items into one gap-1 list", () => {
+    // Column 3 on Bike Society: twelve childless items in a row, no heading.
+    const html = panel(EQUIPMENT);
+    const gap1Lists =
+      html.match(/<ul class="flex flex-col gap-1">[\s\S]*?<\/ul>/g) ?? [];
+    const columnThreeList = gap1Lists.find((block) =>
+      block.includes("Electronic Components"),
+    );
+
+    expect(columnThreeList).toBeDefined();
+    // All twelve share the same gap-1 wrapper — none reverts to gap-5.
+    for (const label of [
+      "Electronic Components",
+      "Fenders",
+      "Frame Parts",
+      "Groupset",
+      "Handlebars",
+      "Handlebar Stems",
+      "Headset",
+      "Kickstand",
+      "Pedals",
+      "Seat Post",
+      "Shifters",
+      "Suspension",
+    ]) {
+      expect(columnThreeList).toContain(`>${label}<`);
+    }
+  });
+
+  it("mixes a heading (own gap-1 sub-list) and a run of bare links (own gap-1 group) in one column, still gap-5 apart", () => {
+    // Column 1 on Bike Society mixes both shapes; this fixture makes it
+    // explicit rather than relying on which column happens to carry which.
+    const mixedColumn = column("Mixed", [
+      link("Heading With Kids", [link("Kid A"), link("Kid B")]),
+      link("Bare One"),
+      link("Bare Two"),
+      link("Bare Three"),
+    ]);
+    const html = renderToStaticMarkup(
+      <NavigationMenu>
+        <MegaMenu items={[mixedColumn]} />
+      </NavigationMenu>,
+    );
+
+    // Exactly one column, so exactly one gap-5 group boundary.
+    expect(html.match(/class="flex flex-col gap-5"/g)).toHaveLength(1);
+
+    // Two gap-1 lists: the heading's own children, and the bare-link run.
+    const gap1Lists =
+      html.match(/<ul class="flex flex-col gap-1">[\s\S]*?<\/ul>/g) ?? [];
+    expect(gap1Lists).toHaveLength(2);
+
+    const bareGroup = gap1Lists.find((block) => block.includes("Bare One"));
+    expect(bareGroup).toBeDefined();
+    expect(bareGroup).toContain("Bare Two");
+    expect(bareGroup).toContain("Bare Three");
+    // The bare-link group and the heading's own children never merge.
+    expect(bareGroup).not.toContain("Heading With Kids");
+    expect(bareGroup).not.toContain("Kid A");
+
+    const headingKidsGroup = gap1Lists.find((block) => block.includes("Kid A"));
+    expect(headingKidsGroup).toBeDefined();
+    expect(headingKidsGroup).toContain("Kid B");
+    expect(headingKidsGroup).not.toContain("Bare One");
+
+    // The heading itself keeps the heading treatment; the bare links don't.
+    const headingLink = /<a[^>]*>Heading With Kids<\/a>/.exec(html)?.[0];
+    expect(headingLink).toContain("font-semibold");
+    expect(headingLink).toContain("mb-2");
+    const bareLink = /<a[^>]*>Bare One<\/a>/.exec(html)?.[0];
+    expect(bareLink).not.toContain("font-semibold");
+    expect(bareLink).not.toContain("mb-2");
+    expect(bareLink).toContain("py-0.5");
+  });
 });
 
 /**
@@ -346,6 +455,25 @@ describe("fourth menu level", () => {
     expect(html).toContain(">Bags &amp; Storage<");
     expect(html).toContain(">Backpacks<");
     expect(html).toContain('<div class="flex flex-col gap-1 pl-3">');
+  });
+
+  /**
+   * The mobile accordion (`MobileMenuBranch`) already branches on `hasChildren`
+   * rather than depth alone, so a childless second-level row never got the
+   * bold/uppercase heading treatment to begin with — unlike the desktop panel.
+   * This locks that existing, correct behaviour rather than changing it.
+   */
+  it("renders a childless second-level row as a plain link on the mobile sheet", () => {
+    const electronicComponents = normalizeMenuTree(EQUIPMENT.children)[3]!;
+    expect(electronicComponents.label).toBe("Electronic Components");
+    expect(electronicComponents.children).toHaveLength(0);
+
+    const html = renderToStaticMarkup(
+      <MobileMenuBranch item={electronicComponents} depth={0} />,
+    );
+
+    expect(html).toContain(">Electronic Components<");
+    expect(html).not.toContain("font-medium");
   });
 
   it("stops where the menu stops — a three-level menu renders no sub-list", () => {

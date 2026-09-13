@@ -428,6 +428,36 @@ function hasOwnDestination(href: string): boolean {
 }
 
 /**
+ * Collapses a run of consecutive childless items into one array "group", while
+ * an item with children stays its own group. Order is preserved.
+ *
+ * This is what keeps a childless item's vertical rhythm matching its sibling
+ * child links (`gap-1`, packed) instead of the wider spacing between headings
+ * (`gap-5`, one per `<div>`) — grouping runs together is what makes several
+ * childless items in a row read as one list rather than a stack of
+ * individually-spaced headings with the bold stripped off.
+ */
+function groupMegaMenuColumnItems(
+  column: readonly NavMenuItem[],
+): (NavMenuItem | NavMenuItem[])[] {
+  const groups: (NavMenuItem | NavMenuItem[])[] = [];
+  let run: NavMenuItem[] = [];
+  for (const item of column) {
+    if (item.children.length > 0) {
+      if (run.length > 0) {
+        groups.push(run);
+        run = [];
+      }
+      groups.push(item);
+    } else {
+      run.push(item);
+    }
+  }
+  if (run.length > 0) groups.push(run);
+  return groups;
+}
+
+/**
  * The desktop panel.
  *
  * Exported for `navigation-bar.test.tsx`: Radix keeps panel content unmounted
@@ -464,26 +494,37 @@ export function MegaMenu({
       )}
       {columns.map((column, index) => (
         <li key={column[0]?.id ?? index} className="flex flex-col gap-5">
-          {column.map((item) => (
-            <div key={item.id}>
-              <NavigationMenuLink asChild>
-                <InstantLink
-                  href={removeTrailingSlash(item.uri)}
-                  pendingVariant="text"
-                  className="font-semibold text-primary hover:opacity-80 uppercase block mb-2"
-                >
-                  {decodeHtmlEntities(item.label)}
-                </InstantLink>
-              </NavigationMenuLink>
-              {item.children.length > 0 && (
+          {groupMegaMenuColumnItems(column).map((group, groupIndex) =>
+            Array.isArray(group) ? (
+              // A run of childless items: one `gap-1` list, same rhythm as the
+              // child links under a heading — not a heading each.
+              <ul
+                key={group[0]?.id ?? groupIndex}
+                className="flex flex-col gap-1"
+              >
+                {group.map((item) => (
+                  <MegaMenuChild key={item.id} item={item} depth={0} />
+                ))}
+              </ul>
+            ) : (
+              <div key={group.id}>
+                <NavigationMenuLink asChild>
+                  <InstantLink
+                    href={removeTrailingSlash(group.uri)}
+                    pendingVariant="text"
+                    className="font-semibold text-primary hover:opacity-80 uppercase block mb-2"
+                  >
+                    {decodeHtmlEntities(group.label)}
+                  </InstantLink>
+                </NavigationMenuLink>
                 <ul className="flex flex-col gap-1">
-                  {item.children.map((child) => (
+                  {group.children.map((child) => (
                     <MegaMenuChild key={child.id} item={child} depth={0} />
                   ))}
                 </ul>
-              )}
-            </div>
-          ))}
+              </div>
+            ),
+          )}
         </li>
       ))}
     </ul>
