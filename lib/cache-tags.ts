@@ -56,7 +56,10 @@ export const TAG = {
   project: (slug: string): string => `headkit:project:${slug}`,
   client: (slug: string): string => `headkit:client:${slug}`,
   page: (slug: string): string => `headkit:page:${slug}`,
-  // type/index — fired on create/delete of that type
+  // type/index — `products` on a listing event (create / publish / unpublish /
+  // delete / term change); `collections` and `brands` on a term edit of
+  // product_cat / product_brand and never on a product save
+  // (docs/cache-revalidation-contract.md)
   products: "headkit:products",
   collections: "headkit:collections",
   brands: "headkit:brands",

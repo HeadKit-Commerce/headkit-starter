@@ -103,8 +103,12 @@ async function getCategoryData(categorySlug: string) {
     revalidate: 60 * 60,
     expire: 60 * 60 * 24 * 14,
   });
-  // headkit:collections is sent by WordPress on any product or category change.
-  // headkit:collection:${categorySlug} is sent on category-specific changes.
+  // headkit:collections is sent by WordPress on a product-CATEGORY term edit
+  // (created_term / edited_term / delete_term on product_cat) and by nothing
+  // else — measured, not assumed: no product event reaches it
+  // (`lib/wp-revalidation-events.test.ts`, docs/cache-revalidation-contract.md).
+  // headkit:collection:${categorySlug} is sent on category-specific changes and
+  // on a listing event for any product in that category.
   cacheTag(TAG.collection(categorySlug), TAG.collections);
 
   const [category, productFilter] = await Promise.all([

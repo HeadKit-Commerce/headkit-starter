@@ -413,7 +413,7 @@ describe("the FLAT /products route does not subscribe to the whole-catalogue tag
 
     expect(
       tags,
-      "WordPress fires headkit:collections on ANY product or category change, so a PDP that subscribes to it turns one product save into a purge of every PDP on the store (the Bike Society hazard in lib/cache-tags.ts)",
+      "headkit:collections is fired by every product-CATEGORY term edit and lands on the home page, the sitemap, the nested /shop route and every category shell, so a PDP that subscribes to it is purged store-wide by one category edit (the tag-welding hazard in lib/cache-tags.ts). It is NOT fired by a product save — see the plural-index block in lib/wp-revalidation-events.test.ts",
     ).not.toContain(TAG.collections);
   });
 });

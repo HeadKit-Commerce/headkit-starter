@@ -668,13 +668,23 @@ export async function ProductPageBody({
   //     tree (`collectionPathResolver`), which is a `"use cache"` entry carrying
   //     `cacheTag(TAG.collections)`. `ProductPageContent` is not itself inside a
   //     `"use cache"` scope, so that tag would propagate onto the ROUTE's cache
-  //     entry — and WordPress fires `headkit:collections` on ANY product or
-  //     category change. On a store using WooCommerce's default `/product/`
-  //     permalink base `productCategorySegments` returns [] for EVERY product,
-  //     so every PDP would take this branch and one product save would purge
-  //     every PDP on the store. That is the Bike Society hazard recorded in
-  //     `lib/cache-tags.ts` ("NEVER a route/page tag"), and `block-editor.tsx`
-  //     gates its own read of the same resolver for the same reason.
+  //     entry — and WordPress fires `headkit:collections` on every
+  //     product-CATEGORY term edit (`created_term` / `edited_term` /
+  //     `delete_term` on `product_cat`). On a store using WooCommerce's default
+  //     `/product/` permalink base `productCategorySegments` returns [] for
+  //     EVERY product, so every PDP would take this branch and one category
+  //     edit would purge every PDP on the store. That is the tag-welding hazard
+  //     recorded in `lib/cache-tags.ts` ("NEVER a route/page tag"), and
+  //     `block-editor.tsx` gates its own read of the same resolver for the same
+  //     reason.
+  //
+  //     CORRECTED 2026-09-17: this comment (and the same claim in
+  //     `apps/starter/AGENTS.md`) used to say the tag fires on ANY PRODUCT or
+  //     category change, which would have made one stock save a store-wide PDP
+  //     purge. No product hook reaches `HK_TAG_COLLECTIONS` — the product
+  //     builder sends the SINGULAR `headkit:collection:{slug}`, and only on a
+  //     listing event. Measured in `lib/wp-revalidation-events.test.ts`; the
+  //     trigger is rarer than recorded, the welding is not.
   //
   //     A whole-catalogue purge is far more expensive than one crumb href that
   //     308s to the canonical anyway, so the flat path wins here.

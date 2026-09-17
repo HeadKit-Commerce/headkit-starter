@@ -215,6 +215,62 @@ describe.skipIf(SKIPPING)(SUITE_TITLE, () => {
     });
   });
 
+  describe("the plural index tags are fired by TAXONOMY hooks only", () => {
+    /*
+     * Three comments in apps/starter said WordPress fires `headkit:collections`
+     * on "any product or category change", and the flat-PDP-breadcrumb decision
+     * (`apps/starter/AGENTS.md`) plus the open `260824-nested-pdp-catalogue-purge-tag`
+     * both rested on that premise. It is not what the theme does: the product
+     * builder sends the SINGULAR `headkit:collection:{slug}` and only on a
+     * listing event, while `HK_TAG_COLLECTIONS` appears in
+     * `headkit_resolve_endpoint_tags` alone, reachable only from
+     * `created_term` / `edited_term` / `delete_term` on `product_cat`
+     * (`product_brand` for `headkit:brands`). So an entry that subscribes to
+     * TAG.collections is purged by a category term edit — never by a product
+     * save, however often that save fires.
+     */
+    it("no product event fires headkit:collections or headkit:brands", () => {
+      const productScenarios = Object.keys(result).filter(
+        (name) =>
+          !name.startsWith("category_term_") && name !== "brand_term_edit",
+      );
+      expect(productScenarios.length).toBeGreaterThan(20);
+      for (const name of productScenarios) {
+        for (const send of result[name] ?? []) {
+          expect(
+            send.tags,
+            `${name} must not fire the collections index — that tag is on the home page, the sitemap, the nested /shop route and every category shell`,
+          ).not.toContain(TAG.collections);
+          expect(
+            send.tags,
+            `${name} must not fire the brands index`,
+          ).not.toContain(TAG.brands);
+        }
+      }
+    });
+
+    it.each(["category_term_edit", "category_term_delete"])(
+      "%s fires the collections index, the edited category and home",
+      (scenario) => {
+        const send = only(scenario);
+        expectSameSet(send.tags, [
+          TAG.collections,
+          TAG.collection("electric-bikes"),
+          TAG.route("home"),
+        ]);
+      },
+    );
+
+    it("a brand term edit fires the brands index, not the collections index", () => {
+      const send = only("brand_term_edit");
+      expectSameSet(send.tags, [
+        TAG.brands,
+        TAG.brand("trek"),
+        TAG.route("home"),
+      ]);
+    });
+  });
+
   describe("term-change detection", () => {
     it("an unchanged term set (replace or append) sends nothing", () => {
       expect(result["term_noop"]).toEqual([]);

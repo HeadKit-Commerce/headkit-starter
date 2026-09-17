@@ -90,13 +90,24 @@ crumb names the FLAT `/collections/<slug>`, in the rendered link and in the Brea
 JSON-LD alike. That is every PDP breadcrumb on that store class, not a rare degraded path.
 It stays flat because the only way to nest it is a category-tree read
 (`collectionPathResolver`), a `"use cache"` entry tagged `TAG.collections` — a tag WordPress
-fires on any product or category change — which would land on the PDP route entry and make
-one product save purge every PDP. The cost of the exception is one extra redirect hop; a
+fires on every product-CATEGORY term edit — which would land on the PDP route entry and make
+one category edit purge every PDP. The cost of the exception is one extra redirect hop; a
 crawler following the crumb still reaches the canonical. Do not "fix" it back to the
 resolver. Related and still open: the NESTED `/shop/[...slug]` route does still carry
 `TAG.collections`, because its tree read is what decides category-vs-product — filed as
 `260824-nested-pdp-catalogue-purge-tag` (P1), and it bites hardest on exactly the
 nested-permalink stores this decision was made for.
+
+**The trigger in that paragraph was wrong until 2026-09-17, and the correction changes the
+frequency but not the decision.** It read "a tag WordPress fires on any PRODUCT or category
+change", which would have made every stock save a store-wide PDP purge. `HK_TAG_COLLECTIONS`
+is reachable from `headkit_resolve_endpoint_tags` only, which only `created_term` /
+`edited_term` / `delete_term` on `product_cat` call; the product builder sends the SINGULAR
+`headkit:collection:{slug}`, and only on a listing event. So the purge is per category-admin
+edit, not per order. Pinned by name in `lib/wp-revalidation-events.test.ts` ("the plural index
+tags are fired by TAXONOMY hooks only") so it cannot drift back. Whoever owns
+`260824-nested-pdp-catalogue-purge-tag` should re-rank it against the real trigger — the
+welding is unchanged, the rate is not.
 
 **Category ancestry from the tree is not trustworthy; a permalink is.** Commerce builds the
 category forest from WooCommerce's un-paginated, `hide_empty=true` list, so a child whose
