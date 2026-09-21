@@ -40,9 +40,31 @@ interface Payload {
   paths: string[];
   tags: string[];
   action: string;
+  /** Harness-added: the unix time the send was scheduled for. */
+  scheduled_at: number;
+  /** Harness-added: `scheduled_at` minus the scenario's start time. */
+  scheduled_in: number;
+}
+
+interface HarnessConfig {
+  /** `headkit_revalidation_delay()` with no filter applied. */
+  delay: number;
+  /** `HK_REST_MAX_AGE_CEILING`. */
+  ceiling: number;
+  /** `HK_REVALIDATE_DELAY_MARGIN`. */
+  margin: number;
+  /** Every `max_age` literal the harness read out of `inc/rest-api/`. */
+  rest_max_ages: Record<string, number>;
+  /** Call sites whose `max_age` could not be read statically. */
+  rest_max_ages_unreadable: string[];
 }
 
 type HarnessResult = Record<string, Payload[]>;
+
+interface HarnessOutput {
+  events: HarnessResult;
+  config: HarnessConfig;
+}
 
 const BLANKET = [TAG.products, TAG.route("shop")] as const;
 
@@ -85,6 +107,7 @@ const SUITE_TITLE = SKIPPING
   : SUITE;
 
 let result: HarnessResult;
+let config: HarnessConfig;
 
 function only(name: string): Payload {
   const sends = result[name];
@@ -106,7 +129,9 @@ describe.skipIf(SKIPPING)(SUITE_TITLE, () => {
       );
     }
     const stdout = execFileSync("php", [HARNESS], { encoding: "utf8" });
-    result = JSON.parse(stdout) as HarnessResult;
+    const parsed = JSON.parse(stdout) as HarnessOutput;
+    result = parsed.events;
+    config = parsed.config;
   });
 
   describe("CONTENT events send the specific tags only", () => {
@@ -297,6 +322,92 @@ describe.skipIf(SKIPPING)(SUITE_TITLE, () => {
     it("a flush with no marker, or on a draft, sends nothing", () => {
       expect(result["flush_without_marker"]).toEqual([]);
       expect(result["term_change_on_draft"]).toEqual([]);
+    });
+  });
+
+  /*
+   * The send is DELAYED, and the delay is derived rather than guessed.
+   *
+   * A purge fired at save time races the theme's own REST cache: the storefront
+   * entries are deleted, a request seconds later re-renders, and that render
+   * reads a `headkit/v2` response still inside its `s-maxage` window — so it
+   * regenerates with PRE-EDIT data and pins it in a long-lived entry where
+   * nothing expires it. Measured on the Bike Society rehearsal store on
+   * 2026-09-21 (tigerheart-studios/bikesociety-v2#65): two PDP URLs for the same
+   * renamed product, both regenerated AFTER an accepted purge, seven seconds
+   * apart, one carrying the new name and one the old.
+   *
+   * The delay is the fix, and the number is only as trustworthy as its
+   * derivation: the harness tokenises every `headkit_rest_cached_response()`
+   * call in `inc/rest-api/` and reports the `max_age` each one publishes, so
+   * raising one anywhere in the theme fails this suite until
+   * `HK_REST_MAX_AGE_CEILING` is raised with it. That is what stops the delay
+   * silently falling back inside a window it exists to clear.
+   */
+  describe("the send is delayed past every REST cache window", () => {
+    it("every headkit/v2 max_age is statically readable", () => {
+      // A call the scan cannot read is a window it cannot bound. Make the
+      // max_age an integer literal, or raise the ceiling deliberately.
+      expect(config.rest_max_ages_unreadable).toEqual([]);
+      expect(Object.keys(config.rest_max_ages).length).toBeGreaterThan(5);
+    });
+
+    it("the ceiling is the largest max_age the theme actually publishes", () => {
+      const largest = Math.max(...Object.values(config.rest_max_ages));
+      expect(
+        config.ceiling,
+        `HK_REST_MAX_AGE_CEILING must equal the largest headkit/v2 max_age (${largest}s). ` +
+          `Raising a max_age without raising the ceiling reinstates the purge/cache race.`,
+      ).toBe(largest);
+    });
+
+    it("the delay exceeds that ceiling with a margin for clock skew", () => {
+      expect(config.delay).toBeGreaterThan(config.ceiling);
+      expect(config.delay).toBe(config.ceiling + config.margin);
+      expect(config.margin).toBeGreaterThan(0);
+    });
+
+    it("a save schedules the send at now + delay, not now", () => {
+      const send = only("stock_change");
+      expect(send.scheduled_in).toBeGreaterThanOrEqual(config.delay);
+      // The harness clock can tick between the scenario start and the theme's
+      // own time() call; nothing larger than that is tolerated.
+      expect(send.scheduled_in).toBeLessThanOrEqual(config.delay + 2);
+    });
+
+    it("every scheduled send carries the same delay", () => {
+      for (const [name, sends] of Object.entries(result)) {
+        if (name.startsWith("filtered_delay_")) continue;
+        for (const send of sends) {
+          expect(
+            send.scheduled_in,
+            `${name} must not be sent inside a REST cache window`,
+          ).toBeGreaterThan(config.ceiling);
+        }
+      }
+    });
+
+    it("rapid identical saves still collapse to ONE scheduled send", () => {
+      // A longer window means MORE saves collapse. It must not mean a queue of
+      // delayed duplicates.
+      const sends = result["rapid_identical_saves"];
+      expect(
+        sends,
+        "three identical saves must schedule one send",
+      ).toHaveLength(1);
+      expect(sends![0]!.scheduled_in).toBeGreaterThanOrEqual(config.delay);
+    });
+
+    it("the headkit_revalidation_delay filter changes the delay", () => {
+      const send = only("filtered_delay_custom");
+      expect(send.scheduled_in).toBeGreaterThanOrEqual(45);
+      expect(send.scheduled_in).toBeLessThanOrEqual(47);
+    });
+
+    it("a filtered delay of 0 restores the immediate send", () => {
+      const send = only("filtered_delay_zero");
+      expect(send.scheduled_in).toBeGreaterThanOrEqual(0);
+      expect(send.scheduled_in).toBeLessThanOrEqual(2);
     });
   });
 });
