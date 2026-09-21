@@ -55,14 +55,31 @@ interface HarnessConfig {
   margin: number;
   /** Every `max_age` literal the harness read out of `inc/rest-api/`. */
   rest_max_ages: Record<string, number>;
-  /** Call sites whose `max_age` could not be read statically. */
+  /** Call sites whose `max_age` or endpoint name could not be read statically. */
   rest_max_ages_unreadable: string[];
+  /** Call site label => the stable endpoint name it publishes under. */
+  rest_endpoints: Record<string, string>;
+  /** `headkit_rest_cache_endpoints()` — the documented filter surface. */
+  rest_endpoints_declared: string[];
+  /** `HK_REST_DEFAULT_MAX_AGE`. */
+  rest_default_max_age: number;
+}
+
+/** Facet-cache observations the harness records around each scenario. */
+interface FiltersObservation {
+  generation_before: number;
+  generation_after: number;
+  /** Whether the key a cached payload was stored under is still the lookup key. */
+  key_changed: boolean;
+  /** Whether a payload cached before the event is still reachable after it. */
+  lookup_hits: boolean;
 }
 
 type HarnessResult = Record<string, Payload[]>;
 
 interface HarnessOutput {
   events: HarnessResult;
+  filters: Record<string, FiltersObservation>;
   config: HarnessConfig;
 }
 
@@ -107,6 +124,7 @@ const SUITE_TITLE = SKIPPING
   : SUITE;
 
 let result: HarnessResult;
+let filters: Record<string, FiltersObservation>;
 let config: HarnessConfig;
 
 function only(name: string): Payload {
@@ -131,6 +149,7 @@ describe.skipIf(SKIPPING)(SUITE_TITLE, () => {
     const stdout = execFileSync("php", [HARNESS], { encoding: "utf8" });
     const parsed = JSON.parse(stdout) as HarnessOutput;
     result = parsed.events;
+    filters = parsed.filters;
     config = parsed.config;
   });
 
@@ -408,6 +427,137 @@ describe.skipIf(SKIPPING)(SUITE_TITLE, () => {
       const send = only("filtered_delay_zero");
       expect(send.scheduled_in).toBeGreaterThanOrEqual(0);
       expect(send.scheduled_in).toBeLessThanOrEqual(2);
+    });
+
+    it("every call site publishes under a stable, tunable endpoint name", () => {
+      // The name is the key of the per-endpoint tuning filter. A call site
+      // without one is a lifetime no store can change without a theme release,
+      // which on a managed host is hours while the defect is live.
+      const scanned = Object.keys(config.rest_max_ages).filter(
+        (label) => !label.endsWith(":HK_REST_DEFAULT_MAX_AGE"),
+      );
+      for (const label of scanned) {
+        expect(
+          config.rest_endpoints[label],
+          `${label}: no endpoint name`,
+        ).toBeTruthy();
+      }
+      // `headkit_rest_cache_endpoints()` is what a store reads to find the hook
+      // names; a name only at a call site is not documentation.
+      const used = [...new Set(Object.values(config.rest_endpoints))].sort();
+      expect(used).toEqual([...config.rest_endpoints_declared].sort());
+    });
+
+    it("the default lifetime is 10s and every endpoint publishes it", () => {
+      // The payoff: with the largest lifetime at 10s the delay is 30s, so an
+      // editor sees their change in about half a minute instead of six minutes.
+      expect(config.rest_default_max_age).toBe(10);
+      for (const [label, maxAge] of Object.entries(config.rest_max_ages)) {
+        expect(maxAge, `${label}: not the 10s default`).toBe(10);
+      }
+      expect(config.ceiling).toBe(10);
+      expect(config.delay).toBe(30);
+    });
+  });
+
+  /*
+   * PART 2 of the same defect: a cache INSIDE WordPress that no `Cache-Control`
+   * value can reach. `headkit-product-filters.php` caches the facet payload in
+   * a transient, and until 0.4.63 nothing ever deleted it — so a product save
+   * left the facet sidebar stale in WordPress for up to its full TTL, under
+   * whatever the header said.
+   *
+   * The key is namespaced by a generation (the key space is an md5 over request
+   * arguments, so there is no name to delete, and a wp_options sweep would find
+   * nothing at all on a store with an external object cache). "Flushed" is
+   * therefore asserted as a real lookup: the harness caches a payload before
+   * each scenario and checks whether the endpoint would still find it after.
+   */
+  describe("the facet transient is invalidated by the same events", () => {
+    function observe(name: string): FiltersObservation {
+      const seen = filters[name];
+      expect(
+        seen,
+        `${name}: harness recorded no facet observation`,
+      ).toBeDefined();
+      return seen!;
+    }
+
+    it("every event that sends a revalidation also flushes it", () => {
+      for (const [name, sends] of Object.entries(result)) {
+        if (sends.length === 0) continue;
+        const seen = observe(name);
+        const tags = sends.flatMap((send) => send.tags);
+        const touchesCatalogue = tags.some(
+          (tag) =>
+            tag === TAG.products ||
+            tag === TAG.collections ||
+            tag === TAG.brands ||
+            tag === TAG.catalog ||
+            tag.startsWith("headkit:product:") ||
+            tag.startsWith("headkit:collection:") ||
+            tag.startsWith("headkit:brand:") ||
+            tag.startsWith("headkit:catalog:"),
+        );
+        if (!touchesCatalogue) continue;
+        expect(
+          seen.lookup_hits,
+          `${name}: a facet payload cached before the save survived it`,
+        ).toBe(false);
+        expect(seen.generation_after).toBeGreaterThan(seen.generation_before);
+      }
+    });
+
+    it("a product save flushes it", () => {
+      expect(observe("update").lookup_hits).toBe(false);
+      expect(observe("stock_change").lookup_hits).toBe(false);
+      expect(observe("price_change").lookup_hits).toBe(false);
+    });
+
+    it("a category or brand term change flushes it", () => {
+      // The facet payload IS the category / brand / attribute counts.
+      expect(observe("category_term_edit").lookup_hits).toBe(false);
+      expect(observe("category_term_delete").lookup_hits).toBe(false);
+      expect(observe("brand_term_edit").lookup_hits).toBe(false);
+      expect(observe("category_change_via_save").lookup_hits).toBe(false);
+      expect(observe("brand_change_via_crud").lookup_hits).toBe(false);
+    });
+
+    it("a menu or branding edit does NOT flush it", () => {
+      // A flush bound to "any revalidation" would recount every category,
+      // brand and attribute in the catalogue each time somebody moved a footer
+      // link. That is the version of this fix people delete.
+      for (const name of ["menu_save", "branding_change"]) {
+        const seen = observe(name);
+        expect(seen.lookup_hits, `${name}: flushed the facet cache`).toBe(true);
+        expect(seen.generation_after).toBe(seen.generation_before);
+      }
+      // ...and both of them really did send something, or the assertion above
+      // would pass for the wrong reason.
+      expect(result["menu_save"]!.length).toBe(1);
+      expect(result["branding_change"]!.length).toBe(1);
+    });
+
+    it("an event that sends nothing flushes nothing", () => {
+      for (const name of [
+        "term_noop",
+        "flush_without_marker",
+        "term_change_on_draft",
+        "stock_change_draft",
+      ]) {
+        expect(result[name]).toEqual([]);
+        expect(observe(name).lookup_hits, `${name}: flushed on a no-op`).toBe(
+          true,
+        );
+      }
+    });
+
+    it("flushes once per EVENT even when the sends deduplicate", () => {
+      // Three identical saves collapse into one scheduled send because the send
+      // carries no data. A cache flush is not deduplicable the same way.
+      const seen = observe("rapid_identical_saves");
+      expect(result["rapid_identical_saves"]).toHaveLength(1);
+      expect(seen.generation_after - seen.generation_before).toBe(3);
     });
   });
 });
