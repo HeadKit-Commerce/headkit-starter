@@ -53,6 +53,12 @@ interface HarnessConfig {
   ceiling: number;
   /** `HK_REVALIDATE_DELAY_MARGIN`. */
   margin: number;
+  /** `headkit_revalidation_repair_delay()` with no filter applied. */
+  repair_delay: number;
+  /** `HK_REVALIDATE_RENDER_CEILING`. */
+  render_ceiling: number;
+  /** `HK_REVALIDATE_REPAIR_SUFFIX` — what marks a send as the repair. */
+  repair_suffix: string;
   /** Every `max_age` literal the harness read out of `inc/rest-api/`. */
   rest_max_ages: Record<string, number>;
   /** Call sites whose `max_age` or endpoint name could not be read statically. */
@@ -127,11 +133,46 @@ let result: HarnessResult;
 let filters: Record<string, FiltersObservation>;
 let config: HarnessConfig;
 
-function only(name: string): Payload {
+/**
+ * Every send a scenario produced, first sends and repair sends alike.
+ *
+ * Since 2026-09-22 an event schedules TWO sends: the first carries the whole
+ * payload, and the stale-set repair carries its entity tags one render ceiling
+ * later. The two are told apart by the action label, which is the real
+ * mechanism — it is what keeps Action Scheduler's (hook, args, group) dedupe
+ * from collapsing the repair into the send it follows — so the tests below
+ * assert on the same field the theme relies on.
+ */
+function sendsOf(name: string): Payload[] {
   const sends = result[name];
   expect(sends, `${name}: harness scenario missing`).toBeDefined();
-  expect(sends, `${name}: expected exactly one send`).toHaveLength(1);
-  return sends![0]!;
+  return sends!;
+}
+
+function isRepair(send: Payload): boolean {
+  return send.action.endsWith(config.repair_suffix);
+}
+
+/** The FIRST sends of a scenario — what the tag-breadth contract is about. */
+function firstSends(name: string): Payload[] {
+  return sendsOf(name).filter((s) => !isRepair(s));
+}
+
+/** The stale-set repair sends of a scenario. */
+function repairSends(name: string): Payload[] {
+  return sendsOf(name).filter(isRepair);
+}
+
+function only(name: string): Payload {
+  const sends = firstSends(name);
+  expect(sends, `${name}: expected exactly one first send`).toHaveLength(1);
+  return sends[0]!;
+}
+
+function onlyRepair(name: string): Payload {
+  const sends = repairSends(name);
+  expect(sends, `${name}: expected exactly one repair send`).toHaveLength(1);
+  return sends[0]!;
 }
 
 function expectSameSet(actual: string[], expected: readonly string[]): void {
@@ -397,6 +438,7 @@ describe.skipIf(SKIPPING)(SUITE_TITLE, () => {
     it("every scheduled send carries the same delay", () => {
       for (const [name, sends] of Object.entries(result)) {
         if (name.startsWith("filtered_delay_")) continue;
+        if (name.startsWith("repair_")) continue;
         for (const send of sends) {
           expect(
             send.scheduled_in,
@@ -409,12 +451,12 @@ describe.skipIf(SKIPPING)(SUITE_TITLE, () => {
     it("rapid identical saves still collapse to ONE scheduled send", () => {
       // A longer window means MORE saves collapse. It must not mean a queue of
       // delayed duplicates.
-      const sends = result["rapid_identical_saves"];
+      const sends = firstSends("rapid_identical_saves");
       expect(
         sends,
         "three identical saves must schedule one send",
       ).toHaveLength(1);
-      expect(sends![0]!.scheduled_in).toBeGreaterThanOrEqual(config.delay);
+      expect(sends[0]!.scheduled_in).toBeGreaterThanOrEqual(config.delay);
     });
 
     it("the headkit_revalidation_delay filter changes the delay", () => {
@@ -457,6 +499,199 @@ describe.skipIf(SKIPPING)(SUITE_TITLE, () => {
       }
       expect(config.ceiling).toBe(10);
       expect(config.delay).toBe(30);
+    });
+  });
+
+  /**
+   * The SECOND, stale-set repair send (2026-09-22, issue #65 repair half).
+   *
+   * The first send's delay narrows the race between a purge and the caches
+   * upstream of a render. It cannot close it, because the surviving race is
+   * against our OWN render duration: a render that starts before the purge and
+   * finishes after it writes pre-edit data into an entry the framework then
+   * accepts as fresh, and under `cacheLife("max")` nothing expires it. Measured
+   * 2026-09-22 — two renders of one product five seconds apart, off the same
+   * purge, against an origin that already held the new value, disagreeing about
+   * the product's name.
+   *
+   * The remedy is the delayed double delete: purge again after the slowest fill
+   * the first purge could have started. Three ways it could be a silent no-op,
+   * and one assertion here for each:
+   *
+   *   1. Action Scheduler dedupes on (hook, args, group) and `action` is part of
+   *      `args`, so an identical payload is collapsed into the first send with
+   *      nothing logged. The label suffix is what prevents it.
+   *   2. Re-sending the WIDE tags would multiply every save by the size of the
+   *      catalogue against a 1.8 req/s origin bucket. Entity tags only.
+   *   3. Re-deriving the delay instead of inheriting it would strand the repair
+   *      in front of the purge it repairs on any store that tunes the first.
+   */
+  describe("a second, delayed purge repairs the stale set", () => {
+    it("a product save schedules two sends, not one", () => {
+      expect(sendsOf("stock_change")).toHaveLength(2);
+      expect(firstSends("stock_change")).toHaveLength(1);
+      expect(repairSends("stock_change")).toHaveLength(1);
+    });
+
+    it("the repair carries the entity tags and nothing else", () => {
+      // The first send reaches six tags; five of them are grids, landings and a
+      // brand, which between them reach thousands of entries on a real store.
+      expectSameSet(only("stock_change").tags, EBIKE_CONTENT_TAGS);
+      expectSameSet(onlyRepair("stock_change").tags, [TAG.product("e-bike")]);
+    });
+
+    it("a LISTING event's repair is still just the entity tag", () => {
+      // `create` adds the blanket tags and both collection tags. None of them
+      // may ride the second send — this is the assertion that keeps the cost at
+      // ~4 extra origin reads per save instead of thousands.
+      expectSameSet(only("create").tags, EBIKE_LISTING_TAGS);
+      expectSameSet(onlyRepair("create").tags, [TAG.product("e-bike")]);
+    });
+
+    it("collection and brand tags are NOT entity tags", () => {
+      // They look like entity tags and are not: they name the product-SET
+      // domain, ride every product save, and reach whole grids. On Bike Society
+      // one brand tag reaches ~1,100 /shop entries.
+      const repaired = onlyRepair("create").tags;
+      expect(repaired).not.toContain(TAG.collection("electric-bikes"));
+      expect(repaired).not.toContain(TAG.collection("bikes"));
+      expect(repaired).not.toContain(TAG.brand("trek"));
+      expect(repaired).not.toContain(TAG.catalogCat("bikes"));
+      expect(repaired).not.toContain(TAG.route("home"));
+      expect(repaired).not.toContain(TAG.products);
+    });
+
+    it("the repair sends no paths", () => {
+      // `revalidatePath()` takes no lifetime and is an unconditional delete, and
+      // a product's path and its product tag are built from the same object in
+      // the same function — so the entity tag already covers the page the path
+      // names, and re-sending it would be a second delete of the same entries.
+      expect(only("stock_change").paths).toEqual(EBIKE_PATHS);
+      expect(onlyRepair("stock_change").paths).toEqual([]);
+    });
+
+    it("the repair is scheduled at first delay + the render ceiling", () => {
+      expect(config.repair_delay).toBe(config.delay + config.render_ceiling);
+      const repair = onlyRepair("stock_change");
+      expect(repair.scheduled_in).toBeGreaterThanOrEqual(config.repair_delay);
+      expect(repair.scheduled_in).toBeLessThanOrEqual(config.repair_delay + 2);
+    });
+
+    it("the repair always lands AFTER the send it repairs", () => {
+      // The one property that makes it a repair rather than a second purge.
+      for (const name of Object.keys(result)) {
+        for (const repair of repairSends(name)) {
+          for (const first of firstSends(name)) {
+            expect(
+              repair.scheduled_in,
+              `${name}: the repair must follow the send it repairs`,
+            ).toBeGreaterThan(first.scheduled_in);
+          }
+        }
+      }
+    });
+
+    it("the render ceiling clears the slowest render actually measured", () => {
+      // Provenance for 120: cold facet render 3.3-5.3s, foreground PDP
+      // re-render ~5.8s, worst observed 13.85s. Too short and the repair fires
+      // before the slow render finished, so the stale set survives and the whole
+      // mechanism is a no-op; too long only delays convergence.
+      expect(config.render_ceiling).toBeGreaterThan(13.85);
+      expect(config.render_ceiling).toBe(120);
+    });
+
+    it("the repair inherits a filtered first delay rather than re-deriving", () => {
+      // A store that tunes `headkit_revalidation_delay` must move both sends.
+      const first = only("repair_follows_filtered_first_delay");
+      const repair = onlyRepair("repair_follows_filtered_first_delay");
+      expect(first.scheduled_in).toBeGreaterThanOrEqual(45);
+      expect(repair.scheduled_in).toBeGreaterThanOrEqual(
+        45 + config.render_ceiling,
+      );
+      expect(repair.scheduled_in).toBeLessThanOrEqual(
+        45 + config.render_ceiling + 2,
+      );
+    });
+
+    it("the headkit_revalidation_repair_delay filter moves the repair alone", () => {
+      const repair = onlyRepair("repair_filtered_custom");
+      expect(repair.scheduled_in).toBeGreaterThanOrEqual(90);
+      expect(repair.scheduled_in).toBeLessThanOrEqual(92);
+      // ...and the first send is untouched by it.
+      const first = only("repair_filtered_custom");
+      expect(first.scheduled_in).toBeGreaterThanOrEqual(config.delay);
+      expect(first.scheduled_in).toBeLessThanOrEqual(config.delay + 2);
+    });
+
+    it("a repair filtered to the first delay is not scheduled at all", () => {
+      // A second purge at or before the one it repairs cannot observe the fill
+      // that one triggers: it costs origin reads and buys nothing.
+      expect(repairSends("repair_disabled_by_filter")).toHaveLength(0);
+      expect(firstSends("repair_disabled_by_filter")).toHaveLength(1);
+    });
+
+    it("an event with no entity tags schedules no repair", () => {
+      // A menu edit, a branding change, a category or brand term edit: there is
+      // no entity page to repair, so a second send would be pure cost.
+      for (const name of [
+        "menu_save",
+        "branding_change",
+        "category_term_edit",
+        "category_term_delete",
+        "brand_term_edit",
+      ]) {
+        expect(
+          repairSends(name),
+          `${name}: has no entity tag and must schedule no repair`,
+        ).toHaveLength(0);
+        expect(firstSends(name).length).toBeGreaterThan(0);
+      }
+    });
+
+    it("an event that sends nothing schedules no repair either", () => {
+      for (const name of [
+        "stock_change_draft",
+        "non_price_props",
+        "term_noop",
+        "term_change_on_draft",
+      ]) {
+        expect(result[name]).toEqual([]);
+      }
+    });
+
+    it("CMS content pages and posts are repaired too", () => {
+      expectSameSet(onlyRepair("page_save").tags, [TAG.page("shipping")]);
+      expectSameSet(onlyRepair("post_save").tags, [TAG.post("launch")]);
+      // A news save emits a second, index-only payload; it carries no entity tag
+      // and gets no repair, so the scenario is 2 first sends + 1 repair.
+      expect(firstSends("post_save")).toHaveLength(2);
+      expect(repairSends("post_save")).toHaveLength(1);
+    });
+
+    it("the two sends are not dedupable, even when the payloads match", () => {
+      // THE CASE THE ACTION LABEL EXISTS FOR. A faq CPT save emits
+      // `headkit:page:faq` and no path, so the repair payload is identical to
+      // the first in every field Action Scheduler keys on EXCEPT the label.
+      // Without the suffix the two collapse and the repair silently never
+      // happens — on this event only, which is the shape that survives review.
+      const first = only("faq_save");
+      const repair = onlyRepair("faq_save");
+      expect(repair.tags).toEqual(first.tags);
+      expect(repair.paths).toEqual(first.paths);
+      expect(repair.action).not.toBe(first.action);
+      expect(repair.action).toBe(`${first.action}${config.repair_suffix}`);
+      // Both were really scheduled — the assertion above would pass vacuously
+      // against a collapsed queue.
+      expect(sendsOf("faq_save")).toHaveLength(2);
+    });
+
+    it("rapid identical saves collapse the repair too", () => {
+      // The repair INHERITS the first send's coalescing rather than defeating
+      // it: three identical saves are one send and one repair, not three of
+      // each. This is what keeps a bulk edit or an importer run inside the
+      // origin's 1.8 req/s budget.
+      expect(repairSends("rapid_identical_saves")).toHaveLength(1);
+      expect(sendsOf("rapid_identical_saves")).toHaveLength(2);
     });
   });
 
@@ -556,7 +791,7 @@ describe.skipIf(SKIPPING)(SUITE_TITLE, () => {
       // Three identical saves collapse into one scheduled send because the send
       // carries no data. A cache flush is not deduplicable the same way.
       const seen = observe("rapid_identical_saves");
-      expect(result["rapid_identical_saves"]).toHaveLength(1);
+      expect(firstSends("rapid_identical_saves")).toHaveLength(1);
       expect(seen.generation_after - seen.generation_before).toBe(3);
     });
   });
