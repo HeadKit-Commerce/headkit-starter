@@ -70,6 +70,7 @@ import { shopifyRichTextToHtml } from "@/lib/shopify-rich-text";
 import { getStoreTheme } from "@/lib/store-theme";
 import { themeSizeGuidePlacement } from "@/lib/size-guide-placement";
 import { distinctShortDescription } from "@/lib/product-excerpt";
+import { productSubtitle } from "@/lib/product-subtitle";
 import { isColorAttrSlug } from "@/components/headkit-ui/collection/utils";
 import { buildEnquiryInitialValues } from "@/lib/enquiry-form-values";
 import {
@@ -911,6 +912,9 @@ export function ProductDetail({
     product.shortDescription,
     product.description,
   );
+  const buyBoxSubtitle = productSubtitle(
+    "subtitle" in product ? product.subtitle : null,
+  );
 
   return (
     <div className="headkit-product-detail">
@@ -928,9 +932,16 @@ export function ProductDetail({
         {/* Right: product info */}
         <div className="flex flex-col">
           <ProductBrandLink brand={brand} />
-          <h1 className="mb-3 text-primary">
-            <TitleEmphasis text={product.name} highlight />
-          </h1>
+          <div className="mb-3">
+            <h1 className="text-primary">
+              <TitleEmphasis text={product.name} highlight />
+            </h1>
+            {buyBoxSubtitle ? (
+              <p className="headkit-product-subtitle mt-[6px] text-primary">
+                {buyBoxSubtitle}
+              </p>
+            ) : null}
+          </div>
 
           {buyBoxExcerpt ? (
             <div

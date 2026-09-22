@@ -18,6 +18,11 @@ describe("Size Guide row layout", () => {
     );
   });
 
+  it("renders the Shopify subtitle under the title with a 6px gap", () => {
+    expect(detail).toContain('className="headkit-product-subtitle mt-[6px] text-primary"');
+    expect(detail).toContain("productSubtitle(");
+  });
+
   it("puts colour/size attribute Size Guide on the right like Complete the Set", () => {
     // Left cluster (label + value) + trigger on the trailing edge — not
     // inline after the colour name (which reads as left-aligned on Bundles).
