@@ -44,6 +44,14 @@ interface Payload {
   scheduled_at: number;
   /** Harness-added: `scheduled_at` minus the scenario's start time. */
   scheduled_in: number;
+  /**
+   * Harness-added: true when a LATER save withdrew this send before it could
+   * fire (`as_unschedule_action`). Only the repair is ever withdrawn, and only
+   * to be re-scheduled onto the newer save — see the reschedule describe block.
+   */
+  unscheduled: boolean;
+  /** Harness-added: what the queue held for a withdrawn send at cancel time. */
+  was_due_at?: number;
 }
 
 interface HarnessConfig {
@@ -158,9 +166,20 @@ function firstSends(name: string): Payload[] {
   return sendsOf(name).filter((s) => !isRepair(s));
 }
 
-/** The stale-set repair sends of a scenario. */
+/**
+ * The stale-set repair sends of a scenario that will actually FIRE.
+ *
+ * A repair withdrawn by a later save (2026-09-23) is excluded: it was queued
+ * and then cancelled, so counting it as a send would report a correct
+ * reschedule as two repairs. `withdrawnRepairs` is the other half of that fact.
+ */
 function repairSends(name: string): Payload[] {
-  return sendsOf(name).filter(isRepair);
+  return sendsOf(name).filter((s) => isRepair(s) && !s.unscheduled);
+}
+
+/** Repairs a later save withdrew before they could fire. */
+function withdrawnRepairs(name: string): Payload[] {
+  return sendsOf(name).filter((s) => isRepair(s) && s.unscheduled);
 }
 
 function only(name: string): Payload {
@@ -548,10 +567,16 @@ describe.skipIf(SKIPPING)(SUITE_TITLE, () => {
       expectSameSet(onlyRepair("create").tags, [TAG.product("e-bike")]);
     });
 
-    it("collection and brand tags are NOT entity tags", () => {
-      // They look like entity tags and are not: they name the product-SET
-      // domain, ride every product save, and reach whole grids. On Bike Society
-      // one brand tag reaches ~1,100 /shop entries.
+    it("collection tags are NOT entity tags, and nor is a brand ON A PRODUCT SAVE", () => {
+      // A collection tag looks like an entity tag and is not: it names the
+      // product-SET domain, rides every product save, and reaches whole grids.
+      //
+      // A brand tag has two reaches depending on the payload that carries it
+      // (see `headkit_entity_reach_tags()`), and on a PRODUCT payload it is the
+      // wide one: `headkit_product_brand_tags()` merges it into every stock
+      // movement, and `getCachedProductBrand` (`lib/product-brand.ts:62`) is
+      // awaited by every PDP in the brand, so the tag propagates onto all of
+      // them — the ~1,100-entry figure. It must not ride the second send.
       const repaired = onlyRepair("create").tags;
       expect(repaired).not.toContain(TAG.collection("electric-bikes"));
       expect(repaired).not.toContain(TAG.collection("bikes"));
@@ -559,6 +584,35 @@ describe.skipIf(SKIPPING)(SUITE_TITLE, () => {
       expect(repaired).not.toContain(TAG.catalogCat("bikes"));
       expect(repaired).not.toContain(TAG.route("home"));
       expect(repaired).not.toContain(TAG.products);
+
+      // Same on a CONTENT event, which is the one that fires on every order.
+      expect(onlyRepair("stock_change").tags).not.toContain(TAG.brand("trek"));
+    });
+
+    /**
+     * `/brand/{slug}` could not be repaired at all before 2026-09-23.
+     *
+     * `headkit:brand:{slug}` is narrow in the storefront — the first send
+     * DELETES the brand page — but it was not entity-reach in the theme, so no
+     * repair ever carried it. Measured on a brand-term save:
+     * `/brand/specialized` re-rendered for 9.25 s, still served the pre-edit
+     * description, and nothing existed to correct it (report §1.5).
+     */
+    it("a BRAND TERM save repairs the brand's own page", () => {
+      const repaired = onlyRepair("brand_term_edit").tags;
+      expectSameSet(repaired, [TAG.brand("trek")]);
+    });
+
+    it("the brand-term repair carries none of the wide tags beside it", () => {
+      // The first send also fires the plural index and the home landing. Both
+      // are family-reach and neither may be re-fired.
+      const first = only("brand_term_edit").tags;
+      expect(first).toContain(TAG.brands);
+      expect(first).toContain(TAG.route("home"));
+
+      const repaired = onlyRepair("brand_term_edit").tags;
+      expect(repaired).not.toContain(TAG.brands);
+      expect(repaired).not.toContain(TAG.route("home"));
     });
 
     it("the repair sends no paths", () => {
@@ -589,6 +643,41 @@ describe.skipIf(SKIPPING)(SUITE_TITLE, () => {
           }
         }
       }
+    });
+
+    /**
+     * The repair's dedupe collapse (2026-09-23,
+     * `data/260923-cache-delay-and-step4/report.md` §2.4a / §7C).
+     *
+     * Action Scheduler dedupes on (hook, args, group) and the repair's payload
+     * is byte-identical across repeated saves of one product with one event
+     * kind. So a second save landing while the first save's repair was still
+     * pending used to be FOLDED INTO it and got no repair of its own: measured
+     * in production the day 0.4.64 shipped, a save covered for ~37 s instead of
+     * 120 s. The workload that produces it is an editor saving, refreshing, not
+     * seeing the change, and saving again.
+     *
+     * The fix keeps exactly one pending repair and moves it onto the newest
+     * save. Both halves are asserted, because either alone is a different bug:
+     * without the move the repair is stale, and without the collapse a bulk
+     * edit queues one repair per save against a 1.8 req/s origin. The collapse
+     * half is asserted on `rapid_identical_saves` below.
+     */
+    it("a second save MOVES the pending repair instead of inheriting it", () => {
+      const name = "repair_reschedules_onto_latest_save";
+      const withdrawn = withdrawnRepairs(name);
+      expect(
+        withdrawn,
+        `${name}: the older repair must be withdrawn`,
+      ).toHaveLength(1);
+
+      // Exactly one repair is left standing — the dedupe still holds.
+      const live = onlyRepair(name);
+
+      // And it fires LATER than the withdrawn one was due, which is the whole
+      // point: the cover follows the newest send rather than the oldest.
+      expect(live.scheduled_at).toBeGreaterThan(withdrawn[0]!.was_due_at!);
+      expect(live.scheduled_in).toBeGreaterThanOrEqual(config.repair_delay);
     });
 
     it("the render ceiling clears the slowest render actually measured", () => {
@@ -631,14 +720,19 @@ describe.skipIf(SKIPPING)(SUITE_TITLE, () => {
     });
 
     it("an event with no entity tags schedules no repair", () => {
-      // A menu edit, a branding change, a category or brand term edit: there is
-      // no entity page to repair, so a second send would be pure cost.
+      // A menu edit, a branding change, a category term edit: there is no
+      // entity page to repair, so a second send would be pure cost.
+      //
+      // `brand_term_edit` left this list on 2026-09-23 — it DOES name an entity
+      // page (`/brand/{slug}`), which the first send deletes and nothing used to
+      // repair. The category term edits stay: `headkit:collection:{slug}` names
+      // the product-SET domain and reaches whole grids, so it is not repairable
+      // at the cost the repair is budgeted for.
       for (const name of [
         "menu_save",
         "branding_change",
         "category_term_edit",
         "category_term_delete",
-        "brand_term_edit",
       ]) {
         expect(
           repairSends(name),
@@ -692,6 +786,10 @@ describe.skipIf(SKIPPING)(SUITE_TITLE, () => {
       // origin's 1.8 req/s budget.
       expect(repairSends("rapid_identical_saves")).toHaveLength(1);
       expect(sendsOf("rapid_identical_saves")).toHaveLength(2);
+      // Saves inside one second are a no-op, not a withdraw-and-requeue cycle:
+      // the pending repair already covers them, so the 2026-09-23 reschedule
+      // costs this path nothing.
+      expect(withdrawnRepairs("rapid_identical_saves")).toHaveLength(0);
     });
   });
 
