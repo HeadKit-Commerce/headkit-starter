@@ -10,7 +10,9 @@ import { getAuthToken } from "@/lib/auth-cookie";
 import { resolveCheckoutEmail } from "@/lib/checkout-email";
 import { hostedCheckoutUrl } from "@/lib/hosted-checkout";
 import { hostedCheckoutCookieOptions } from "@/lib/hosted-cart-sync";
-import { getFloatVal } from "@/lib/utils";
+import { getFloatVal, getStoreCurrency } from "@/lib/utils";
+import { Ga4EcommerceEmitter } from "@/components/analytics/ga4-ecommerce-emitter";
+import { buildBeginCheckoutFromCart } from "@/lib/ga4-ecommerce";
 import { createServerHeadkit } from "@/lib/sdk.server";
 import { PaymentFailedBanner } from "@/components/checkout/payment-failed-banner";
 import { CartChangedBanner } from "@/components/checkout/cart-changed-banner";
@@ -243,8 +245,21 @@ export default async function CheckoutPage({
   // `body` with `var(--color-background, var(--background))`, and layout.tsx
   // sets BOTH of those and `--color-brand-bg` from the same branding value, so
   // the area below the wrapper was never a different colour.
+
+  // GA4 `begin_checkout`. Built from the server-validated cart, at the only
+  // point the route is guaranteed to have one: every empty / expired / hosted
+  // -checkout path above has already redirected away, and stock auto-correction
+  // has already re-fetched, so this is the cart the shopper is about to pay for.
+  // Shopify carts never reach here (they redirect to the hosted checkout), which
+  // is correct — that funnel is measured by Shopify.
+  const beginCheckoutEvent = buildBeginCheckoutFromCart(
+    cart as unknown as CartFieldsFragment,
+    getStoreCurrency(),
+  );
+
   return (
     <div className="bg-brand-bg">
+      <Ga4EcommerceEmitter event={beginCheckoutEvent} />
       {checkoutSession ? (
         <CheckoutTestModeBanner
           publishableKey={checkoutSession.publishableKey}

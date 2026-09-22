@@ -3,7 +3,7 @@
 import { InstantLink } from "@/components/headkit-ui/instant-link";
 import { Fragment, useEffect, useState } from "react";
 import type { ProductSummaryFieldsFragment } from "@headkit/sdk";
-import { cn, decodeHtmlEntities } from "@/lib/utils";
+import { cn, decodeHtmlEntities, getFloatVal } from "@/lib/utils";
 import { productPath } from "@/lib/canonical-path";
 import { FeaturedImage } from "@/components/headkit-ui/featured-image";
 import { ProductPrice } from "@/components/headkit-ui/product-price";
@@ -17,6 +17,11 @@ import { TitleEmphasis } from "@/components/headkit-ui/title-emphasis";
 import { productBadgesFromTags } from "@/lib/product-badges";
 import { stripTitleMarkers } from "@/lib/title-emphasis";
 import { getStoreTheme } from "@/lib/store-theme";
+import {
+  buildSelectItem,
+  productToGa4Item,
+  pushGa4Ecommerce,
+} from "@/lib/ga4-ecommerce";
 
 const isVariableProduct = (product: ProductSummaryFieldsFragment): boolean =>
   product?.type?.toUpperCase() === "VARIABLE";
@@ -47,6 +52,15 @@ interface Props {
    * Defaults to `h3`, the nested case.
    */
   titleAs?: "h2" | "h3";
+  /**
+   * List identity for GA4 `select_item`. Set by surfaces that ARE a list (the
+   * collection grid passes the collection path); omitted elsewhere, in which
+   * case the card emits nothing — a `select_item` with no list is not a
+   * measurement, it is noise.
+   */
+  listName?: string;
+  /** Zero-based position of this card within `listName`. */
+  listIndex?: number;
 }
 
 export const ProductCard = ({
@@ -57,6 +71,8 @@ export const ProductCard = ({
   isNew = false,
   priority = false,
   titleAs = "h3",
+  listName,
+  listIndex,
 }: Props) => {
   const TitleTag = titleAs;
   const { showSwatches, imageRollover } = useCatalogDisplay();
@@ -168,6 +184,23 @@ export const ProductCard = ({
     decodeHtmlEntities(product?.name ?? "Product"),
   );
 
+  // GA4 `select_item` — the click that leaves a list for the PDP. The price is
+  // the card's own displayed price, so the list event and the `view_item` that
+  // follows it agree on the figure the shopper saw.
+  const handleSelectItem = (): void => {
+    if (!listName) return;
+    pushGa4Ecommerce(
+      buildSelectItem(
+        listName,
+        productToGa4Item(product, {
+          price: getFloatVal(displayPrice),
+          ...(listIndex !== undefined ? { index: listIndex } : {}),
+          itemListName: listName,
+        }),
+      ),
+    );
+  };
+
   return (
     <div className={cn("headkit-product-card relative w-full", className)}>
       <div className="absolute left-2 top-2 z-10">
@@ -189,6 +222,7 @@ export const ProductCard = ({
         className="block"
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
+        onClick={handleSelectItem}
       >
         <FeaturedImage
           src={imageSelected}
@@ -210,7 +244,11 @@ export const ProductCard = ({
           )}
         >
           <div className="min-w-0">
-            <InstantLink href={href} pendingVariant="text">
+            <InstantLink
+              href={href}
+              pendingVariant="text"
+              onClick={handleSelectItem}
+            >
               {/* Level comes from `titleAs` — see the prop docs. Visual size is
                   class-driven and identical at either level. */}
               <TitleTag

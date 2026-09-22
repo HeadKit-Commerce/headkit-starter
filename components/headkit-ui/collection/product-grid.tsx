@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { useCollection } from "./collection-context";
 import { ProductCard } from "@/components/headkit-ui/product-card";
 import { ProductCardSkeleton } from "@/components/headkit-ui/skeletons/product-card-skeleton";
@@ -12,6 +14,11 @@ import {
   expandCatalogProducts,
   partitionFullRows,
 } from "@/lib/catalog-display";
+import {
+  buildViewItemList,
+  productToGa4Item,
+  pushGa4Ecommerce,
+} from "@/lib/ga4-ecommerce";
 
 function LoadingSkeleton({
   count = CATALOG_ROW_QUANTUM,
@@ -50,6 +57,44 @@ export function ProductGrid({
   const { visible: visibleProducts } = partitionFullRows(catalogProducts, {
     includeRemainder: !hasMore,
   });
+
+  // GA4 `view_item_list`. `item_list_name` is the collection PATH — the one
+  // list identity available on every surface this grid serves (category, brand,
+  // /new, /sale, /search) without plumbing a title through four components, and
+  // stable enough for a GA4 report to group on.
+  //
+  // Only products NOT yet reported for this path are sent. Load More appends to
+  // the same grid, so re-sending the whole visible list would report the first
+  // page's impressions a second time; the `index` stays the product's real
+  // position in the grid, which is what the list report is ordered on. The
+  // ledger resets when the path changes.
+  const pathname = usePathname();
+  const reported = useRef<{ path: string; ids: Set<string> }>({
+    path: "",
+    ids: new Set(),
+  });
+  const listKey = visibleProducts.map((product) => product.id).join(",");
+  useEffect(() => {
+    if (visibleProducts.length === 0) return;
+    if (reported.current.path !== pathname) {
+      reported.current = { path: pathname, ids: new Set() };
+    }
+    const seen = reported.current.ids;
+    const fresh = visibleProducts
+      .map((product, index) => ({ product, index }))
+      .filter(({ product }) => !seen.has(product.id));
+    if (fresh.length === 0) return;
+    for (const { product } of fresh) seen.add(product.id);
+    pushGa4Ecommerce(
+      buildViewItemList(
+        pathname,
+        fresh.map(({ product, index }) =>
+          productToGa4Item(product, { index, itemListName: pathname }),
+        ),
+      ),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, listKey]);
 
   const isEmpty =
     !isLoading &&
@@ -90,6 +135,8 @@ export function ProductGrid({
             product={product}
             isNew={product.isNew}
             titleAs="h3"
+            listName={pathname}
+            listIndex={index}
             priority={!preferHeaderLcp && index === 0}
             {...(index >= 4
               ? {

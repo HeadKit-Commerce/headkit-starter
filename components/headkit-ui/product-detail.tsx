@@ -59,6 +59,14 @@ import {
 } from "@/lib/utils";
 import { PaymentMethodMessaging } from "@/components/stripe/payment-messaging";
 import { isInWishlist, toggleWishlist } from "@/lib/wishlist";
+import {
+  buildAddToCart,
+  buildAddToWishlist,
+  buildViewItem,
+  productToGa4Item,
+  pushGa4Ecommerce,
+  type Ga4Item,
+} from "@/lib/ga4-ecommerce";
 import type { GiftCardFormValues } from "@/components/gift-card-form";
 import { DeliveryType } from "@/components/gift-card-delivery-type";
 import { ProductEnquiry } from "@/components/headkit-ui/product-enquiry";
@@ -581,6 +589,7 @@ export function ProductDetail({
     if (!showMultiAdd) return [];
     const lines: Array<{
       id: string;
+      name: string;
       quantity: number;
       unitPrice: number;
     }> = [];
@@ -595,6 +604,10 @@ export function ProductDetail({
       if (!resolved) continue;
       lines.push({
         id: resolved.id,
+        // Carried for the GA4 `add_to_cart` payload only — the cart action
+        // itself takes id + quantity. Without it a multi-add would report the
+        // hero product and leave its companions out of the event entirely.
+        name: companion.name,
         quantity: qty,
         unitPrice: resolved.unitPrice,
       });
@@ -746,6 +759,19 @@ export function ProductDetail({
           if (result.success) {
             setAddonErrors({});
             setAddonFormError(null);
+            // Emitted from the success branch only: an add that the store
+            // rejected must not report a conversion step.
+            pushGa4Ecommerce(
+              buildAddToCart(ga4Currency, [
+                { ...ga4Item, quantity },
+                ...companionLines.map((line) =>
+                  productToGa4Item(
+                    { id: line.id, name: line.name },
+                    { price: line.unitPrice, quantity: line.quantity },
+                  ),
+                ),
+              ]),
+            );
             setCartData(result.cart);
             toggleCart(true);
             setQuantity(1);
@@ -809,6 +835,9 @@ export function ProductDetail({
         if (result.success) {
           setAddonErrors({});
           setAddonFormError(null);
+          pushGa4Ecommerce(
+            buildAddToCart(ga4Currency, [{ ...ga4Item, quantity }]),
+          );
           setCartData(result.cart);
           toggleCart(true);
           setQuantity(1);
@@ -868,9 +897,63 @@ export function ProductDetail({
 
   const visibleTabs = tabs.filter((t) => t.hasContent);
 
+  // ---------------------------------------------------------------------
+  // GA4 ecommerce (`lib/ga4-ecommerce.ts` owns the payload contract)
+  // ---------------------------------------------------------------------
+
+  // The shopper-readable variant label, e.g. "Carbon Black / 54". Built from
+  // the attribute OPTION NAMES rather than the URL slugs the state holds, so
+  // the value in the data layer reads the same as the one on screen.
+  const ga4Variant = useMemo(() => {
+    const parts = variationAttributes
+      .map((attr) => {
+        const slug = selectedAttributes[attr.slug];
+        if (!slug) return null;
+        const option = attr.fullOptions.find((o) => o.slug === slug);
+        return decodeHtmlEntities(option?.name ?? slug);
+      })
+      .filter((part): part is string => Boolean(part));
+    return parts.length > 0 ? parts.join(" / ") : null;
+  }, [variationAttributes, selectedAttributes]);
+
+  // `item_id` follows the SELECTED variation's SKU when there is one: that is
+  // the identifier a Merchant Center feed keys a colourway on, so a Shopping
+  // conversion lands on the variant the shopper actually bought.
+  const ga4Item = useMemo<Ga4Item>(
+    () =>
+      productToGa4Item(product, {
+        price: getFloatVal(displayPrice),
+        quantity: 1,
+        variant: ga4Variant,
+        ...(selectedVariation?.sku?.trim()
+          ? { itemId: selectedVariation.sku.trim() }
+          : {}),
+      }),
+    [product, displayPrice, ga4Variant, selectedVariation],
+  );
+
+  const ga4Currency = getStoreCurrency();
+
+  // `view_item` fires on render AND on every variant switch. Colourway changes
+  // are shallow URL updates, not navigations, so nothing else would re-fire
+  // it — and the classic site's data layer shows `view_item` more than once per
+  // page, which is what the container's 8 `view_item` references expect.
+  const ga4ViewItemKey = `${ga4Item.item_id}|${ga4Item.price}`;
+  useEffect(() => {
+    pushGa4Ecommerce(buildViewItem(ga4Currency, ga4Item));
+    // Keyed on the identity + price that changed, not on the object: the memo
+    // yields a new reference on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ga4ViewItemKey]);
+
   const handleWishlistToggle = () => {
     const { added } = toggleWishlist({ id: product.id, slug: product.slug });
     setWishlisted(added);
+    // Removal is not an `add_to_wishlist`; GA4 has no counterpart event and the
+    // container has no tag for one.
+    if (added) {
+      pushGa4Ecommerce(buildAddToWishlist(ga4Currency, ga4Item));
+    }
   };
 
   const colorKey = findSwatchAttribute(variationAttributes)?.slug;

@@ -19,7 +19,9 @@ import {
 } from "@/lib/cart-prices";
 import { PaymentMethodDisplay } from "@/components/checkout/payment-method-display";
 import { needsCheckoutOrderProcessing } from "@/lib/checkout-success-utils";
-import { getFloatVal, formatPrice } from "@/lib/utils";
+import { getFloatVal, formatPrice, getStoreCurrency } from "@/lib/utils";
+import { Ga4EcommerceEmitter } from "@/components/analytics/ga4-ecommerce-emitter";
+import { buildPurchaseFromOrder } from "@/lib/ga4-ecommerce";
 import {
   BILLING_ADDRESS_COOKIE,
   parseBillingAddressCookie,
@@ -420,6 +422,21 @@ export default async function Page({ params, searchParams }: Props) {
     methodId === "pickup_location" || methodId === "local_pickup";
   const isPickupOrder = shippingLines.some((l) => isPickupLine(l.methodId));
 
+  // GA4 `purchase` — the event the GTM container's 12 Google Ads conversion
+  // labels trigger on. Built here, on the server, from the same order object
+  // and the same tax-inclusive helpers the totals block below renders, so the
+  // reported revenue is by construction the number printed on the page.
+  //
+  // Quote mode is deliberately excluded: a quote request is not a transaction
+  // and must not create a conversion.
+  //
+  // The `orderFetchFailed` fallback render above emits nothing — it has no
+  // order to report. That path is reached only while a draft order is still
+  // transitioning, and it resolves to this render on the redirect that follows.
+  const purchaseEvent = isQuoteMode
+    ? null
+    : buildPurchaseFromOrder(order, shippingCost, getStoreCurrency());
+
   const hasShippingMethod = shippingLines.length > 0;
   const hasShippingAddress =
     !isPickupOrder &&
@@ -432,6 +449,12 @@ export default async function Page({ params, searchParams }: Props) {
   return (
     <>
       <ClearCart />
+      <Ga4EcommerceEmitter
+        event={purchaseEvent}
+        {...(purchaseEvent?.ecommerce.transaction_id
+          ? { dedupeKey: `purchase_${purchaseEvent.ecommerce.transaction_id}` }
+          : {})}
+      />
       <div className="grid grid-cols-12 gap-x-1 gap-y-5 md:gap-8 mt-5 px-5 md:px-10">
         {/* Heading */}
         <div className="col-span-12 w-full">

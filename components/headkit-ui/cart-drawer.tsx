@@ -22,6 +22,7 @@ import { markHostedCheckoutPending } from "@/lib/hosted-cart-sync";
 import { formatPrice, getStoreCurrency } from "@/lib/utils";
 import { cartItemsDisplayTotal } from "@/lib/cart-prices";
 import { PlusIcon } from "@/components/icon";
+import { buildViewCartFromCart, pushGa4Ecommerce } from "@/lib/ga4-ecommerce";
 
 export function CartDrawer() {
   const { cartData, optimisticCart, setCartData, cartOpen, toggleCart } =
@@ -43,6 +44,19 @@ export function CartDrawer() {
     minorUnit: 2,
   };
   const totalPrice = cartItemsDisplayTotal(displayCart);
+
+  // GA4 `view_cart`, once per opening of the drawer. The drawer is this
+  // storefront's cart surface — there is no /cart route — so this is where the
+  // container's 3 `view_cart` references have to be served from. Keyed on the
+  // open flag and the line identities, so re-rendering while it is open (a
+  // quantity change, an optimistic update) does not re-fire it.
+  const cartOpenKey = cartOpen ? items.map((item) => item.key).join(",") : "";
+  useEffect(() => {
+    if (!cartOpen || !displayCart) return;
+    const event = buildViewCartFromCart(displayCart, currency.code);
+    if (event) pushGa4Ecommerce(event);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartOpen, cartOpenKey]);
   // Shopify: leave HeadKit entirely — do not route through /checkout (skeleton
   // + blank redirect flash). WooCommerce keeps the internal Stripe checkout.
   const hostedCheckout = isQuoteMode ? null : hostedCheckoutUrl(displayCart);

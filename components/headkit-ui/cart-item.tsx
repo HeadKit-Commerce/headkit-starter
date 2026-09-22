@@ -6,6 +6,11 @@ import { MinusIcon, PlusIcon, XIcon } from "@/components/icon";
 import { cn, decodeHtmlEntities, getFloatVal, formatPrice } from "@/lib/utils";
 import { stripTitleMarkers } from "@/lib/title-emphasis";
 import { lineDisplayTotal } from "@/lib/cart-prices";
+import {
+  buildRemoveFromCart,
+  lineToGa4Item,
+  pushGa4Ecommerce,
+} from "@/lib/ga4-ecommerce";
 import { resolveCartItemPath } from "@/lib/cart-item-path";
 import {
   getCartAction,
@@ -75,11 +80,24 @@ export function CartItemRow({
     item.stockQuantity != null &&
     quantity >= item.stockQuantity;
 
+  // GA4 `remove_from_cart`. `cartData` is passed as the tax-convention source
+  // so the reported price is the same tax-inclusive per-unit figure the row
+  // itself renders.
+  const emitRemoveFromCart = (removedQuantity: number): void => {
+    if (removedQuantity <= 0) return;
+    pushGa4Ecommerce(
+      buildRemoveFromCart(currency.code, [
+        { ...lineToGa4Item(item, cartData), quantity: removedQuantity },
+      ]),
+    );
+  };
+
   const handleRemove = () => {
     startCartTransition(async () => {
       optimisticRemoveItem(item.key);
       const result = await removeCartItemAction(item.key);
       if (result.success) {
+        emitRemoveFromCart(quantity);
         // Commit server cart (including empty) so badge/drawer refresh when the
         // last line item is removed.
         onCartUpdate(result.cart);
@@ -101,6 +119,9 @@ export function CartItemRow({
       optimisticUpdateQuantity(item.key, updated);
       const result = await updateCartItemAction(item.key, updated);
       if (result.success) {
+        // A decrement removes one unit; the quantity-1 case above delegates to
+        // handleRemove, so this never double-reports a full-line removal.
+        emitRemoveFromCart(1);
         onCartUpdate(result.cart);
         return;
       }
