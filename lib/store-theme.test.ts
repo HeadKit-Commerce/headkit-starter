@@ -4,6 +4,7 @@ import {
   getThemeHtmlAttributes,
   heroLayoutClasses,
   heroMediaClasses,
+  parseStoreTheme,
   resetStoreThemeForTests,
 } from "@/lib/store-theme";
 
@@ -18,7 +19,67 @@ describe("getStoreTheme", () => {
     expect(theme.pdp).toBeUndefined();
     expect(theme.catalog).toBeUndefined();
     expect(theme.copy).toBeUndefined();
+    expect(theme.cart).toBeUndefined();
     expect(theme.layout.productEnquiry).toBe(true);
+  });
+});
+
+const LAYOUT = {
+  navLayout: "left-logo" as const,
+  navStyle: "icons" as const,
+  heroLayout: "inset" as const,
+  homepageNav: "solid" as const,
+  productEnquiry: true,
+};
+
+describe("parseStoreTheme cart", () => {
+  it("reads an opt-in packaging and gift message config", () => {
+    const theme = parseStoreTheme({
+      version: 1,
+      layout: LAYOUT,
+      cart: {
+        packaging: {
+          title: "Packaging choice",
+          options: [
+            {
+              id: "signature-box",
+              title: "The Signature Box",
+              description:
+                "The textured Velvet box, with the signature and the icon cut through the lid, in a colour matched to your towel.",
+              image: "",
+            },
+            {
+              id: "sustainable-box",
+              title: "The Sustainable Box",
+              description:
+                "Your order arrives in a recyclable kraft case, lighter to ship and made to be reused.",
+              image: "https://cdn.example.com/kraft.jpg",
+            },
+          ],
+        },
+        giftMessage: { label: "Include a complimentary gift message?" },
+      },
+    });
+    expect(
+      theme.cart?.packaging?.options.map((option) => option.title),
+    ).toEqual(["The Signature Box", "The Sustainable Box"]);
+    expect(theme.cart?.packaging?.options[0]?.image).toBeUndefined();
+    expect(theme.cart?.packaging?.options[1]?.image).toBe(
+      "https://cdn.example.com/kraft.jpg",
+    );
+    expect(theme.cart?.giftMessage?.label).toBe(
+      "Include a complimentary gift message?",
+    );
+  });
+
+  it("falls back to starter defaults when cart config is invalid", () => {
+    const theme = parseStoreTheme({
+      version: 1,
+      layout: LAYOUT,
+      cart: { packaging: { title: "Packaging choice", options: [] } },
+    });
+    expect(theme.layout.navLayout).toBe("left-logo");
+    expect(theme.cart).toBeUndefined();
   });
 });
 

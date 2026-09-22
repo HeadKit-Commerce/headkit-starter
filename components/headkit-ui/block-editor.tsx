@@ -98,6 +98,7 @@ function toPostSummaries(
       slug: c.slug ?? "",
       count: 0,
     })),
+    videoUrl: post.videoUrl ?? null,
   }));
 }
 

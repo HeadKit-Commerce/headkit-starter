@@ -3,7 +3,12 @@ import { unstable_rethrow } from "next/navigation";
 import { cacheLife, cacheTag } from "next/cache";
 import { TAG } from "@/lib/cache-tags";
 import { headkit } from "@/lib/sdk";
-import type { Product, HeroCarouselItem, FeaturedCategory } from "@headkit/sdk";
+import type {
+  Product,
+  HeroCarouselItem,
+  FeaturedCategory,
+  Post,
+} from "@headkit/sdk";
 import {
   processHomepageContent,
   getBlockQueryType,
@@ -38,7 +43,10 @@ import { BlockEditor } from "@/components/headkit-ui/block-editor";
 import { EditorialContent } from "@/components/headkit-ui/editorial-content";
 import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
 import { CategoryCarousel } from "@/components/headkit-ui/category-carousel";
+import { PostCarousel } from "@/components/headkit-ui/post/post-carousel";
 import { SectionHeader } from "@/components/headkit-ui/section-header";
+import { getPostsBasePath } from "@/lib/posts-base-path";
+import { postsIndexPath } from "@/lib/posts-path";
 
 const EMPTY_COLLECTION = {
   products: [] as Product[],
@@ -221,6 +229,11 @@ export async function HomeContent() {
     featuredProducts,
     editorBlocks,
   });
+  const latestPosts = (homepage?.latestPosts ?? []) as Post[];
+  const showLatestPosts =
+    !hasEditorSectionClass(editorBlocks, "headkit-post-carousel") &&
+    latestPosts.length > 0;
+  const postsBasePath = showLatestPosts ? await getPostsBasePath() : null;
 
   const heroLayout = theme.layout.heroLayout;
 
@@ -303,6 +316,21 @@ export async function HomeContent() {
           </div>
         </section>
       )}
+
+      {showLatestPosts && postsBasePath ? (
+        <section className="headkit-post-carousel overflow-hidden py-10">
+          <SectionHeader
+            title="Latest News"
+            description="Stories, tips, and updates from our team."
+            allButton="View All"
+            allButtonPath={postsIndexPath(postsBasePath)}
+            className="px-5 md:px-10"
+          />
+          <div className="mt-8">
+            <PostCarousel posts={latestPosts} postsBasePath={postsBasePath} />
+          </div>
+        </section>
+      ) : null}
     </>
   );
 }

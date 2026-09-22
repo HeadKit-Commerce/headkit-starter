@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import type {
   AddToCartInput,
   AddToCartMultiInput,
+  CartAttributeInput,
   CartFieldsFragment,
   UpdateCustomerInput,
   GetCartQuery,
@@ -354,6 +355,25 @@ export async function applyGiftCardAction(
     const message = sanitizeCartErrorMessage(
       err instanceof Error ? err.message : "",
       "Failed to apply gift card",
+    );
+    return { success: false, error: message };
+  }
+}
+
+export async function updateCartAttributesAction(
+  attributes: CartAttributeInput[],
+  opts?: CartMutationOptions,
+): Promise<CartActionResult> {
+  try {
+    const cart = await withCartRetry(
+      (sdk) => sdk.cart.updateAttributes(attributes),
+      opts,
+    );
+    return { success: true, cart };
+  } catch (err) {
+    const message = sanitizeCartErrorMessage(
+      err instanceof Error ? err.message : "",
+      "Failed to update cart",
     );
     return { success: false, error: message };
   }
