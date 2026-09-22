@@ -33,7 +33,10 @@ interface Props {
   setTotal: number;
   pieceCount: number;
   showTotal: boolean;
-  /** Theme `pdp.sizeGuideHref` — the one shopper Size Guide, as a modal. */
+  /**
+   * Theme `pdp.sizeGuideHref` — the one shopper Size Guide, as a modal.
+   * Only passed when placement is Complete the set (see themeSizeGuidePlacement).
+   */
   sizeGuideHref?: string;
 }
 

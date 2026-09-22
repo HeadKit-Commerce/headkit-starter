@@ -46,9 +46,10 @@ export interface CopyTheme {
 export interface PdpTheme {
   /**
    * Internal path for a Size Guide CMS page (e.g. `/size-guide`).
-   * The PDP opens that page's HTML in the size-guide modal. Direct
-   * visits to the path still render the full CMS page. Does not
-   * disable the modal when a product also has `sizeChart`.
+   * When set, every PDP shows one Size Guide control (modal). With
+   * Complete the set it sits on that heading; otherwise on the colour
+   * row, size row, or as a standalone buy-box link — including Bundles.
+   * Direct visits still render the full CMS page.
    */
   sizeGuideHref?: string;
 }

@@ -52,7 +52,7 @@
           "minLength": 1,
           "maxLength": 256,
           "pattern": "^/(?!/)[A-Za-z0-9/_-]*$",
-          "description": "Internal Size Guide CMS path. PDP Size Guide controls open this page in a modal (e.g. /size-guide). Direct visits still render the page."
+          "description": "Internal Size Guide CMS path. When set, every PDP shows one Size Guide control as a modal (Complete the set, colour row, size row, or standalone) — including Bundles. Direct visits still render the page."
         }
       }
     },

@@ -68,6 +68,7 @@ import { isBadgeTag, productBadgesFromTags } from "@/lib/product-badges";
 import { stripTitleMarkers } from "@/lib/title-emphasis";
 import { shopifyRichTextToHtml } from "@/lib/shopify-rich-text";
 import { getStoreTheme } from "@/lib/store-theme";
+import { themeSizeGuidePlacement } from "@/lib/size-guide-placement";
 import { distinctShortDescription } from "@/lib/product-excerpt";
 import { isColorAttrSlug } from "@/components/headkit-ui/collection/utils";
 import { buildEnquiryInitialValues } from "@/lib/enquiry-form-values";
@@ -886,8 +887,8 @@ export function ProductDetail({
   const sizeGuideHref = storeTheme.pdp?.sizeGuideHref;
   const sizeChartHtml = shopifyRichTextToHtml(product.sizeChart ?? "");
   // Metafield modal next to Size / standalone — only when Shopify sizeChart
-  // HTML exists AND the theme has not set a shopper Size Guide page. Velvet
-  // already has one Size Guide next to Complete the set; do not add a second.
+  // HTML exists AND the theme has not set a shopper Size Guide page. Theme
+  // Size Guide is a single control per PDP (see themeSizeGuidePlacement).
   const showSizeChartModal = Boolean(sizeChartHtml) && !sizeGuideHref;
   const customBadges = productBadgesFromTags(product.tags, badgeAllowlist, {
     hideNew: Boolean(product.isNew),
@@ -899,6 +900,13 @@ export function ProductDetail({
   const hasSizeAttribute = variationAttributes.some((attr) =>
     isSizeAttrSlug(attr.slug),
   );
+  const swatchAttribute = findSwatchAttribute(variationAttributes);
+  const sizeGuidePlacement = themeSizeGuidePlacement({
+    sizeGuideHref,
+    showMultiAdd,
+    hasSwatchAttribute: Boolean(swatchAttribute),
+    hasSizeAttribute,
+  });
   const buyBoxExcerpt = distinctShortDescription(
     product.shortDescription,
     product.description,
@@ -939,26 +947,41 @@ export function ProductDetail({
             </div>
           ) : null}
 
+          {sizeGuidePlacement === "standalone" && sizeGuideHref ? (
+            <div className="mb-5">
+              <SizeChartTrigger pageHref={sizeGuideHref} />
+            </div>
+          ) : null}
+
           {/* Variation attribute selectors */}
           {isVariable && variationAttributes.length > 0 && (
             <div className="mb-5 flex flex-col gap-4">
               {variationAttributes.map((attr) => (
                 <div key={attr.id} className="flex flex-col">
-                  <div className="mb-2 flex items-center gap-2">
-                    <p className="font-semibold text-primary">
-                      {decodeHtmlEntities(attr.name)}
-                    </p>
-                    {selectedAttributes[attr.slug] && (
-                      <span className="capitalize text-gray-700">
-                        {decodeHtmlEntities(
-                          attr.fullOptions.find(
-                            (o) => o.slug === selectedAttributes[attr.slug],
-                          )?.name ?? "",
-                        )}
-                      </span>
-                    )}
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <p className="font-semibold text-primary">
+                        {decodeHtmlEntities(attr.name)}
+                      </p>
+                      {selectedAttributes[attr.slug] && (
+                        <span className="capitalize text-gray-700">
+                          {decodeHtmlEntities(
+                            attr.fullOptions.find(
+                              (o) => o.slug === selectedAttributes[attr.slug],
+                            )?.name ?? "",
+                          )}
+                        </span>
+                      )}
+                    </div>
                     {isSizeAttrSlug(attr.slug) && showSizeChartModal ? (
                       <SizeChartTrigger html={sizeChartHtml} />
+                    ) : null}
+                    {sizeGuideHref &&
+                    ((sizeGuidePlacement === "swatch" &&
+                      attr.slug === swatchAttribute?.slug) ||
+                      (sizeGuidePlacement === "size" &&
+                        isSizeAttrSlug(attr.slug))) ? (
+                      <SizeChartTrigger pageHref={sizeGuideHref} />
                     ) : null}
                   </div>
                   <div className="flex flex-wrap gap-3">
@@ -1180,7 +1203,9 @@ export function ProductDetail({
               setTotal={setTotal}
               pieceCount={setPieceCount}
               showTotal={setPieceCount > 0}
-              {...(sizeGuideHref ? { sizeGuideHref } : {})}
+              {...(sizeGuidePlacement === "multi-add" && sizeGuideHref
+                ? { sizeGuideHref }
+                : {})}
             />
           )}
 
