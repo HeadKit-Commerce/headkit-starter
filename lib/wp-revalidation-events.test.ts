@@ -52,6 +52,14 @@ interface Payload {
   unscheduled: boolean;
   /** Harness-added: what the queue held for a withdrawn send at cancel time. */
   was_due_at?: number;
+  /** Harness-added: whether the harness ran this action's callback. */
+  delivered: boolean;
+  /**
+   * Harness-added: the unix time the callback ran. Since 0.4.66 this is the
+   * instant the repair's spacing is measured from, so it is the field the
+   * queue-drain property is asserted against — not `scheduled_at`.
+   */
+  delivered_at?: number;
 }
 
 interface HarnessConfig {
@@ -61,7 +69,12 @@ interface HarnessConfig {
   ceiling: number;
   /** `HK_REVALIDATE_DELAY_MARGIN`. */
   margin: number;
-  /** `headkit_revalidation_repair_delay()` with no filter applied. */
+  /**
+   * `headkit_revalidation_repair_delay()` with no filter applied.
+   *
+   * Since 0.4.66 this is an offset from the first send's COMPLETION, not from
+   * the save, and its default is `HK_REVALIDATE_RENDER_CEILING` alone.
+   */
   repair_delay: number;
   /** `HK_REVALIDATE_RENDER_CEILING`. */
   render_ceiling: number;
@@ -144,12 +157,17 @@ let config: HarnessConfig;
 /**
  * Every send a scenario produced, first sends and repair sends alike.
  *
- * Since 2026-09-22 an event schedules TWO sends: the first carries the whole
+ * Since 2026-09-22 an event produces TWO sends: the first carries the whole
  * payload, and the stale-set repair carries its entity tags one render ceiling
- * later. The two are told apart by the action label, which is the real
- * mechanism — it is what keeps Action Scheduler's (hook, args, group) dedupe
- * from collapsing the repair into the send it follows — so the tests below
- * assert on the same field the theme relies on.
+ * later. Since 0.4.66 the repair is enqueued by the FIRST SEND'S COMPLETION
+ * rather than at save time, so the harness runs the queue after each scenario
+ * and a repair only appears here because a first send really executed.
+ *
+ * The two are told apart by the action label, which is the real mechanism — it
+ * keeps Action Scheduler's (hook, args, group) dedupe from collapsing the repair
+ * into the send it follows, and it is what stops a repair from enqueueing
+ * another repair — so the tests below assert on the same field the theme relies
+ * on.
  */
 function sendsOf(name: string): Payload[] {
   const sends = result[name];
@@ -542,8 +560,12 @@ describe.skipIf(SKIPPING)(SUITE_TITLE, () => {
    *      nothing logged. The label suffix is what prevents it.
    *   2. Re-sending the WIDE tags would multiply every save by the size of the
    *      catalogue against a 1.8 req/s origin bucket. Entity tags only.
-   *   3. Re-deriving the delay instead of inheriting it would strand the repair
-   *      in front of the purge it repairs on any store that tunes the first.
+   *   3. A spacing computed at save time is lost to any queue backlog: both
+   *      actions become due before the runner's pass starts and it drains them
+   *      together. Since 0.4.66 the repair is enqueued from the first send's own
+   *      completion, so the spacing is relative to an event that has already
+   *      happened. Measured on the rehearsal clone 2026-09-23: scheduled +20s /
+   *      +140s, delivered 6s apart.
    */
   describe("a second, delayed purge repairs the stale set", () => {
     it("a product save schedules two sends, not one", () => {
@@ -624,11 +646,133 @@ describe.skipIf(SKIPPING)(SUITE_TITLE, () => {
       expect(onlyRepair("stock_change").paths).toEqual([]);
     });
 
-    it("the repair is scheduled at first delay + the render ceiling", () => {
-      expect(config.repair_delay).toBe(config.delay + config.render_ceiling);
+    it("the repair is scheduled one render ceiling after the first send COMPLETED", () => {
+      // 0.4.66. The offset used to be `first delay + render ceiling` from the
+      // SAVE. It is now the render ceiling from the moment the first send's POST
+      // returned, which is the only formulation a queue backlog cannot collapse.
+      expect(config.repair_delay).toBe(config.render_ceiling);
+
+      const first = only("stock_change");
       const repair = onlyRepair("stock_change");
-      expect(repair.scheduled_in).toBeGreaterThanOrEqual(config.repair_delay);
-      expect(repair.scheduled_in).toBeLessThanOrEqual(config.repair_delay + 2);
+      expect(first.delivered, "the first send must have run").toBe(true);
+      expect(repair.scheduled_at - first.delivered_at!).toBe(
+        config.repair_delay,
+      );
+    });
+
+    /**
+     * THE PROPERTY THE 0.4.66 CHANGE EXISTS FOR (measured 2026-09-23,
+     * `data/260923-verify-delay-20-live/report.md` §6).
+     *
+     * On the Bike Society rehearsal clone the theme scheduled both sends exactly
+     * right — save+20s and save+140s, verified two ways against
+     * `post_modified_gmt` — and Action Scheduler's runner idled for ~2 minutes
+     * and then drained both due actions in one pass. They were DELIVERED 6s
+     * apart instead of 120s apart, and the repair re-purged a tag nothing had
+     * re-rendered yet: one outbound request against a 1.8 req/s origin, buying
+     * nothing. (The proof it was the runner: an unrelated WooCommerce action
+     * scheduled by the same save was late to the same instant.)
+     *
+     * Two absolute timestamps cannot survive that, because a backlog makes both
+     * due before the pass starts. A spacing measured from an event that has
+     * ALREADY HAPPENED can. So the invariant is not "the repair is 140s after
+     * the save" — it is this, and it must hold for every send in the file.
+     */
+    it("every repair is exactly the ceiling behind the send that enqueued it", () => {
+      let checked = 0;
+      for (const name of Object.keys(result)) {
+        // The two scenarios that filter the delay are asserted on their own
+        // terms below; every other repair must sit at the stock offset.
+        if (name === "repair_filtered_custom") continue;
+        const repairs = repairSends(name);
+        if (repairs.length === 0) continue;
+        const delivered = firstSends(name).filter((s) => s.delivered);
+        expect(
+          delivered.length,
+          `${name}: expected a delivered first send`,
+        ).toBeGreaterThan(0);
+        // The repair follows the LATEST completion — that is the reschedule.
+        const latest = Math.max(...delivered.map((s) => s.delivered_at!));
+        for (const repair of repairs) {
+          expect(
+            repair.scheduled_at - latest,
+            `${name}: the repair must be one render ceiling behind the completion`,
+          ).toBe(config.repair_delay);
+        }
+        checked++;
+      }
+      expect(checked, "no scenario exercised the invariant").toBeGreaterThan(
+        10,
+      );
+    });
+
+    /**
+     * A REPAIR MUST NEVER BEGET A REPAIR.
+     *
+     * The repair re-enters the same `headkit_revalidate_send` hook and the same
+     * callback as the send it follows. An unguarded completion path would
+     * therefore schedule a repair for the repair, and one for that, without
+     * bound — every one of them a no-op purge against a 1.8 req/s origin. The
+     * label suffix is what the theme reads to stop it
+     * (`headkit_revalidate_action_is_repair()`).
+     *
+     * The harness runs the repair for real here, so the assertion is about a
+     * repair that DEMONSTRABLY EXECUTED rather than one that sat in a queue.
+     * `harness_run()` also delivers a second pass on every other scenario in the
+     * file, so a regression would fail dozens of counts at once.
+     */
+    it("a repair send enqueues nothing", () => {
+      const name = "repair_send_begets_no_repair";
+      expect(sendsOf(name)).toHaveLength(2);
+      const repair = onlyRepair(name);
+      expect(repair.delivered, "the repair must have actually run").toBe(true);
+      expect(
+        sendsOf(name).filter((s) =>
+          s.action.endsWith(`${config.repair_suffix}${config.repair_suffix}`),
+        ),
+        "a repair of a repair was scheduled",
+      ).toHaveLength(0);
+    });
+
+    /**
+     * WHAT "COMPLETION" WAS DEFINED AS: the POST was dispatched and the HTTP
+     * layer returned — success or failure alike.
+     *
+     * The alternative (2xx only) is superficially tidier: nothing refilled, so
+     * there is nothing to repair. It is wrong here for two reasons the theme's
+     * own shape supplies.
+     *
+     *   1. There is no retry to hand the failure to. `headkit_revalidate_post()`
+     *      logs a non-2xx and returns; Action Scheduler re-runs a callback that
+     *      THROWS, not one that returns after a 500. Gating on 2xx would delete
+     *      the only second attempt the entity tags ever get, so a transient 500
+     *      or a 15s timeout would silently lose the repair — a regression
+     *      against 0.4.65, where the repair was queued at save time and fired
+     *      regardless.
+     *   2. A `WP_Error` timeout is not evidence that nothing happened. The route
+     *      may have purged and merely answered slowly, in which case the stale
+     *      set exists and the repair is precisely what is needed.
+     *
+     * The one thing that does suppress it is a send that was never DISPATCHED.
+     */
+    it("a non-2xx first send still gets its repair", () => {
+      expect(repairSends("repair_after_failed_send")).toHaveLength(1);
+      expect(firstSends("repair_after_failed_send")).toHaveLength(1);
+    });
+
+    it("a transport-error first send still gets its repair", () => {
+      expect(repairSends("repair_after_transport_error_send")).toHaveLength(1);
+      expect(firstSends("repair_after_transport_error_send")).toHaveLength(1);
+    });
+
+    it("a send that was never dispatched gets no repair", () => {
+      // Revalidation unconfigured (no secret): `headkit_revalidate_post()`
+      // returns without sending, and a repair could only reach the same early
+      // return — so it would be pure cost against the origin.
+      const name = "repair_skipped_when_unconfigured";
+      expect(firstSends(name)).toHaveLength(1);
+      expect(firstSends(name)[0]!.delivered).toBe(true);
+      expect(repairSends(name)).toHaveLength(0);
     });
 
     it("the repair always lands AFTER the send it repairs", () => {
@@ -649,21 +793,24 @@ describe.skipIf(SKIPPING)(SUITE_TITLE, () => {
      * The repair's dedupe collapse (2026-09-23,
      * `data/260923-cache-delay-and-step4/report.md` §2.4a / §7C).
      *
-     * Action Scheduler dedupes on (hook, args, group) and the repair's payload
-     * is byte-identical across repeated saves of one product with one event
-     * kind. So a second save landing while the first save's repair was still
-     * pending used to be FOLDED INTO it and got no repair of its own: measured
-     * in production the day 0.4.64 shipped, a save covered for ~37 s instead of
-     * 120 s. The workload that produces it is an editor saving, refreshing, not
-     * seeing the change, and saving again.
+     * The repair's payload is byte-identical across repeated saves of one
+     * product with one event kind, and `as_schedule_single_action()` does not
+     * dedupe — the collapse comes from the theme's own
+     * `as_next_scheduled_action()` check. Until 0.4.65 that check made the
+     * scheduler BAIL, so a later send inherited a repair already most of the way
+     * through its window: measured in production the day 0.4.64 shipped, ~37 s
+     * of cover instead of 120 s.
      *
-     * The fix keeps exactly one pending repair and moves it onto the newest
-     * save. Both halves are asserted, because either alone is a different bug:
-     * without the move the repair is stale, and without the collapse a bulk
-     * edit queues one repair per save against a 1.8 req/s origin. The collapse
-     * half is asserted on `rapid_identical_saves` below.
+     * Since 0.4.66 the trigger is a send COMPLETION rather than a save, which
+     * changes where each half of the property is enforced. A burst of identical
+     * saves now collapses upstream — one first send, one completion, one repair
+     * (`rapid_identical_saves` below) — and this check handles what a burst
+     * cannot reach: two DISTINCT sends completing while an earlier repair is
+     * still pending, which is the editor who saves, waits past the first send,
+     * does not see the change, and saves again. Both halves are still asserted,
+     * because either alone is a different bug.
      */
-    it("a second save MOVES the pending repair instead of inheriting it", () => {
+    it("a second COMPLETION moves the pending repair instead of leaving it", () => {
       const name = "repair_reschedules_onto_latest_save";
       const withdrawn = withdrawnRepairs(name);
       expect(
@@ -689,34 +836,49 @@ describe.skipIf(SKIPPING)(SUITE_TITLE, () => {
       expect(config.render_ceiling).toBe(120);
     });
 
-    it("the repair inherits a filtered first delay rather than re-deriving", () => {
-      // A store that tunes `headkit_revalidation_delay` must move both sends.
-      const first = only("repair_follows_filtered_first_delay");
-      const repair = onlyRepair("repair_follows_filtered_first_delay");
+    it("a filtered FIRST delay no longer moves the repair a second time", () => {
+      // THE 0.4.66 INVERSION. While both sends were absolute timestamps, the
+      // repair had to be derived as `first + ceiling` or a store tuning the
+      // first delay would strand it in front of the purge it repairs. Now it is
+      // scheduled from that purge's own completion, so inheriting the first
+      // delay again would push it to 45 + 120 behind a send that already moved.
+      const name = "repair_independent_of_first_delay";
+      const first = only(name);
+      const repair = onlyRepair(name);
       expect(first.scheduled_in).toBeGreaterThanOrEqual(45);
-      expect(repair.scheduled_in).toBeGreaterThanOrEqual(
-        45 + config.render_ceiling,
-      );
-      expect(repair.scheduled_in).toBeLessThanOrEqual(
-        45 + config.render_ceiling + 2,
+      expect(first.scheduled_in).toBeLessThanOrEqual(47);
+      // Still one render ceiling behind the completion, wherever that landed.
+      expect(repair.scheduled_at - first.delivered_at!).toBe(
+        config.render_ceiling,
       );
     });
 
-    it("the headkit_revalidation_repair_delay filter moves the repair alone", () => {
-      const repair = onlyRepair("repair_filtered_custom");
-      expect(repair.scheduled_in).toBeGreaterThanOrEqual(90);
-      expect(repair.scheduled_in).toBeLessThanOrEqual(92);
-      // ...and the first send is untouched by it.
+    it("the headkit_revalidation_repair_delay filter still tunes the repair alone", () => {
+      // A store keeps its lever. What changed is the unit: the filtered value is
+      // now seconds after the first send completed, not seconds after the save.
       const first = only("repair_filtered_custom");
+      const repair = onlyRepair("repair_filtered_custom");
+      expect(repair.scheduled_at - first.delivered_at!).toBe(90);
+      // ...and the first send is untouched by it.
       expect(first.scheduled_in).toBeGreaterThanOrEqual(config.delay);
       expect(first.scheduled_in).toBeLessThanOrEqual(config.delay + 2);
     });
 
-    it("a repair filtered to the first delay is not scheduled at all", () => {
-      // A second purge at or before the one it repairs cannot observe the fill
-      // that one triggers: it costs origin reads and buys nothing.
-      expect(repairSends("repair_disabled_by_filter")).toHaveLength(0);
-      expect(firstSends("repair_disabled_by_filter")).toHaveLength(1);
+    it("a repair filtered to zero or below is not scheduled at all", () => {
+      // The equivalent of the pre-0.4.66 "at or below the first delay disables
+      // it" rule: offset zero is now where the send being repaired sits, so a
+      // purge at or before it cannot observe the fill that send triggers and
+      // costs origin reads for nothing.
+      for (const name of [
+        "repair_disabled_by_filter",
+        "repair_disabled_by_negative_filter",
+      ]) {
+        expect(
+          repairSends(name),
+          `${name}: repair must be disabled`,
+        ).toHaveLength(0);
+        expect(firstSends(name)).toHaveLength(1);
+      }
     });
 
     it("an event with no entity tags schedules no repair", () => {
@@ -783,7 +945,8 @@ describe.skipIf(SKIPPING)(SUITE_TITLE, () => {
       // The repair INHERITS the first send's coalescing rather than defeating
       // it: three identical saves are one send and one repair, not three of
       // each. This is what keeps a bulk edit or an importer run inside the
-      // origin's 1.8 req/s budget.
+      // origin's 1.8 req/s budget. Since 0.4.66 it is also structural rather
+      // than incidental — one first send can only complete once.
       expect(repairSends("rapid_identical_saves")).toHaveLength(1);
       expect(sendsOf("rapid_identical_saves")).toHaveLength(2);
       // Saves inside one second are a no-op, not a withdraw-and-requeue cycle:
