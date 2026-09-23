@@ -68,4 +68,39 @@ describe("cart drawer pin", () => {
     expect(html).toContain("Write a note to include with the order");
     expect(html).toContain("With love");
   });
+
+  it("clips packaging thumbnails with the branding corner radius", () => {
+    const packaging = cart.packaging;
+    const first = packaging?.options[0];
+    const second = packaging?.options[1];
+    if (!packaging || !first || !second) {
+      throw new Error("packaging fixture missing");
+    }
+    const html = renderToStaticMarkup(
+      <CartDrawerExtras
+        cart={{
+          ...cart,
+          packaging: {
+            ...packaging,
+            options: [{ ...first, image: "/packaging/signature.jpg" }, second],
+          },
+        }}
+        selectedPackagingId="signature-box"
+        onPackagingChange={() => undefined}
+        giftOpen={false}
+        onGiftOpenChange={() => undefined}
+        giftText=""
+        onGiftTextChange={() => undefined}
+      />,
+    );
+    expect(html).toContain(
+      'class="aspect-[4/3] w-full rounded-brand object-cover"',
+    );
+    expect(html).toContain(
+      'class="aspect-[4/3] w-full rounded-brand bg-neutral-200"',
+    );
+    expect(html).toContain('src="/packaging/signature.jpg"');
+    expect(html).not.toContain("w-full rounded ");
+    expect(html).not.toContain('w-full rounded"');
+  });
 });
