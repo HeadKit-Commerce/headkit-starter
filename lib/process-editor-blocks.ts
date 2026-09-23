@@ -73,6 +73,7 @@ export type HydratedPost = {
     height?: number | null;
   } | null;
   categories?: Array<{ id?: string; name?: string; slug?: string }>;
+  videoUrl?: string | null;
 };
 
 /** Project shape hydrated into attrs.projects (Project summary-like). */
@@ -329,6 +330,10 @@ function hydratePosts(raw: unknown): HydratedPost[] {
           ...(typeof c["slug"] === "string" ? { slug: c["slug"] } : {}),
         }));
       }
+
+      if (typeof item["videoUrl"] === "string")
+        post.videoUrl = item["videoUrl"];
+      else if (item["videoUrl"] === null) post.videoUrl = null;
 
       return post;
     })

@@ -13,6 +13,7 @@ export const EMPTY_CART: CartFieldsFragment = {
   needsPayment: false,
   needsShipping: false,
   paymentMethods: [],
+  attributes: [],
   currency: { __typename: "Currency", code: "USD", symbol: "$", minorUnit: 2 },
   items: [],
   coupons: [],

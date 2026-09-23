@@ -42,6 +42,36 @@ export interface CopyTheme {
   collectionCardLink?: string;
 }
 
+/** One packaging choice written to the order as the Packaging attribute. */
+export interface CartPackagingOption {
+  id: string;
+  title: string;
+  description: string;
+  /** http(s) URL or root-relative path. Omit for a plain swatch. */
+  image?: string;
+}
+
+/** Cart-drawer packaging selector. First option is the default. */
+export interface CartPackagingTheme {
+  title: string;
+  options: CartPackagingOption[];
+}
+
+/** Optional complimentary gift-message field in the cart drawer. */
+export interface CartGiftMessageTheme {
+  label: string;
+}
+
+/**
+ * Hosted-checkout cart extras. Starter omits this. A store opts in by
+ * setting packaging and/or giftMessage; both are stored as cart attributes
+ * so they appear on the provider order.
+ */
+export interface CartTheme {
+  packaging?: CartPackagingTheme;
+  giftMessage?: CartGiftMessageTheme;
+}
+
 /** Optional PDP chrome owned by the customer theme. */
 export interface PdpTheme {
   /**
@@ -68,6 +98,7 @@ export interface StoreTheme {
   catalog?: CatalogTheme;
   pdp?: PdpTheme;
   copy?: CopyTheme;
+  cart?: CartTheme;
   figma?: {
     fileKey: string;
     referenceFrames: Record<string, string>;
@@ -121,12 +152,46 @@ const copySchema = z.object({
   collectionCardLink: z.string().min(1).max(80).optional(),
 });
 
+const cartImageSchema = z
+  .string()
+  .max(2048)
+  .refine(
+    (value) =>
+      value.length === 0 ||
+      value.startsWith("/") ||
+      value.startsWith("https://") ||
+      value.startsWith("http://"),
+    "image must be an http(s) URL or a root-relative path",
+  );
+
+const cartPackagingOptionSchema = z.object({
+  id: collectionSlugSchema,
+  title: z.string().min(1).max(120),
+  description: z.string().min(1).max(500),
+  image: cartImageSchema.optional(),
+});
+
+const cartSchema = z.object({
+  packaging: z
+    .object({
+      title: z.string().min(1).max(80),
+      options: z.array(cartPackagingOptionSchema).min(1).max(6),
+    })
+    .optional(),
+  giftMessage: z
+    .object({
+      label: z.string().min(1).max(160),
+    })
+    .optional(),
+});
+
 const themeSchema = z.object({
   version: z.number().int().min(1),
   layout: layoutSchema,
   catalog: catalogSchema.optional(),
   pdp: pdpSchema.optional(),
   copy: copySchema.optional(),
+  cart: cartSchema.optional(),
   figma: z
     .object({
       fileKey: z.string(),
@@ -207,7 +272,44 @@ function normalizeTheme(data: z.infer<typeof themeSchema>): StoreTheme {
   if (data.figma !== undefined) {
     theme.figma = data.figma;
   }
+  if (data.cart !== undefined) {
+    theme.cart = pickCart(data.cart);
+  }
   return theme;
+}
+
+function pickCart(cart: z.infer<typeof cartSchema>): CartTheme {
+  const picked: CartTheme = {};
+  if (cart.packaging !== undefined) {
+    picked.packaging = {
+      title: cart.packaging.title,
+      options: cart.packaging.options.map((option) => {
+        const next: CartPackagingOption = {
+          id: option.id,
+          title: option.title,
+          description: option.description,
+        };
+        if (option.image) {
+          next.image = option.image;
+        }
+        return next;
+      }),
+    };
+  }
+  if (cart.giftMessage !== undefined) {
+    picked.giftMessage = { label: cart.giftMessage.label };
+  }
+  return picked;
+}
+
+/**
+ * Validate an arbitrary theme document. Invalid input falls back to starter
+ * defaults. Tests use this so a cart config can be checked without rewriting
+ * overrides/theme.json.
+ */
+export function parseStoreTheme(raw: unknown): StoreTheme {
+  const parsed = themeSchema.safeParse(raw);
+  return parsed.success ? normalizeTheme(parsed.data) : STARTER_DEFAULTS;
 }
 
 /**
@@ -218,8 +320,7 @@ export function getStoreTheme(): StoreTheme {
   if (cachedTheme) {
     return cachedTheme;
   }
-  const parsed = themeSchema.safeParse(themeJson);
-  cachedTheme = parsed.success ? normalizeTheme(parsed.data) : STARTER_DEFAULTS;
+  cachedTheme = parseStoreTheme(themeJson);
   return cachedTheme;
 }
 

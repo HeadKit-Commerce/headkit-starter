@@ -105,6 +105,12 @@ vi.mock("@/components/headkit-ui/category-carousel", () => ({
 vi.mock("@/components/headkit-ui/section-header", () => ({
   SectionHeader: (): null => null,
 }));
+vi.mock("@/components/headkit-ui/post/post-carousel", () => ({
+  PostCarousel: (): null => null,
+}));
+vi.mock("@/lib/posts-base-path", () => ({
+  getPostsBasePath: (): Promise<string> => Promise.resolve("news"),
+}));
 vi.mock("@/components/ui/skeleton", () => ({ Skeleton: (): null => null }));
 
 import { getHomepageData, HomeContent } from "./page";

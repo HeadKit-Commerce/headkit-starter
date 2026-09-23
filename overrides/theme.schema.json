@@ -113,6 +113,62 @@
         }
       }
     },
+    "cart": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional hosted-checkout cart drawer extras. Starter omits this. Packaging and gift message are written as cart attributes and show on the Shopify order as Additional details. Velvet example: {\"packaging\":{\"title\":\"Packaging choice\",\"options\":[{\"id\":\"signature-box\",\"title\":\"The Signature Box\",\"description\":\"The textured Velvet box, with the signature and the icon cut through the lid, in a colour matched to your towel.\",\"image\":\"\"},{\"id\":\"sustainable-box\",\"title\":\"The Sustainable Box\",\"description\":\"Your order arrives in a recyclable kraft case, lighter to ship and made to be reused.\",\"image\":\"\"}]},\"giftMessage\":{\"label\":\"Include a complimentary gift message?\"}}",
+      "properties": {
+        "packaging": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+            "options": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "title", "description"],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "pattern": "^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "description": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "image": {
+                    "type": "string",
+                    "maxLength": 2048,
+                    "description": "http(s) URL or root-relative path. Empty omits the thumbnail."
+                  }
+                }
+              }
+            }
+          },
+          "required": ["title", "options"]
+        },
+        "giftMessage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["label"],
+          "properties": {
+            "label": { "type": "string", "minLength": 1, "maxLength": 160 }
+          }
+        }
+      }
+    },
     "figma": {
       "type": "object",
       "additionalProperties": false,
