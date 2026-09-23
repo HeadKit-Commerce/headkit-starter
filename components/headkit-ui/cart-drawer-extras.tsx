@@ -57,16 +57,18 @@ export function CartDrawerExtras({
               >
                 {option.image ? (
                   // Arbitrary merchant URLs are not in next/image remotePatterns.
+                  // rounded-brand tracks branding --radius (square is 0). Bare
+                  // `rounded` bakes Tailwind's 0.25rem and ignores cornerStyle.
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={option.image}
                     alt=""
-                    className="aspect-[4/3] w-full rounded object-cover"
+                    className="aspect-[4/3] w-full rounded-brand object-cover"
                   />
                 ) : (
                   <span
                     aria-hidden
-                    className="aspect-[4/3] w-full rounded bg-neutral-200"
+                    className="aspect-[4/3] w-full rounded-brand bg-neutral-200"
                   />
                 )}
                 <span className="flex items-start gap-2">
