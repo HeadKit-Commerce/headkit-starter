@@ -108,6 +108,17 @@ export interface StoreSettings {
   domain: string | null;
   /** Dashboard checkout experience: custom | quote (GraphQL may send CUSTOM/QUOTE). */
   checkoutType: string | null;
+  /**
+   * The store's cookie-consent gate (Google Consent Mode v2 default + banner).
+   *
+   * ABSENT MEANS OFF, structurally and not just by a default value: it is read
+   * through its own isolated query, so a dashboard-api revision that has never
+   * heard of the field answers nothing and this stays false. Every store that
+   * exists today has no value for it, and turning a consent banner on in front
+   * of a merchant's customers is a visible product change to someone else's
+   * store — so absent must mean "behave exactly as before".
+   */
+  cookieConsentEnabled: boolean;
 }
 
 export interface SeoSettings {
@@ -149,6 +160,15 @@ export const DEFAULT_HIDE_EMPTY_COLLECTIONS = true;
 export const DEFAULT_COLLECTION_SORT = "CREATED_AT";
 /** Multi-add companions on PDP — off until merchant enables. */
 export const DEFAULT_MULTI_ADD_ENABLED = false;
+/**
+ * Cookie-consent gate — off until the merchant enables it.
+ *
+ * This one is not merely a sensible default, it is the whole compatibility
+ * story: every existing store has no value for the field, and if absent meant
+ * on, the next deploy would put a consent banner in front of every merchant's
+ * customers without anyone asking them.
+ */
+export const DEFAULT_COOKIE_CONSENT_ENABLED = false;
 
 const KNOWN_COLLECTION_SORTS = new Set([
   "FEATURED",
@@ -207,6 +227,7 @@ const DEFAULT_BUNDLE: BrandingBundle = {
     gtmId: null,
     domain: null,
     checkoutType: null,
+    cookieConsentEnabled: DEFAULT_COOKIE_CONSENT_ENABLED,
   },
   seoSettings: {
     title: null,
@@ -519,6 +540,23 @@ const PRODUCT_FEATURES_QUERY = /* GraphQL */ `
 `;
 
 /**
+ * Isolated cookie-consent read.
+ *
+ * Isolated for the usual reason — an unknown field must not discard branding
+ * from the main query — and for one more that matters here: it makes
+ * "dashboard-api does not know this field" and "the merchant has not turned it
+ * on" reach the storefront as the SAME answer, false. There is no path by
+ * which a store that has never set the field gets a consent banner.
+ */
+const COOKIE_CONSENT_QUERY = /* GraphQL */ `
+  query StorefrontCookieConsent {
+    storeSettings {
+      cookieConsentEnabled
+    }
+  }
+`;
+
+/**
  * Isolated gallery-layout read so unknown-field failures on older
  * dashboard-api do not discard branding via the main queries, and so a
  * fallback to EXTENDED / COMPAT still overlays the merchant's choice.
@@ -665,6 +703,9 @@ function coerce(data: NonNullable<BrandingResponse["data"]>): BrandingBundle {
       gtmId: s.gtmId ?? null,
       domain: s.domain ?? null,
       checkoutType: s.checkoutType ?? null,
+      // Never read from the main query — see COOKIE_CONSENT_QUERY. `=== true`
+      // rather than `!== false` so any absent / unknown value means OFF.
+      cookieConsentEnabled: s.cookieConsentEnabled === true,
     },
     seoSettings: {
       title: seo.title ?? null,
@@ -753,13 +794,19 @@ export async function getBranding(): Promise<BrandingBundle> {
   if (!endpoint || !token) return DEFAULT_BUNDLE;
 
   try {
-    const [bundle, checkoutType, productFeatures, pdpGalleryLayout] =
-      await Promise.all([
-        fetchBrandingBundle(endpoint, token),
-        fetchCheckoutType(endpoint, token),
-        fetchProductFeatures(endpoint, token),
-        fetchPdpGalleryLayout(endpoint, token),
-      ]);
+    const [
+      bundle,
+      checkoutType,
+      productFeatures,
+      pdpGalleryLayout,
+      cookieConsentEnabled,
+    ] = await Promise.all([
+      fetchBrandingBundle(endpoint, token),
+      fetchCheckoutType(endpoint, token),
+      fetchProductFeatures(endpoint, token),
+      fetchPdpGalleryLayout(endpoint, token),
+      fetchCookieConsent(endpoint, token),
+    ]);
 
     if (!bundle) return DEFAULT_BUNDLE;
 
@@ -770,18 +817,13 @@ export async function getBranding(): Promise<BrandingBundle> {
       pdpGalleryLayout: pdpGalleryLayout ?? bundle.branding.pdpGalleryLayout,
     };
 
-    if (checkoutType === null) {
-      return { ...bundle, branding };
-    }
-
-    return {
-      ...bundle,
-      branding,
-      storeSettings: {
-        ...bundle.storeSettings,
-        checkoutType,
-      },
+    const storeSettings = {
+      ...bundle.storeSettings,
+      ...(checkoutType === null ? {} : { checkoutType }),
+      cookieConsentEnabled,
     };
+
+    return { ...bundle, branding, storeSettings };
   } catch {
     // Unreachable / timeout / parse error — degrade silently.
     return DEFAULT_BUNDLE;
@@ -884,6 +926,40 @@ async function fetchProductFeatures(
     };
   } catch {
     return null;
+  }
+}
+
+/**
+ * The store's cookie-consent gate.
+ *
+ * Returns a BOOLEAN, not `boolean | null`, and every failure path returns
+ * false: a missing field, a non-200, a parse error, an unreachable
+ * dashboard-api. There is deliberately no "unknown" to propagate, because the
+ * only safe reading of "we could not find out" is "leave the storefront as it
+ * is". Contrast the neighbours above, which return null so a compat fallback
+ * can still overlay a merchant's choice — here a wrong guess would change what
+ * a merchant's customers see.
+ */
+async function fetchCookieConsent(
+  endpoint: string,
+  token: string,
+): Promise<boolean> {
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: brandingRequestHeaders(token),
+      body: JSON.stringify({ query: COOKIE_CONSENT_QUERY }),
+    });
+    if (!res.ok) return DEFAULT_COOKIE_CONSENT_ENABLED;
+
+    const json = (await res.json()) as {
+      data?: {
+        storeSettings?: { cookieConsentEnabled?: boolean | null } | null;
+      } | null;
+    };
+    return json.data?.storeSettings?.cookieConsentEnabled === true;
+  } catch {
+    return DEFAULT_COOKIE_CONSENT_ENABLED;
   }
 }
 

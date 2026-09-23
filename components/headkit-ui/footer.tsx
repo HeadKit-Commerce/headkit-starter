@@ -16,6 +16,7 @@ import {
 } from "@/components/icon";
 import { FooterSubscribe } from "@/components/headkit-ui/footer-subscribe";
 import { InstantLink } from "@/components/headkit-ui/instant-link";
+import { CONSENT_REOPEN_HREF } from "@/lib/consent";
 import { cn, decodeHtmlEntities } from "@/lib/utils";
 
 /**
@@ -128,6 +129,15 @@ interface FooterProps {
   showSubscribe?: boolean;
   /** When true, hide the payment method icon row (e.g. HeadKit Quote mode). */
   hidePaymentIcons?: boolean;
+  /**
+   * When true, render the cookie gate's re-open link in the bottom bar.
+   *
+   * Driven by `storeSettings.cookieConsentEnabled` from the root layout, and
+   * default FALSE so a store without the gate gains no link. The link is not
+   * decoration: `ConsentBanner` claims every `a[href="#cookie-settings"]` in
+   * the document, so this is how a visitor who declined changes their mind.
+   */
+  showCookiePreferences?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -244,6 +254,7 @@ export function Footer({
   paymentMethods = DEFAULT_PAYMENT_METHODS,
   showSubscribe = false,
   hidePaymentIcons = false,
+  showCookiePreferences = false,
 }: FooterProps) {
   const visiblePaymentMethods = hidePaymentIcons ? [] : paymentMethods;
   const footerMenus = menus
@@ -373,9 +384,30 @@ export function Footer({
             <div className="mb-2 mr-4">
               © 2026 {decodeHtmlEntities(policyMenu?.name || siteName || "")}
             </div>
-            {policyMenu && (
+            {/*
+              The policy links, and after them the cookie gate's re-open
+              control. ONE container, because this row is the only thing
+              separating them: the bottom bar's columns carry no gap, so a
+              second sibling <div> renders "Privacy PolicyCookie preferences"
+              with no space between.
+
+              The control is a plain anchor, so the footer stays free of client
+              code: `ConsentBanner` claims every `a[href="#cookie-settings"]`
+              in the document through one delegated listener, which also lets a
+              merchant add the same href as a WordPress menu item with no
+              deploy. It renders whether or not the store has a policy menu —
+              but only when the store's gate is on, since with the gate off
+              there is no banner for it to re-open.
+
+              PLACEMENT IS THE STORE-LOCAL PART. The store this was ported from
+              puts it here because that is where its bottom bar is; a store
+              with a different footer should move it, and a store that would
+              rather have it in a WordPress menu can point a menu item at the
+              same href and drop this.
+            */}
+            {(policyMenu || showCookiePreferences) && (
               <div className="mb-2 flex flex-wrap items-center gap-[6px]">
-                {policyMenu.items?.map((item) => (
+                {policyMenu?.items?.map((item) => (
                   <InstantLink
                     key={item.id}
                     href={item.uri}
@@ -386,6 +418,14 @@ export function Footer({
                     {decodeHtmlEntities(item.label)}
                   </InstantLink>
                 ))}
+                {showCookiePreferences && (
+                  <a
+                    href={CONSENT_REOPEN_HREF}
+                    className="underline hover:text-primary"
+                  >
+                    Cookie preferences
+                  </a>
+                )}
               </div>
             )}
           </div>

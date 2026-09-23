@@ -30,6 +30,7 @@ import { CatalogDisplayProvider } from "@/components/headkit-ui/catalog-display-
 import { resolveBrandFonts } from "@/lib/brand-fonts";
 import { resolveOnPrimaryTextColor } from "@/lib/contrast";
 import { BrandingIconsProvider } from "@/components/branding/branding-icons-provider";
+import { ConsentBanner } from "@/components/headkit-ui/consent-banner";
 import { DeferredThirdPartyScripts } from "@/components/headkit-ui/deferred-third-party-scripts";
 import { getEmailMarketingStatus } from "@/lib/email-marketing";
 import { Toaster } from "@/components/ui/toaster";
@@ -133,6 +134,15 @@ export default async function RootLayout({
   // so a PDP, collection, news, projects or CMS page cannot name a second host.
   const siteUrl = resolveSiteUrl(storeSettings.domain, SITE_URL);
   const gtmId = storeSettings.gtmId ?? ENV_GTM_ID;
+  // The store's cookie-consent gate. ONE value drives all three halves — the
+  // consent default pushed by the tag loader, the banner, and the footer's
+  // re-open link — so "off" cannot degrade into "banner gone, default stuck at
+  // denied", which would stop Google tags firing with nothing able to grant.
+  // Absent on every store that exists today, and absent means off; see
+  // `lib/branding.ts`. There is deliberately NO env fallback beside it the way
+  // `ENV_GTM_ID` is one: an env var would be per-DEPLOY, and this must be
+  // per-STORE and flippable from the dashboard without a rebuild.
+  const cookieConsentEnabled = storeSettings.cookieConsentEnabled;
   const checkoutMode = normalizeCheckoutMode(storeSettings.checkoutType);
   const emailProvider = emailMarketing.provider.toLowerCase();
   const klaviyoPublicKey =
@@ -240,7 +250,16 @@ export default async function RootLayout({
           gtmId={gtmId}
           klaviyoPublicKey={klaviyoPublicKey}
           hubspotPortalId={hubspotPortalId}
+          consentEnabled={cookieConsentEnabled}
         />
+
+        {/* The cookie gate's banner. A SIBLING of {children}, never a wrapper,
+            and it adds no <Suspense> and makes no request-time read — the rule
+            the long comment below states for redirects applies to this too, and
+            a consent banner is exactly the feature that invites a server-side
+            cookies() read. It renders nothing until after hydration, and
+            nothing at all unless the merchant turned the gate on. */}
+        {cookieConsentEnabled ? <ConsentBanner /> : null}
 
         <WebsiteJsonLD
           siteName={siteName}
@@ -291,6 +310,11 @@ export default async function RootLayout({
                     iconUrl={branding.iconUrl}
                     showSubscribe={showFooterSubscribe}
                     hidePaymentIcons={checkoutMode === "quote"}
+                    // The footer's "Cookie preferences" link is part of the
+                    // gate, not decoration: it is the only way a visitor who
+                    // declined can change their mind. It renders only when the
+                    // gate is on, so a link that opens nothing is impossible.
+                    showCookiePreferences={cookieConsentEnabled}
                     // NO `socialLinks` here. This is a TEMPLATE file, shipped
                     // to every store, so a literal here publishes HeadKit's own
                     // Instagram/Discord/GitHub/LinkedIn/YouTube in the merchant's

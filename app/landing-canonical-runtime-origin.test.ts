@@ -61,6 +61,7 @@ vi.mock("@/lib/branding", () => ({
       gtmId: null,
       domain: storeDomain,
       checkoutType: null,
+      cookieConsentEnabled: false,
     },
     seoSettings: {
       title: null,

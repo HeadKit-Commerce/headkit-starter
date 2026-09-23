@@ -52,6 +52,22 @@
  * .product-card {
  *   gap: 0.75rem;
  * }
+ *
+ * Cookie gate (consent-banner.tsx) — hooks: .headkit-consent-banner (the
+ * fixed bottom bar), .headkit-consent-copy, .headkit-consent-choices /
+ * .headkit-consent-choice (the two category rows) and
+ * .headkit-consent-actions (the Decline / Accept row).
+ *
+ * The action row is RIGHT-aligned by default. That is a default, not a
+ * measurement: the bar spans the viewport bottom, so it sits under whatever
+ * the store floats in a bottom corner, and no single alignment is right for
+ * every store. If this store floats a chat widget in the bottom-RIGHT corner,
+ * move the controls away from it:
+ * .headkit-consent-actions {
+ *   justify-content: flex-start;
+ * }
+ * A store with a bottom-LEFT widget keeps the default. Prefer this over
+ * editing the component, which a platform upgrade will overwrite.
  */
 
 /* Add store-specific CSS below this line. */
