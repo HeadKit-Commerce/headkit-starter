@@ -104,7 +104,10 @@ export async function generateMetadata(): Promise<Metadata> {
  * by a single aggregate `homepage.get()`. Primary tag: `route:home` (carousel,
  * news, featured/new/sale product, page-on-front). Also tags branding +
  * collections because HomeContent reads hide-empty branding and may filter
- * featured categories from the catalog.
+ * featured categories from the catalog. Also tags `posts`: Latest News is
+ * inside this same entry, and a Shopify article webhook purges `headkit:posts`
+ * (a WordPress post save purges `route:home` directly). Either signal expires
+ * the whole homepage, which is the only way the rail can refresh.
  *
  * The former per-module `module:{carousel,news,brand,featured}` tags were
  * removed: with an indivisible `homepage.get()` bundle they could never
@@ -116,6 +119,7 @@ const HOME_TAGS: readonly string[] = [
   TAG.route("home"),
   TAG.branding,
   TAG.collections,
+  TAG.posts,
 ];
 
 export async function getHomepageData() {

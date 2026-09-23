@@ -6,10 +6,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * D7: home is ONE monolithic cached entry backed by a single aggregate
  * `homepage.get()` bundle. The primary tag is `route:home`; branding + collections
  * are also tagged because HomeContent reads hide-empty branding and may filter
- * featured categories. Both cached home fns (`getHomepageData` + `HomeContent`)
- * MUST carry the SAME tag union. Both use the finite `days` backstop
- * unless a hero slide has copy but no media URLs — Shopify file
- * processing is async and has no webhook, so that payload must not
+ * featured categories. `posts` is tagged because Latest News lives in the same
+ * entry and Shopify article webhooks purge `headkit:posts`. Both cached home
+ * fns (`getHomepageData` + `HomeContent`) MUST carry the SAME tag union. Both use
+ * the finite `days` backstop unless a hero slide has copy but no media URLs —
+ * Shopify file processing is async and has no webhook, so that payload must not
  * pin under `days`.
  *
  * `next/cache` is mocked to capture `cacheTag` / `cacheLife`; the SDK, UI
@@ -119,6 +120,7 @@ const HOME_UNION = [
   "headkit:route:home",
   "headkit:branding",
   "headkit:collections",
+  "headkit:posts",
 ];
 
 beforeEach(() => {
