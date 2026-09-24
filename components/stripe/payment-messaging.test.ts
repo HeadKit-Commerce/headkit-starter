@@ -1,5 +1,14 @@
-import { describe, expect, it } from "vitest";
-import { shouldRenderMessaging } from "./payment-messaging";
+import { describe, expect, it, vi } from "vitest";
+
+// `lib/stripe-js-singleton.ts` reads the store's advanced-fraud-signals
+// setting from `@/lib/env`, and this subtree reaches it. Under vitest's `node`
+// environment `createEnv()` takes the SERVER branch and parses the server
+// schema, so importing it for real would demand a fully populated environment
+// this spec has no interest in. Mocked to an empty object: every key the
+// singleton reads is optional, and unset is the platform default.
+vi.mock("@/lib/env", () => ({ env: {} }));
+
+const { shouldRenderMessaging } = await import("./payment-messaging");
 
 const base = {
   publishableKey: "pk_test_1",

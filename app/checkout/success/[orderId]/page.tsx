@@ -28,6 +28,7 @@ import {
 } from "@/lib/checkout-billing-cookie";
 import { getBranding } from "@/lib/branding";
 import { normalizeCheckoutMode } from "@/lib/checkout-mode";
+import { offlineInstructionsForOrderTitle } from "@/lib/offline-gateway-details";
 
 interface Props {
   params: Promise<{ orderId: string }>;
@@ -357,6 +358,12 @@ export default async function Page({ params, searchParams }: Props) {
   }
 
   const { storeSettings } = await getBranding();
+  // Instructions for an order placed against an offline gateway, or null for
+  // every card / PayPal order. Resolved from this store's own gateway
+  // configuration, never from anything the request carries.
+  const offlineInstructions = offlineInstructionsForOrderTitle(
+    order?.paymentMethodTitle,
+  );
   const isQuoteMode =
     normalizeCheckoutMode(storeSettings.checkoutType) === "quote" ||
     paymentMethod === "headkit-quote" ||
@@ -482,6 +489,32 @@ export default async function Page({ params, searchParams }: Props) {
                 {isQuoteMode ? "Quote" : "Order"} #{order.orderNumber}
               </p>
             </div>
+
+            {/* An order placed against an OFFLINE gateway (bacs / cheque /
+                cod) is UNPAID. The shopper has to transfer the money
+                themselves, so the merchant's own instructions are the most
+                important thing on this page and they are rendered before
+                anything else. Nothing above claims the payment succeeded: the
+                heading says the order is confirmed, which it is, and
+                `PaymentMethodDisplay` below shows the gateway title rather
+                than a card.
+
+                WooCommerce emails the same instructions on the order-received
+                email (core `bacs` / `cheque` do this themselves), so this
+                panel is the on-page half of a pair, not the only copy.
+
+                Matched on the gateway TITLE because the order payload carries
+                no gateway id — see `offlineInstructionsForOrderTitle`. */}
+            {offlineInstructions && (
+              <div className="mb-10 rounded-lg border border-[#d6d6d6] bg-white p-5">
+                <p className="font-extrabold text-lg">
+                  Complete your payment: {offlineInstructions.title}
+                </p>
+                <p className="mt-2 whitespace-pre-line text-base text-gray-700">
+                  {offlineInstructions.description}
+                </p>
+              </div>
+            )}
 
             <div className="text-xl">
               {/* Contact */}

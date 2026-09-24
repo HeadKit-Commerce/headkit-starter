@@ -126,6 +126,15 @@ export function buildCheckoutAppearance(): Appearance {
     rules: {
       // Do not crush `.AccordionItem` padding. Payment Element accordion
       // radios (`layout.radios: "always"`) sit in that padding; 4px hid them.
+      //
+      // `.AccordionItem` is also the ONLY selector Stripe's Appearance API
+      // exposes for the accordion (`--selected`, `:hover`, `:focus-visible`
+      // modifiers only — no separate header/body selector). Its padding
+      // wraps the row's header AND its expanded content as one box: setting
+      // `padding`/`paddingLeft` here shifts the radio, icon, label and the
+      // expanded fields together by the same amount (measured on a live
+      // Payment Element, 2026-09-13). There is no CSS lever that indents the
+      // expanded content alone while leaving the radio/label where they are.
       ".Tab": {
         border: `1px solid ${primary}`,
         borderRadius: radius,

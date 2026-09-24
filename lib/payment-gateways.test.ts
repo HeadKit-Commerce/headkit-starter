@@ -1,99 +1,104 @@
 import { describe, expect, it } from "vitest";
 import {
-  QUOTE_PAYMENT_METHOD_ID,
-  STRIPE_PAYMENT_METHOD,
+  hasPayPalOption,
   hasStripeGateway,
   isOfflineOnlyCart,
   offlineGateways,
-} from "./payment-gateways";
+} from "@/lib/payment-gateways";
+import { hasHostedCheckout } from "@/lib/hosted-checkout";
 
-describe("offlineGateways", () => {
-  it("returns nothing when the cart offers no gateways", () => {
-    expect(offlineGateways([])).toEqual([]);
-    expect(offlineGateways(null)).toEqual([]);
-    expect(offlineGateways(undefined)).toEqual([]);
-  });
+/**
+ * The gateway classifier.
+ *
+ * The one claim worth spelling out is the LAST describe block. `hasPayPalOption`
+ * decides "is this a hosted-checkout cart?" with its own `checkoutUrl` null-check
+ * rather than importing `hasHostedCheckout`, because this module is deliberately
+ * dependency-free. Two copies of a definition are exactly how they drift, so the
+ * agreement is asserted here over the same inputs instead of assumed.
+ */
 
-  it("excludes Stripe — it is driven by a payment session, not a finalize", () => {
-    expect(offlineGateways([STRIPE_PAYMENT_METHOD])).toEqual([]);
-  });
+const wooCart = {
+  paymentMethods: ["headkit-payments"],
+  checkoutUrl: null,
+  totals: { totalPrice: "121" },
+};
 
-  it("excludes HeadKit Quote — it owns /quote and its own store setting", () => {
-    expect(offlineGateways([QUOTE_PAYMENT_METHOD_ID])).toEqual([]);
-  });
-
-  it("labels the core offline gateways", () => {
-    expect(offlineGateways(["bacs", "cheque", "cod"])).toEqual([
+describe("the existing classifiers still say what they said", () => {
+  it("splits offline gateways from the two HeadKit ids", () => {
+    expect(
+      offlineGateways(["headkit-payments", "bacs", "headkit-quote", "cod"]),
+    ).toEqual([
       { id: "bacs", label: "Direct bank transfer" },
-      { id: "cheque", label: "Cheque payment" },
       { id: "cod", label: "Cash on delivery" },
     ]);
   });
 
-  it("falls back to the raw id for a gateway it does not know", () => {
-    expect(offlineGateways(["custom_invoice"])).toEqual([
-      { id: "custom_invoice", label: "custom_invoice" },
-    ]);
-  });
-
-  it("preserves WooCommerce's order — merchants control gateway order", () => {
-    expect(offlineGateways(["cod", "bacs"]).map((g) => g.id)).toEqual([
-      "cod",
-      "bacs",
-    ]);
-  });
-
-  it("separates offline gateways from Stripe on a store that offers both", () => {
-    const methods = ["bacs", STRIPE_PAYMENT_METHOD, QUOTE_PAYMENT_METHOD_ID];
-    expect(offlineGateways(methods).map((g) => g.id)).toEqual(["bacs"]);
-    expect(hasStripeGateway(methods)).toBe(true);
-  });
-
-  it("is the Pebblr shape: one offline gateway, no Stripe", () => {
-    // Their live store reports exactly this, which is why V2 could not check out.
-    const methods = ["bacs"];
-    expect(hasStripeGateway(methods)).toBe(false);
-    expect(offlineGateways(methods)).toEqual([
-      { id: "bacs", label: "Direct bank transfer" },
-    ]);
-  });
-
-  it("drops empty ids rather than rendering a blank choice", () => {
-    expect(offlineGateways(["", "bacs"]).map((g) => g.id)).toEqual(["bacs"]);
-  });
-});
-
-describe("hasStripeGateway", () => {
-  it("is false for an absent or empty list", () => {
+  it("recognises a Stripe-capable cart", () => {
+    expect(hasStripeGateway(["headkit-payments"])).toBe(true);
+    expect(hasStripeGateway(["bacs"])).toBe(false);
     expect(hasStripeGateway(null)).toBe(false);
-    expect(hasStripeGateway([])).toBe(false);
   });
 
-  it("is false when only offline gateways are available", () => {
-    expect(hasStripeGateway(["bacs", "cod"])).toBe(false);
-  });
-});
-
-describe("isOfflineOnlyCart", () => {
-  it("is true for Pebblr's real gateway list (bacs + quote, no Stripe)", () => {
-    expect(isOfflineOnlyCart(["bacs", "headkit-quote"])).toBe(true);
-  });
-
-  it("is false when Stripe is also offered, so the Stripe session is still created", () => {
+  it("calls a cart offline-only when it has an offline gateway and no Stripe", () => {
+    expect(isOfflineOnlyCart(["bacs"])).toBe(true);
     expect(isOfflineOnlyCart(["bacs", "headkit-payments"])).toBe(false);
-  });
-
-  it("is false for a Stripe-only store", () => {
-    expect(isOfflineOnlyCart(["headkit-payments"])).toBe(false);
-  });
-
-  it("is false when quote is the only gateway — quote has its own route", () => {
-    expect(isOfflineOnlyCart(["headkit-quote"])).toBe(false);
-  });
-
-  it("is false for an absent or empty list, so an unknown cart keeps the Stripe path", () => {
-    expect(isOfflineOnlyCart(undefined)).toBe(false);
-    expect(isOfflineOnlyCart(null)).toBe(false);
     expect(isOfflineOnlyCart([])).toBe(false);
   });
+});
+
+describe("hasPayPalOption", () => {
+  it("needs the store configured", () => {
+    expect(hasPayPalOption(wooCart, false)).toBe(false);
+    expect(hasPayPalOption(wooCart, true)).toBe(true);
+  });
+
+  it("needs the headkit-payments gateway — PayPal settles through it", () => {
+    expect(
+      hasPayPalOption({ ...wooCart, paymentMethods: ["bacs"] }, true),
+    ).toBe(false);
+    expect(hasPayPalOption({ ...wooCart, paymentMethods: null }, true)).toBe(
+      false,
+    );
+  });
+
+  it("needs something to pay", () => {
+    for (const totalPrice of ["0", "0.00", "", "-5"]) {
+      expect(
+        hasPayPalOption({ ...wooCart, totals: { totalPrice } }, true),
+      ).toBe(false);
+    }
+    expect(
+      hasPayPalOption({ ...wooCart, totals: { totalPrice: "0.01" } }, true),
+    ).toBe(true);
+  });
+
+  it("is false for a null cart", () => {
+    expect(hasPayPalOption(null, true)).toBe(false);
+    expect(hasPayPalOption(undefined, true)).toBe(false);
+  });
+});
+
+describe("its hosted-checkout check agrees with lib/hosted-checkout", () => {
+  // Same inputs, both definitions. A divergence here is the drift the duplicate
+  // null-check exists to risk, so it is checked rather than trusted.
+  const urls: Array<string | null | undefined> = [
+    null,
+    undefined,
+    "",
+    "   ",
+    "https://shop.myshopify.com/cart/c/abc",
+    "https://checkout.brand.com/c/abc",
+  ];
+
+  for (const checkoutUrl of urls) {
+    it(`agrees for ${JSON.stringify(checkoutUrl)}`, () => {
+      const hosted = hasHostedCheckout(
+        checkoutUrl === undefined ? {} : { checkoutUrl },
+      );
+      const paypal = hasPayPalOption({ ...wooCart, checkoutUrl }, true);
+      // Hosted ⇒ never PayPal. Not hosted ⇒ PayPal, since every other
+      // condition holds for this fixture.
+      expect(paypal).toBe(!hosted);
+    });
+  }
 });

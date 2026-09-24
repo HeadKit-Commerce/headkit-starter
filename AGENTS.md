@@ -547,6 +547,71 @@ to `headkit:brands` (the term tag, fired only by a brand term create/edit/delete
 `headkit:brand:{slug}` (the product-SET tag, fired by every stock movement in the brand). That
 pairing is why `headkit:brands` must stay wide — see the note in that file.
 
+### The Payment step is a list of METHOD ROWS ending in exactly ONE action
+
+Stripe's Payment Element is one row source among several. PayPal
+(`components/checkout/steps/paypal-payment-option.tsx`) and WooCommerce's offline
+gateways (`offline-payment-option.tsx`) contribute peer rows, and the step draws
+**every** row before **any** action button — a single action slot at the end,
+bound to whichever method is selected. Both are HOOKS rather than components
+precisely because their row and their action are rendered in two different
+places from one call, so the underlying PayPal iframe / button is still mounted
+exactly once.
+
+`lib/payment-method-selection.ts` is the only place the selection rule lives —
+one selected row, one action, in all directions. It also owns the
+`isStripeMethodSelected` guard, because Stripe's `onChange` fires for the
+`collapse()` the step itself triggers. Stripe exposes no way to WRITE its
+accordion's radio state, only `collapse()`, which is why picking a non-Stripe
+method collapses the whole element.
+
+Both gateways are dark unless configured, and that is load-bearing rather than
+incidental: PayPal renders only when the store carries both
+`NEXT_PUBLIC_PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET`
+(`lib/paypal/config.ts` is the one place that rule lives), and an offline row
+only when WooCommerce reports the gateway in `Cart.paymentMethods`. Both
+decisions are made SERVER-side in `app/checkout/page.tsx`, so an unconfigured
+store passes no prop at all — no component, no script, no bundle.
+`app/checkout/paypal-absent.test.tsx` and `offline-gateway-absent.test.tsx` hold
+that as a chain (config → predicate → render); each states where it stops.
+
+An offline order is placed UNPAID, with no payment session and no `payment_data`
+(`lib/offline-order.ts`). Never add a `payment_status: paid` key to tidy the
+confirmation page — that tells a merchant an unreconciled order was paid for.
+A PayPal order is the opposite: `lib/paypal/finalize.ts` is the ONE place a
+capture becomes a WooCommerce order, and the capture id deliberately occupies
+the `checkout_session_id` slot so the theme's existing atomic claim row dedupes
+the browser against the webhook with no second mechanism. Its emitted key set is
+a contract with `integrations/wordpress/theme/inc/headkit-payment.php`; the
+`payment_status` it sends is advisory only — see
+`docs/adr/005-payment-status-authority-by-provider.md`.
+
+A merchant's offline-gateway title and instructions do not reach the storefront
+today (`Cart.paymentMethods` is ids only), so they come from the server-only
+`OFFLINE_PAYMENT_GATEWAY_DETAILS` env var as a stand-in.
+`docs/tickets/offline-gateway-title-description.md` is the intended design;
+`lib/offline-gateway-details.ts` is the one swap point when it lands.
+
+### Stripe.js loads through the `/pure` entry, and only on demand
+
+`@stripe/stripe-js`'s default entry injects the Stripe.js `<script>` as a side
+effect of module import, so a single value-level import anywhere in the client
+graph puts it on every route that reaches it — defeating the BNPL badge's own
+`IntersectionObserver` gate and the store setting that hides the badge.
+`lib/stripe-js-singleton.ts` imports `@stripe/stripe-js/pure` instead, which
+does not, and `lib/stripe-js-singleton.test.ts` sweeps `app`, `components`,
+`lib` and `hooks` to keep it that way. `import type` from the root entry is fine
+and is used widely; that sweep is source text only, and says so.
+
+Stripe's advanced fraud signals stay **on** — Stripe's own default, and what
+every store gets today. A store opts out with
+`NEXT_PUBLIC_STRIPE_ADVANCED_FRAUD_SIGNALS="false"`, applied once immediately
+before the first `loadStripe`. The ordering is load-bearing (`setLoadParameters`
+throws after `loadStripe` has run) and the setting is DOCUMENT-WIDE: both Stripe
+entries share one DOM, so a client-side navigation from a product page carries
+it into checkout. Stripe states the cost, which is why it is per-merchant and
+never a platform default.
+
 ## Maintaining this file
 
 Keep this file for knowledge useful to almost every future agent session in this app.
