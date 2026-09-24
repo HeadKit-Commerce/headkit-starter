@@ -24,6 +24,8 @@ interface PostCardProps {
   className?: string;
   /** WP Posts-page slug when `post.uri` is missing. */
   postsBasePath?: string;
+  /** Journal grid matches collection tiles (3:4). Carousel stays 16:9. */
+  imageRatio?: "video" | "portrait";
 }
 
 function PlayMark(): ReactElement {
@@ -48,6 +50,7 @@ export function PostCard({
   priority = false,
   className,
   postsBasePath = DEFAULT_POSTS_BASE_PATH,
+  imageRatio = "video",
 }: PostCardProps): ReactElement {
   const [open, setOpen] = useState(false);
   const [journal, setJournal] = useState(false);
@@ -59,10 +62,18 @@ export function PostCard({
   const video = isVideoPost(post);
   const embed = video ? videoEmbed(post.videoUrl) : null;
 
+  const mediaClass =
+    imageRatio === "portrait" ? "aspect-[3/4]" : "aspect-video";
+
   const body = (
     <div className="w-full">
       {post.featuredImage?.src ? (
-        <div className="relative aspect-video w-full overflow-hidden rounded-brand">
+        <div
+          className={cn(
+            "relative w-full overflow-hidden rounded-brand",
+            mediaClass,
+          )}
+        >
           <Image
             alt={post.featuredImage.alt ?? title}
             src={post.featuredImage.src}
@@ -75,7 +86,12 @@ export function PostCard({
           {video ? <PlayMark /> : null}
         </div>
       ) : embed?.kind === "file" ? (
-        <div className="relative aspect-video w-full overflow-hidden rounded-brand bg-gray-100">
+        <div
+          className={cn(
+            "relative w-full overflow-hidden rounded-brand bg-gray-100",
+            mediaClass,
+          )}
+        >
           <video
             src={`${embed.src}#t=0.1`}
             muted
@@ -87,7 +103,12 @@ export function PostCard({
           <PlayMark />
         </div>
       ) : (
-        <div className="relative aspect-video w-full rounded-brand bg-gray-100">
+        <div
+          className={cn(
+            "relative w-full rounded-brand bg-gray-100",
+            mediaClass,
+          )}
+        >
           {video ? <PlayMark /> : null}
         </div>
       )}

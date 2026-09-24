@@ -33,6 +33,7 @@ export function PostGrid({
             post={post}
             postsBasePath={postsBasePath}
             priority={index < 2}
+            imageRatio="portrait"
             {...(index >= 4
               ? {
                   className:

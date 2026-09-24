@@ -22,7 +22,9 @@ const PER_PAGE = 24;
 async function getNewsLanding() {
   "use cache";
   cacheLifeForProfile("hours", "max");
-  // Posts page may use any WP slug; always tag the storefront news route.
+  // Title and body come from the CMS landing: WooCommerce Settings → Reading
+  // posts page, or the Shopify Online Store page whose handle matches the
+  // blog's posts base. The global fallback stays "News".
   cacheTag(TAG.page("news"), TAG.posts, TAG.pages);
   return sdk.posts.getLanding().catch(() => null);
 }
@@ -175,7 +177,7 @@ export default function Page({ searchParams }: Props) {
               { name: FALLBACK_TITLE, uri: "/news", current: true },
             ]}
           />
-          <EditorialGridSkeleton aspect="video" />
+          <EditorialGridSkeleton aspect="portrait" />
         </>
       }
     >
@@ -203,7 +205,7 @@ async function NewsRoute({ searchParams }: Props) {
           { name: title, uri: indexPath, current: true },
         ]}
       />
-      <Suspense fallback={<EditorialGridSkeleton aspect="video" />}>
+      <Suspense fallback={<EditorialGridSkeleton aspect="portrait" />}>
         <PostsServer searchParams={searchParams} postsBasePath={postsBase} />
       </Suspense>
     </>

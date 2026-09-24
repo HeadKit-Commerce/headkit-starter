@@ -4,8 +4,8 @@ import { cn } from "@/lib/utils";
 
 interface EditorialGridSkeletonProps {
   count?: number;
-  /** Post listings use video; project listings use square. */
-  aspect?: "video" | "square";
+  /** Post listings use portrait (3:4); project listings use square. */
+  aspect?: "video" | "square" | "portrait";
   className?: string;
 }
 
@@ -15,7 +15,12 @@ export function EditorialGridSkeleton({
   aspect = "video",
   className,
 }: EditorialGridSkeletonProps): React.ReactElement {
-  const aspectClass = aspect === "video" ? "aspect-video" : "aspect-square";
+  const aspectClass =
+    aspect === "portrait"
+      ? "aspect-[3/4]"
+      : aspect === "video"
+        ? "aspect-video"
+        : "aspect-square";
   return (
     <div className={cn("z-5 px-5 md:px-10", className)}>
       <div className={CATALOG_GRID_CLASS}>

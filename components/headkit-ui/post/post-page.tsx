@@ -44,7 +44,7 @@ export function PostPage({
           <button
             type="button"
             onClick={() => setCategory("")}
-            className={`cursor-pointer whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+            className={`cursor-pointer whitespace-nowrap rounded-brand px-4 py-2 text-sm font-medium transition-colors ${
               activeCategory === ""
                 ? "bg-primary text-white"
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -57,7 +57,7 @@ export function PostPage({
               type="button"
               key={cat.id}
               onClick={() => setCategory(cat.slug)}
-              className={`cursor-pointer whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+              className={`cursor-pointer whitespace-nowrap rounded-brand px-4 py-2 text-sm font-medium transition-colors ${
                 activeCategory === cat.slug
                   ? "bg-primary text-white"
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"

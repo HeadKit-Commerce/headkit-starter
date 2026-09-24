@@ -99,4 +99,12 @@ describe("PostCard", () => {
     expect(html).toContain("<button");
     expect(html).not.toContain("href=");
   });
+
+  it("uses a 3:4 frame when the journal grid asks for it", () => {
+    const html = renderToStaticMarkup(
+      <PostCard post={post({})} imageRatio="portrait" />,
+    );
+    expect(html).toContain("aspect-[3/4]");
+    expect(html).not.toContain("aspect-video");
+  });
 });
