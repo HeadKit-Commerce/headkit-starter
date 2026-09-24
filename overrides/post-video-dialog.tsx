@@ -17,6 +17,7 @@ export function renderPostVideoDialog(_props: {
   title: string;
   embed: PostVideoEmbed | null;
   excerpt: string;
+  href: string;
   journal: boolean;
 }): ReactElement | null {
   return null;

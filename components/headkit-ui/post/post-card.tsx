@@ -144,6 +144,7 @@ export function PostCard({
         title,
         embed,
         excerpt: decodeHtmlEntities(post.excerpt ?? ""),
+        href,
         journal,
       }) ?? (
         <Dialog open={open} onOpenChange={setOpen}>
