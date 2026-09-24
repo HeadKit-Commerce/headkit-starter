@@ -1,7 +1,11 @@
 import type { CopyTheme, SectionCopyFields } from "@/lib/store-theme";
 
 /** SectionHeader call sites that can take customer copy from theme.json. */
-export type SectionCopyKey = "homepageFeatured" | "pdpBundles" | "pdpRelated";
+export type SectionCopyKey =
+  | "homepageFeatured"
+  | "homepageLatestNews"
+  | "pdpBundles"
+  | "pdpRelated";
 
 /** Starter hardcoded strings used when the matching theme.copy key is omitted. */
 export interface SectionCopyFallback {

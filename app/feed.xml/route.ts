@@ -1,5 +1,8 @@
 import { cacheLife, cacheTag } from "next/cache";
+import { unstable_rethrow } from "next/navigation";
 import { headkit as sdk } from "@/lib/sdk";
+import { errorFields, logger } from "@/lib/logger";
+import { TAG } from "@/lib/cache-tags";
 import { getBranding } from "@/lib/branding";
 import {
   resolveStoreName,
@@ -43,11 +46,31 @@ function postLink(
   return `${siteUrl}${path}`;
 }
 
-async function getFeedPosts() {
+async function getFeedPosts(): Promise<
+  Awaited<ReturnType<typeof sdk.posts.list>>
+> {
   "use cache";
   cacheLife("hours");
-  cacheTag("headkit:posts");
-  return sdk.posts.list({ page: 1, perPage: 20 });
+  cacheTag(TAG.posts);
+  try {
+    return await sdk.posts.list({ page: 1, perPage: 20 });
+  } catch (error) {
+    // The feed route is prerendered. A throw inside this cache fill fails
+    // `next build` even when GET catches it afterwards.
+    unstable_rethrow(error);
+    logger.error("posts.degraded_render", {
+      read: "feed",
+      recovery: `revalidateTag(${TAG.posts})`,
+      ...errorFields(error),
+    });
+    return {
+      posts: [],
+      page: 1,
+      perPage: 20,
+      total: 0,
+      totalPages: 0,
+    };
+  }
 }
 
 /**
@@ -56,13 +79,7 @@ async function getFeedPosts() {
  */
 export async function GET(): Promise<Response> {
   const [{ storeSettings, seoSettings }, postsResult, postsBase] =
-    await Promise.all([
-      getBranding(),
-      getFeedPosts().catch(() => ({
-        posts: [] as Awaited<ReturnType<typeof getFeedPosts>>["posts"],
-      })),
-      getPostsBasePath(),
-    ]);
+    await Promise.all([getBranding(), getFeedPosts(), getPostsBasePath()]);
 
   const siteName = resolveStoreName(storeSettings.name);
   // RSS 2.0 requires <channel><description>, so this call site keeps the store

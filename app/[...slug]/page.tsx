@@ -21,6 +21,10 @@ import {
   isShopifyPartnershipsSlug,
   isShopifyStorefront,
 } from "@/lib/shopify-storefront";
+import {
+  PageWithOptionalForm,
+  shopifyFormUsesSideColumn,
+} from "@/overrides/page-form-layout";
 
 /** Satisfies Cache Components: `generateStaticParams` must not return []. */
 const STATIC_GEN_PLACEHOLDER_SLUG = "__hk_static_placeholder";
@@ -300,33 +304,33 @@ async function CmsRoute({ params }: Props) {
   // No outer px/my — CmsPageBody pads HTML/GF segments like the homepage and
   // leaves hero carousels full-bleed (`mx-5` inside MainCarousel). Outer
   // `px-5 md:px-10 my-10` previously double-inset carousels and left a gap
-  // under the nav on pages like /hospitality.
+  // under the nav on pages like /hospitality. A customer override can place
+  // the partnerships form beside the copy.
+  const editorBlocks = (page.editorBlocks ?? []) as Array<{
+    products?: unknown[];
+    attrs?: Record<string, unknown> | null;
+    queryType?: string | null;
+  }>;
+  const form = shopifyPartnerships ? (
+    <ShopifyContactForm
+      context="partnerships"
+      variant="partnerships"
+      subscribeEnabled={subscribe?.subscribeEnabled ?? false}
+      subscribeLabel={subscribe?.subscribeLabel ?? ""}
+    />
+  ) : null;
+  const body = (
+    <CmsPageBody
+      title={page.title}
+      html={html}
+      editorBlocks={editorBlocks}
+      splitMedia={!(form && shopifyFormUsesSideColumn())}
+    />
+  );
   return (
     <div className="min-h-[50vh] overflow-hidden">
       <BreadcrumbJsonLD items={breadcrumbItems} />
-      <CmsPageBody
-        title={page.title}
-        html={html}
-        editorBlocks={
-          (page.editorBlocks ?? []) as Array<{
-            products?: unknown[];
-            attrs?: Record<string, unknown> | null;
-            queryType?: string | null;
-          }>
-        }
-      />
-      {shopifyPartnerships ? (
-        <div className="px-5 pb-10 md:px-10 md:pb-16">
-          <div className="mx-auto max-w-xl">
-            <ShopifyContactForm
-              context="partnerships"
-              variant="partnerships"
-              subscribeEnabled={subscribe?.subscribeEnabled ?? false}
-              subscribeLabel={subscribe?.subscribeLabel ?? ""}
-            />
-          </div>
-        </div>
-      ) : null}
+      <PageWithOptionalForm body={body} form={form} />
     </div>
   );
 }

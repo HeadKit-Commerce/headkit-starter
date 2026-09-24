@@ -36,6 +36,7 @@ export interface SectionCopyFields {
  */
 export interface CopyTheme {
   homepageFeatured?: SectionCopyFields;
+  homepageLatestNews?: SectionCopyFields;
   pdpBundles?: SectionCopyFields;
   pdpRelated?: SectionCopyFields;
   /** Link text under a homepage collection-card title. Omit = title only. */
@@ -147,6 +148,7 @@ const sectionCopySchema = z.object({
 
 const copySchema = z.object({
   homepageFeatured: sectionCopySchema.optional(),
+  homepageLatestNews: sectionCopySchema.optional(),
   pdpBundles: sectionCopySchema.optional(),
   pdpRelated: sectionCopySchema.optional(),
   collectionCardLink: z.string().min(1).max(80).optional(),
@@ -257,6 +259,9 @@ function normalizeTheme(data: z.infer<typeof themeSchema>): StoreTheme {
     const copy: CopyTheme = {};
     if (data.copy.homepageFeatured !== undefined) {
       copy.homepageFeatured = pickSectionCopy(data.copy.homepageFeatured);
+    }
+    if (data.copy.homepageLatestNews !== undefined) {
+      copy.homepageLatestNews = pickSectionCopy(data.copy.homepageLatestNews);
     }
     if (data.copy.pdpBundles !== undefined) {
       copy.pdpBundles = pickSectionCopy(data.copy.pdpBundles);

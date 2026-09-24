@@ -244,6 +244,12 @@ export async function HomeContent() {
     !hasEditorSectionClass(editorBlocks, "headkit-post-carousel") &&
     latestPosts.length > 0;
   const postsBasePath = showLatestPosts ? await getPostsBasePath() : null;
+  const latestNewsCopy = resolveSectionCopy(theme.copy, "homepageLatestNews", {
+    title: "Latest News",
+    eyebrow: "Stories, tips, and updates from our team.",
+    allButton: "View All",
+    allButtonPath: postsBasePath ? postsIndexPath(postsBasePath) : "/journal",
+  });
 
   const heroLayout = theme.layout.heroLayout;
 
@@ -332,10 +338,10 @@ export async function HomeContent() {
       {showLatestPosts && postsBasePath ? (
         <section className="headkit-post-carousel overflow-hidden py-10">
           <SectionHeader
-            title="Latest News"
-            description="Stories, tips, and updates from our team."
-            allButton="View All"
-            allButtonPath={postsIndexPath(postsBasePath)}
+            title={latestNewsCopy.title}
+            description={latestNewsCopy.description}
+            allButton={latestNewsCopy.allButton}
+            allButtonPath={latestNewsCopy.allButtonPath}
             className="px-5 md:px-10"
           />
           <div className="mt-8">

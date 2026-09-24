@@ -19,6 +19,10 @@ Platform template upgrades should leave `overrides/` alone. You still have the f
 | `layout-slots.tsx`       | Pre-paint `<head>` script and a sibling after `<main>`                 |
 | `pdp-beside-bundles.tsx` | Content beside the PDP bundles carousel                                |
 | `pdp-buy-box-extras.tsx` | Block after the PDP buy box, before sticky add to cart                 |
+| `page-columns.tsx`       | Two-column CMS pages (image or video beside the copy)                  |
+| `page-form-layout.tsx`   | Shopify contact and partnerships form beside the page copy             |
+| `post-video-dialog.tsx`  | Journal and post video modal (null keeps the starter dialog)           |
+| `collection-slots.tsx`   | Whether collection pages render the breadcrumb trail                   |
 | `maintenance.ts`         | Copy, colours and logo for the maintenance page (`../MAINTENANCE.md`)  |
 
 ## What stays elsewhere

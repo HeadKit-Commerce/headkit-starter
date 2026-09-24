@@ -99,6 +99,9 @@
         "homepageFeatured": {
           "$ref": "#/$defs/sectionCopy"
         },
+        "homepageLatestNews": {
+          "$ref": "#/$defs/sectionCopy"
+        },
         "pdpBundles": {
           "$ref": "#/$defs/sectionCopy"
         },

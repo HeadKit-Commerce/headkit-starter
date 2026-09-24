@@ -33,6 +33,11 @@ Use **CSS hook classes** documented in [`overrides/README.md`](./overrides/READM
 | Extra homepage tile or block                  | `overrides/home-slots.tsx`                                                                      |
 | Script in `<head>` or block under main        | `overrides/layout-slots.tsx` (`BelowMain` stays a sibling of `{children}`)                      |
 | PDP block beside bundles or under the buy box | `overrides/pdp-beside-bundles.tsx`, `overrides/pdp-buy-box-extras.tsx`                          |
+| Two-column page or page video                 | `overrides/page-columns.tsx` (`renderPageMediaSegment`, `preparePageHtml`)                      |
+| Shopify form beside page copy                 | `overrides/page-form-layout.tsx`                                                                |
+| Journal or post video modal                   | `overrides/post-video-dialog.tsx`                                                               |
+| Hide collection breadcrumbs                   | `overrides/collection-slots.tsx` (`showCollectionBreadcrumbs` returns false)                    |
+| Homepage journal heading                      | `overrides/theme.json` `copy.homepageLatestNews`                                                |
 | New landing page                              | `app/<route>/page.tsx` + declare the route in `sitemap.config.ts` (never edit `app/sitemap.ts`) |
 | Change checkout logic                         | `lib/` + `app/checkout/` (behaviour, not cosmetics)                                             |
 

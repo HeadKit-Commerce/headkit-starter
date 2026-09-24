@@ -10,6 +10,7 @@ import { CarouselPostJsonLD } from "@/components/seo/carousel-post-json-ld";
 import { makeSeoMetadata, storefrontUrl } from "@/lib/make-metadata";
 import { getBranding } from "@/lib/branding";
 import { TAG } from "@/lib/cache-tags";
+import { errorFields, logger } from "@/lib/logger";
 import { getPostsBasePath, postsIndexPath } from "@/lib/posts-base-path";
 
 const FALLBACK_TITLE = "News";
@@ -59,26 +60,68 @@ interface Props {
   searchParams: Promise<Record<string, string>>;
 }
 
-async function getPostFilters() {
+async function getPostFilters(): Promise<
+  Awaited<ReturnType<typeof sdk.posts.getFilters>>
+> {
   "use cache";
   cacheLife("days");
   cacheTag(TAG.posts);
-  return sdk.posts.getFilters();
+  try {
+    return await sdk.posts.getFilters();
+  } catch (error) {
+    // Same prerender rule as `loadContactPage`: the catch has to be inside
+    // the cache fill. An outer `.catch()` still leaves the thrown fill in
+    // Next's prerender error map and fails `next build`.
+    unstable_rethrow(error);
+    logger.error("posts.degraded_render", {
+      read: "filters",
+      recovery: `revalidateTag(${TAG.posts})`,
+      ...errorFields(error),
+    });
+    return { categories: [] };
+  }
 }
+
+const EMPTY_POSTS_PAGE = {
+  posts: [],
+  page: 1,
+  perPage: PER_PAGE,
+  total: 0,
+  totalPages: 0,
+};
 
 /**
  * Durable post list read — keyed on category + page. Public content, safe for
  * remote cache (mirrors collection `getCatalogPage`).
+ *
+ * A transport failure resolves an empty page instead of throwing. This route
+ * is prerendered (`instant = true`); a throw inside `"use cache: remote"` is
+ * recorded before `PostsServer` can catch it and fails the export.
  */
-async function getPostsPage(category: string, page: number) {
+async function getPostsPage(
+  category: string,
+  page: number,
+): Promise<Awaited<ReturnType<typeof sdk.posts.list>>> {
   "use cache: remote";
   cacheLife("hours");
   cacheTag(TAG.posts, category ? `posts:cat:${category}` : "posts:all");
-  return sdk.posts.list({
-    page,
-    perPage: PER_PAGE,
-    ...(category ? { category } : {}),
-  });
+  try {
+    return await sdk.posts.list({
+      page,
+      perPage: PER_PAGE,
+      ...(category ? { category } : {}),
+    });
+  } catch (error) {
+    unstable_rethrow(error);
+    logger.error("posts.degraded_render", {
+      read: "list",
+      page,
+      ...(category ? { category } : {}),
+      recovery: `revalidateTag(${TAG.posts})`,
+      ...errorFields(error),
+    });
+    return { ...EMPTY_POSTS_PAGE, page };
+  }
 }
 
 async function PostsServer({
@@ -93,14 +136,8 @@ async function PostsServer({
   const page = sp.page ? parseInt(sp.page, 10) || 1 : 1;
 
   const [postsResult, postFilters] = await Promise.all([
-    getPostsPage(activeCategory, page).catch(() => ({
-      posts: [],
-      page: 1,
-      perPage: PER_PAGE,
-      total: 0,
-      totalPages: 0,
-    })),
-    getPostFilters().catch(() => ({ categories: [] })),
+    getPostsPage(activeCategory, page),
+    getPostFilters(),
   ]);
 
   return (

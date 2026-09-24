@@ -4,6 +4,7 @@ import type { ProductCategoryDetail } from "@headkit/sdk";
 import { decodeHtmlEntities } from "@/lib/utils";
 import { SubcategoryCarousel } from "@/components/headkit-ui/collection/subcategory-carousel";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
+import { showCollectionBreadcrumbs } from "@/overrides/collection-slots";
 
 interface CollectionHeaderProps {
   name: string;
@@ -50,7 +51,9 @@ export function CollectionHeader({
   // Aligns with PDP content inset (px-5 / md:px-10). Parent with children:
   // title + description only, then image-card carousel.
   const showLeafFeatured = !hasChildren && Boolean(thumbnail);
-  const hasBreadcrumbs = Boolean(breadcrumbs && breadcrumbs.length > 0);
+  const hasBreadcrumbs =
+    showCollectionBreadcrumbs() &&
+    Boolean(breadcrumbs && breadcrumbs.length > 0);
 
   return (
     <div className="overflow-x-clip">

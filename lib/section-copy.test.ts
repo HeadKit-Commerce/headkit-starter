@@ -68,6 +68,31 @@ describe("resolveSectionCopy", () => {
     });
   });
 
+  it("overlays journal copy onto the Latest News fallback", () => {
+    expect(
+      resolveSectionCopy(
+        {
+          homepageLatestNews: {
+            title: "Journal",
+            eyebrow: "The vibe, the lifestyle",
+          },
+        },
+        "homepageLatestNews",
+        {
+          title: "Latest News",
+          eyebrow: "Stories, tips, and updates from our team.",
+          allButton: "View All",
+          allButtonPath: "/journal",
+        },
+      ),
+    ).toEqual({
+      title: "Journal",
+      description: "The vibe, the lifestyle",
+      allButton: "View All",
+      allButtonPath: "/journal",
+    });
+  });
+
   it("adds a View-all path on a section that had none", () => {
     expect(
       resolveSectionCopy(

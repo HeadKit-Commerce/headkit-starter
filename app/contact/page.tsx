@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { cacheLife, cacheTag } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 import {
   makeSeoMetadata,
@@ -9,6 +10,7 @@ import {
 import { getBranding } from "@/lib/branding";
 import { TAG } from "@/lib/cache-tags";
 import { errorFields, logger } from "@/lib/logger";
+import { headkit as sdk } from "@/lib/sdk";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { CmsPageBody } from "@/components/headkit-ui/cms-page-body";
 import { ShopifyContactForm } from "@/components/shopify-contact-form";
@@ -19,7 +21,10 @@ import {
 } from "@/lib/gravity-form-content";
 import { env } from "@/lib/env";
 import { isShopifyStorefront } from "@/lib/shopify-storefront";
-import { getPageData } from "@/app/[...slug]/page";
+import {
+  PageWithOptionalForm,
+  shopifyFormUsesSideColumn,
+} from "@/overrides/page-form-layout";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
@@ -75,24 +80,31 @@ function ContactFormFallback(): React.ReactElement {
  * than ship slightly degraded copy. Next control flow is re-raised first and is
  * never absorbed.
  *
+ * The catch lives INSIDE this `"use cache"` function, not around `getPageData`.
+ * Next 16 records a thrown cache fill in the prerender error map before the
+ * caller runs, then fails `next build` if that map is non-empty — even when
+ * the page later catches the replay, logs `contact.degraded_render`, and
+ * returns null.
+ *
  * AT BUILD the degraded copy IS the artifact, so the tolerance is not free. A
- * blip while prerendering this route makes the read throw, the fallback copy
- * renders, the page SUCCEEDS, and that store's `/contact` permanently ships
- * HeadKit's generic placeholder in place of the merchant's real WordPress page.
- * The throwing read stores no cache entry, so nothing guarantees a re-render:
- * recovery is a redeploy, or `revalidateTag(TAG.page(CONTACT_SLUG))`
- * (`lib/cache-tags.ts`). That is why this catch LOGS — the same rule the PDP
- * degrade in `app/products/[...slug]/page.tsx` follows, and the same reason:
- * never bake a lie, and never be silent about degrading. A build that shipped a
- * placeholder Contact page must be distinguishable from a clean one by its
- * output alone, and the line carries the slug so the recovery lever can be
- * aimed.
+ * blip while prerendering this route caches null for `cacheLife("days")` and
+ * that store's `/contact` ships HeadKit's generic placeholder in place of the
+ * merchant's real page. The entry is tagged `TAG.page(CONTACT_SLUG)`, so
+ * recovery is `revalidateTag(TAG.page(CONTACT_SLUG))` (`lib/cache-tags.ts`) or
+ * a redeploy. That is why this catch LOGS — the same rule the PDP degrade in
+ * `app/products/[...slug]/page.tsx` follows, and the same reason: never bake a
+ * lie, and never be silent about degrading. A build that shipped a placeholder
+ * Contact page must be distinguishable from a clean one by its output alone,
+ * and the line carries the slug so the recovery lever can be aimed.
  */
 async function loadContactPage(): Promise<Awaited<
-  ReturnType<typeof getPageData>
+  ReturnType<typeof sdk.content.get>
 > | null> {
+  "use cache";
+  cacheLife("days");
+  cacheTag(TAG.page(CONTACT_SLUG), TAG.pages);
   try {
-    return await getPageData(CONTACT_SLUG);
+    return await sdk.content.get(CONTACT_SLUG, "PAGE");
   } catch (error) {
     unstable_rethrow(error);
     logger.error("contact.degraded_render", {
@@ -177,7 +189,30 @@ async function ContactRoute(): Promise<React.ReactElement> {
     : withGuaranteedFormMarker(copy, CONTACT_FORM_ID);
 
   // Padding lives in CmsPageBody (same as other CMS pages) so a Contact page
-  // with a hero carousel stays flush with the homepage layout.
+  // with a hero carousel stays flush with the homepage layout. A customer
+  // override can place the Shopify form beside the copy.
+  const editorBlocks = (page?.editorBlocks ?? []) as Array<{
+    products?: unknown[];
+    attrs?: Record<string, unknown> | null;
+    queryType?: string | null;
+  }>;
+  const form = shopify ? (
+    <ShopifyContactForm
+      context="contact"
+      variant="contact"
+      subscribeEnabled={subscribe?.subscribeEnabled ?? false}
+      subscribeLabel={subscribe?.subscribeLabel ?? ""}
+    />
+  ) : null;
+  const body = (
+    <CmsPageBody
+      title={title}
+      html={html}
+      editorBlocks={editorBlocks}
+      splitMedia={!(form && shopifyFormUsesSideColumn())}
+      {...(shopify ? {} : { formFallback: <ContactFormFallback /> })}
+    />
+  );
   return (
     <div className="headkit-contact min-h-[50vh] overflow-hidden">
       <BreadcrumbJsonLD
@@ -186,30 +221,7 @@ async function ContactRoute(): Promise<React.ReactElement> {
           { name: title, href: "/contact" },
         ]}
       />
-      <CmsPageBody
-        title={title}
-        html={html}
-        editorBlocks={
-          (page?.editorBlocks ?? []) as Array<{
-            products?: unknown[];
-            attrs?: Record<string, unknown> | null;
-            queryType?: string | null;
-          }>
-        }
-        {...(shopify ? {} : { formFallback: <ContactFormFallback /> })}
-      />
-      {shopify ? (
-        <div className="px-5 pb-10 md:px-10 md:pb-16">
-          <div className="mx-auto max-w-xl">
-            <ShopifyContactForm
-              context="contact"
-              variant="contact"
-              subscribeEnabled={subscribe?.subscribeEnabled ?? false}
-              subscribeLabel={subscribe?.subscribeLabel ?? ""}
-            />
-          </div>
-        </div>
-      ) : null}
+      <PageWithOptionalForm body={body} form={form} />
     </div>
   );
 }

@@ -5,6 +5,10 @@ import {
   processHomepageContent,
   type RawEditorBlock,
 } from "@/lib/process-editor-blocks";
+import {
+  preparePageHtml,
+  renderPageMediaSegment,
+} from "@/overrides/page-columns";
 
 interface Props {
   /** Page title shown as the H1. */
@@ -22,6 +26,11 @@ interface Props {
    * Applied to every form on the page.
    */
   formFallback?: React.ReactNode;
+  /**
+   * When false, a customer media-column override is not asked to split this
+   * HTML. Form pages pass false so the form can take that column.
+   */
+  splitMedia?: boolean;
 }
 
 /** Matches homepage HTML segment padding (`app/page.tsx` HomeContent). */
@@ -32,13 +41,24 @@ function HtmlSegment({
   formFallback,
   showTitle,
   title,
+  splitMedia,
 }: {
   html: string;
   formFallback?: React.ReactNode;
   showTitle: boolean;
   title: string;
-}): React.JSX.Element | null {
+  splitMedia: boolean;
+}): React.ReactNode {
   if (!html.trim() && !showTitle) return null;
+
+  const columns = renderPageMediaSegment({
+    title,
+    showTitle,
+    html,
+    formFallback,
+    splitMedia,
+  });
+  if (columns) return columns;
 
   return (
     <div className={showTitle ? undefined : "mt-5"}>
@@ -74,8 +94,10 @@ export async function CmsPageBody({
   html,
   editorBlocks,
   formFallback,
+  splitMedia = true,
 }: Props): Promise<React.JSX.Element> {
   const rawBlocks = editorBlocks ?? [];
+  html = preparePageHtml(html);
   const { segments, blocks } = processHomepageContent(html, rawBlocks);
   const suppressPageTitle = hasEditorSectionClass(
     blocks,
@@ -84,6 +106,16 @@ export async function CmsPageBody({
 
   // No HeadKit section patterns — title + editorial (GF markers in place).
   if (blocks.length === 0) {
+    const columns = renderPageMediaSegment({
+      title,
+      showTitle: true,
+      html,
+      formFallback,
+      splitMedia,
+    });
+    if (columns) {
+      return <div className={CONTENT_PAD}>{columns}</div>;
+    }
     return (
       <div className={CONTENT_PAD}>
         <h1 className="text-primary">{title}</h1>
@@ -115,6 +147,7 @@ export async function CmsPageBody({
               formFallback={formFallback}
               showTitle={showTitle}
               title={title}
+              splitMedia={splitMedia}
             />
           </section>
         );

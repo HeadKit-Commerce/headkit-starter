@@ -13,6 +13,7 @@ import {
 import { DEFAULT_POSTS_BASE_PATH, resolvePostHref } from "@/lib/posts-path";
 import { isVideoPost, videoEmbed } from "@/lib/post-video";
 import { cn, decodeHtmlEntities } from "@/lib/utils";
+import { renderPostVideoDialog } from "@/overrides/post-video-dialog";
 import type { PostSummaryFieldsFragment } from "@headkit/sdk";
 
 interface PostCardProps {
@@ -49,6 +50,7 @@ export function PostCard({
   postsBasePath = DEFAULT_POSTS_BASE_PATH,
 }: PostCardProps): ReactElement {
   const [open, setOpen] = useState(false);
+  const [journal, setJournal] = useState(false);
   const href = resolvePostHref(post.uri ?? post.slug ?? "", postsBasePath);
   const categories = (post.categories ?? []).filter(
     (c) => c.slug !== "uncategorized",
@@ -71,6 +73,18 @@ export function PostCard({
             sizes={CATALOG_GRID_IMAGE_SIZES}
           />
           {video ? <PlayMark /> : null}
+        </div>
+      ) : embed?.kind === "file" ? (
+        <div className="relative aspect-video w-full overflow-hidden rounded-brand bg-gray-100">
+          <video
+            src={`${embed.src}#t=0.1`}
+            muted
+            playsInline
+            preload="metadata"
+            aria-hidden
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+          />
+          <PlayMark />
         </div>
       ) : (
         <div className="relative aspect-video w-full rounded-brand bg-gray-100">
@@ -107,34 +121,48 @@ export function PostCard({
       <button
         type="button"
         className={cn("block w-full text-left", className)}
-        onClick={() => setOpen(true)}
+        onClick={(event) => {
+          setJournal(event.currentTarget.closest(".headkit-home") !== null);
+          setOpen(true);
+        }}
         aria-label={`Play ${title}`}
       >
         {body}
       </button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogTitle className="sr-only">{title}</DialogTitle>
-          <DialogDescription className="sr-only">
-            {embed ? "Video" : "This video does not have a playable file yet."}
-          </DialogDescription>
-          {embed?.kind === "iframe" ? (
-            <iframe
-              src={embed.src}
-              title={title}
-              className="aspect-video w-full"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
-          ) : embed?.kind === "file" ? (
-            <video controls src={embed.src} className="aspect-video w-full" />
-          ) : (
-            <p className="px-6 py-16 text-center text-sm text-white">
-              This video does not have a playable file yet.
-            </p>
-          )}
-        </DialogContent>
-      </Dialog>
+      {renderPostVideoDialog({
+        open,
+        onOpenChange: setOpen,
+        title,
+        embed,
+        excerpt: decodeHtmlEntities(post.excerpt ?? ""),
+        journal,
+      }) ?? (
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent>
+            <DialogTitle className="sr-only">{title}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {embed
+                ? "Video"
+                : "This video does not have a playable file yet."}
+            </DialogDescription>
+            {embed?.kind === "iframe" ? (
+              <iframe
+                src={embed.src}
+                title={title}
+                className="aspect-video w-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            ) : embed?.kind === "file" ? (
+              <video controls src={embed.src} className="aspect-video w-full" />
+            ) : (
+              <p className="px-6 py-16 text-center text-sm text-white">
+                This video does not have a playable file yet.
+              </p>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 }
