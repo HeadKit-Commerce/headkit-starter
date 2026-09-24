@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { unstable_rethrow } from "next/navigation";
 import { cacheLife, cacheTag } from "next/cache";
+import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { TAG } from "@/lib/cache-tags";
 import { headkit } from "@/lib/sdk";
 import type {
@@ -132,7 +133,7 @@ const HOME_TAGS: readonly string[] = [
 
 export async function getHomepageData() {
   "use cache";
-  cacheLife("days");
+  cacheLifeForProfile("days", "max");
   cacheTag(...HOME_TAGS);
 
   // Split fetches so a homepage.get() failure does not null On Sale
@@ -164,7 +165,7 @@ export async function getHomepageData() {
 
 export async function HomeContent() {
   "use cache";
-  cacheLife("days");
+  cacheLifeForProfile("days", "max");
   cacheTag(...HOME_TAGS);
 
   const { homepage, onSaleProducts } = await getHomepageData();

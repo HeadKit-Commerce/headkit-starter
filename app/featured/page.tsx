@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { cacheLife, cacheTag } from "next/cache";
+import { cacheTag } from "next/cache";
+import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { headkit as sdk } from "@/lib/sdk";
 import { CollectionHeader } from "@/components/headkit-ui/collection/collection-header";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
@@ -51,7 +52,7 @@ const PER_PAGE = CATALOG_PAGE_SIZE;
 /** Aggregated facet options. Shared + durable. */
 async function getFilters() {
   "use cache: remote";
-  cacheLife("hours");
+  cacheLifeForProfile("hours", "max");
   cacheTag("catalog:filters");
   return sdk.collections.getFilters();
 }

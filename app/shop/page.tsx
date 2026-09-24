@@ -1,6 +1,7 @@
 import { unstable_rethrow } from "next/navigation";
 import type { Metadata } from "next";
-import { cacheLife, cacheTag } from "next/cache";
+import { cacheTag } from "next/cache";
+import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { headkit as sdk } from "@/lib/sdk";
 import { TAG } from "@/lib/cache-tags";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
@@ -61,11 +62,23 @@ function isUncategorizedCategory(cat: ProductCategoryDetail): boolean {
 
 async function getRootCategories(): Promise<ProductCategoryDetail[]> {
   "use cache";
-  cacheLife({
-    stale: 60 * 60 * 24 * 14,
-    revalidate: 60 * 60,
-    expire: 60 * 60 * 24 * 14,
-  });
+  // Spelled out field by field rather than named, in BOTH profiles, because
+  // `cacheLife("max")` carries `stale: 5min` and would SHORTEN this entry's
+  // 14-day `stale` — the opposite of what the aggressive profile is for. So
+  // the aggressive side raises only `revalidate` and `expire` to `max`'s
+  // values (30d / 365d) and keeps the longer `stale`.
+  cacheLifeForProfile(
+    {
+      stale: 60 * 60 * 24 * 14,
+      revalidate: 60 * 60,
+      expire: 60 * 60 * 24 * 14,
+    },
+    {
+      stale: 60 * 60 * 24 * 14,
+      revalidate: 60 * 60 * 24 * 30,
+      expire: 60 * 60 * 24 * 365,
+    },
+  );
   cacheTag(TAG.collections, TAG.branding);
   const [categories, { branding }] = await Promise.all([
     sdk.collections.getCategories(),
@@ -90,7 +103,7 @@ async function getRootCategories(): Promise<ProductCategoryDetail[]> {
 /** Aggregated facet options (categories/attributes/price bounds). Shared + durable. */
 async function getFilters() {
   "use cache: remote";
-  cacheLife("hours");
+  cacheLifeForProfile("hours", "max");
   cacheTag("catalog:filters");
   return sdk.collections.getFilters();
 }

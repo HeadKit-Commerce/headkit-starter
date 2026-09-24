@@ -7,6 +7,7 @@ import {
   parseCgroupMemoryLimit,
   resolveBuildWorkers,
 } from "./lib/build-parallelism";
+import { resolvePrerenderTimeout } from "./lib/prerender-timeout";
 
 /**
  * The container's memory limit, when the kernel exposes one (cgroup v2 first,
@@ -248,6 +249,20 @@ const staticGenConcurrency = positiveIntEnv(
 const deploymentId =
   process.env.NEXT_DEPLOYMENT_ID ?? process.env.VERCEL_DEPLOYMENT_ID;
 
+/**
+ * Raised prerender budget for a store that has MEASURED its need for one.
+ * Unset on every store by default, and then both keys are omitted and the
+ * build keeps Next's own 60s page budget exactly as it does today.
+ *
+ * `lib/prerender-timeout.ts` carries why this is the only lever (the
+ * `useCacheTimeout` key alone is inert in a build), how to size the number
+ * from a store's own fan-out, and what a larger value costs when a page hangs
+ * outside a cached function.
+ */
+const prerenderTimeout = resolvePrerenderTimeout(
+  process.env.HEADKIT_STATIC_PAGE_GENERATION_TIMEOUT,
+);
+
 const nextConfig: NextConfig = {
   transpilePackages: ["@headkit/sdk"],
   ...(deploymentId ? { deploymentId } : {}),
@@ -262,6 +277,12 @@ const nextConfig: NextConfig = {
   // owns the rule. Off unless the store sets NEXT_PUBLIC_NAV_PREFETCH_BUDGET.
   cacheComponents: true,
   ...(navPrefetchBudget ? { partialPrefetching: true } : {}),
+  ...(prerenderTimeout
+    ? {
+        staticPageGenerationTimeout:
+          prerenderTimeout.staticPageGenerationTimeout,
+      }
+    : {}),
   experimental: {
     optimizePackageImports: [
       "react-icons",
@@ -289,6 +310,13 @@ const nextConfig: NextConfig = {
     // prerender error — this changes only how much of the damage one failing
     // build is allowed to report.
     prerenderEarlyExit: false,
+    // The effective prerender cache-fill budget, in seconds. Next clamps it to
+    // `staticPageGenerationTimeout * 0.9`, so it is written out only when that
+    // key is raised, and then at the value the clamp would produce anyway —
+    // stating it keeps the intended budget if Next's 0.9 factor ever moves.
+    ...(prerenderTimeout
+      ? { useCacheTimeout: prerenderTimeout.useCacheTimeout }
+      : {}),
   },
   images: {
     // Prefer modern formats everywhere the optimizer runs (PLP cards, heroes,
@@ -372,6 +400,30 @@ const nextConfig: NextConfig = {
       {
         source: "/(.*)",
         headers: securityHeaders,
+      },
+      // Let the CDN keep `/sitemap.xml`. `app/sitemap.ts` is a metadata route
+      // and cannot set its own response headers; its body already comes from
+      // ONE `"use cache: remote"` entry, but without `s-maxage` every crawler
+      // fetch still invoked the function (measured on one storefront:
+      // `x-vercel-cache: MISS`, 1.4 MB, ~2 s per fetch). Vercel's CDN honours
+      // `s-maxage` / `stale-while-revalidate` from a response's own
+      // `Cache-Control`, so a Search Console fetch becomes an edge HIT.
+      //
+      // THE COST IS A DELIBERATE HOUR OF BLINDNESS: a tag purge invalidates
+      // the cached ENTRY behind the route, not the CDN copy, so a sitemap can
+      // advertise a deleted URL or omit a new one for up to an hour after the
+      // purge that should have fixed it. Accepted for a sitemap, where a
+      // crawler's own revisit interval is measured in hours to days. Do not
+      // copy this to a shopper-facing route.
+      // `app/sitemap-cache-control.test.ts` pins the exact value.
+      {
+        source: "/sitemap.xml",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, s-maxage=3600, stale-while-revalidate=86400",
+          },
+        ],
       },
     ];
   },

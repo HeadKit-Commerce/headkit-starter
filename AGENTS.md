@@ -914,6 +914,44 @@ cache — so the only escape is `vercel cache invalidate --srcimg <path>` (or
 `invalidateBySrcImage()` from `@vercel/functions`), and whatever is set here is the worst case
 they must otherwise wait out. `next.config.ts` carries the measurements.
 
+### Cache lifetimes and prerender shape are PER-STORE levers, not constants
+
+Three settings decide how stale a storefront may serve and how much of it a build
+produces. All three default to what every storefront does today, so a store that sets
+nothing is unaffected; moving one is a measured, per-store decision.
+
+- **`HEADKIT_CACHE_PROFILE`** (`lib/cache-profile.ts`). `conservative` (default) keeps each
+  cached read's own finite lifetime as the missed-purge backstop. `aggressive` raises those
+  same reads to `max`, where a tag purge is the ONLY thing that refreshes an entry — faster,
+  and unforgiving of a store whose revalidation webhooks do not arrive
+  (`docs/cache-revalidation-contract.md`). A raise-able call site names both lifetimes:
+  `cacheLifeForProfile("hours", "max")` instead of `cacheLife("hours")`.
+  **A read that decides a status code or an indexability signal must stay finite in both
+  profiles** — a cached-empty category at `max` pins a 404, and a cached null in
+  `generateMetadata` pins a NOINDEX, either of them until the next deploy.
+  `lib/cache-profile-call-sites.test.ts` holds that list and fails if one is raised;
+  `getCachedProduct` is the one deliberate exception, and says why at the call site.
+- **`HEADKIT_PRERENDER_COLLECTION_FACETS` / `HEADKIT_PRERENDER_PRODUCT_COLOURWAYS`**
+  (`lib/prerender-budget.ts`). Build time is a per-store resource against a 45-minute
+  Vercel ceiling, and these two families' size comes from a store's catalogue rather than
+  from the template: facets default to unlimited, colourway PDPs to none. Neither route sets
+  `dynamicParams = false`, so an un-emitted URL still routes and still answers 200 — it pays
+  a cold render once. **Prerendering is not indexability**: `app/sitemap.ts` advertises what
+  EXISTS and keeps its own rules, so the two emitters diverging is a budget decision, not
+  drift. Where they must agree on a RULE they share one function —
+  `productColourSlugs` in `lib/canonical-path.ts`, guarded by
+  `app/product-url-emitter-parity.test.ts`.
+- **`HEADKIT_STATIC_PAGE_GENERATION_TIMEOUT`** (`lib/prerender-timeout.ts`). Unset by
+  default, and then neither key is written. Raise it only for the specific failure it
+  addresses — `Filling a cache during prerender timed out` on a route that wraps a wide
+  fan-out in one cached entry. The module carries why `experimental.useCacheTimeout` alone
+  is inert, how to size the number, and what a larger value costs a genuine hang.
+
+`/sitemap.xml` also carries `s-maxage=3600` from `next.config.ts` `headers()`. That one IS a
+platform default, and it is a deliberate hour of blindness: a tag purge drops the cached
+entry behind the route, never the CDN copy. `app/sitemap-cache-control.test.ts` pins it.
+
+
 ## Maintaining this file
 
 Keep this file for knowledge useful to almost every future agent session in this app.

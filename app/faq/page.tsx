@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
-import { cacheLife, cacheTag } from "next/cache";
+import { cacheTag } from "next/cache";
+import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { headkit as sdk } from "@/lib/sdk";
 import { FAQPageJsonLD } from "@/components/seo/faq-page-json-ld";
 import { makeSeoMetadata, storefrontUrl } from "@/lib/make-metadata";
@@ -11,7 +12,7 @@ import { FaqList } from "@/components/headkit-ui/faq-list";
 
 async function getFaqPage() {
   "use cache";
-  cacheLife("days");
+  cacheLifeForProfile("days", "max");
   cacheTag("headkit:page:faq", "headkit:pages");
   // NOTE: sdk.faq.list() errors intentionally propagate (no `.catch(() => [])`).
   // Swallowing them cached "no FAQs" with cacheLife("days") — a transient fetch

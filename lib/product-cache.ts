@@ -1,5 +1,6 @@
 import path from "node:path";
-import { cacheLife, cacheTag } from "next/cache";
+import { cacheTag } from "next/cache";
+import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { TAG } from "@/lib/cache-tags";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
@@ -30,7 +31,7 @@ export async function getCachedProduct(slug: string) {
   "use cache";
   // Finite `days` backstop (was `max`): a missed product webhook self-heals in
   // ~1 day (threat T-09.5-12) instead of sticking until redeploy.
-  cacheLife("days");
+  cacheLifeForProfile("days", "max");
   cacheTag(TAG.product(slug), TAG.products);
   // Build-time only: a product the bulk prefetch already holds is returned
   // from the per-build store instead of costing its own origin request. Off

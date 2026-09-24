@@ -1,5 +1,6 @@
 import "server-only";
-import { cacheLife, cacheTag } from "next/cache";
+import { cacheTag } from "next/cache";
+import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { headkit as sdk } from "@/lib/sdk";
 import { walkCategoryPaths } from "@/app/shop/shop-slug";
 import { collectionPathFromSegments } from "@/lib/canonical-path";
@@ -40,7 +41,7 @@ async function collectionPathIndex(): Promise<Map<string, string>> {
   // subscribes to — is what keeps this fresh for the edits that can change it;
   // the life is the backstop for everything else, so matching the caller's
   // costs nothing.
-  cacheLife("days");
+  cacheLifeForProfile("days", "max");
   cacheTag(TAG.collections);
 
   const categories = await sdk.collections.getCategories();

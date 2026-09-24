@@ -1,4 +1,5 @@
-import { cacheLife, cacheTag } from "next/cache";
+import { cacheTag } from "next/cache";
+import { cacheLifeForProfile } from "@/lib/cache-profile";
 import type { ProductCategoryDetail } from "@headkit/sdk";
 import { TAG } from "@/lib/cache-tags";
 import { headkit } from "@/lib/sdk";
@@ -99,7 +100,7 @@ export function collectionSlugFromMenuItem(
  */
 export async function getNonEmptyCollectionSlugs(): Promise<ReadonlySet<string> | null> {
   "use cache: remote";
-  cacheLife("hours");
+  cacheLifeForProfile("hours", "max");
   cacheTag(TAG.collections);
 
   try {

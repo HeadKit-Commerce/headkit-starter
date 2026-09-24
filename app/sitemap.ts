@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
-import { cacheLife, cacheTag } from "next/cache";
+import { cacheTag } from "next/cache";
+import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { headkit } from "@/lib/sdk";
 import { getBranding } from "@/lib/branding";
 import { cmsPlaceholderVerdict } from "@/lib/cms-placeholder-pages";
@@ -18,7 +19,7 @@ import {
   keepsColourFacet,
 } from "@/lib/facet-sitemap-thresholds";
 import { walkCategoryPaths } from "./shop/shop-slug";
-import { productPath } from "@/lib/canonical-path";
+import { productColourSlugs, productPath } from "@/lib/canonical-path";
 import { getPostsBasePath, postsIndexPath } from "@/lib/posts-base-path";
 import { convertToRelativePath, isAppNavigationHref } from "@/lib/convert-uri";
 import { storeSitemapRoutes } from "@/sitemap.config";
@@ -106,15 +107,12 @@ async function makeProductSitemap(siteUrl: string): Promise<SitemapItem[]> {
         });
 
         // Variable products: one colorway URL per color option (Tier-1 only —
-        // never size or other attributes).
-        const colorAttr = product.attributes.find((a) =>
-          isColorAttrSlug(a.slug),
-        );
-        const seen = new Set<string>();
-        for (const option of colorAttr?.fullOptions ?? []) {
-          const colorSlug = option?.slug ?? "";
-          if (!colorSlug || seen.has(colorSlug)) continue;
-          seen.add(colorSlug);
+        // never size or other attributes). The rule lives in
+        // `lib/canonical-path.ts` beside the `productPath` it feeds, because
+        // `app/shop/[...slug]`'s generateStaticParams reads the SAME function
+        // to decide which of these URLs it prerenders. A second copy here is
+        // how the two came to disagree by 1,375 URLs on one storefront.
+        for (const colorSlug of productColourSlugs(product)) {
           // Colourways follow the base onto whichever shape won:
           // `app/shop/[...slug]` now classifies a trailing colour segment, so a
           // nested product's colourways are nested too and the sitemap never
@@ -679,7 +677,7 @@ async function makeProjectSitemap(siteUrl: string): Promise<SitemapItem[]> {
  */
 async function buildCachedSitemap(): Promise<MetadataRoute.Sitemap> {
   "use cache: remote";
-  cacheLife("days");
+  cacheLifeForProfile("days", "max");
   cacheTag(...SITEMAP_TAGS);
 
   // Sitemap off = remove completely (no entries). robots.ts omits the Sitemap line.

@@ -1,5 +1,6 @@
 import type { MenuLocation } from "@headkit/sdk";
-import { cacheLife, cacheTag } from "next/cache";
+import { cacheTag } from "next/cache";
+import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { convertToRelativePath } from "@/lib/convert-uri";
 import { TAG } from "@/lib/cache-tags";
 import { headkit } from "@/lib/sdk";
@@ -176,7 +177,7 @@ export async function fetchMenu(
   location: MenuLocation,
 ): Promise<NavMenuItem[]> {
   "use cache: remote";
-  cacheLife("hours");
+  cacheLifeForProfile("hours", "max");
   cacheTag(TAG.menu(location));
   return loadMenu(location);
 }
@@ -207,7 +208,7 @@ export async function getFooterMenus(): Promise<
   }[]
 > {
   "use cache: remote";
-  cacheLife("hours");
+  cacheLifeForProfile("hours", "max");
   cacheTag(
     TAG.footer,
     TAG.menu("FOOTER"),
@@ -269,14 +270,14 @@ export async function getFooterMenus(): Promise<
  */
 export async function getFooterMenu(): Promise<NavMenuItem[]> {
   "use cache: remote";
-  cacheLife("hours");
+  cacheLifeForProfile("hours", "max");
   cacheTag(TAG.footer, TAG.menu("FOOTER"));
   return loadMenu("FOOTER");
 }
 
 export async function NavigationWrapper() {
   "use cache: remote";
-  cacheLife("hours");
+  cacheLifeForProfile("hours", "max");
   // Subscribe to exactly what this wrapper composes: primary + secondary +
   // pre-header menus AND branding (the wrapper renders the logo from
   // getBrandingAssets / getBranding, and nested tags don't bubble — without

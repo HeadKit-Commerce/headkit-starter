@@ -1,4 +1,5 @@
-import { cacheLife, cacheTag } from "next/cache";
+import { cacheTag } from "next/cache";
+import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { TAG } from "@/lib/cache-tags";
 import { errorFields, logger } from "@/lib/logger";
 import { headkit } from "@/lib/sdk";
@@ -83,7 +84,7 @@ export async function getCachedProductBrand(
   slug: string,
 ): Promise<ProductDisplayBrand | null> {
   "use cache";
-  cacheLife("days");
+  cacheLifeForProfile("days", "max");
   cacheTag(TAG.brands);
   try {
     const brand = await headkit.brands.get(slug);

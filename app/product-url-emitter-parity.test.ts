@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * TWO EMITTERS, ONE SET — the guard the brand-pagination fix exists because of.
+ * TWO EMITTERS, ONE SET — the guard the brand-pagination fix and the colourway
+ * prerender both exist because of.
  *
  * A URL class has two independent emitters that must name exactly the same
  * strings: `app/sitemap.ts` says which URLs exist, and a route's
@@ -19,15 +20,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  *
  * WHAT IT DOES NOT COVER, and none of these is implied by a green run:
  *
- *   - The `/shop` COLOURWAY family. The sitemap advertises one URL per colourway
- *     and `app/shop/[...slug]` emits only the base param, so the two are NOT
- *     equal today. That is a known, open divergence, not a decision: closing it
- *     raises build cost for every store and is held behind the platform's
- *     prerender-budget decision. Until then this file asserts the weaker
- *     property that actually holds — every `/shop` param the build emits is a
- *     URL the sitemap advertises, so no build effort is spent on a URL nothing
- *     links to — and that assertion tightens to equality when the colourway
- *     params land.
+ *   - Unconditional equality for the `/shop` COLOURWAY family, because whether
+ *     those URLs are built is now a per-store BUDGET rather than an open gap
+ *     (`HEADKIT_PRERENDER_PRODUCT_COLOURWAYS`, `lib/prerender-budget.ts`), and
+ *     its platform default is ZERO. Both ends are asserted instead: at the
+ *     default, every `/shop` param the build emits is a URL the sitemap
+ *     advertises (no build effort spent on a URL nothing links to) and the
+ *     colourway URLs are the advertised-only remainder; with the budget open,
+ *     the two sets are EQUAL. What stays shared in both is the RULE —
+ *     `productColourSlugs` in `lib/canonical-path.ts` — which is the thing a
+ *     second copy would break.
  *   - Whether either set is CORRECT. Both emitters reading the same wrong rule
  *     is a green run. `app/sitemap.test.ts` owns the sitemap's own rules and
  *     `app/canonical-url-shape.test.tsx` owns the canonical shape.
@@ -132,8 +134,9 @@ import { generateStaticParams as brandParams } from "./brand/[...slug]/page";
 /**
  * ONE fixture catalogue, shaped so both emitters read the same rows:
  *
- *  - a product with NO colourway and products with one and with several, so the
- *    sitemap's colourway URLs are present for the open-divergence assertion,
+ *  - a product with NO colourway and products with one and with several, plus a
+ *    repeated colour option slug (both emitters must de-duplicate) and a
+ *    non-colour attribute carrying option slugs (size must contribute no URL),
  *  - products spread over TWO pages (a walk that reads page 1 and stops fails),
  *  - a product off the `/shop` permalink base, which contributes no param here,
  *  - a product at two category depths (the URL shape comes from the permalink).
@@ -206,6 +209,18 @@ beforeEach(() => {
   );
 });
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+/** Every base param the fixture can produce, in the shape the route emits. */
+const BASE_PATHS = [
+  "/shop/water-bottles/plain-bidon",
+  "/shop/apparel/trail-jacket",
+  "/shop/components/bars/deep-bar-tape",
+  "/shop/apparel/jerseys/club-jersey",
+] as const;
+
 /** Sitemap entries beneath a prefix, excluding the family's own index URL. */
 async function advertised(prefix: string): Promise<Set<string>> {
   const entries = await sitemap();
@@ -246,10 +261,10 @@ describe("product and brand URL emitters agree", () => {
       "a param the sitemap does not advertise is build time spent on a URL nothing links to",
     ).toEqual([]);
 
-    // The reverse containment is the OPEN half: the sitemap advertises one URL
-    // per colourway and this route emits only base params. Named here rather
-    // than asserted, because asserting equality today would fail on a gap this
-    // change does not close.
+    // The reverse containment is the BUDGET's doing, not a gap: at the platform
+    // default of zero the sitemap advertises one URL per colourway and this
+    // route emits only base params. The case below asserts the equality that
+    // holds once a store opens the budget.
     const advertisedOnly = [...advertisedShop].filter(
       (path) => !built.has(path),
     );
@@ -298,5 +313,65 @@ describe("product and brand URL emitters agree", () => {
     expect(built).toEqual(
       new Set(["/brand/abus", "/brand/amflow", "/brand/avid"]),
     );
+  });
+});
+
+describe("with the colourway budget opened", () => {
+  // `HEADKIT_PRERENDER_PRODUCT_COLOURWAYS` is what a store raises once it has
+  // priced the class against its own build; `lib/prerender-budget.test.ts` owns
+  // the parsing of the key, this owns what the emitters then do.
+  beforeEach(() => {
+    vi.stubEnv("HEADKIT_PRERENDER_PRODUCT_COLOURWAYS", "unlimited");
+  });
+
+  it("prerenders exactly the /shop URLs the sitemap advertises", async () => {
+    const [advertisedShop, params] = await Promise.all([
+      advertised("/shop"),
+      shopParams(),
+    ]);
+    const built = builtPaths(params, "/shop");
+
+    // Stated positively as well as by equality, so a fixture that silently
+    // stopped producing colourways could not make this vacuous.
+    expect(advertisedShop).toContain("/shop/apparel/trail-jacket/black");
+    expect(built).toContain("/shop/apparel/trail-jacket/black");
+    expect(built).toContain("/shop/apparel/jerseys/club-jersey/navy");
+
+    expect(built).toEqual(advertisedShop);
+  });
+
+  it("emits one param per colourway and none for size or a repeated option", async () => {
+    const built = builtPaths(await shopParams(), "/shop");
+
+    // No colourway: base only.
+    expect([...built].filter((p) => p.includes("plain-bidon"))).toEqual([
+      "/shop/water-bottles/plain-bidon",
+    ]);
+
+    // Repeated `red` yields one URL; `pa_size` yields none.
+    expect(
+      [...built].filter((p) => p.includes("deep-bar-tape")).sort(),
+    ).toEqual([
+      "/shop/components/bars/deep-bar-tape",
+      "/shop/components/bars/deep-bar-tape/blue",
+      "/shop/components/bars/deep-bar-tape/red",
+    ]);
+    expect([...built].some((p) => p.endsWith("/m"))).toBe(false);
+
+    // A product off the `/shop` permalink base contributes nothing to THIS
+    // route — neither its base nor its colourway.
+    expect([...built].some((p) => p.includes("no-shop-base"))).toBe(false);
+  });
+
+  it("spends a finite budget on colourways only, never on a base param", async () => {
+    vi.stubEnv("HEADKIT_PRERENDER_PRODUCT_COLOURWAYS", "1");
+
+    const built = builtPaths(await shopParams(), "/shop");
+
+    // Every base param survives the cap; exactly one colourway is built, and it
+    // is the first one the walk reaches.
+    for (const base of BASE_PATHS) expect(built).toContain(base);
+    expect(built.size).toBe(BASE_PATHS.length + 1);
+    expect(built).toContain("/shop/apparel/trail-jacket/black");
   });
 });

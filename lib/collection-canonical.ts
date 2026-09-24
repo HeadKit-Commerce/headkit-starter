@@ -1,5 +1,6 @@
 import "server-only";
-import { cacheLife, cacheTag } from "next/cache";
+import { cacheTag } from "next/cache";
+import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { headkit as sdk } from "@/lib/sdk";
 import { collectionPathFromCategory } from "@/components/headkit-ui/collection/utils";
 import { TAG } from "@/lib/cache-tags";
@@ -68,15 +69,28 @@ export function parseCollectionSlug(slug: string[]): {
  */
 export async function getCategoryData(categorySlug: string) {
   "use cache";
-  // 2-week stale / 1h revalidate — safety net if webhooks fail. Unchanged by
-  // the move out of the route file: this entry is a status-code source (it is
-  // `canonicalCollectionRedirect`'s 308 target AND the route's 404 gate), so
-  // its lifetimes are not a knob to reach for while relocating it.
-  cacheLife({
-    stale: 60 * 60 * 24 * 14,
-    revalidate: 60 * 60,
-    expire: 60 * 60 * 24 * 14,
-  });
+  // 2-week stale / 1h revalidate — safety net if webhooks fail.
+  //
+  // FINITE IN BOTH CACHE PROFILES, deliberately, and for the reason the move
+  // out of the route file already named: this entry is a status-code source —
+  // `canonicalCollectionRedirect`'s 308 target AND the route's 404 gate.
+  // Serving a stale price is recoverable; pinning a wrong 404 or 308 until the
+  // next deploy is not, so the aggressive profile raises only `revalidate`
+  // (1h -> 24h, the `days` profile's value) and never reaches `max`. `stale`
+  // and `expire` stay at 14 days in both, since naming a profile here would
+  // SHORTEN them. See `lib/cache-profile.ts`.
+  cacheLifeForProfile(
+    {
+      stale: 60 * 60 * 24 * 14,
+      revalidate: 60 * 60,
+      expire: 60 * 60 * 24 * 14,
+    },
+    {
+      stale: 60 * 60 * 24 * 14,
+      revalidate: 60 * 60 * 24,
+      expire: 60 * 60 * 24 * 14,
+    },
+  );
   // headkit:collections is sent by WordPress on a product-CATEGORY term edit
   // (created_term / edited_term / delete_term on product_cat) and by nothing
   // else — measured, not assumed: no product event reaches it

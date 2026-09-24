@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Suspense } from "react";
-import { cacheLife, cacheTag } from "next/cache";
+import { cacheTag } from "next/cache";
+import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { headkit as sdk } from "@/lib/sdk";
 import { CollectionHeader } from "@/components/headkit-ui/collection/collection-header";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
@@ -38,7 +39,7 @@ export async function generateMetadata({
 
 async function getSearchFilters() {
   "use cache";
-  cacheLife("hours");
+  cacheLifeForProfile("hours", "max");
   cacheTag("headkit:products");
   return sdk.collections.getFilters();
 }

@@ -1,4 +1,5 @@
-import { cacheLife, cacheTag } from "next/cache";
+import { cacheTag } from "next/cache";
+import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { unstable_rethrow } from "next/navigation";
 import { headkit as sdk } from "@/lib/sdk";
 import { errorFields, logger } from "@/lib/logger";
@@ -50,7 +51,7 @@ async function getFeedPosts(): Promise<
   Awaited<ReturnType<typeof sdk.posts.list>>
 > {
   "use cache";
-  cacheLife("hours");
+  cacheLifeForProfile("hours", "max");
   cacheTag(TAG.posts);
   try {
     return await sdk.posts.list({ page: 1, perPage: 20 });

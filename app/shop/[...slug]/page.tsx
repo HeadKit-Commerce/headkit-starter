@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { notFound, unstable_rethrow } from "next/navigation";
-import { cacheLife, cacheTag } from "next/cache";
+import { cacheTag } from "next/cache";
+import { cacheLifeForProfile } from "@/lib/cache-profile";
 import type { ProductCategoryDetail } from "@headkit/sdk";
 import { headkit as sdk } from "@/lib/sdk";
 import { getBranding } from "@/lib/branding";
@@ -13,7 +14,12 @@ import {
 } from "@/app/products/[...slug]/page";
 import { CollectionRoute } from "@/app/collections/[...slug]/page";
 import { collectionPathFromCategory } from "@/components/headkit-ui/collection/utils";
-import { productPath, productShopSegments } from "@/lib/canonical-path";
+import {
+  productColourSlugs,
+  productPath,
+  productShopSegments,
+} from "@/lib/canonical-path";
+import { productColourwayParamBudget } from "@/lib/prerender-budget";
 import { getCachedProduct } from "@/lib/product-cache";
 import {
   resolveShopPath,
@@ -145,7 +151,12 @@ type Props = {
  */
 async function getShopCategoryTree(): Promise<ProductCategoryDetail[]> {
   "use cache";
-  cacheLife("hours");
+  // FINITE IN BOTH PROFILES. This read classifies a path, so it decides the
+  // route's status code, and the aggressive profile therefore stops at `days`
+  // rather than `max` — a cached-empty tree at `max` would pin a 404 on every
+  // nested PDP until the next deploy. `lib/cache-profile.ts` has the rule;
+  // `lib/cache-profile-call-sites.test.ts` pins it.
+  cacheLifeForProfile("hours", "days");
   cacheTag(TAG.collections);
   return sdk.collections.getCategories();
 }
@@ -155,7 +166,11 @@ async function getShopCategory(
   slug: string,
 ): Promise<ProductCategoryDetail | null> {
   "use cache";
-  cacheLife("hours");
+  // Finite in both profiles alongside `getShopCategoryTree`, for a narrower
+  // reason: this one feeds no status code, only `generateMetadata`, where a
+  // cached null returns NOINDEX. At `max` one transient null would deindex a
+  // real category until the next deploy.
+  cacheLifeForProfile("hours", "days");
   cacheTag(TAG.collection(slug), TAG.collections);
   return sdk.collections.getCategory(slug);
 }
@@ -178,7 +193,10 @@ async function getShopCategory(
  *   is UNCAPPED, paginating the catalogue to completion, as it already did
  *   before the canonical flip. The flat route (`app/products/[...slug]`) is the
  *   redirect shim there, and it is CAPPED at `HEADKIT_PRERENDER_PRODUCT_LIMIT`
- *   (default 150), so what the cap bounds is how many 308s get prerendered.
+ *   (default 150), so what the cap bounds is how many 308s get prerendered. The
+ *   flat route's colourway URLs are deliberately NOT enumerated at all: it
+ *   advertises none of them, every one 308s here, and prerendering a redirect
+ *   would spend that cap on the wrong class.
  *
  *   DEFAULT-permalink store (`/product/{slug}`) — `productShopSegments` returns
  *   null for every product, so `generateStaticParams` here emits only the
@@ -194,9 +212,22 @@ async function getShopCategory(
  * primary URL class rather than a relocation of an existing bound. A cap that
  * governs the canonical route in both classes is filed as
  * `260824-prerender-cap-nested-pdp`.
+ *
+ * COLOURWAY PARAMS are a SECOND class on this route — one per colour option on
+ * a variable product, beside that product's base param — and they are budgeted
+ * separately (`HEADKIT_PRERENDER_PRODUCT_COLOURWAYS`,
+ * `lib/prerender-budget.ts`), at `0` and therefore NONE by default.
+ * `app/sitemap.ts` advertises them from the same `productColourSlugs` rule this
+ * reads, so at `0` they are indexed but not built and each charges its first
+ * visitor a cold render — measured on one storefront at 3.6–5.9 s against a
+ * prerendered sibling's 1.15–1.37 s. They are cheap but not free to build,
+ * which is why this is a budget rather than a boolean; that module says what
+ * the class costs with and without the build-time bulk prefetch.
  */
 export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
   const params: { slug: string[] }[] = [];
+  const colourwayBudget = productColourwayParamBudget();
+  let colourwayParams = 0;
 
   try {
     let page = 1;
@@ -211,6 +242,16 @@ export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
         const segments = productShopSegments(product);
         if (!segments) continue;
         params.push({ slug: segments });
+
+        // One more param per colourway, from the SAME rule the sitemap
+        // advertises them by. Reads nothing new: this loop already holds the
+        // rows, and `products.list` is the byte-identical call the sitemap
+        // makes with the same page size and pagination.
+        for (const colourSlug of productColourSlugs(product)) {
+          if (colourwayParams >= colourwayBudget) break;
+          params.push({ slug: [...segments, colourSlug] });
+          colourwayParams++;
+        }
       }
       hasMore = page < result.totalPages;
       page++;

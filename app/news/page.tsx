@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
-import { cacheLife, cacheTag } from "next/cache";
+import { cacheTag } from "next/cache";
+import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { headkit as sdk } from "@/lib/sdk";
 import { PostHeader } from "@/components/headkit-ui/post/post-header";
 import { PostPage } from "@/components/headkit-ui/post/post-page";
@@ -20,7 +21,7 @@ const PER_PAGE = 24;
 
 async function getNewsLanding() {
   "use cache";
-  cacheLife("hours");
+  cacheLifeForProfile("hours", "max");
   // Posts page may use any WP slug; always tag the storefront news route.
   cacheTag(TAG.page("news"), TAG.posts, TAG.pages);
   return sdk.posts.getLanding().catch(() => null);
@@ -64,7 +65,7 @@ async function getPostFilters(): Promise<
   Awaited<ReturnType<typeof sdk.posts.getFilters>>
 > {
   "use cache";
-  cacheLife("days");
+  cacheLifeForProfile("days", "max");
   cacheTag(TAG.posts);
   try {
     return await sdk.posts.getFilters();
@@ -103,7 +104,7 @@ async function getPostsPage(
   page: number,
 ): Promise<Awaited<ReturnType<typeof sdk.posts.list>>> {
   "use cache: remote";
-  cacheLife("hours");
+  cacheLifeForProfile("hours", "max");
   cacheTag(TAG.posts, category ? `posts:cat:${category}` : "posts:all");
   try {
     return await sdk.posts.list({

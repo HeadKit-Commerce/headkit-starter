@@ -114,6 +114,14 @@ vi.mock("@/components/headkit-ui/catalog-grid", () => ({
   CATALOG_PAGE_SIZE: 24,
 }));
 
+// The facet prerender budget (`lib/prerender-budget.ts`) is mocked so these
+// cases can drive both ends of it; the parsing of the env key itself is
+// `lib/prerender-budget.test.ts`'s. Default here = the platform default.
+const facetBudget = vi.hoisted(() => ({ value: Number.POSITIVE_INFINITY }));
+vi.mock("@/lib/prerender-budget", () => ({
+  collectionFacetParamBudget: (): number => facetBudget.value,
+}));
+
 import {
   DEFAULT_FILTER_VALUES,
   encodeFilterSlug,
@@ -516,6 +524,102 @@ describe("generateStaticParams category×brand emptiness", () => {
     expect(facets).toEqual([
       { category: "bikes", brand: "shimano" },
       { category: "bikes", brand: "abus" },
+    ]);
+  });
+});
+
+describe("generateStaticParams facet budget", () => {
+  // The budget decides how much of a store's build the facet class may spend.
+  // The DEFAULT is unlimited — today's behaviour on every storefront, already
+  // covered by the two suites above — so these cases own the other end of it.
+  function category(slug: string): Record<string, unknown> {
+    return { slug, children: [] };
+  }
+
+  beforeEach(() => {
+    facetBudget.value = Number.POSITIVE_INFINITY;
+  });
+
+  it("emits bare category params only when the budget is 0", async () => {
+    facetBudget.value = 0;
+    getCategories.mockResolvedValue([category("bikes"), category("locks")]);
+    // Both dimensions the facet loops explode on are present and stocked, so
+    // an unbudgeted run would emit facet params here.
+    getFilters.mockResolvedValue({
+      attributes: [
+        { slug: "colour", options: [{ slug: "black", name: "Black" }] },
+      ],
+      brands: [{ slug: "shimano", name: "Shimano", count: 12 }],
+    });
+    brandsList.mockResolvedValue({ brands: [{ slug: "shimano" }] });
+
+    const params = await generateStaticParams();
+
+    expect(params).toEqual([{ slug: ["bikes"] }, { slug: ["locks"] }]);
+    expect(
+      params.some((p) => p.slug.includes("f")),
+      "no /f/<slug> facet param may be prerendered at budget 0",
+    ).toBe(false);
+  });
+
+  it("makes no facet READ at all at budget 0", async () => {
+    // The point of the lever is the origin-paced reads, not the slots: one
+    // `getFilters` per category is what walked a measured store's build into
+    // the 45-minute ceiling. Dropping the params without dropping the reads
+    // would save almost nothing.
+    facetBudget.value = 0;
+    getCategories.mockResolvedValue([category("bikes")]);
+
+    await generateStaticParams();
+
+    expect(getFilters).not.toHaveBeenCalled();
+    expect(brandsList).not.toHaveBeenCalled();
+  });
+
+  it("keeps nested categories at their nested path when facets are off", async () => {
+    facetBudget.value = 0;
+    getCategories.mockResolvedValue([
+      { slug: "parent", children: [{ slug: "child", children: [] }] },
+    ]);
+
+    const params = await generateStaticParams();
+
+    expect(params).toContainEqual({ slug: ["parent", "child"] });
+  });
+
+  it("caps the facet class at a finite budget, never the base categories", async () => {
+    facetBudget.value = 1;
+    getCategories.mockResolvedValue([category("bikes"), category("locks")]);
+    getFilters.mockResolvedValue({
+      attributes: [
+        {
+          slug: "colour",
+          options: [
+            { slug: "black", name: "Black" },
+            { slug: "red", name: "Red" },
+          ],
+        },
+      ],
+      brands: [{ slug: "shimano", name: "Shimano", count: 12 }],
+    });
+    brandsList.mockResolvedValue({ brands: [{ slug: "shimano" }] });
+
+    const params = await generateStaticParams();
+
+    const base = params.filter((p) => !p.slug.includes("f"));
+    const facets = params.filter((p) => p.slug.includes("f"));
+    expect(base).toEqual([{ slug: ["bikes"] }, { slug: ["locks"] }]);
+    expect(facets).toHaveLength(1);
+  });
+
+  it("still falls back to the placeholder with facets off and no category", async () => {
+    // Cache Components rejects an empty param list, so the budget must not be
+    // able to produce one.
+    facetBudget.value = 0;
+    getCategories.mockResolvedValue([]);
+
+    expect(await generateStaticParams()).toEqual([
+      { slug: ["__hk_static_placeholder"] },
     ]);
   });
 });

@@ -12,8 +12,11 @@
  * The winner is the NESTED shape for both, per the 2026-08-22 decision: the V1
  * sites' index equity sits on the nested URLs their sitemaps carried.
  *
- * Pure and dependency-free (no SDK, no `next`, no server-only): a client
- * component rendering a product card resolves the same path the sitemap does.
+ * Pure and free of SDK, `next` and server-only imports: a client component
+ * rendering a product card resolves the same path the sitemap does. The one
+ * runtime import is {@link isColorAttrSlug} from `lib/color-attr-slug.ts`, a
+ * pure predicate over an attribute slug that {@link productColourSlugs} needs
+ * and that already reaches every client bundle rendering a product card.
  */
 
 import {
@@ -21,6 +24,7 @@ import {
   uriToRelativePath,
   SHOP_PATH_PREFIX,
 } from "@/app/shop/shop-slug";
+import { isColorAttrSlug } from "@/lib/color-attr-slug";
 import { COLLECTION_PATH_PREFIX } from "@/lib/route-prefixes";
 
 /**
@@ -103,6 +107,59 @@ export function productPath(
     ? `/${SHOP_PATH_PREFIX}/${segments.join("/")}`
     : `/products/${product.slug}`;
   return colourSlug ? `${base}/${colourSlug}` : base;
+}
+
+/**
+ * The minimal product shape a colourway enumeration reads.
+ *
+ * Deliberately more permissive than the SDK's own types (`ProductAttribute.slug`
+ * and `AttributeOption.slug` are both non-null `String!`): the emitters this
+ * feeds already guard against a null option, and widening the parameter costs
+ * nothing while letting a test fixture supply only the fields the rule reads.
+ */
+export interface ColourwayProductRef {
+  attributes?:
+    | ReadonlyArray<{
+        slug?: string | null | undefined;
+        fullOptions?:
+          | ReadonlyArray<{ slug?: string | null | undefined } | null>
+          | null
+          | undefined;
+      } | null>
+    | null
+    | undefined;
+}
+
+/**
+ * The colour slugs a product has a colourway URL for, in payload order.
+ *
+ * Tier-1 only: the COLOUR attribute and nothing else — never size, never any
+ * other attribute — and de-duplicated, because a repeated option slug would
+ * otherwise emit the same URL twice.
+ *
+ * THE ONE DERIVATION, and why it has to be one. This rule decides a URL class:
+ * every slug it returns becomes `productPath(product, slug)`, a real,
+ * self-canonical, indexable page. Two emitters read it — `app/sitemap.ts`
+ * advertises those URLs, and `app/shop/[...slug]`'s `generateStaticParams`
+ * prerenders them under the store's colourway budget — and while the rule lived
+ * inline in the sitemap alone there was nothing to stop the two disagreeing.
+ * On one measured storefront they did, by 1,375 URLs: every one advertised,
+ * none built, each charging its first visitor a cold render.
+ * `app/product-url-emitter-parity.test.ts` is what keeps them equal.
+ */
+export function productColourSlugs(product: ColourwayProductRef): string[] {
+  const colourAttr = product.attributes?.find((attribute) =>
+    isColorAttrSlug(attribute?.slug ?? ""),
+  );
+  const slugs: string[] = [];
+  const seen = new Set<string>();
+  for (const option of colourAttr?.fullOptions ?? []) {
+    const slug = option?.slug ?? "";
+    if (!slug || seen.has(slug)) continue;
+    seen.add(slug);
+    slugs.push(slug);
+  }
+  return slugs;
 }
 
 /**

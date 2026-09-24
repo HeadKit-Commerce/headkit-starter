@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { cacheLife, cacheTag } from "next/cache";
+import { cacheTag } from "next/cache";
+import { cacheLifeForProfile } from "@/lib/cache-profile";
 import type { BrandSummary, ProductListFilter } from "@headkit/sdk";
 import { TAG } from "@/lib/cache-tags";
 import { headkit } from "@/lib/sdk";
@@ -51,7 +52,7 @@ export async function getCachedCatalogPage(
   scope: CatalogScope,
 ) {
   "use cache: remote";
-  cacheLife("hours");
+  cacheLifeForProfile("hours", "max");
 
   const filterKey = normalizeFilterKey(filter ?? {});
   const filterTag = catalogFilterTag(filterKey);
@@ -81,7 +82,7 @@ export async function getCachedCatalogPage(
 /** Shared brand facet list for PLP filter drawers. */
 export async function getCachedFilterBrands(): Promise<BrandSummary[]> {
   "use cache: remote";
-  cacheLife("hours");
+  cacheLifeForProfile("hours", "max");
   cacheTag(TAG.brands, "catalog:filters");
   const result = await headkit.brands.list({
     perPage: 100,

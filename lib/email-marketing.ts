@@ -6,7 +6,8 @@
  * Secrets are never returned — only public connection status.
  */
 
-import { cacheLife, cacheTag } from "next/cache";
+import { cacheTag } from "next/cache";
+import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { TAG } from "@/lib/cache-tags";
 import { createServerHeadkit } from "@/lib/sdk.server";
 
@@ -30,7 +31,7 @@ const DISABLED_STATUS: EmailMarketingStatusResult = {
  */
 export async function getEmailMarketingStatus(): Promise<EmailMarketingStatusResult> {
   "use cache: remote";
-  cacheLife("days");
+  cacheLifeForProfile("days", "max");
   cacheTag(TAG.emailMarketing, TAG.settings);
 
   try {

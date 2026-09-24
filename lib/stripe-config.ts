@@ -19,7 +19,8 @@
  */
 
 import "server-only";
-import { cacheLife, cacheTag } from "next/cache";
+import { cacheTag } from "next/cache";
+import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { TAG } from "@/lib/cache-tags";
 import { env } from "@/lib/env";
 import { fetchCommerceStripeConfig } from "./stripe-config-commerce";
@@ -158,7 +159,7 @@ export async function fetchStripeConfig(): Promise<StorefrontStripeConfig> {
  */
 export async function getStripeConfig(): Promise<StorefrontStripeConfig> {
   "use cache: remote";
-  cacheLife("hours");
+  cacheLifeForProfile("hours", "max");
   cacheTag(TAG.settings);
 
   return fetchStripeConfig();

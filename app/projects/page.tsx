@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
-import { cacheLife, cacheTag } from "next/cache";
+import { cacheTag } from "next/cache";
+import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { headkit as sdk } from "@/lib/sdk";
 import { PostHeader } from "@/components/headkit-ui/post/post-header";
 import { ProjectPage } from "@/components/headkit-ui/project/project-page";
@@ -16,7 +17,7 @@ const PER_PAGE = 24;
 
 async function getProjectsLanding() {
   "use cache";
-  cacheLife("days");
+  cacheLifeForProfile("days", "max");
   // Interim: CMS intro page must use slug "projects" (see ENG-860 for Reading picker).
   cacheTag(TAG.page("projects"), TAG.projects, TAG.pages);
   return sdk.content.get("projects", "PAGE").catch(() => null);
@@ -52,7 +53,7 @@ interface Props {
 
 async function getProjectFilters() {
   "use cache";
-  cacheLife("days");
+  cacheLifeForProfile("days", "max");
   cacheTag(TAG.projects);
   return sdk.projects.getFilters();
 }
@@ -63,7 +64,7 @@ async function getProjectFilters() {
  */
 async function getProjectsPage(brand: string, tag: string, page: number) {
   "use cache: remote";
-  cacheLife("hours");
+  cacheLifeForProfile("hours", "max");
   cacheTag(TAG.projects, `projects:${brand || "all"}:${tag || "all"}:${page}`);
   return sdk.projects.list({
     page,

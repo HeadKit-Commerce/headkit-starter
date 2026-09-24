@@ -19,6 +19,7 @@ import {
 } from "@/components/headkit-ui/collection/utils";
 import { toAttributeKey } from "@/lib/color-attr-slug";
 import { brandSlugsPerCategory } from "@/lib/brand-facets";
+import { collectionFacetParamBudget } from "@/lib/prerender-budget";
 import {
   makeSeoMetadata,
   seoFallbackDescription,
@@ -94,65 +95,30 @@ export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
     const nodes = walkCategoryPaths(categories, { includeExcluded: true });
     const paths: { slug: string[] }[] = [];
 
-    // Base category params (all categories incl. nested).
+    // Base category params (all categories incl. nested). Never budgeted:
+    // these are the route's primary URL class.
     for (const node of nodes) {
       paths.push({ slug: node.segments });
     }
 
-    // Tier-1 category×color params: color-only, single value, no blowup.
-    // Fetch each category's present colors and emit one entry per color.
-    const filterResults = await Promise.all(
-      nodes.map((node) =>
-        sdk.collections
-          .getFilters(node.slug)
-          .then((f) => ({ node, filters: f }))
-          .catch(() => ({ node, filters: null })),
-      ),
-    );
-
-    for (const { node, filters } of filterResults) {
-      if (!filters) continue;
-      const colorAttr = filters.attributes?.find((a) =>
-        isColorAttrSlug(a?.slug ?? ""),
-      );
-      const seen = new Set<string>();
-      for (const option of colorAttr?.options ?? []) {
-        const slug = colorFilterSlug(colorAttr?.slug ?? "", option?.slug ?? "");
-        if (!slug || seen.has(slug)) continue;
-        seen.add(slug);
-        paths.push({ slug: [...node.segments, "f", slug] });
-      }
-    }
-
-    // Tier-1 category×brand params (06.1): one single-brand entry per category
-    // per brand — but ONLY for pairs that actually contain a product. The
-    // per-category brand list rides along on the same `getFilters` call the
-    // colour facets above already made, so this costs no extra build-time read
-    // while removing the empty pairs of the old blind cross-product (9,499 of
-    // 10,000 on one measured store). `lib/brand-facets.ts` owns the rule and
-    // `app/sitemap.ts` calls the same helper, so the two cannot drift.
+    // Facet params, under the store's own build budget
+    // (`HEADKIT_PRERENDER_COLLECTION_FACETS`, `lib/prerender-budget.ts`).
+    // Unlimited by default, which is every storefront's behaviour today.
     //
-    // Prerendering only: an un-emitted pair still routes and still 200s on
-    // demand, it just pays a cold render on first hit.
-    try {
-      // perPage capped at 100 — headkit/v2/brands 400s above 100 (REST max arg).
-      const brandsRes = await sdk.brands.list({ perPage: 100 });
-      const globalBrandSlugs = brandsRes.brands.map((b) => b?.slug ?? "");
-      const perCategoryBrands = brandSlugsPerCategory(
-        filterResults.map(({ filters }) => filters),
-        globalBrandSlugs,
-      );
-      for (const [i, { node }] of filterResults.entries()) {
-        const seenBrand = new Set<string>();
-        for (const brandSlug of perCategoryBrands[i] ?? []) {
-          const slug = brandFilterSlug(brandSlug);
-          if (!slug || seenBrand.has(slug)) continue;
-          seenBrand.add(slug);
-          paths.push({ slug: [...node.segments, "f", slug] });
-        }
-      }
-    } catch {
-      /* brands API unreachable at build — color params still emitted */
+    // `0` is the value that matters most, and it does more than drop the
+    // slots: it skips the per-category `getFilters` fan-out and the brands
+    // read below, which is where the build time actually goes. Since the PLP
+    // static-shell change each prerendered collection param also renders page
+    // 1 of its grid, so a facet param costs an origin-paced catalogue read on
+    // top of its build slot — on one measured 154-category store, 2,839 facet
+    // params walked the build into Vercel's 45-minute ceiling.
+    //
+    // A finite non-zero budget still makes those reads (the facet rule cannot
+    // be applied without them) and keeps colour facets ahead of brand ones,
+    // in the order they are generated below.
+    const facetBudget = collectionFacetParamBudget();
+    if (facetBudget > 0) {
+      paths.push(...(await facetParams(nodes)).slice(0, facetBudget));
     }
 
     if (paths.length > 0) return paths;
@@ -161,6 +127,75 @@ export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
   }
   // Cache Components requires generateStaticParams to return ≥1 param.
   return [{ slug: [STATIC_GEN_PLACEHOLDER_SLUG] }];
+}
+
+/**
+ * The `/f/<slug>` facet params for a set of category nodes, colour first then
+ * brand. Reads the per-category filter list, so it is only ever called when
+ * the store's facet budget is non-zero.
+ */
+async function facetParams(
+  nodes: { slug: string; segments: string[] }[],
+): Promise<{ slug: string[] }[]> {
+  const paths: { slug: string[] }[] = [];
+
+  // Tier-1 category×color params: color-only, single value, no blowup.
+  // Fetch each category's present colors and emit one entry per color.
+  const filterResults = await Promise.all(
+    nodes.map((node) =>
+      sdk.collections
+        .getFilters(node.slug)
+        .then((f) => ({ node, filters: f }))
+        .catch(() => ({ node, filters: null })),
+    ),
+  );
+
+  for (const { node, filters } of filterResults) {
+    if (!filters) continue;
+    const colorAttr = filters.attributes?.find((a) =>
+      isColorAttrSlug(a?.slug ?? ""),
+    );
+    const seen = new Set<string>();
+    for (const option of colorAttr?.options ?? []) {
+      const slug = colorFilterSlug(colorAttr?.slug ?? "", option?.slug ?? "");
+      if (!slug || seen.has(slug)) continue;
+      seen.add(slug);
+      paths.push({ slug: [...node.segments, "f", slug] });
+    }
+  }
+
+  // Tier-1 category×brand params (06.1): one single-brand entry per category
+  // per brand — but ONLY for pairs that actually contain a product. The
+  // per-category brand list rides along on the same `getFilters` call the
+  // colour facets above already made, so this costs no extra build-time read
+  // while removing the empty pairs of the old blind cross-product (9,499 of
+  // 10,000 on one measured store). `lib/brand-facets.ts` owns the rule and
+  // `app/sitemap.ts` calls the same helper, so the two cannot drift.
+  //
+  // Prerendering only: an un-emitted pair still routes and still 200s on
+  // demand, it just pays a cold render on first hit.
+  try {
+    // perPage capped at 100 — headkit/v2/brands 400s above 100 (REST max arg).
+    const brandsRes = await sdk.brands.list({ perPage: 100 });
+    const globalBrandSlugs = brandsRes.brands.map((b) => b?.slug ?? "");
+    const perCategoryBrands = brandSlugsPerCategory(
+      filterResults.map(({ filters }) => filters),
+      globalBrandSlugs,
+    );
+    for (const [i, { node }] of filterResults.entries()) {
+      const seenBrand = new Set<string>();
+      for (const brandSlug of perCategoryBrands[i] ?? []) {
+        const slug = brandFilterSlug(brandSlug);
+        if (!slug || seenBrand.has(slug)) continue;
+        seenBrand.add(slug);
+        paths.push({ slug: [...node.segments, "f", slug] });
+      }
+    }
+  } catch {
+    /* brands API unreachable at build — color params still emitted */
+  }
+
+  return paths;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

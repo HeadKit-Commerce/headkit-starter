@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { cacheLife, cacheTag } from "next/cache";
+import { cacheTag } from "next/cache";
+import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { headkit as sdk } from "@/lib/sdk";
 import { BrandPage } from "@/components/headkit-ui/brand/brand-page";
 import { BrandHeader } from "@/components/headkit-ui/brand/brand-header";
@@ -39,7 +40,7 @@ export async function generateMetadata(): Promise<Metadata> {
 async function getBrands() {
   "use cache";
   // Brands change rarely; webhooks invalidate `headkit:brands`.
-  cacheLife("weeks");
+  cacheLifeForProfile("weeks", "max");
   cacheTag("headkit:brands");
   return sdk.brands.list();
 }

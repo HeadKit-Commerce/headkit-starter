@@ -107,6 +107,36 @@ const serverSchema = clientSchema.extend({
   // paced content read, so the number is minutes of build time: 100 ≈ 1 min
   // at commerce's 1.8 req/s origin bucket. "0" = the placeholder param only.
   HEADKIT_PRERENDER_POST_LIMIT: z.string().regex(/^\d+$/).optional(),
+  // Per-store cache profile (`lib/cache-profile.ts`). "conservative" (the
+  // default, and what every storefront does today) keeps each cached read's
+  // own finite lifetime as the missed-purge backstop; "aggressive" raises them
+  // to `max`, where a tag purge is the ONLY thing that refreshes an entry.
+  // Only set it on a store whose revalidation webhooks are known to arrive.
+  //
+  // Declared here for the boot parse and as the place an operator looks; the
+  // module itself reads `process.env` directly, because importing this one
+  // would drag the boot parse into every `cacheLife` call site. That module
+  // says so at the read.
+  //
+  // `.catch` rather than a bare enum: an unrecognised value (including the
+  // empty string a platform env editor writes for a "cleared" variable) must
+  // resolve to the safe default, never fail the whole boot parse.
+  HEADKIT_CACHE_PROFILE: z
+    .enum(["conservative", "aggressive"])
+    .optional()
+    .catch(undefined),
+  // Prerender budgets (`lib/prerender-budget.ts`). Both take a decimal count,
+  // `unlimited`, or nothing at all for the platform default — see that module
+  // for each family's default, what it costs to move it, and why it reads
+  // `process.env` directly rather than this schema.
+  HEADKIT_PRERENDER_COLLECTION_FACETS: z
+    .union([z.literal("unlimited"), z.string().regex(/^\d+$/)])
+    .optional()
+    .catch(undefined),
+  HEADKIT_PRERENDER_PRODUCT_COLOURWAYS: z
+    .union([z.literal("unlimited"), z.string().regex(/^\d+$/)])
+    .optional()
+    .catch(undefined),
   // Minimum products behind a colour / brand facet option for `app/sitemap.ts`
   // to advertise its `/collections/<cat>/f/<facet>` URL. BOTH default to 0 in
   // `lib/facet-sitemap-thresholds.ts`, i.e. advertise everything, which is what
