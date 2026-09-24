@@ -39,13 +39,19 @@ describe("the sitemap's CDN cache header", () => {
     expect(sitemapIndex).toBeGreaterThan(securityIndex);
   });
 
-  it("caps the sitemap rule to that one path", async () => {
-    // A `/(.*)`-shaped source here would put an hour of CDN cache on every
+  it("caps every Cache-Control rule to one narrow path", async () => {
+    // A `/(.*)`-shaped source here would put a CDN cache on every
     // shopper-facing route, which is emphatically not the trade being made.
+    // `/editorial/:file*` is the content-addressed WordPress block stylesheet
+    // and carries `immutable`; `lib/editorial-stylesheet.test.ts` asserts its
+    // value and why the hashed name makes that safe.
     const rules = await nextConfig.headers!();
     const cacheRules = rules.filter((r) =>
       r.headers.some((h) => h.key.toLowerCase() === "cache-control"),
     );
-    expect(cacheRules.map((r) => r.source)).toEqual(["/sitemap.xml"]);
+    expect(cacheRules.map((r) => r.source)).toEqual([
+      "/sitemap.xml",
+      "/editorial/:file*",
+    ]);
   });
 });

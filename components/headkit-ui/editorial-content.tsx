@@ -5,6 +5,7 @@ import { sanitizeContent } from "@/lib/sanitize-content";
 import { EditorialProductGrid } from "@/components/headkit-ui/editorial-product-grid";
 import { GravityForm } from "@/components/gravity-form-lazy";
 import { scanProductCarouselsFromHtml } from "@/lib/scan-product-carousels-from-html";
+import { EditorialStylesheet } from "@/components/headkit-ui/editorial-stylesheet";
 
 interface Props {
   /** Untrusted WordPress `content.rendered` HTML (block-authored). */
@@ -57,10 +58,13 @@ function textOf(node: DOMNode): string {
  * storefront's ProductCarousel (matching the homepage HeadKit pattern) instead
  * of WordPress's static thumbnail markup.
  *
- * WordPress block CSS is loaded via dynamic `import()` of
- * `editorial-styles` only when there is HTML to render — so home routes that
- * only ship HeadKit React carousels never pay for ~153KB of unused
- * `.wp-block-*` rules. Never add that stylesheet to globals.css (D-04).
+ * WordPress block CSS rides on `<EditorialStylesheet />`, rendered below only
+ * when there is HTML to render, so a route that ships only HeadKit React
+ * carousels never pays for ~153 KB of unused `.wp-block-*` rules. It is a
+ * `<link>` and not an `import` for a reason `lib/editorial-stylesheet.ts`
+ * spells out: an import is collected from the MODULE GRAPH at build time, so
+ * it reaches every route that can render prose whether it does or not. Never
+ * add that stylesheet to globals.css (D-04).
  */
 export async function EditorialContent({
   html,
@@ -69,9 +73,6 @@ export async function EditorialContent({
   if (!html.trim()) {
     return <></>;
   }
-
-  // Pull WP block CSS into this route's graph only when we render WP HTML.
-  await import("@/components/headkit-ui/editorial-styles");
 
   // Page Break (core/nextpage) renders as an HTML comment, which sanitize
   // strips. In a single-page headless view there is nothing to paginate, so
@@ -168,5 +169,10 @@ export async function EditorialContent({
   };
   const parsed = parse(clean, options);
 
-  return <div className="wp-block-content prose max-w-none">{parsed}</div>;
+  return (
+    <>
+      <EditorialStylesheet />
+      <div className="wp-block-content prose max-w-none">{parsed}</div>
+    </>
+  );
 }

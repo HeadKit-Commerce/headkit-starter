@@ -76,6 +76,18 @@ const clientSchema = z.object({
   NEXT_PUBLIC_NAV_PREFETCH_BUDGET: z.string().optional(),
   NEXT_PUBLIC_NAV_MOUSEDOWN: z.string().optional(),
   NEXT_PUBLIC_NAVIGATION_SKELETON: z.string().optional(),
+  // WHEN the marketing tag stack (GTM / Klaviyo / HubSpot) loads. Unlike the
+  // three switches above this one DEFAULTS ON — unset means the new, deferred
+  // schedule (wait for `load`, then idle) — and an explicit "true" / "1" /
+  // "on" / "yes" is the ESCAPE HATCH back to the previous mount-scheduled
+  // behaviour for a store whose analytics or popup timing matters more than
+  // its paint. Read in `lib/third-party-schedule.ts`, which carries the full
+  // value table and states why it cannot be read through this module.
+  //
+  // Deliberately NOT a z.enum, for the same reason as the three above: an
+  // unrecognised value must be accepted and mean "use the default", not fail
+  // the store's boot.
+  NEXT_PUBLIC_THIRD_PARTY_EAGER: z.string().optional(),
 });
 
 const serverSchema = clientSchema.extend({
@@ -202,6 +214,8 @@ function createEnv(): ClientEnv & Partial<ServerEnv> {
       process.env.NEXT_PUBLIC_NAV_MOUSEDOWN || undefined,
     NEXT_PUBLIC_NAVIGATION_SKELETON:
       process.env.NEXT_PUBLIC_NAVIGATION_SKELETON || undefined,
+    NEXT_PUBLIC_THIRD_PARTY_EAGER:
+      process.env.NEXT_PUBLIC_THIRD_PARTY_EAGER || undefined,
   });
 }
 

@@ -27,9 +27,14 @@ import { resetConsentStoreForTests } from "@/lib/consent-store";
  *  - jsdom has no layout, so it cannot see that the bar shifts nothing, that
  *    it is not the LCP element, or that Decline and Accept are the same size.
  *  - The deferral assertions below use jsdom's absent `requestIdleCallback`,
- *    so they exercise the `setTimeout` fallback branch. That the real
- *    `requestIdleCallback` path still fires on idle, on a gesture, and at the
- *    4 s cap is unchanged code, and is measured in a browser, not here.
+ *    so they exercise the `setTimeout` fallback branch, and jsdom reports
+ *    `document.readyState === "complete"`, so they exercise the
+ *    already-loaded branch of the schedule. The `load`-event branch, the
+ *    ceiling, the gesture-ahead-of-load case and the
+ *    `NEXT_PUBLIC_THIRD_PARTY_EAGER` escape hatch live in
+ *    `deferred-third-party-scripts.load-gate.test.tsx`; that the real
+ *    `requestIdleCallback` path behaves the same is unchanged code, measured
+ *    in a browser, not here.
  *
  * AND THE PER-STORE HALF. Every suite below renders with the gate ON, because
  * that is the store that has one. The suite named "with the gate OFF" is the
@@ -436,7 +441,7 @@ describe("the re-open control", () => {
   });
 });
 
-describe("the idle deferral is untouched", () => {
+describe("the deferral still gates the consent default", () => {
   it("loads nothing — and pushes no consent command — before idle or a gesture", () => {
     render();
 

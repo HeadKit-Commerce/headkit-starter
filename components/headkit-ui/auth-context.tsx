@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClientSDK } from "@headkit/sdk";
 
 import { refreshDelayMs } from "@/lib/jwt-exp";
 import { getCustomer } from "@/lib/account-actions";
@@ -244,13 +243,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const delay = refreshDelayMs(token);
     if (delay === null) return; // unparsable exp → can't schedule safely
 
-    const sdk = createClientSDK({
-      publicKey: process.env.NEXT_PUBLIC_HEADKIT_PUBLIC_KEY ?? "",
-      url: process.env.NEXT_PUBLIC_GRAPHQL_URL ?? "",
-    });
-
     const timer = setTimeout(() => {
       void (async () => {
+        // Loaded HERE, not at module scope. `createClientSDK` pulls the
+        // GraphQL client and every operation document with it — 259,472 B of
+        // client JavaScript, measured as one chunk on the Bike Society fork's
+        // deployed home page (2026-09-24) — and this provider is mounted in
+        // the ROOT LAYOUT, so a static import puts all of it on every route a
+        // guest can load, for a refresh only a signed-in session ever reaches.
+        // Both early returns above have run by this line, and the timer is
+        // minutes away.
+        const { createClientSDK } = await import("@headkit/sdk");
+        const sdk = createClientSDK({
+          publicKey: process.env.NEXT_PUBLIC_HEADKIT_PUBLIC_KEY ?? "",
+          url: process.env.NEXT_PUBLIC_GRAPHQL_URL ?? "",
+        });
         const outcome = await runSilentRefresh(refreshToken, (t) =>
           sdk.auth.refreshAuthToken(t),
         );

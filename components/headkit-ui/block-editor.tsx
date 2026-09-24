@@ -25,6 +25,8 @@ import {
   getNonEmptyCollectionSlugs,
 } from "@/lib/hide-empty-collections";
 import { resolveCarouselProductsFromHtml } from "@/lib/resolve-carousel-products-from-html";
+import { isMediaBlock, needsEditorialCss } from "@/lib/editorial-block-css";
+import { EditorialStylesheet } from "@/components/headkit-ui/editorial-stylesheet";
 import { getStoreTheme } from "@/lib/store-theme";
 
 interface Props {
@@ -42,16 +44,6 @@ interface Props {
    * `app/page.tsx` is the one place that passes it.
    */
   prefetchFirstProductCarouselRow?: boolean;
-}
-
-const MEDIA_CLASSES = [
-  "headkit-embed",
-  "headkit-gallery",
-  "headkit-video-feature",
-] as const;
-
-function isMediaBlock(cssClasses: string[]): boolean {
-  return MEDIA_CLASSES.some((cls) => cssClasses.includes(cls));
 }
 
 /** Read hydrated carousel nodes from attrs.carousels ({ nodes: [...] }). */
@@ -163,15 +155,6 @@ const BlockEditor = async ({
       ? blocks
       : blocks?.filter((block) => block.section === section);
 
-  // WP media / raw HTML blocks need block-library CSS; HeadKit React
-  // carousels do not — keep the ~153KB stylesheet off commerce-only homes.
-  const needsEditorialCss = (result ?? []).some(
-    (data) => isMediaBlock(data.cssClasses) || Boolean(data.html?.trim()),
-  );
-  if (needsEditorialCss) {
-    await import("@/components/headkit-ui/editorial-styles");
-  }
-
   const { branding } = await getBranding();
   const heroLayout = getStoreTheme().layout.heroLayout;
   const nonEmptySlugs = branding.hideEmptyCollections
@@ -200,6 +183,13 @@ const BlockEditor = async ({
 
   return (
     <>
+      {/* Only a block whose OWN WordPress HTML reaches the document needs the
+          block-library stylesheet (153,170 B, ~17 KB brotli, render-blocking).
+          `lib/editorial-block-css.ts` owns that rule and states why a
+          structural block that merely CARRIES html — every product carousel
+          does — is not one; `lib/editorial-stylesheet.ts` states why this is a
+          rendered `<link>` and not an `import`. */}
+      {needsEditorialCss(result) && <EditorialStylesheet />}
       {result?.map((data: ProcessedEditorBlock, index: number) => {
         if (data.cssClasses.includes("headkit-category-carousel")) {
           const rawCategories = data.categories ?? [];

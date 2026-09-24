@@ -8,6 +8,7 @@ import {
   pushConsentCommand,
 } from "@/lib/consent";
 import { readConsent, subscribeConsent } from "@/lib/consent-store";
+import { thirdPartyEagerLoadEnabled } from "@/lib/third-party-schedule";
 
 type Props = {
   gtmId?: string | null | undefined;
@@ -32,22 +33,67 @@ declare global {
   }
 }
 
+/** Idle deadline once the page has finished loading (deferred schedule). */
+const IDLE_TIMEOUT_MS = 2000;
 /**
- * Load marketing tags after the page is interactive and idle (or on first
- * user gesture). Keeps GTM / Klaviyo / HubSpot off the LCP / TBT critical path.
+ * Idle deadline measured from MOUNT under the eager escape hatch
+ * (`NEXT_PUBLIC_THIRD_PARTY_EAGER`). This is the cap every storefront used
+ * before the deferral landed, kept byte-for-byte so the hatch really is a way
+ * back and not a third, unmeasured schedule.
+ */
+const EAGER_IDLE_TIMEOUT_MS = 4000;
+/** No `requestIdleCallback` (Safari): a fixed delay instead. */
+const FALLBACK_DELAY_MS = 3500;
+/**
+ * Absolute ceiling measured from mount, deferred schedule only. A page whose
+ * `load` event never arrives — a hung image, a stalled third-party
+ * subresource — must still report, or the deferral turns into data loss. The
+ * eager schedule needs none: it never waits for `load` in the first place.
+ */
+const MAX_DELAY_MS = 10000;
+
+/**
+ * Load marketing tags after the page has PAINTED, then on idle (or on the
+ * first user gesture, whichever comes first). Keeps GTM / Klaviyo / HubSpot
+ * off the LCP / TBT critical path.
  *
  * A tiny dataLayer stub is installed immediately so early pushes are queued
  * until gtm.js arrives.
  *
+ * THE TRIGGER, and why it moved. This used to schedule straight from the
+ * effect — `requestIdleCallback(..., { timeout: 4000 })`. An idle callback is
+ * only ever as late as the main thread is busy, and a 4 s cap lands INSIDE the
+ * paint window on a throttled mobile run whose LCP is ~5.9 s. Measured on the
+ * Bike Society fork's deployed store, gtm.js started 1,151-1,467 ms BEFORE the
+ * `load` event. The schedule now starts at `load` — Next's own
+ * `<Script strategy="lazyOnload">` semantics, implemented here rather than
+ * delegated to `<Script>` because this loader owns the consent ordering below,
+ * which `<Script>` cannot express. `load` fires after every render-blocking
+ * resource and every eager image, so LCP has happened by then.
+ *
+ * WHAT IT TRADES. A visitor who leaves before `load` + idle is no longer
+ * counted at all, and Klaviyo's on-site popups shift later by the same amount.
+ * The first-gesture trigger is deliberately kept AHEAD of the load wait: a
+ * shopper who scrolls or taps has engaged, and that session is worth more than
+ * the paint it costs. `MAX_DELAY_MS` is what stops a page that never finishes
+ * loading from reporting nothing at all.
+ *
+ * THE WAY BACK. `NEXT_PUBLIC_THIRD_PARTY_EAGER` restores the previous
+ * mount-scheduled behaviour for one store — see `lib/third-party-schedule.ts`
+ * for the value table and for why the deferral is the platform default.
+ *
  * CONSENT. When the store has the gate on, the Google consent default is
  * pushed INSIDE `load()`, immediately before the `gtm.start` message. It
- * composes with the deferral for free, because the default only has to precede
- * the container IN THE DATALAYER, not in wall-clock time — so the
- * `requestIdleCallback` / 4 s cap / first-gesture behaviour below is untouched,
- * and must stay that way; it is a deliberate Core Web Vitals decision. That
- * exact arrangement was measured at Best Practices 100 on the fork this was
- * ported from, with the tag request leaving at 953-1,028 ms without the gate
- * and 971-1,035 ms with it.
+ * composes with either schedule for free, because the default only has to
+ * precede the container IN THE DATALAYER, not in wall-clock time — so moving
+ * the schedule from mount to the `load` event changes nothing about the
+ * ordering, and it must stay that way; it is a deliberate Core Web Vitals
+ * decision. That exact arrangement was measured at Best Practices 100 on the
+ * fork this was ported from, with the tag request leaving at 953-1,028 ms
+ * without the gate and 971-1,035 ms with it. The two decisions are orthogonal
+ * and must stay so: `consentEnabled` decides WHETHER a consent command is
+ * pushed, the schedule decides WHEN the container loads, and neither may be
+ * read from the other.
  *
  * Only GOOGLE is gated. Klaviyo and HubSpot set first-party cookies, cost no
  * Lighthouse point, and gating them would cost onsite identification — which
@@ -71,6 +117,7 @@ export function DeferredThirdPartyScripts({
     let loaded = false;
     let idleId: number | undefined;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let ceilingId: ReturnType<typeof setTimeout> | undefined;
 
     const load = (): void => {
       if (loaded) return;
@@ -117,8 +164,24 @@ export function DeferredThirdPartyScripts({
       }
     };
 
+    // Prefer idle; hard-cap so tags still fire without interaction.
+    const scheduleIdle = (idleTimeoutMs: number): void => {
+      if (loaded || idleId !== undefined || timeoutId !== undefined) return;
+      if ("requestIdleCallback" in window) {
+        idleId = window.requestIdleCallback(() => load(), {
+          timeout: idleTimeoutMs,
+        });
+      } else {
+        timeoutId = setTimeout(load, FALLBACK_DELAY_MS);
+      }
+    };
+
     const onGesture = (): void => {
       load();
+    };
+
+    const onWindowLoad = (): void => {
+      scheduleIdle(IDLE_TIMEOUT_MS);
     };
 
     const cleanup = (): void => {
@@ -126,6 +189,8 @@ export function DeferredThirdPartyScripts({
         window.cancelIdleCallback(idleId);
       }
       if (timeoutId !== undefined) clearTimeout(timeoutId);
+      if (ceilingId !== undefined) clearTimeout(ceilingId);
+      window.removeEventListener("load", onWindowLoad);
       window.removeEventListener("pointerdown", onGesture);
       window.removeEventListener("keydown", onGesture);
       window.removeEventListener("scroll", onGesture, true);
@@ -165,11 +230,16 @@ export function DeferredThirdPartyScripts({
       passive: true,
     });
 
-    // Prefer idle; hard-cap so tags still fire without interaction.
-    if ("requestIdleCallback" in window) {
-      idleId = window.requestIdleCallback(() => load(), { timeout: 4000 });
+    if (thirdPartyEagerLoadEnabled()) {
+      // The escape hatch: schedule from MOUNT, exactly as before the deferral.
+      scheduleIdle(EAGER_IDLE_TIMEOUT_MS);
+    } else if (document.readyState === "complete") {
+      // Hydration finished after the load event — the paint is already behind
+      // us, so there is nothing left to wait for.
+      scheduleIdle(IDLE_TIMEOUT_MS);
     } else {
-      timeoutId = setTimeout(load, 3500);
+      window.addEventListener("load", onWindowLoad, { once: true });
+      ceilingId = setTimeout(load, MAX_DELAY_MS);
     }
 
     return () => {

@@ -425,6 +425,24 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      // The vendored WordPress block stylesheet is served from `public/`
+      // instead of being imported, so that only a route which actually
+      // renders WordPress prose pays for it — `lib/editorial-stylesheet.ts`
+      // carries the whole reason. `public/` assets get no long cache by
+      // default, and this one is RENDER-BLOCKING on the routes that do use it,
+      // so a revalidation round trip would land in their critical path. The
+      // file name is CONTENT-ADDRESSED (`lib/editorial-stylesheet.test.ts`
+      // fails if the bytes and the name disagree), which is what makes
+      // `immutable` safe here.
+      {
+        source: "/editorial/:file*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
     ];
   },
 };
