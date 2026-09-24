@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { unstable_rethrow } from "next/navigation";
 import type { Metadata } from "next";
 import { cacheLife, cacheTag } from "next/cache";
@@ -8,12 +7,11 @@ import { CollectionHeader } from "@/components/headkit-ui/collection/collection-
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
 import {
   buildProductListFilter,
-  parseSearchParams,
+  DEFAULT_FILTER_VALUES,
   type SortKeyType,
 } from "@/components/headkit-ui/collection/utils";
 import { makeSeoMetadata, storefrontUrl } from "@/lib/make-metadata";
 import { getBranding } from "@/lib/branding";
-import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import { CATALOG_PAGE_SIZE } from "@/components/headkit-ui/catalog-grid";
 import { getCachedCatalogPage } from "@/lib/catalog-cache";
 import type { ProductCategoryDetail } from "@headkit/sdk";
@@ -45,10 +43,6 @@ export async function generateMetadata(): Promise<Metadata> {
       canonical: storefrontUrl("/shop"),
     });
   }
-}
-
-interface Props {
-  searchParams: Promise<Record<string, string>>;
 }
 
 const PER_PAGE = CATALOG_PAGE_SIZE;
@@ -125,52 +119,50 @@ async function ShopHeader() {
 }
 
 /**
- * Dynamic island: reads searchParams (must live inside <Suspense> under
- * cacheComponents). Builds the filter, derives a stable cache key, fetches
- * the cached catalog page, and hands the initial products to the client grid.
+ * Instant Navigation (Next.js 16.3): sync default export. Both the cached Shop
+ * header (incl. root category carousel) and the grid commit with the App Shell
+ * — this route reads no `searchParams` and has no Suspense boundary.
  */
-async function ProductResults({ searchParams }: Props) {
-  const sp = await searchParams;
-  const parsed = parseSearchParams(sp);
-  const page = parsed.page;
+export const instant = true;
 
+export default function Page() {
+  return (
+    <>
+      <ShopHeader />
+      <ShopProductsShell />
+    </>
+  );
+}
+
+/**
+ * Page 1 of the catalog in the store's default order, rendered in the static
+ * shell — no `<Suspense>` above it, so a JS-off shopper and a non-rendering
+ * crawler see the cards.
+ *
+ * Both reads are `"use cache"` and nothing here awaits `searchParams`; the full
+ * contract, including why a boundary cannot hold even one product card, is
+ * stated once on `CollectionProductsShell`
+ * (`app/collections/[...slug]/page.tsx`). `?page=`/`?sort=`/`?price_*`/
+ * `?instock=`/`?categories=` are applied in the browser by
+ * `CollectionProvider`'s mount effect.
+ */
+async function ShopProductsShell() {
   const { branding } = await getBranding();
-  // price_min/price_max + instock are read directly off `parsed` by
-  // buildProductListFilter; no need to re-pass them as options.
-  const filter = buildProductListFilter(parsed, {
-    defaultSort: branding.defaultCollectionSort as SortKeyType,
-  });
-
+  const filter = buildProductListFilter(
+    { ...DEFAULT_FILTER_VALUES, page: 1 },
+    { defaultSort: branding.defaultCollectionSort as SortKeyType },
+  );
   const [productsResult, productFilter] = await Promise.all([
-    getCachedCatalogPage(filter, page, PER_PAGE, { kind: "shop" }),
+    getCachedCatalogPage(filter, 1, PER_PAGE, { kind: "shop" }),
     getFilters(),
   ]);
-
   return (
     <CollectionPage
       initialProducts={productsResult.products}
       initialTotal={productsResult.total}
       productFilter={productFilter}
-      initialPage={page}
+      initialPage={1}
       itemsPerPage={PER_PAGE}
     />
-  );
-}
-
-/**
- * Instant Navigation (Next.js 16.3): sync default export. Cached Shop header
- * (incl. root category carousel) can commit with the App Shell; searchParams-
- * driven grid streams under Suspense.
- */
-export const instant = true;
-
-export default function Page({ searchParams }: Props) {
-  return (
-    <>
-      <ShopHeader />
-      <Suspense fallback={<CollectionProductsSkeleton />}>
-        <ProductResults searchParams={searchParams} />
-      </Suspense>
-    </>
   );
 }

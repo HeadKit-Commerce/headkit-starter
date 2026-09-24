@@ -97,22 +97,62 @@ async function BrandProductsServer({
   );
 }
 
+/** Page size for the brand walk — `headkit/v2/brands` 400s above 100. */
+const BRAND_PER_PAGE = 100;
+
+/**
+ * Fail-safe bound on pages walked, mirroring `app/sitemap.ts`'s `MAX_LIST_PAGES`.
+ * It exists so a provider reporting a wrong `totalPages` cannot spin the build,
+ * not as a content limit.
+ */
+const BRAND_MAX_PAGES = 100;
+
 /**
  * Prerender known brand PLPs so awaiting `params` under Suspense is valid
  * under Cache Components (blocking-route docs: generateStaticParams).
+ *
+ * PAGINATE, NEVER CAP — and this function capped until 2026-09-16.
+ *
+ * `perPage` maxes out at 100 because WordPress REST argument validation REJECTS
+ * a larger ask (`'maximum' => 100` in `inc/rest-api/headkit-*.php`), and reading
+ * ONE page was the wrong conclusion to draw from that: a store with more than
+ * 100 brands silently lost every brand past the first page. The Bike Society
+ * rehearsal store had 110, so 10 brand PLPs were advertised by `app/sitemap.ts`
+ * — which walks the same endpoint to completion via `collectListPages` — and
+ * never built. Measured there, 2026-09-16: `/brand/zipp` answered
+ * `x-vercel-cache: MISS` at 4.25s while `/brand/abus` answered `PRERENDER` at
+ * 1.15s. Identical defect, identical endpoint, fixed in one emitter and not the
+ * other; `app/product-url-emitter-parity.test.ts` now fails if they diverge again.
+ *
+ * Terminator rules match `collectListPages`: stop on the endpoint's own
+ * `totalPages` and on an EMPTY page, but NEVER on a short page — only the
+ * endpoint knows whether it dropped a row, and treating a short page as the last
+ * one is how a paginated walk quietly truncates.
+ *
+ * A failure mid-walk keeps what was already collected rather than discarding it:
+ * prerendering 100 brands beats falling back to the placeholder and prerendering
+ * none.
  */
 export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
+  const slugs: string[] = [];
+
   try {
-    // perPage capped at 100 — headkit/v2/brands 400s above 100 (REST max arg).
-    const brandsRes = await sdk.brands.list({ perPage: 100 });
-    const paths = brandsRes.brands
-      .map((brand) => brand?.slug)
-      .filter((slug): slug is string => Boolean(slug))
-      .map((slug) => ({ slug: [slug] }));
-    if (paths.length > 0) return paths;
+    for (let page = 1; page <= BRAND_MAX_PAGES; page++) {
+      const result = await sdk.brands.list({ page, perPage: BRAND_PER_PAGE });
+      const pageSlugs = result.brands
+        .map((brand) => brand?.slug)
+        .filter((slug): slug is string => Boolean(slug));
+      slugs.push(...pageSlugs);
+
+      if (result.brands.length === 0) break;
+      const { totalPages } = result;
+      if (!Number.isFinite(totalPages) || page >= totalPages) break;
+    }
   } catch {
-    /* Brands API unreachable at build — fall through */
+    /* Brands API unreachable at build — keep whatever the walk collected. */
   }
+
+  if (slugs.length > 0) return slugs.map((slug) => ({ slug: [slug] }));
   return [{ slug: [STATIC_GEN_PLACEHOLDER_SLUG] }];
 }
 

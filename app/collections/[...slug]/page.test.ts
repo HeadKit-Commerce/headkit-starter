@@ -138,7 +138,6 @@ async function metadataFor(
 ): Promise<Awaited<ReturnType<typeof generateMetadata>>> {
   return await generateMetadata({
     params: Promise.resolve({ slug }),
-    searchParams: Promise.resolve({}),
   });
 }
 
@@ -273,7 +272,6 @@ async function redirectTargetFor(slug: string[]): Promise<string | null> {
   try {
     await Page({
       params: Promise.resolve({ slug }),
-      searchParams: Promise.resolve({}),
     });
   } catch (error) {
     if (!String(error).startsWith("Error: REDIRECT:")) throw error;
@@ -324,7 +322,6 @@ describe("the flat collection shape 308s onto the nested one", () => {
     await expect(
       Page({
         params: Promise.resolve({ slug: ["child"] }),
-        searchParams: Promise.resolve({}),
       }),
     ).rejects.toThrow("notFound");
     expect(redirectedTo).not.toHaveBeenCalled();

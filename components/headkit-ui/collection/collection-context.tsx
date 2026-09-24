@@ -9,7 +9,7 @@ import {
   useCallback,
   useTransition,
 } from "react";
-import { usePathname, useSearchParams, useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type {
   ProductSummaryFieldsFragment,
   ProductFilters,
@@ -18,8 +18,11 @@ import { listCollectionProducts } from "@/lib/collection-actions";
 import { useCatalogDisplay } from "@/components/headkit-ui/catalog-display-provider";
 import {
   buildProductListFilter,
+  deriveFilterValues,
   encodeFilterSlug,
+  sameFilterValues,
   DEFAULT_FILTER_VALUES,
+  NO_SEARCH_PARAMS,
   type FilterValues,
   type SortKeyType,
 } from "./utils";
@@ -89,7 +92,6 @@ export function CollectionProvider({
   initialBrands,
 }: CollectionProviderProps) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const router = useRouter();
   const { defaultCollectionSort } = useCatalogDisplay();
   // Filter / catalog updates are non-urgent — keep checkbox/toggle INP low (ENG-856).
@@ -101,7 +103,10 @@ export function CollectionProvider({
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingBefore, setIsLoadingBefore] = useState(false);
   const [isLoadingAfter, setIsLoadingAfter] = useState(false);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  // A ref, not state: it is read only inside the effect below and never
+  // rendered, and the mount correction makes that effect run twice — as state
+  // it would add a render of its own between the two passes.
+  const isInitialLoadRef = useRef(true);
   const [hasFirstPage, setHasFirstPage] = useState(initialPage === 1);
   const prevAttributeSlugRef = useRef<string | undefined>(undefined);
   // Loading flags live in refs so fetchProducts never closes over a stale
@@ -113,40 +118,22 @@ export function CollectionProvider({
   const productsCountRef = useRef(initialProducts.length);
   productsCountRef.current = products.length;
 
-  const [filterValues, setFilterValues] = useState<FilterValues>(() => {
-    const vals: FilterValues = { ...DEFAULT_FILTER_VALUES, page: initialPage };
-    const categories =
-      searchParams.get("categories")?.split(",").filter(Boolean) ?? [];
-    if (categories.length) vals.categories = categories;
-    // Brand is path-encoded (06.1): the server decodes it from the `/f/` slug and
-    // passes it via initialBrands. That takes precedence over the legacy
-    // `?brands=` query param (still read as a fallback for old/in-flight URLs).
-    if (initialBrands && initialBrands.length > 0) {
-      vals.brands = initialBrands;
-    } else {
-      const brands =
-        searchParams.get("brands")?.split(",").filter(Boolean) ?? [];
-      if (brands.length) vals.brands = brands;
-    }
-    // Path-decoded attributes take precedence; fall back to search params for legacy URLs.
-    if (initialFilterValues && Object.keys(initialFilterValues).length > 0) {
-      vals.attributes = initialFilterValues;
-    } else {
-      productFilter.attributes?.forEach((attr) => {
-        if (!attr?.slug) return;
-        const values =
-          searchParams.get(attr.slug)?.split(",").filter(Boolean) ?? [];
-        if (values.length) vals.attributes[attr.slug] = values;
-      });
-    }
-    vals.instock = searchParams.get("instock") === "true";
-    vals.sort = (searchParams.get("sort") ?? "") as SortKeyType | "";
-    const priceMin = searchParams.get("price_min");
-    if (priceMin) vals.price_min = priceMin;
-    const priceMax = searchParams.get("price_max");
-    if (priceMax) vals.price_max = priceMax;
-    return vals;
-  });
+  // Seeded from PROPS ONLY, with no query string. This provider renders in the
+  // static shell (outside every Suspense boundary), so it may not perform a
+  // request-time read: `useSearchParams()` here turned the whole listing route
+  // dynamic (ƒ, 0-byte shell) and hid the grid from JS-off shoppers and
+  // non-rendering crawlers. The query state is corrected in the mount effect
+  // below instead: page 1 in the store's default order is what the shell
+  // carries, and no URL that needs the correction is canonical or in the
+  // sitemap.
+  const [filterValues, setFilterValues] = useState<FilterValues>(() =>
+    deriveFilterValues(NO_SEARCH_PARAMS, {
+      initialPage,
+      productFilter,
+      initialFilterValues,
+      initialBrands,
+    }),
+  );
 
   const hasMore = products.length < totalProducts;
 
@@ -302,35 +289,65 @@ export function CollectionProvider({
   }, [currentPage, fetchProducts]);
 
   useEffect(() => {
-    if (!isInitialLoad) {
-      const newAttributeSlug = encodeFilterSlug(filterValues);
-      if (
-        categoryBasePath &&
-        newAttributeSlug !== prevAttributeSlugRef.current
-      ) {
-        // Attribute/brand filters changed — navigate to the new filter path so the
-        // server renders the correct products from cache (static per filter combo).
-        // Brand is part of newAttributeSlug now (06.1), so toggling a brand drives
-        // a path change, not a query param.
-        prevAttributeSlugRef.current = newAttributeSlug;
-        const filterPath = newAttributeSlug ? `/f/${newAttributeSlug}` : "";
-        const params = new URLSearchParams();
-        if (search) params.set("q", search);
-        if (filterValues.categories.length)
-          params.set("categories", filterValues.categories.join(","));
-        // Brand omitted from query (06.1) — it lives in filterPath.
-        if (filterValues.instock) params.set("instock", "true");
-        if (filterValues.sort) params.set("sort", filterValues.sort);
-        const qs = params.toString();
-        router.push(`${categoryBasePath}${filterPath}${qs ? `?${qs}` : ""}`);
-        return;
-      }
-      prevAttributeSlugRef.current = newAttributeSlug;
-      fetchProducts(filterValues.page, "middle");
+    const newAttributeSlug = encodeFilterSlug(filterValues);
+    // Capture BEFORE overwriting, and record the slug on the initial pass too.
+    // The mount effect below can replace `filterValues` immediately, and a
+    // `prevAttributeSlugRef` still holding `undefined` at that point compares
+    // unequal to the empty slug and pushes a pointless navigation.
+    const previousAttributeSlug = prevAttributeSlugRef.current;
+    prevAttributeSlugRef.current = newAttributeSlug;
+
+    if (isInitialLoadRef.current) {
+      isInitialLoadRef.current = false;
+      return;
     }
-    setIsInitialLoad(false);
+
+    if (categoryBasePath && newAttributeSlug !== previousAttributeSlug) {
+      // Attribute/brand filters changed — navigate to the new filter path so the
+      // server renders the correct products from cache (static per filter combo).
+      // Brand is part of newAttributeSlug now (06.1), so toggling a brand drives
+      // a path change, not a query param.
+      const filterPath = newAttributeSlug ? `/f/${newAttributeSlug}` : "";
+      const params = new URLSearchParams();
+      if (search) params.set("q", search);
+      if (filterValues.categories.length)
+        params.set("categories", filterValues.categories.join(","));
+      // Brand omitted from query (06.1) — it lives in filterPath.
+      if (filterValues.instock) params.set("instock", "true");
+      if (filterValues.sort) params.set("sort", filterValues.sort);
+      const qs = params.toString();
+      router.push(`${categoryBasePath}${filterPath}${qs ? `?${qs}` : ""}`);
+      return;
+    }
+
+    fetchProducts(filterValues.page, "middle");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterValues]);
+
+  // The query-state correction. The provider is seeded without a query string
+  // so the route can prerender (see the `filterValues` initial state above);
+  // `?page=`, `?sort=`, `?q=`, `?price_min=`, `?price_max=`, `?instock=`,
+  // `?categories=` and the legacy query-facet forms are applied here, on mount,
+  // from `window.location.search`. Reading that during render would be a
+  // hydration mismatch, so it has to be an effect.
+  //
+  // Setting `filterValues` is all this does: the effect above already knows how
+  // to reconcile a change — one `listCollectionProducts` round trip for a query
+  // change, or a `router.push` to `/f/<slug>` for a legacy query facet. Page 1
+  // is visible for that round trip's duration, and permanently with JS off.
+  // Accepted: none of these URLs is canonical, none is in the sitemap, and each
+  // is produced by this grid's own `history.replaceState` rather than linked to.
+  useEffect(() => {
+    const corrected = deriveFilterValues(
+      new URLSearchParams(window.location.search),
+      { initialPage, productFilter, initialFilterValues, initialBrands },
+    );
+    setFilterValues((current) =>
+      sameFilterValues(current, corrected) ? current : corrected,
+    );
+    // Mount only — later URL changes come from this provider itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const setFilterValuesDeferred = useCallback(
     (values: FilterValues) => {

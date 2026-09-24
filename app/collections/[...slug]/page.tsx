@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { notFound, permanentRedirect, unstable_rethrow } from "next/navigation";
-import { Suspense } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
 import { CollectionHeader } from "@/components/headkit-ui/collection/collection-header";
@@ -37,10 +36,6 @@ import {
   filterCategoriesByNonEmptySlugs,
   getNonEmptyCollectionSlugs,
 } from "@/lib/hide-empty-collections";
-import {
-  CollectionPageSkeleton,
-  CollectionProductsSkeleton,
-} from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import { CATALOG_PAGE_SIZE } from "@/components/headkit-ui/catalog-grid";
 import { getCachedCatalogPage } from "@/lib/catalog-cache";
 import { walkCategoryPaths } from "@/app/shop/shop-slug";
@@ -50,7 +45,6 @@ const STATIC_GEN_PLACEHOLDER_SLUG = "__hk_static_placeholder";
 
 interface Props {
   params: Promise<{ slug: string[] }>;
-  searchParams: Promise<Record<string, string>>;
 }
 
 const PER_PAGE = CATALOG_PAGE_SIZE;
@@ -92,8 +86,9 @@ function parseCollectionSlug(slug: string[]): {
  * route its App Shell (see the note there). Being `'use cache'` is what keeps
  * that affordable: `CollectionRoute` awaits the same entry, so the shell and
  * the body share one read, and prerendered params resolve it at build.
- * `searchParams` is the read that must still never be awaited in the shell —
- * it opts the whole segment dynamic (see `CollectionProductsServer`).
+ * `searchParams` is the read that must never be awaited ANYWHERE on this route
+ * — it opts the whole segment dynamic, and nothing here awaits it any more (see
+ * `CollectionProductsShell`).
  */
 async function getCategoryData(categorySlug: string) {
   "use cache";
@@ -117,131 +112,6 @@ async function getCategoryData(categorySlug: string) {
   ]);
 
   return { category, productFilter };
-}
-
-async function CollectionProductsServer({
-  categorySlug,
-  productFilter,
-  searchParams,
-  filterSlug,
-  categoryBasePath,
-  preferHeaderLcp = false,
-}: {
-  categorySlug: string;
-  productFilter: ProductFilters;
-  searchParams: Promise<Record<string, string>>;
-  filterSlug: string | undefined;
-  categoryBasePath: string;
-  preferHeaderLcp?: boolean;
-}) {
-  // searchParams MUST be awaited inside this Suspense child — never in the
-  // page shell. Awaiting them in `Page` opts the whole segment dynamic under
-  // Cache Components, so the CDN seals `loading.tsx` (full-page skeleton) as
-  // the HTML shell and every HIT flashes skeleton before content streams.
-  const sp = await searchParams;
-
-  // Legacy redirect: fold query-string facets into the path form (308).
-  // Lives here (not in `Page`) for the same searchParams reason. Brand is
-  // path-encoded now (06.1), so old `?brands=` URLs canonicalize into the path.
-  if (!filterSlug) {
-    const legacyAttributes: Record<string, string[]> = {};
-    productFilter.attributes?.forEach((attr) => {
-      if (!attr?.slug) return;
-      const values = sp[attr.slug]?.split(",").filter(Boolean) ?? [];
-      if (values.length) legacyAttributes[attr.slug] = values;
-    });
-    const legacyBrands = sp.brands?.split(",").filter(Boolean) ?? [];
-    const legacySlug = encodeFilterSlug({
-      ...DEFAULT_FILTER_VALUES,
-      attributes: legacyAttributes,
-      brands: legacyBrands,
-    });
-    if (legacySlug) {
-      // Preserve non-facet query state (price/sort/page) on the redirect target.
-      const keep = new URLSearchParams();
-      if (sp.q) keep.set("q", sp.q);
-      if (sp.page && sp.page !== "1") keep.set("page", sp.page);
-      if (sp.sort) keep.set("sort", sp.sort);
-      if (sp.price_min) keep.set("price_min", sp.price_min);
-      if (sp.price_max) keep.set("price_max", sp.price_max);
-      if (sp.instock === "true") keep.set("instock", "true");
-      const qs = keep.toString();
-      permanentRedirect(
-        `${categoryBasePath}/f/${legacySlug}${qs ? `?${qs}` : ""}`,
-      );
-    }
-  }
-
-  const page = sp.page ? parseInt(sp.page) : 1;
-
-  // Path-decoded attributes + brand (filter-slug routing) take precedence over
-  // legacy search params. Brand is path-encoded now (06.1).
-  const decoded = filterSlug ? decodeFilterSlug(filterSlug) : undefined;
-  const initialFilterValues =
-    decoded && Object.keys(decoded.attributes).length > 0
-      ? decoded.attributes
-      : undefined;
-  const initialBrands =
-    decoded && decoded.brands.length > 0 ? decoded.brands : undefined;
-
-  const attributes: Record<string, string[]> = decoded
-    ? decoded.attributes
-    : (() => {
-        const spAttrs: Record<string, string[]> = {};
-        productFilter.attributes?.forEach((attr) => {
-          if (!attr?.slug) return;
-          const values = sp[attr.slug]?.split(",").filter(Boolean) ?? [];
-          if (values.length) spAttrs[attr.slug] = values;
-        });
-        return spAttrs;
-      })();
-
-  // Brand from the path slug (preferred) else legacy query param.
-  const brands = decoded
-    ? decoded.brands
-    : (sp.brands?.split(",").filter(Boolean) ?? []);
-
-  const { branding } = await getBranding();
-
-  // Shared remote catalog cache (`getCachedCatalogPage`) so load-more and the
-  // initial grid share one entry, and product webhooks (`headkit:products`)
-  // actually drop this PLP — the old local cache only listened to
-  // `headkit:catalog:cat:{slug}`, which Shopify product payloads cannot target.
-  const filter = buildProductListFilter(
-    {
-      ...DEFAULT_FILTER_VALUES,
-      categories: sp.categories?.split(",").filter(Boolean) ?? [],
-      brands,
-      attributes,
-      instock: sp.instock === "true",
-      sort: (sp.sort ?? "") as SortKeyType | "",
-      page,
-    },
-    {
-      categorySlug,
-      defaultSort: branding.defaultCollectionSort as SortKeyType,
-    },
-  );
-
-  const productsResult = await getCachedCatalogPage(filter, page, PER_PAGE, {
-    kind: "category",
-    slug: categorySlug,
-  });
-
-  return (
-    <CollectionPage
-      initialProducts={productsResult.products}
-      initialTotal={productsResult.total}
-      productFilter={productFilter}
-      initialPage={page}
-      itemsPerPage={PER_PAGE}
-      categorySlug={categorySlug}
-      categoryBasePath={categoryBasePath}
-      preferHeaderLcp={preferHeaderLcp}
-      {...(initialFilterValues ? { initialFilterValues } : {})}
-      {...(initialBrands ? { initialBrands } : {})}
-    />
-  );
 }
 
 /**
@@ -545,10 +415,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  *   with a root-layout `<Suspense>`     → 200 + skeleton (client-side redirect)
  *   with neither                        → 308, prerendered AND at runtime
  *
- * Nothing is lost by the file's absence: the `<Suspense>` below renders the
- * identical `<CollectionPageSkeleton />` that `loading.tsx` did. Re-introducing
- * either boundary silently turns every flat collection URL back into a 200
- * duplicate; `e2e/canonical-url-308.spec.ts` fails on the status code when one
+ * Nothing is lost by the file's absence: this route has no Suspense boundary at
+ * all any more, so its heading and first page of product cards render in the
+ * static shell where a JS-off shopper and a non-rendering crawler can see them
+ * (see `CollectionProductsShell`). Re-introducing either boundary silently
+ * turns every flat collection URL back into a 200 duplicate AND hides the grid
+ * again; `e2e/canonical-url-308.spec.ts` fails on the status code when one
  * does.
  *
  * The remaining cost is this route's App Shell — awaiting in the default export
@@ -570,28 +442,32 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * ### The 308 carries the path, not the query
  *
  * `searchParams` is deliberately NOT awaited: doing so would opt the whole
- * segment dynamic and seal the skeleton as the shell for every request (see
- * `CollectionProductsServer`). So path-encoded facets (`/f/…`) survive the
+ * segment dynamic and leave a 0-byte shell for every request (see
+ * `CollectionProductsShell`). So path-encoded facets (`/f/…`) survive the
  * redirect because they are slug segments, while a query string on a flat URL
  * is dropped. Three cases, named explicitly because they are not equally cheap:
  *
  *   - `?page=2` / `?sort=` — the shopper lands on page 1 in the default order.
  *   - `?q=` / `?price_min=` / `?instock=` — the same, unfiltered.
  *   - `?pa_color=red`, `?brands=…` — a LEGACY FACET, and the case that carries
- *     V1 link equity. `CollectionProductsServer` folds those into the `/f/…`
- *     path form with a second 308, but that fold is now unreachable from a flat
- *     URL because this redirect fires before `CollectionProductsServer` ever
- *     runs, so the shopper lands on the unfiltered nested collection.
+ *     V1 link equity.
  *
  * Accepted rather than fixed: folding the facet into this redirect target needs
  * `searchParams` here, which opts the whole segment dynamic — the exact cost the
  * paragraph above refuses. The flat shape has no internal links left after this
  * change, so the traffic is external links and crawlers, and the destination is
  * the collection they asked for.
+ *
+ * The legacy facet's SERVER-side fold is gone with the boundary that housed it,
+ * and was never visible to a crawler anyway: it lived below the boundary, so
+ * `permanentRedirect` there could not set a status line and answered 200 with a
+ * client-side `NEXT_REDIRECT` payload (measured live, 2026-09-15). A JS-on
+ * shopper gets the same navigation from `CollectionProvider`'s mount effect,
+ * which reads those query params and pushes the `/f/…` path.
  */
 export const instant = false;
 
-export default async function Page({ params, searchParams }: Props) {
+export default async function Page({ params }: Props) {
   const { slug } = await params;
   // The build-time placeholder is never served from a prerender, so a runtime
   // request for it is a junk URL and must 404 HERE. Skipping the gate for it
@@ -602,11 +478,11 @@ export default async function Page({ params, searchParams }: Props) {
   const redirectTo = await canonicalCollectionRedirect(slug);
   if (redirectTo) permanentRedirect(redirectTo);
 
-  // Pre-commit 404 gate. Only the EXISTENCE decision is hoisted; the product
-  // grid (and its `searchParams` read) stays inside the boundary below and
-  // still streams. `CollectionRoute` repeats the checks — it is also entered
-  // from `/shop/[...slug]` — and the `"use cache"` category read dedupes, so
-  // the repeat is a cache hit.
+  // Pre-commit 404 gate. `CollectionRoute` repeats the checks — it is also
+  // entered from `/shop/[...slug]` — and the `"use cache"` category read
+  // dedupes, so the repeat is a cache hit. What the gate resolves is then
+  // RENDERED rather than re-read behind a boundary: there is no boundary on
+  // this route.
   const { categorySlug } = parseCollectionSlug(slug);
   if (!categorySlug) notFound();
   // A THROWN read is transport/infra and must not bake a sticky 404 into the
@@ -616,11 +492,7 @@ export default async function Page({ params, searchParams }: Props) {
   const { category } = await getCategoryData(categorySlug);
   if (!category) notFound();
 
-  return (
-    <Suspense fallback={<CollectionPageSkeleton />}>
-      <CollectionRoute params={params} searchParams={searchParams} />
-    </Suspense>
-  );
+  return <CollectionRoute params={params} />;
 }
 
 /**
@@ -661,7 +533,11 @@ async function canonicalCollectionRedirect(
  * them at `/shop/…` would emit a permanent redirect into a path the shop
  * catch-all classifies as unknown — RESEARCH C-6 in a new shape.
  */
-export async function CollectionRoute({ params, searchParams }: Props) {
+export async function CollectionRoute({
+  params,
+}: {
+  params: Promise<{ slug: string[] }>;
+}) {
   const { slug } = await params;
   if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) return notFound();
   const { categorySlug, filterSlug, categoryBasePath } =
@@ -711,18 +587,98 @@ export async function CollectionRoute({ params, searchParams }: Props) {
         {...(category.thumbnail ? { thumbnail: category.thumbnail } : {})}
         {...(childCategories.length > 0 ? { children: childCategories } : {})}
       />
-      {/* Nested Suspense: header (params + use cache) can commit while
-          searchParams-driven catalog streams in. */}
-      <Suspense fallback={<CollectionProductsSkeleton />}>
-        <CollectionProductsServer
-          categorySlug={categorySlug}
-          productFilter={productFilter}
-          searchParams={searchParams}
-          filterSlug={filterSlug}
-          categoryBasePath={categoryBasePath}
-          preferHeaderLcp={preferHeaderLcp}
-        />
-      </Suspense>
+      {/* No boundary: the grid renders in the static shell. See below. */}
+      <CollectionProductsShell
+        categorySlug={categorySlug}
+        productFilter={productFilter}
+        filterSlug={filterSlug}
+        categoryBasePath={categoryBasePath}
+        preferHeaderLcp={preferHeaderLcp}
+      />
     </>
+  );
+}
+
+/**
+ * Page 1 of the grid, filtered by the PATH facet only, rendered in the static
+ * shell — no `<Suspense>` above it anywhere on this route.
+ *
+ * Both of its reads (`getBranding`, `getCachedCatalogPage`) are `"use cache"`,
+ * and it awaits no `searchParams`, so the whole route still prerenders. Those
+ * two properties are what the shell placement costs, and neither is optional:
+ *
+ *   - A request-time read here (`searchParams`, `cookies()`, `headers()`, an
+ *     uncached fetch) with no boundary turns the route DYNAMIC — `ƒ`, 0-byte
+ *     shell — rather than failing the build. `CollectionProvider`'s
+ *     `useSearchParams()` did exactly that and is why this was not possible
+ *     before; it is gone, and `app/shop/[...slug]/page.composition.test.tsx`
+ *     guards its absence.
+ *   - A boundary here does not help: React outlines any COMPLETED boundary
+ *     larger than 500 bytes into a hidden segment (`isEligibleForOutlining`,
+ *     `next/dist/compiled/react-dom`, once the shell has already flushed past
+ *     `progressiveChunkSize`), and one product card is ~4.3 KB. Measured: a
+ *     boundary holding ZERO cards still outlined. So no number of cards fits
+ *     inside one — the cached half must sit outside every boundary.
+ *
+ * The consequence is that this always renders page 1 in the store's default
+ * order. `?page=`, `?sort=`, `?q=`, `?price_*`, `?instock=` and `?categories=`
+ * are applied in the browser by `CollectionProvider`'s mount effect; none of
+ * them is canonical or in the sitemap.
+ * The INDEXABLE facets are unaffected — they live in the `/f/<slug>` path
+ * segment, which arrives via `params`.
+ */
+async function CollectionProductsShell({
+  categorySlug,
+  productFilter,
+  filterSlug,
+  categoryBasePath,
+  preferHeaderLcp = false,
+}: {
+  categorySlug: string;
+  productFilter: ProductFilters;
+  filterSlug: string | undefined;
+  categoryBasePath: string;
+  preferHeaderLcp?: boolean;
+}) {
+  const decoded = filterSlug ? decodeFilterSlug(filterSlug) : undefined;
+  const initialFilterValues =
+    decoded && Object.keys(decoded.attributes).length > 0
+      ? decoded.attributes
+      : undefined;
+  const initialBrands =
+    decoded && decoded.brands.length > 0 ? decoded.brands : undefined;
+
+  const { branding } = await getBranding();
+  const filter = buildProductListFilter(
+    {
+      ...DEFAULT_FILTER_VALUES,
+      brands: decoded?.brands ?? [],
+      attributes: decoded?.attributes ?? {},
+      page: 1,
+    },
+    {
+      categorySlug,
+      defaultSort: branding.defaultCollectionSort as SortKeyType,
+    },
+  );
+
+  const productsResult = await getCachedCatalogPage(filter, 1, PER_PAGE, {
+    kind: "category",
+    slug: categorySlug,
+  });
+
+  return (
+    <CollectionPage
+      initialProducts={productsResult.products}
+      initialTotal={productsResult.total}
+      productFilter={productFilter}
+      initialPage={1}
+      itemsPerPage={PER_PAGE}
+      categorySlug={categorySlug}
+      categoryBasePath={categoryBasePath}
+      preferHeaderLcp={preferHeaderLcp}
+      {...(initialFilterValues ? { initialFilterValues } : {})}
+      {...(initialBrands ? { initialBrands } : {})}
+    />
   );
 }

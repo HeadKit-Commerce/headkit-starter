@@ -977,7 +977,6 @@ const LINK_SURFACES: { name: string; urls: () => Promise<string[]> }[] = [
     urls: async () => {
       const tree = await CollectionRoute({
         params: Promise.resolve({ slug: ["clothing"] }),
-        searchParams: Promise.resolve({}),
       });
       const crumbs = (propsOf(tree, "BreadcrumbJsonLD")?.items ?? []) as {
         href: string;

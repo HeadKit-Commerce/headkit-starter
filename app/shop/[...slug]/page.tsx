@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Suspense } from "react";
 import { notFound, unstable_rethrow } from "next/navigation";
 import { cacheLife, cacheTag } from "next/cache";
 import type { ProductCategoryDetail } from "@headkit/sdk";
@@ -13,7 +12,6 @@ import {
   ProductPageBody,
 } from "@/app/products/[...slug]/page";
 import { CollectionRoute } from "@/app/collections/[...slug]/page";
-import { CollectionPageSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import { collectionPathFromCategory } from "@/components/headkit-ui/collection/utils";
 import { productPath, productShopSegments } from "@/lib/canonical-path";
 import { getCachedProduct } from "@/lib/product-cache";
@@ -369,15 +367,16 @@ export default async function Page(props: Props): Promise<ReactNode> {
   // a category archive served here is a duplicate that consolidates by
   // canonical tag, which is why the two agree on the collections shape.
   //
-  // This branch keeps a boundary because `CollectionRoute` reads
-  // `searchParams` for its product grid — a request-time read that must sit
-  // below one. It is the collection route's own skeleton, not the PDP's.
+  // This branch has NO boundary, on purpose. `CollectionRoute` reads no
+  // `searchParams` — its heading and page-1 grid come from `"use cache"` reads
+  // keyed by the path — so it renders in the static shell, where a JS-off
+  // shopper and a non-rendering crawler can see the products. A `<Suspense>`
+  // here would put all of it back in a hidden segment: React outlines any
+  // completed boundary over 500 bytes, and one product card is ~4.3 KB. The
+  // full contract is on `CollectionProductsShell`
+  // (`app/collections/[...slug]/page.tsx`); `page.composition.test.tsx` guards
+  // both halves of it.
   return (
-    <Suspense fallback={<CollectionPageSkeleton />}>
-      <CollectionRoute
-        params={Promise.resolve({ slug: resolved.segments })}
-        searchParams={props.searchParams ?? Promise.resolve({})}
-      />
-    </Suspense>
+    <CollectionRoute params={Promise.resolve({ slug: resolved.segments })} />
   );
 }

@@ -1,4 +1,8 @@
-import type { ProductListFilter, ProductCategoryDetail } from "@headkit/sdk";
+import type {
+  ProductListFilter,
+  ProductCategoryDetail,
+  ProductFilters,
+} from "@headkit/sdk";
 import { COLOR_ATTR_SLUGS, isColorAttrSlug } from "@/lib/color-attr-slug";
 import { decodeHtmlEntities } from "@/lib/utils";
 
@@ -429,4 +433,102 @@ export function buildBreadcrumbFromCategory(
   });
 
   return crumbs;
+}
+/** Query state this provider owns, and the only thing `CollectionProvider`'s mount effect
+ *  reads from `window.location.search`. Everything else (path facets, the
+ *  category, the search term) is a prop the server already resolved. */
+export interface DeriveFilterValuesOptions {
+  initialPage: number;
+  productFilter: ProductFilters;
+  initialFilterValues?: Record<string, string[]> | undefined;
+  initialBrands?: string[] | undefined;
+}
+
+/**
+ * Build `FilterValues` from the props the server passes plus an optional query
+ * string. Pure, and called twice: once at mount with NO query string (so the
+ * provider renders identically on the server and the client — see `CollectionProvider`'s
+ * mount effect for why that matters), and once from that effect with the
+ * real `window.location.search`.
+ *
+ * Precedence is unchanged from when this read `useSearchParams()` directly:
+ * path-decoded brands/attributes (`/f/<slug>`) beat the legacy query forms.
+ */
+export function deriveFilterValues(
+  searchParams: URLSearchParams,
+  {
+    initialPage,
+    productFilter,
+    initialFilterValues,
+    initialBrands,
+  }: DeriveFilterValuesOptions,
+): FilterValues {
+  const pageParam = searchParams.get("page");
+  const page = pageParam
+    ? Math.max(1, parseInt(pageParam, 10) || initialPage)
+    : initialPage;
+  // `attributes: {}` is NOT redundant: spreading DEFAULT_FILTER_VALUES copies
+  // the REFERENCE to its `attributes` object, and the legacy-query branch below
+  // writes into it — which mutates the module-level default for every later
+  // caller. Harmless when this ran once per mount; with the mount correction it
+  // made `corrected.attributes` and the seeded `current.attributes` the SAME
+  // object, so the equality check below saw no change and a legacy `?colour=`
+  // URL silently stopped folding into `/f/colour.<value>`. Measured in a
+  // browser against a production build.
+  const vals: FilterValues = { ...DEFAULT_FILTER_VALUES, attributes: {}, page };
+  const categories =
+    searchParams.get("categories")?.split(",").filter(Boolean) ?? [];
+  if (categories.length) vals.categories = categories;
+  // Brand is path-encoded (06.1): the server decodes it from the `/f/` slug and
+  // passes it via initialBrands. That takes precedence over the legacy
+  // `?brands=` query param (still read as a fallback for old/in-flight URLs).
+  if (initialBrands && initialBrands.length > 0) {
+    vals.brands = initialBrands;
+  } else {
+    const brands = searchParams.get("brands")?.split(",").filter(Boolean) ?? [];
+    if (brands.length) vals.brands = brands;
+  }
+  // Path-decoded attributes take precedence; fall back to search params for legacy URLs.
+  if (initialFilterValues && Object.keys(initialFilterValues).length > 0) {
+    vals.attributes = initialFilterValues;
+  } else {
+    productFilter.attributes?.forEach((attr) => {
+      if (!attr?.slug) return;
+      const values =
+        searchParams.get(attr.slug)?.split(",").filter(Boolean) ?? [];
+      if (values.length) vals.attributes[attr.slug] = values;
+    });
+  }
+  vals.instock = searchParams.get("instock") === "true";
+  vals.sort = (searchParams.get("sort") ?? "") as SortKeyType | "";
+  const priceMin = searchParams.get("price_min");
+  if (priceMin) vals.price_min = priceMin;
+  const priceMax = searchParams.get("price_max");
+  if (priceMax) vals.price_max = priceMax;
+  return vals;
+}
+
+/** Query string with nothing in it — the server's view of the world. */
+export const NO_SEARCH_PARAMS = new URLSearchParams();
+
+/** Value equality for two derived `FilterValues`, so the mount correction can
+ *  no-op on the common case (a bare canonical URL with no query string) rather
+ *  than handing the provider's
+ *  reconciling effect a fresh object and forcing a refetch. */
+export function sameFilterValues(a: FilterValues, b: FilterValues): boolean {
+  const sameList = (x: string[], y: string[]) =>
+    x.length === y.length && x.every((v, i) => v === y[i]);
+  if (a.page !== b.page) return false;
+  if (a.instock !== b.instock) return false;
+  if (a.sort !== b.sort) return false;
+  if ((a.price_min ?? "") !== (b.price_min ?? "")) return false;
+  if ((a.price_max ?? "") !== (b.price_max ?? "")) return false;
+  if (!sameList(a.categories, b.categories)) return false;
+  if (!sameList(a.brands, b.brands)) return false;
+  const aKeys = Object.keys(a.attributes).sort();
+  const bKeys = Object.keys(b.attributes).sort();
+  if (!sameList(aKeys, bKeys)) return false;
+  return aKeys.every((key) =>
+    sameList(a.attributes[key] ?? [], b.attributes[key] ?? []),
+  );
 }

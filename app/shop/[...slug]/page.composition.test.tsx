@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Suspense, type ReactElement } from "react";
 
@@ -15,9 +16,13 @@ import { Suspense, type ReactElement } from "react";
  * `B:2`. The flat route's own file, `app/products/[...slug]/page.tsx`, owns
  * the account; `scripts/static-shell-split.ts` measures a built file.
  *
- * The category branch keeps a boundary on purpose: `CollectionRoute` reads
- * `searchParams` for its grid, which must sit below one, and the fallback is
- * the collection route's skeleton rather than the PDP's.
+ * The category branch has NO boundary either, for the same reason:
+ * `CollectionRoute` reads no `searchParams`, so its heading and
+ * page-1 grid render in the static shell. That only holds while
+ * `CollectionProvider` — the client component every listing route mounts —
+ * calls no `useSearchParams()`, which is itself a request-time read and turned
+ * the whole route dynamic (`f`, 0-byte shell) while it was there. Both halves
+ * are asserted below, because either one alone passes with the other broken.
  *
  * The 404 gate (index / unknown / no candidate) is `app/not-found-status.test.ts`;
  * metadata and `generateStaticParams` are `./page.test.ts`.
@@ -97,7 +102,6 @@ vi.mock("@/components/headkit-ui/skeletons/collection-page-skeleton", () => ({
 import Page from "./page";
 import { ProductPageBody } from "@/app/products/[...slug]/page";
 import { CollectionRoute } from "@/app/collections/[...slug]/page";
-import { CollectionPageSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 
 const HOODIE = {
   id: "p1",
@@ -176,37 +180,94 @@ describe("shop/[...slug] — the product branch renders OUTSIDE any boundary", (
   });
 });
 
-describe("shop/[...slug] — the category branch keeps its boundary", () => {
-  it("wraps CollectionRoute in Suspense with the collection skeleton and forwards searchParams unawaited", async () => {
+/**
+ * The category branch renders in the static shell, and it takes BOTH of these.
+ *
+ * WHAT THIS COVERS: (1) the element `app/shop/[...slug]/page.tsx` returns for a
+ * category path is `CollectionRoute` itself, with no `<Suspense>` wrapping it
+ * and no `searchParams` handed to it; (2) the shared client provider
+ * `components/headkit-ui/collection/collection-context.tsx` calls no
+ * `useSearchParams()`. The second is not decoration: with the route shape
+ * exactly as asserted in (1) and `useSearchParams()` back in the provider, the
+ * measured result was `f` and a 0-byte prerendered shell — so (1) alone would
+ * stay green through the whole regression it exists to catch.
+ *
+ * WHERE IT STOPS, and these gaps are real:
+ *   - It reads the provider's SOURCE TEXT. It catches the call by name and
+ *     nothing else: another request-time read (`cookies()`, `headers()`, an
+ *     uncached fetch) anywhere in the grid's subtree fails identically and is
+ *     invisible here, as is `useSearchParams` reached through an alias or a
+ *     re-export. Comments are stripped before the match, naively, so a `//`
+ *     inside a string literal blinds the rest of that line.
+ *   - It is one route file and one provider file. The other listing routes that
+ *     mount the same provider — `app/collections/[...slug]`, `app/shop`,
+ *     `app/brand/[...slug]`, `app/sale`, `app/new-in`, `app/featured` — have no
+ *     boundary assertion of their own; `app/collections/[...slug]` is covered
+ *     only transitively, by being the module this route delegates to.
+ *   - It says nothing about what the BUILD produced. Whether the route is `o`
+ *     or `f`, and whether the cards actually land before the first hidden
+ *     segment, is only observable on a built file:
+ *     `bun run scripts/static-shell-split.ts <.next/server/app/....html | url>`.
+ *   - It says nothing about the 404/308 status codes on this route; those are
+ *     `app/not-found-status.test.ts` and `e2e/not-found-status.spec.ts`.
+ */
+describe("shop/[...slug] — the category branch renders in the static shell", () => {
+  it("returns CollectionRoute directly, with no boundary above it and no searchParams", async () => {
     const searchParams = trackedSearchParams();
 
     const element = (await Page({
       params: Promise.resolve({ slug: ["clothing", "hoodies"] }),
       searchParams: searchParams.promise,
     })) as ReactElement<{
-      fallback: ReactElement;
-      children: ReactElement<{
-        searchParams: unknown;
-        params: Promise<unknown>;
-      }>;
+      searchParams?: unknown;
+      params: Promise<unknown>;
     }>;
 
     expect(
       element.type,
-      "the collection grid reads searchParams — a request-time read that must sit below a boundary",
-    ).toBe(Suspense);
+      "a <Suspense> here puts the heading and every product card after the visible shell — React outlines any completed boundary over 500 bytes, and one card is ~4.3 KB",
+    ).not.toBe(Suspense);
     expect(
-      element.props.fallback.type,
-      "the fallback is the collection route's own skeleton, not the PDP's",
-    ).toBe(CollectionPageSkeleton);
-    expect(element.props.children.type).toBe(CollectionRoute);
-    expect(element.props.children.props.searchParams).toBe(
-      searchParams.promise,
-    );
-    expect(searchParams.awaited(), "forwarded, never read here").toBe(false);
-    await expect(element.props.children.props.params).resolves.toEqual({
+      element.type,
+      "the category branch renders CollectionRoute itself, in the route",
+    ).toBe(CollectionRoute);
+    expect(
+      element.props.searchParams,
+      "CollectionRoute takes no searchParams: awaiting one anywhere on this route turns the whole segment dynamic",
+    ).toBeUndefined();
+    expect(searchParams.awaited(), "never read here").toBe(false);
+    await expect(element.props.params).resolves.toEqual({
       slug: ["clothing", "hoodies"],
     });
+  });
+
+  it("keeps useSearchParams out of the shared CollectionProvider", async () => {
+    const source = await readFile(
+      new URL(
+        "../../../components/headkit-ui/collection/collection-context.tsx",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+
+    // Vacuity guard: if the file ever moves or is renamed, an empty read would
+    // make the assertion below pass for the wrong reason.
+    expect(
+      source,
+      "read the wrong file — this guard is worthless without the provider in it",
+    ).toContain("export function CollectionProvider");
+
+    // Strip comments first: this very file's rationale, and the provider's own,
+    // both spell the identifier out in prose. Naive, and that is the trade —
+    // a `//` inside a string literal truncates the rest of that line.
+    const code = source
+      .replace(/\/\*[\s\S]*?\*\//g, " ")
+      .replace(/\/\/[^\n]*/g, " ");
+
+    expect(
+      /\buseSearchParams\b/.test(code),
+      "CollectionProvider must not call useSearchParams(): it is a request-time read, and with it the listing routes build as dynamic (f) with a 0-byte static shell — measured, and invisible to the structural assertion above. Read query state in a mount effect instead.",
+    ).toBe(false);
   });
 });
 
