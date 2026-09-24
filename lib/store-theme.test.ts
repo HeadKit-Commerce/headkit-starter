@@ -72,6 +72,16 @@ describe("parseStoreTheme cart", () => {
     );
   });
 
+  it("reads an optional posts-index title", () => {
+    const theme = parseStoreTheme({
+      version: 1,
+      layout: LAYOUT,
+      copy: { postsIndex: { title: "Journal" } },
+    });
+    expect(theme.copy?.postsIndex?.title).toBe("Journal");
+    expect(theme.copy?.postsIndex?.description).toBeUndefined();
+  });
+
   it("reads an optional empty-cart sentence", () => {
     const theme = parseStoreTheme({
       version: 1,

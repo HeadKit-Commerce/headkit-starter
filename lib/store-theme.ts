@@ -46,6 +46,18 @@ export interface CopyTheme {
   pdpRelated?: SectionCopyFields;
   /** Link text under a homepage collection-card title. Omit = title only. */
   collectionCardLink?: string;
+  /**
+   * Posts index heading when the provider has no posts-page body.
+   * A WooCommerce Reading posts page, or a Shopify page whose handle
+   * matches the posts base, still wins for both title and HTML body.
+   */
+  postsIndex?: PostsIndexCopy;
+}
+
+/** Plain-text stand-in for the posts index. HTML belongs on the CMS page. */
+export interface PostsIndexCopy {
+  title?: string;
+  description?: string;
 }
 
 /** One packaging choice written to the order as the Packaging attribute. */
@@ -183,12 +195,18 @@ const sectionCopySchema = z.object({
     .optional(),
 });
 
+const postsIndexCopySchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  description: z.string().min(1).max(500).optional(),
+});
+
 const copySchema = z.object({
   homepageFeatured: sectionCopySchema.optional(),
   homepageLatestNews: sectionCopySchema.optional(),
   pdpBundles: sectionCopySchema.optional(),
   pdpRelated: sectionCopySchema.optional(),
   collectionCardLink: z.string().min(1).max(80).optional(),
+  postsIndex: postsIndexCopySchema.optional(),
 });
 
 const cartImageSchema = z
@@ -323,6 +341,16 @@ function normalizeTheme(data: z.infer<typeof themeSchema>): StoreTheme {
     }
     if (data.copy.collectionCardLink !== undefined) {
       copy.collectionCardLink = data.copy.collectionCardLink;
+    }
+    if (data.copy.postsIndex !== undefined) {
+      const postsIndex: PostsIndexCopy = {};
+      if (data.copy.postsIndex.title !== undefined) {
+        postsIndex.title = data.copy.postsIndex.title;
+      }
+      if (data.copy.postsIndex.description !== undefined) {
+        postsIndex.description = data.copy.postsIndex.description;
+      }
+      copy.postsIndex = postsIndex;
     }
     theme.copy = copy;
   }

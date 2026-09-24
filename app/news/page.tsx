@@ -12,7 +12,9 @@ import { makeSeoMetadata, storefrontUrl } from "@/lib/make-metadata";
 import { getBranding } from "@/lib/branding";
 import { TAG } from "@/lib/cache-tags";
 import { errorFields, logger } from "@/lib/logger";
+import { postsIndexHeading } from "@/lib/posts-index-copy";
 import { getPostsBasePath, postsIndexPath } from "@/lib/posts-base-path";
+import { getStoreTheme } from "@/lib/store-theme";
 
 const FALLBACK_TITLE = "News";
 const FALLBACK_DESCRIPTION =
@@ -41,9 +43,10 @@ export async function generateMetadata(): Promise<Metadata> {
     const [page, { seoSettings, storeSettings }, postsBase] = await Promise.all(
       [getNewsLanding(), getBranding(), getPostsBasePath()],
     );
+    const heading = postsIndexHeading(page, getStoreTheme().copy?.postsIndex);
     return await makeSeoMetadata(page?.seo ?? null, {
-      title: page?.title?.trim() || FALLBACK_TITLE,
-      description: page?.seo?.metaDesc?.trim() || FALLBACK_DESCRIPTION,
+      title: heading.title,
+      description: heading.description,
       storeName: storeSettings.name ?? undefined,
       allowIndexing: seoSettings.allowIndexing,
       canonical: canonicalForPostsBase(postsBase, storeSettings.domain),
@@ -191,18 +194,19 @@ async function NewsRoute({ searchParams }: Props) {
     getNewsLanding(),
     getPostsBasePath(),
   ]);
-  const title = page?.title?.trim() || FALLBACK_TITLE;
-  const content = page?.content?.trim();
+  const heading = postsIndexHeading(page, getStoreTheme().copy?.postsIndex);
   const indexPath = postsIndexPath(postsBase);
 
   return (
     <>
       <PostHeader
-        name={title}
-        {...(content ? { content } : { description: FALLBACK_DESCRIPTION })}
+        name={heading.title}
+        {...(heading.content
+          ? { content: heading.content }
+          : { description: heading.description })}
         breadcrumbs={[
           { name: "Home", uri: "/", current: false },
-          { name: title, uri: indexPath, current: true },
+          { name: heading.title, uri: indexPath, current: true },
         ]}
       />
       <Suspense fallback={<EditorialGridSkeleton aspect="portrait" />}>
