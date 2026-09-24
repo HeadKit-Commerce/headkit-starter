@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { rewriteShopifyFileVideos } from "@/lib/shopify-file-video";
 
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
@@ -91,7 +92,9 @@ export function formatWooRichText(html: string | null | undefined): string {
     return "";
   }
 
-  const normalized = trimmed.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const normalized = rewriteShopifyFileVideos(
+    trimmed.replace(/\r\n/g, "\n").replace(/\r/g, "\n"),
+  );
 
   // Already paragraph-structured — trust the editor HTML.
   if (/<p\b/i.test(normalized)) {

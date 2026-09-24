@@ -118,6 +118,17 @@ describe("sanitizeContent (R6 XSS allowlist)", () => {
     expect(cleaned).toContain("object-fit:cover");
   });
 
+  it("plays a Shopify Files video and drops other video hosts", async () => {
+    const file = "https://cdn.shopify.com/videos/c/o/v/abc/lookbook.mp4";
+    const cleaned = await sanitizeContent(
+      `<p>${file}</p><video src="https://evil.example/a.mp4" controls></video><iframe src="https://www.youtube.com/embed/abc" title="Film"></iframe>`,
+    );
+    expect(cleaned).toContain(`<video src="${file}"`);
+    expect(cleaned).toContain("controls");
+    expect(cleaned).not.toContain("evil.example");
+    expect(cleaned).toContain("https://www.youtube.com/embed/abc");
+  });
+
   it("keeps spaced aspect-ratio values and preset vars", async () => {
     const html =
       '<figure class="wp-block-image" style="aspect-ratio:16 / 9"><img src="https://example.com/a.jpg" alt="" /></figure>' +

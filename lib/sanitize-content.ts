@@ -1,5 +1,9 @@
 import { cacheLife } from "next/cache";
 import sanitizeHtml from "sanitize-html";
+import {
+  isShopifyFileVideoUrl,
+  rewriteShopifyFileVideos,
+} from "@/lib/shopify-file-video";
 
 /**
  * Hostnames allowed as <iframe> sources (video embeds). Anything else is
@@ -79,11 +83,14 @@ export async function sanitizeContent(dirty: string): Promise<string> {
   // Deterministic for a given `dirty` string; max keeps prerender shells warm.
   cacheLife("max");
 
-  return sanitizeHtml(dirty, {
+  return sanitizeHtml(rewriteShopifyFileVideos(dirty), {
     allowedTags: [
       ...sanitizeHtml.defaults.allowedTags, // includes figure/figcaption + table tags
       "img",
       "iframe",
+      // Shopify Files videos (cdn.shopify.com). Other hosts are dropped below.
+      "video",
+      "source",
       // Editorial blocks: Details (native <details>/<summary>), Quote/Pullquote
       // (<cite>), Page Break (rendered as <hr>). Accordion is converted to
       // <details> in EditorialContent, so it reuses details/summary too.
@@ -122,6 +129,19 @@ export async function sanitizeContent(dirty: string): Promise<string> {
         "title",
         "frameborder",
       ],
+      video: [
+        "src",
+        "poster",
+        "controls",
+        "playsinline",
+        "preload",
+        "width",
+        "height",
+        "loop",
+        "muted",
+        "autoplay",
+      ],
+      source: ["src", "type"],
       details: ["open"], // allow a block authored open-by-default
       td: ["colspan", "rowspan"],
       th: ["colspan", "rowspan", "scope"],
@@ -131,9 +151,28 @@ export async function sanitizeContent(dirty: string): Promise<string> {
     // Keep the default schemes (javascript: excluded). Constrain iframe to https
     // + the known embed hosts.
     allowedSchemes: ["http", "https", "ftp", "mailto", "tel"],
-    allowedSchemesByTag: { iframe: ["https"] },
+    allowedSchemesByTag: {
+      iframe: ["https"],
+      video: ["https"],
+      source: ["https"],
+    },
     allowedIframeHostnames: [...ALLOWED_IFRAME_HOSTS],
     allowIframeRelativeUrls: false,
+    transformTags: {
+      video: (tagName, attribs) => {
+        const next = { ...attribs };
+        if (next.poster && !/^https:\/\//i.test(next.poster)) {
+          delete next.poster;
+        }
+        return { tagName, attribs: next };
+      },
+    },
+    exclusiveFilter: (frame) => {
+      if (frame.tag !== "video" && frame.tag !== "source") return false;
+      const src = frame.attribs.src ?? "";
+      if (!src) return frame.tag === "source";
+      return !isShopifyFileVideoUrl(src);
+    },
     // Constrain inline style to a safe property allowlist (blocks
     // expression()/url() and CSS-exfiltration tricks).
     allowedStyles: {
