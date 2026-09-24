@@ -168,16 +168,19 @@ async function PostsServer({
 export const instant = true;
 
 export default function Page({ searchParams }: Props) {
+  // The static shell paints before the landing resolves. Store copy belongs
+  // here too, or a store that titles the index in theme.json flashes "News".
+  const shell = postsIndexHeading(null, getStoreTheme().copy?.postsIndex);
   return (
     <Suspense
       fallback={
         <>
           <PostHeader
-            name={FALLBACK_TITLE}
-            description={FALLBACK_DESCRIPTION}
+            name={shell.title}
+            description={shell.description}
             breadcrumbs={[
               { name: "Home", uri: "/", current: false },
-              { name: FALLBACK_TITLE, uri: "/news", current: true },
+              { name: shell.title, uri: "/news", current: true },
             ]}
           />
           <EditorialGridSkeleton aspect="portrait" />
