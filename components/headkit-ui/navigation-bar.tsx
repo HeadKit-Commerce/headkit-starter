@@ -284,7 +284,16 @@ export function NavigationBar({
                     />
                   )}
                   {mobileActions && (
-                    <div className="flex gap-4 pt-4 border-t border-neutral-100">
+                    <div
+                      className="flex gap-4 pt-4 border-t border-neutral-100"
+                      onClick={(event) => {
+                        const target = event.target;
+                        if (!(target instanceof Element)) return;
+                        // Account, wishlist, and customer extras are links.
+                        // Search stays a button and leaves the sheet open.
+                        if (target.closest("a")) setMobileOpen(false);
+                      }}
+                    >
                       {mobileActions}
                     </div>
                   )}
