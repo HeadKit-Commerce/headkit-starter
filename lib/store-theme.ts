@@ -76,6 +76,11 @@ export interface CartGiftMessageTheme {
 export interface CartTheme {
   packaging?: CartPackagingTheme;
   giftMessage?: CartGiftMessageTheme;
+  /**
+   * Replaces both default empty-cart sentences when the drawer is not in
+   * quote mode. Omit to keep the starter copy.
+   */
+  emptyMessage?: string;
 }
 
 /**
@@ -217,6 +222,7 @@ const cartSchema = z.object({
       label: z.string().min(1).max(160),
     })
     .optional(),
+  emptyMessage: z.string().min(1).max(240).optional(),
 });
 
 const themeSchema = z.object({
@@ -349,6 +355,9 @@ function pickCart(cart: z.infer<typeof cartSchema>): CartTheme {
   }
   if (cart.giftMessage !== undefined) {
     picked.giftMessage = { label: cart.giftMessage.label };
+  }
+  if (cart.emptyMessage !== undefined) {
+    picked.emptyMessage = cart.emptyMessage;
   }
   return picked;
 }

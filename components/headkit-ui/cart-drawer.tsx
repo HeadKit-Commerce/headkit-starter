@@ -50,6 +50,9 @@ export function CartDrawer() {
   const theme = getStoreTheme();
   const packagingTheme = theme.cart?.packaging;
   const giftTheme = theme.cart?.giftMessage;
+  const emptyMessage = isQuoteMode
+    ? undefined
+    : theme.cart?.emptyMessage?.trim();
 
   const [packagingOverride, setPackagingOverride] = useState<string | null>(
     null,
@@ -197,29 +200,35 @@ export function CartDrawer() {
       </div>
     ) : (
       <>
-        <p className="mb-4">
-          {isQuoteMode
-            ? "No products in your quote yet."
-            : "No products in your cart!"}
-        </p>
-        <p className="mb-8 font-medium">
-          {isQuoteMode ? (
-            <>
-              Browse our selection and add products to request pricing. If
-              you&apos;re not ready to build your quote please{" "}
-              <Link
-                href="/contact"
-                className="underline underline-offset-2 hover:opacity-80"
-                onClick={() => toggleCart(false)}
-              >
-                contact us
-              </Link>{" "}
-              instead.
-            </>
-          ) : (
-            "Have a look around our selection of products to get ready for your next adventure."
-          )}
-        </p>
+        {emptyMessage ? (
+          <p className="mb-8">{emptyMessage}</p>
+        ) : (
+          <>
+            <p className="mb-4">
+              {isQuoteMode
+                ? "No products in your quote yet."
+                : "No products in your cart!"}
+            </p>
+            <p className="mb-8 font-medium">
+              {isQuoteMode ? (
+                <>
+                  Browse our selection and add products to request pricing. If
+                  you&apos;re not ready to build your quote please{" "}
+                  <Link
+                    href="/contact"
+                    className="underline underline-offset-2 hover:opacity-80"
+                    onClick={() => toggleCart(false)}
+                  >
+                    contact us
+                  </Link>{" "}
+                  instead.
+                </>
+              ) : (
+                "Have a look around our selection of products to get ready for your next adventure."
+              )}
+            </p>
+          </>
+        )}
         <InstantLink href="/shop" pendingVariant="text">
           <Button
             fullWidth

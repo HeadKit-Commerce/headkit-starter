@@ -72,6 +72,16 @@ describe("parseStoreTheme cart", () => {
     );
   });
 
+  it("reads an optional empty-cart sentence", () => {
+    const theme = parseStoreTheme({
+      version: 1,
+      layout: LAYOUT,
+      cart: { emptyMessage: "The cart is empty." },
+    });
+    expect(theme.cart?.emptyMessage).toBe("The cart is empty.");
+    expect(theme.cart?.packaging).toBeUndefined();
+  });
+
   it("falls back to starter defaults when cart config is invalid", () => {
     const theme = parseStoreTheme({
       version: 1,

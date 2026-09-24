@@ -203,6 +203,12 @@
           "properties": {
             "label": { "type": "string", "minLength": 1, "maxLength": 160 }
           }
+        },
+        "emptyMessage": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240,
+          "description": "Single sentence shown when the cart drawer is empty. Omit to keep the starter empty-cart copy. Quote mode is unchanged."
         }
       }
     },
