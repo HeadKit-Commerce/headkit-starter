@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 
 /**
  * A gift-card code is 19 chars in 4-4-4-4 form (e.g. `TEST-GIFT-CARD-0001`):

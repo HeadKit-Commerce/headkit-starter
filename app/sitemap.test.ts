@@ -502,6 +502,28 @@ describe("WordPress page sitemap section", () => {
     await expect(pageUrls()).resolves.toEqual([`${SITE_URL}/weddings`]);
   });
 
+  // `my-account` is an empty WooCommerce placeholder page the catch-all
+  // permanently redirects (`lib/cms-placeholder-pages.ts`). If it is
+  // menu-linked, the sitemap must agree with the catch-all rather than
+  // advertise a URL that redirects — and must not spend a probe learning that.
+  // (`/cart`, the other default, is already covered here by the `/cart`
+  // NON_PAGE_PREFIXES entry; the catch-all had no such gate, which is the half
+  // this shares a list with.) The match is exact, so a real nested page under
+  // the same first segment is still advertised.
+  it("excludes a menu-linked placeholder page without probing it", async () => {
+    menuGetMenus.mockResolvedValue([
+      menu("/my-account", "/my-accounts", "/about"),
+    ]);
+    contentGet.mockResolvedValue({ slug: "x" });
+
+    await expect(pageUrls()).resolves.toEqual([
+      `${SITE_URL}/my-accounts`,
+      `${SITE_URL}/about`,
+    ]);
+    expect(contentGet).not.toHaveBeenCalledWith("my-account", "PAGE");
+    expect(contentGet).toHaveBeenCalledWith("my-accounts", "PAGE");
+  });
+
   it("degrades to no page entries when the menu read fails", async () => {
     menuGetMenus.mockRejectedValue(new Error("gateway unreachable"));
 

@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit } from "@/lib/sdk";
 import { getBranding } from "@/lib/branding";
+import { cmsPlaceholderVerdict } from "@/lib/cms-placeholder-pages";
 import { resolveSiteUrl } from "@/lib/site-url";
 import { KNOWN_MENU_LOCATIONS, TAG } from "@/lib/cache-tags";
 import {
@@ -500,6 +501,11 @@ async function makePageSitemap(
         ) {
           continue;
         }
+        // The same empty WordPress/WooCommerce placeholder pages
+        // `app/[...slug]` 404s or redirects — exact match only, never a
+        // prefix: `/legal` can be excluded while `/legal/privacy-policy` is
+        // still advertised.
+        if (cmsPlaceholderVerdict(path.slice(1))) continue;
         seen.add(path);
         candidates.push(path);
         if (candidates.length >= MAX_PAGE_CANDIDATES) break;

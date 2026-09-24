@@ -16,7 +16,15 @@ const ToastViewport = React.forwardRef<
   <ToastPrimitives.Viewport
     ref={ref}
     className={cn(
-      "fixed top-0 z-100 flex max-h-screen w-full flex-col-reverse p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]",
+      // The `sm:` TRANSLATE rides the consent banner's published height for
+      // the same reason the PDP sticky bar does
+      // (`lib/consent-banner-offset.ts`): the viewport is bottom-right at
+      // `sm+` and `z-100`, so a toast fired while the banner is up lands
+      // squarely on its Decline / Accept row. A transform rather than
+      // `bottom`, because moving a fixed box by its position IS a layout
+      // shift; the variable is absent once a choice is made, so the fallback
+      // is `translateY(0)` and the `bottom: 0` this always had.
+      "fixed top-0 z-100 flex max-h-screen w-full flex-col-reverse p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col sm:translate-y-[calc(var(--headkit-consent-banner-height,0px)_*_-1)] md:max-w-[420px]",
       className,
     )}
     {...props}

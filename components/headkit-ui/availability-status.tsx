@@ -1,75 +1,88 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   isBackorderStockStatus,
   isVariationOutOfStock,
 } from "@/lib/variation-stock";
 
-enum AvailabilityStatusEnum {
-  IN_STOCK = "IN_STOCK",
-  LOW_STOCK = "LOW_STOCK",
-  OUT_OF_STOCK = "OUT_OF_STOCK",
-  ON_BACKORDER = "ON_BACKORDER",
-}
+/**
+ * The PDP availability line.
+ *
+ * The status is derived SYNCHRONOUSLY. It used to live in a
+ * `useState`/`useEffect` pair seeded with `IN_STOCK`, so the server render — and
+ * the first client paint after it — said "In Stock" for every product,
+ * including one that is out of stock, until hydration corrected it. Nothing
+ * here needs the browser: both predicates are pure functions of the props.
+ */
+
+export type AvailabilityStatusKind =
+  | "IN_STOCK"
+  | "LOW_STOCK"
+  | "OUT_OF_STOCK"
+  | "ON_BACKORDER";
 
 interface Props {
   stockStatus: string;
   stockQuantity?: number | null;
 }
 
-const AvailabilityStatus = ({ stockStatus, stockQuantity }: Props) => {
-  const [status, setStatus] = useState<AvailabilityStatusEnum>(
-    AvailabilityStatusEnum.IN_STOCK,
-  );
+export interface ResolvedAvailability {
+  status: AvailabilityStatusKind;
+  label: string;
+}
 
-  useEffect(() => {
-    if (isVariationOutOfStock({ stockStatus, stockQuantity })) {
-      setStatus(AvailabilityStatusEnum.OUT_OF_STOCK);
-      return;
-    }
-    if (isBackorderStockStatus(stockStatus)) {
-      setStatus(AvailabilityStatusEnum.ON_BACKORDER);
-      return;
-    }
-    if (
-      stockQuantity !== null &&
-      stockQuantity !== undefined &&
-      stockQuantity > 0 &&
-      stockQuantity <= 3
-    ) {
-      setStatus(AvailabilityStatusEnum.LOW_STOCK);
-      return;
-    }
-    setStatus(AvailabilityStatusEnum.IN_STOCK);
-  }, [stockStatus, stockQuantity]);
+/** The pure rule the component renders; exported for the test. */
+export function resolveAvailability({
+  stockStatus,
+  stockQuantity,
+}: Props): ResolvedAvailability {
+  if (isVariationOutOfStock({ stockStatus, stockQuantity })) {
+    return { status: "OUT_OF_STOCK", label: "Out of Stock" };
+  }
+  if (isBackorderStockStatus(stockStatus)) {
+    return { status: "ON_BACKORDER", label: "Available on backorder" };
+  }
+  if (
+    stockQuantity !== null &&
+    stockQuantity !== undefined &&
+    stockQuantity > 0 &&
+    stockQuantity <= 3
+  ) {
+    return { status: "LOW_STOCK", label: `Only ${stockQuantity} in Stock` };
+  }
+  return { status: "IN_STOCK", label: "In Stock" };
+}
 
-  const dotColor = {
-    [AvailabilityStatusEnum.IN_STOCK]: "bg-lime-800",
-    [AvailabilityStatusEnum.LOW_STOCK]: "bg-orange-500",
-    [AvailabilityStatusEnum.OUT_OF_STOCK]: "bg-pink-800",
-    [AvailabilityStatusEnum.ON_BACKORDER]: "bg-orange-500",
-  }[status];
+const DOT_COLOR: Record<AvailabilityStatusKind, string> = {
+  IN_STOCK: "bg-lime-800",
+  LOW_STOCK: "bg-orange-500",
+  OUT_OF_STOCK: "bg-pink-800",
+  ON_BACKORDER: "bg-orange-500",
+};
 
-  const textColor = {
-    // lime-900: lime-800 text is 2.4:1 on white and fails WCAG AA (the dot
-    // keeps lime-800 — non-text indicator next to its label).
-    [AvailabilityStatusEnum.IN_STOCK]: "text-lime-900",
-    [AvailabilityStatusEnum.LOW_STOCK]: "text-orange-500",
-    [AvailabilityStatusEnum.OUT_OF_STOCK]: "text-pink-800",
-    [AvailabilityStatusEnum.ON_BACKORDER]: "text-orange-500",
-  }[status];
+const TEXT_COLOR: Record<AvailabilityStatusKind, string> = {
+  // lime-900: lime-800 text is 2.4:1 on white and fails WCAG AA (the dot
+  // keeps lime-800 — non-text indicator next to its label).
+  IN_STOCK: "text-lime-900",
+  LOW_STOCK: "text-orange-500",
+  OUT_OF_STOCK: "text-pink-800",
+  ON_BACKORDER: "text-orange-500",
+};
 
-  const label = {
-    [AvailabilityStatusEnum.IN_STOCK]: "In Stock",
-    [AvailabilityStatusEnum.LOW_STOCK]: `Only ${stockQuantity} in Stock`,
-    [AvailabilityStatusEnum.OUT_OF_STOCK]: "Out of Stock",
-    [AvailabilityStatusEnum.ON_BACKORDER]: "Available on backorder",
-  }[status];
+const AvailabilityStatus = (props: Props) => {
+  const { status, label } = resolveAvailability(props);
+  const dotColor = DOT_COLOR[status];
+  const textColor = TEXT_COLOR[status];
 
   return (
-    <div className={cn("flex items-baseline font-medium", textColor)}>
+    <div
+      className={cn(
+        "headkit-availability-status flex items-baseline font-medium",
+        textColor,
+      )}
+      data-status={status}
+    >
       <span className="relative mr-2 flex h-3 w-3">
         <span
           className={cn(

@@ -6,6 +6,7 @@ import {
   NavigationMenuTrigger,
   NavigationMenuContent,
 } from "@/components/ui/navigation-menu";
+import { FACET_PANEL_SCROLL_CLASS } from "./facet-panel";
 
 interface FilterMenuItemProps {
   label: string;
@@ -35,7 +36,12 @@ export function FilterMenuItem({
         </div>
       </NavigationMenuTrigger>
       <NavigationMenuContent className="w-screen! rounded-none! p-4">
-        {children}
+        {/* The scroll container is INSIDE the panel, not on the Radix
+            viewport: the viewport's height is measured from this content, so
+            capping here clamps both at once and leaves the shared
+            NavigationMenuViewport (also used by the site mega-menu)
+            untouched. See facet-panel.ts for the measurements. */}
+        <div className={FACET_PANEL_SCROLL_CLASS}>{children}</div>
       </NavigationMenuContent>
     </NavigationMenuItem>
   );

@@ -1513,12 +1513,24 @@ export function ProductDetail({
         }))}
       />
 
-      {/* Sticky ATC — desktop + mobile, after main ATC scrolls out of view */}
+      {/* Sticky ATC — desktop + mobile, after main ATC scrolls out of view.
+
+          The SHOWN state translates up by whatever the consent banner is
+          occupying: both are `fixed` and pinned to the bottom edge, so without
+          it they overlap and one hides the other.
+          `lib/consent-banner-offset.ts` owns the property and the reasoning —
+          including why this is a transform and not `bottom` (a fixed element
+          that moves IS a layout-shift source). The variable is ABSENT once a
+          choice is made, so the fallback makes that case `translateY(0)`,
+          exactly the `translate-y-0` this had. The underscores are Tailwind's
+          arbitrary-value syntax for the spaces `calc()` requires around `*` —
+          without them the declaration is invalid CSS and no rule is emitted at
+          all. */}
       <div
         className={cn(
-          "fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-brand-bg/95 px-4 py-3 shadow-[0_-4px_24px_rgba(0,0,0,0.06)] backdrop-blur-sm transition-transform duration-300 md:px-10",
+          "headkit-product-sticky-bar fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-brand-bg/95 px-4 py-3 shadow-[0_-4px_24px_rgba(0,0,0,0.06)] backdrop-blur-sm transition-transform duration-300 md:px-10",
           showStickyAtc
-            ? "translate-y-0"
+            ? "translate-y-[calc(var(--headkit-consent-banner-height,0px)_*_-1)]"
             : "pointer-events-none translate-y-full",
         )}
         aria-hidden={!showStickyAtc}

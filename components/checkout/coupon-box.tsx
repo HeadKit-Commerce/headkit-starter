@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import * as z from "zod";
 import type { CartFieldsFragment } from "@headkit/sdk";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

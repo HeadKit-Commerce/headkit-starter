@@ -25,6 +25,7 @@ import { AttributeFilter } from "./attribute-filter";
 import { BrandFilter } from "./brand-filter";
 import { PriceFilter } from "./price-filter";
 import { ClearFiltersButton } from "./clear-filters-button";
+import { FACET_DROPDOWN_GRID_CLASS } from "./facet-panel";
 import { SortMenu, MobileSortMenu } from "./sort-menu";
 import type { ProductFilterAttribute } from "@headkit/sdk";
 
@@ -115,12 +116,15 @@ export function Filter() {
                   label="Category"
                   count={filterValues.categories.length}
                 >
-                  <CategoryFilter categories={categories} />
+                  <CategoryFilter
+                    categories={categories}
+                    gridClassName={FACET_DROPDOWN_GRID_CLASS}
+                  />
                 </FilterMenuItem>
               )}
 
               <FilterMenuItem label="Brand" count={filterValues.brands.length}>
-                <BrandFilter />
+                <BrandFilter gridClassName={FACET_DROPDOWN_GRID_CLASS} />
               </FilterMenuItem>
 
               {showCommerceFacets && (
@@ -149,7 +153,10 @@ export function Filter() {
                     ).length
                   }
                 >
-                  <AttributeFilter attribute={attr} />
+                  <AttributeFilter
+                    attribute={attr}
+                    gridClassName={FACET_DROPDOWN_GRID_CLASS}
+                  />
                 </FilterMenuItem>
               ))}
 

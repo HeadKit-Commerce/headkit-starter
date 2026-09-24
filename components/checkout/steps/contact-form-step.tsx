@@ -7,7 +7,7 @@ import {
   ContactDetailsElement,
   useCheckout,
 } from "@stripe/react-stripe-js/checkout";
-import { z } from "zod";
+import * as z from "zod";
 import {
   Form,
   FormField,

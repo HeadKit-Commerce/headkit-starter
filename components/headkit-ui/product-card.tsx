@@ -8,7 +8,7 @@ import { productPath } from "@/lib/canonical-path";
 import { FeaturedImage } from "@/components/headkit-ui/featured-image";
 import { ProductPrice } from "@/components/headkit-ui/product-price";
 import { BadgeList } from "@/components/headkit-ui/badge-list";
-import { VariantSwatch } from "@/components/headkit-ui/variant-swatch";
+import { SwatchDot } from "@/components/headkit-ui/swatch-dot";
 import { getVariationCardPrice } from "@/lib/price-display";
 import { findSwatchAttribute } from "@/lib/swatch-attribute";
 import { useCatalogDisplay } from "@/components/headkit-ui/catalog-display-provider";
@@ -26,8 +26,20 @@ import {
 const isVariableProduct = (product: ProductSummaryFieldsFragment): boolean =>
   product?.type?.toUpperCase() === "VARIABLE";
 
-/** Max colour swatches shown on a card before collapsing into a "+N" chip. */
-const MAX_CARD_SWATCHES = 10;
+/**
+ * Colour dots a card shows before the rest collapse into a "+N" chip.
+ *
+ * N dots PLUS the chip, not N including it: at four-plus-one a card with five
+ * colourways still shows four, where four-including would show three and a
+ * "+2" — strictly less information for the same width.
+ *
+ * 10 is the platform default and is what every store renders today. A store
+ * whose cards carry long colourway ranges can lower it with
+ * `catalog.maxCardSwatches` in `overrides/theme.json` (Bike Society runs 4);
+ * the value only decides where the chip starts, never whether the row is
+ * accessible — the 24 px target below is unconditional.
+ */
+const DEFAULT_MAX_CARD_SWATCHES = 10;
 
 function colourAttribute(product: ProductSummaryFieldsFragment) {
   return findSwatchAttribute(product.attributes);
@@ -174,6 +186,9 @@ export const ProductCard = ({
 
   if (!product) return null;
 
+  const maxCardSwatches =
+    getStoreTheme().catalog?.maxCardSwatches ?? DEFAULT_MAX_CARD_SWATCHES;
+
   const isNewIn = isNew || Boolean(product?.isNew);
   const customBadges = productBadgesFromTags(
     product.tags,
@@ -269,46 +284,79 @@ export const ProductCard = ({
                 product.attributes.map((attribute) => {
                   if (!findSwatchAttribute([attribute])) return null;
                   const options = attribute.fullOptions ?? [];
-                  const visible = options.slice(0, MAX_CARD_SWATCHES);
+                  const visible = options.slice(0, maxCardSwatches);
                   const extra = options.length - visible.length;
                   return (
                     <Fragment key={attribute.slug}>
-                      {visible.map((option) => {
-                        const optionSlug = option?.slug ?? "";
-                        const swatchHref = productPath(
-                          product,
-                          optionSlug || undefined,
-                        );
-                        return (
-                          <InstantLink
-                            href={swatchHref}
-                            key={optionSlug || option?.name}
-                            pendingVariant="text"
-                            onMouseEnter={() =>
-                              setColourSelected(optionSlug || null)
-                            }
-                          >
-                            <VariantSwatch
-                              isUnavailable={false}
-                              label={option?.name ?? ""}
-                              value={optionSlug}
+                      {/*
+                        The dots keep their own container so the 24 px targets
+                        can sit FLUSH (no gap) while the row's outer `gap-2`
+                        still separates them from the "+N" chip. Flush is what
+                        makes the target legal AND invisible: a 16 px dot
+                        centred in a 24 px box repeats every 24 px, which is
+                        exactly the 16 px dot + 8 px gap pitch the row had
+                        before. The negative margins then hand back the 4 px
+                        the padding added on each side (and 2 px top and
+                        bottom), so the first dot, the last dot, the chip and
+                        the row height land on the pixels they did when the
+                        links wrapped `<button>`s.
+                      */}
+                      <div className="-mx-1 -my-0.5 flex flex-wrap items-center">
+                        {visible.map((option) => {
+                          const optionSlug = option?.slug ?? "";
+                          const swatchHref = productPath(
+                            product,
+                            optionSlug || undefined,
+                          );
+                          return (
+                            <InstantLink
+                              href={swatchHref}
+                              key={optionSlug || option?.name}
+                              pendingVariant="text"
+                              // The link is the whole target. It used to wrap a
+                              // `<button>` carrying the same click — invalid
+                              // markup, two axe `target-size` failures per dot,
+                              // and two tab stops. `group` is what lets the dot
+                              // draw the hover ring the button drew.
+                              className="group inline-flex h-6 w-6 items-center justify-center"
+                              aria-label={option?.name ?? ""}
+                              // The tooltip the `<button>` carried.
+                              title={option?.name ?? ""}
+                              onMouseEnter={() =>
+                                setColourSelected(optionSlug || null)
+                              }
+                              // Kept from the button this replaced: a click
+                              // navigates to the colourway, and the preview
+                              // swap keeps the card correct for the frame
+                              // before the navigation lands.
                               onClick={() =>
                                 setColourSelected(optionSlug || null)
                               }
-                              selectedOptionValue={colourSelected ?? ""}
-                              color1={option?.swatchColor ?? ""}
-                              color2={option?.swatchColor2 ?? ""}
-                              imageSrc={option?.swatchImage ?? ""}
-                              size="small"
-                            />
-                          </InstantLink>
-                        );
-                      })}
+                            >
+                              <SwatchDot
+                                label={option?.name ?? ""}
+                                isSelected={colourSelected === optionSlug}
+                                color1={option?.swatchColor ?? undefined}
+                                color2={option?.swatchColor2 ?? undefined}
+                                imageSrc={option?.swatchImage ?? undefined}
+                              />
+                            </InstantLink>
+                          );
+                        })}
+                      </div>
                       {extra > 0 && (
+                        // Straight to the card's OWN destination — the product
+                        // page, where the full colourway set already lives. No
+                        // disclosure to build, no new state, and no new product
+                        // question: it is the same `href` the image and the
+                        // title use, so the chip cannot send a shopper anywhere
+                        // the card did not already offer. Sized to the same
+                        // 24 px floor as the dots, and a link, so Tab reaches
+                        // it and Enter follows it.
                         <InstantLink
                           href={href}
                           pendingVariant="text"
-                          className="text-xs font-medium leading-4 text-gray-800 hover:text-primary"
+                          className="-my-0.5 inline-flex h-6 min-w-6 items-center justify-center text-xs font-medium leading-none text-gray-800 hover:text-primary"
                           aria-label={`${extra} more colours`}
                         >
                           +{extra}

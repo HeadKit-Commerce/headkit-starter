@@ -5,6 +5,12 @@ import type { BrandSummary } from "@headkit/sdk";
 import { cn, decodeHtmlEntities } from "@/lib/utils";
 import { listFilterBrands } from "@/lib/collection-actions";
 import { useCollection } from "./collection-context";
+import { FACET_DRAWER_GRID_CLASS } from "./facet-panel";
+
+interface BrandFilterProps {
+  /** See `CategoryFilterProps.gridClassName`. */
+  gridClassName?: string;
+}
 
 /**
  * Brand facet (multi-select, URL-synced via collection-context `brands[]`).
@@ -14,7 +20,9 @@ import { useCollection } from "./collection-context";
  * multi-select array (D-02); per Open Q1 = single-ok, only the first selected
  * brand maps to the backend `ProductListFilter.brand` (see utils.ts).
  */
-export function BrandFilter() {
+export function BrandFilter({
+  gridClassName = FACET_DRAWER_GRID_CLASS,
+}: BrandFilterProps = {}) {
   const { filterValues, setFilterValues } = useCollection();
   const [brands, setBrands] = useState<BrandSummary[]>([]);
 
@@ -41,13 +49,21 @@ export function BrandFilter() {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className={gridClassName}>
       {brands.map((brand) => {
         const isSelected = filterValues.brands.includes(brand.slug);
         return (
           <label
             key={brand.slug}
-            className="flex min-h-10 items-center space-x-2 cursor-pointer"
+            // `relative` is load-bearing, not decoration: the checkbox is `sr-only`,
+            // which is `position: absolute`, so without a positioned ancestor its
+            // containing block is the Radix menu viewport OUTSIDE the panel's scroll
+            // container. Focusing it then scrolls the PAGE instead of the list
+            // (measured: tabbing to the last category moved window.scrollY 1200 to
+            // 1511 and took the panel off screen, while the container's scrollTop
+            // stayed 0). Making the label the containing block puts the focus target
+            // inside the scroller.
+            className="relative flex min-h-10 items-center space-x-2 cursor-pointer"
           >
             <input
               type="checkbox"

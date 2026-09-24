@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 import themeJson from "@/overrides/theme.json";
 
 /** Supported nav logo placements — see overrides/theme.schema.json. */
@@ -20,6 +20,11 @@ export interface CatalogTheme {
   homepageCollections?: string[];
   /** Ordered collection slugs on the Shop header carousel. Omit = all roots. */
   shopCollections?: string[];
+  /**
+   * Colour dots a product card shows before the rest collapse into a "+N"
+   * chip. Omit = the starter default (10). See `components/headkit-ui/product-card.tsx`.
+   */
+  maxCardSwatches?: number;
 }
 
 /** Optional override for one SectionHeader (omit = starter hardcoded copy). */
@@ -73,6 +78,18 @@ export interface CartTheme {
   giftMessage?: CartGiftMessageTheme;
 }
 
+/**
+ * Store-owned additions to the WordPress placeholder-page list
+ * (`lib/cms-placeholder-pages.ts`). Slugs are BARE and top-level; the platform
+ * defaults (WooCommerce's `cart` and `my-account`) apply either way.
+ */
+export interface CmsTheme {
+  /** Extra bare slugs the catch-all 404s and the sitemap omits. */
+  placeholderNotFound?: string[];
+  /** Extra bare slug → root-relative permanent redirect target. */
+  placeholderRedirects?: Record<string, string>;
+}
+
 /** Optional PDP chrome owned by the customer theme. */
 export interface PdpTheme {
   /**
@@ -97,6 +114,7 @@ export interface StoreTheme {
     productEnquiry: boolean;
   };
   catalog?: CatalogTheme;
+  cms?: CmsTheme;
   pdp?: PdpTheme;
   copy?: CopyTheme;
   cart?: CartTheme;
@@ -124,6 +142,20 @@ const catalogSchema = z.object({
   badgeTags: z.array(z.string().min(1).max(64)).max(32).optional(),
   homepageCollections: z.array(collectionSlugSchema).max(32).optional(),
   shopCollections: z.array(collectionSlugSchema).max(32).optional(),
+  maxCardSwatches: z.number().int().min(1).max(20).optional(),
+});
+
+const rootRelativePathSchema = z
+  .string()
+  .min(1)
+  .max(256)
+  .regex(/^\/(?!\/)[A-Za-z0-9/_-]*$/);
+
+const cmsSchema = z.object({
+  placeholderNotFound: z.array(collectionSlugSchema).max(32).optional(),
+  placeholderRedirects: z
+    .record(collectionSlugSchema, rootRelativePathSchema)
+    .optional(),
 });
 
 const pdpSchema = z.object({
@@ -191,6 +223,7 @@ const themeSchema = z.object({
   version: z.number().int().min(1),
   layout: layoutSchema,
   catalog: catalogSchema.optional(),
+  cms: cmsSchema.optional(),
   pdp: pdpSchema.optional(),
   copy: copySchema.optional(),
   cart: cartSchema.optional(),
@@ -250,7 +283,20 @@ function normalizeTheme(data: z.infer<typeof themeSchema>): StoreTheme {
     if (data.catalog.shopCollections !== undefined) {
       catalog.shopCollections = data.catalog.shopCollections;
     }
+    if (data.catalog.maxCardSwatches !== undefined) {
+      catalog.maxCardSwatches = data.catalog.maxCardSwatches;
+    }
     theme.catalog = catalog;
+  }
+  if (data.cms !== undefined) {
+    const cms: CmsTheme = {};
+    if (data.cms.placeholderNotFound !== undefined) {
+      cms.placeholderNotFound = data.cms.placeholderNotFound;
+    }
+    if (data.cms.placeholderRedirects !== undefined) {
+      cms.placeholderRedirects = data.cms.placeholderRedirects;
+    }
+    theme.cms = cms;
   }
   if (data.pdp !== undefined) {
     theme.pdp = data.pdp;

@@ -50,6 +50,34 @@ Homepage-only rules use `html:has(.headkit-home)` because the nav renders outsid
 
 See `docs/customization-playbook.md` for the full agent workflow (Figma → tokens → CSS passes).
 
+### Catalog presentation (`theme.json` → `catalog`)
+
+| Field             | Default | Effect                                                                                                                                                                                                                 |
+| ----------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `maxCardSwatches` | `10`    | Colour dots a product card shows before the rest collapse into a "+N" chip. N dots PLUS the chip, so a card with `N + 1` colourways still shows N. Does not affect the dot's 24 px tap target, which is unconditional. |
+
+### Empty WordPress pages (`theme.json` → `cms`)
+
+WooCommerce keeps real page nodes for its `cart` and `my-account` screens even in a headless
+store, so the storefront 404s the first and permanently redirects the second, and keeps both out
+of the sitemap. Those two are platform defaults. A store with its own empty parent page — a
+`legal` or `policies` node whose children are the real pages — names it here. Slugs are bare and
+top-level, and are matched EXACTLY: excluding `legal` leaves `legal/privacy-policy` rendering.
+
+| Field                  | Effect                                                    |
+| ---------------------- | --------------------------------------------------------- |
+| `placeholderNotFound`  | Extra bare slugs to 404 and keep out of the sitemap       |
+| `placeholderRedirects` | Extra bare slug → root-relative permanent redirect target |
+
+```json
+{
+  "cms": {
+    "placeholderNotFound": ["legal"],
+    "placeholderRedirects": { "my-account": "/account/orders" }
+  }
+}
+```
+
 ## Styling
 
 Edit `styles.css`. It is imported from the root layout after `app/globals.css`.
@@ -114,15 +142,17 @@ The starter ships **hook classes** on key layout regions so you can target them 
 
 ### Catalog & commerce
 
-| Hook class                | Where                          | Use for                            |
-| ------------------------- | ------------------------------ | ---------------------------------- |
-| `headkit-collection`      | PLP / collection grid shell    | Filters, grid, load-more           |
-| `headkit-product-card`    | Individual product card        | Card image, title, price, swatches |
-| `headkit-product-detail`  | PDP (product detail)           | Gallery + buy box layout           |
-| `headkit-badge-new`       | “New” product badge            | Colour, hide, typography           |
-| `headkit-badge-sale`      | “Sale” product badge           | Colour, hide, typography           |
-| `headkit-badge-cart`      | Cart quantity badge on icon    | Badge colour / size                |
-| `headkit-recently-viewed` | Recently viewed products strip | Section spacing / heading          |
+| Hook class                    | Where                                            | Use for                            |
+| ----------------------------- | ------------------------------------------------ | ---------------------------------- |
+| `headkit-collection`          | PLP / collection grid shell                      | Filters, grid, load-more           |
+| `headkit-product-card`        | Individual product card                          | Card image, title, price, swatches |
+| `headkit-product-detail`      | PDP (product detail)                             | Gallery + buy box layout           |
+| `headkit-badge-new`           | “New” product badge                              | Colour, hide, typography           |
+| `headkit-badge-sale`          | “Sale” product badge                             | Colour, hide, typography           |
+| `headkit-badge-cart`          | Cart quantity badge on icon                      | Badge colour / size                |
+| `headkit-recently-viewed`     | Recently viewed products strip                   | Section spacing / heading          |
+| `headkit-product-sticky-bar`  | PDP sticky add-to-cart bar                       | Bar background, height, hide it    |
+| `headkit-availability-status` | PDP stock line (`data-status` carries the state) | Copy colour, hide the pulsing dot  |
 
 ### Key routes
 

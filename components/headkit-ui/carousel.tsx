@@ -310,6 +310,15 @@ const Carousel = <T,>({
                   key={itemKey ? itemKey(item, index) : index}
                   id={`${id}-item-${index}`}
                   aria-hidden={!active}
+                  // `aria-hidden` alone is a contradiction while the slide's
+                  // links stay focusable: the keyboard lands on a slide the
+                  // shopper cannot see (Lighthouse `aria-hidden-focus`).
+                  // `inert` takes the whole subtree out of the focus order and
+                  // the accessibility tree together, so it cannot drift out of
+                  // sync the way a per-descendant `tabIndex` sweep can. It
+                  // changes no layout and no paint, so the 1s opacity
+                  // cross-fade below is untouched.
+                  inert={!active}
                   className={cn(
                     "w-full",
                     // Opacity crossfade only when there is another slide to

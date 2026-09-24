@@ -2,11 +2,14 @@
 
 import { cn } from "@/lib/utils";
 import { useCollection } from "./collection-context";
+import { FACET_DRAWER_GRID_CLASS } from "./facet-panel";
 import { formatOptionName } from "./utils";
 import type { ProductFilterAttribute } from "@headkit/sdk";
 
 interface AttributeFilterProps {
   attribute: ProductFilterAttribute & { slug: string };
+  /** See `CategoryFilterProps.gridClassName`. */
+  gridClassName?: string;
 }
 
 /**
@@ -20,7 +23,10 @@ function attrKey(sdkSlug: string): string {
   return sdkSlug.startsWith("pa_") ? sdkSlug : `pa_${sdkSlug}`;
 }
 
-export function AttributeFilter({ attribute }: AttributeFilterProps) {
+export function AttributeFilter({
+  attribute,
+  gridClassName = FACET_DRAWER_GRID_CLASS,
+}: AttributeFilterProps) {
   const { filterValues, setFilterValues } = useCollection();
   const key = attrKey(attribute.slug);
   // Tolerate either keying form already present in state.
@@ -30,14 +36,22 @@ export function AttributeFilter({ attribute }: AttributeFilterProps) {
     [];
 
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className={gridClassName}>
       {attribute.options?.map((option) => {
         if (!option) return null;
         const isSelected = current.includes(option.slug);
         return (
           <label
             key={option.slug}
-            className="flex items-center space-x-2 cursor-pointer"
+            // `relative` is load-bearing, not decoration: the checkbox is `sr-only`,
+            // which is `position: absolute`, so without a positioned ancestor its
+            // containing block is the Radix menu viewport OUTSIDE the panel's scroll
+            // container. Focusing it then scrolls the PAGE instead of the list
+            // (measured: tabbing to the last category moved window.scrollY 1200 to
+            // 1511 and took the panel off screen, while the container's scrollTop
+            // stayed 0). Making the label the containing block puts the focus target
+            // inside the scroller.
+            className="relative flex items-center space-x-2 cursor-pointer"
           >
             <input
               type="checkbox"

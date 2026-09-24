@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ShippingAddressElement } from "@stripe/react-stripe-js/checkout";
-import { z } from "zod";
+import * as z from "zod";
 import {
   Form,
   FormField,

@@ -785,6 +785,69 @@ entries share one DOM, so a client-side navigation from a product page carries
 it into checkout. Stripe states the cost, which is why it is per-merchant and
 never a platform default.
 
+### Zod is imported as a NAMESPACE, and an error-level rule keeps it that way
+
+`import { z } from "zod"` retains zod's entire `external.js` namespace object — every locale
+and the JSON-Schema processors — in the client bundle, because a bundler cannot prove which
+members of a namespace VALUE are read. `import * as z from "zod"` restores per-member
+reachability, and the two are interchangeable at every call site. ONE named import anywhere in
+the client graph pulls it all back, since every zod consumer lands in the same shared chunk.
+`eslint.config.mjs` enforces it with `no-restricted-syntax` at `error` (a `warn` would not gate:
+`lint` runs `--max-warnings 999`), and `lib/zod-import-shape.test.ts` asserts the same property
+over `app`/`components`/`lib`/`hooks`. Neither covers a deep import (`zod/v4/...`) or `zod/mini`.
+
+### `aria-hidden` on a container that holds links needs `inert` beside it
+
+`aria-hidden` plus `pointer-events-none` stops the mouse and hides the subtree from assistive
+tech, but leaves every link and button in it focusable — the contradiction Lighthouse reports as
+`aria-hidden-focus`. Drive `inert` off the SAME expression `aria-hidden` uses so the two cannot
+drift (`components/headkit-ui/carousel.tsx`'s fade slides are the worked example). `inert` over a
+`tabIndex={-1}` sweep because it takes the whole subtree out of the focus order and the
+accessibility tree at once. Browser floor is Next's own `MODERN_BROWSERSLIST_TARGET`
+(chrome/edge/firefox 111, safari 16.4); `inert` landed in Firefox 112, one version above that
+floor, where the attribute is ignored and the node behaves exactly as it does today.
+
+### A tap target lives on the LINK, and `VariantSwatch` is not it on a card
+
+A `<button>` inside an `<a>` is invalid HTML and axe scores the pair as TWO `target-size` failures
+with "0 px of safe clickable space". On a product card the colourway link is the sole interactive
+element and carries the 24x24 target; `components/headkit-ui/swatch-dot.tsx` draws the 16 px dot
+inside it as a `<span>` with no handler and no hook. `VariantSwatch` stays the PDP's control,
+where the button IS the target — the two files must keep the same LOOK at the small size, so a
+change to one is a change to both. How many dots show before the "+N" chip is
+`catalog.maxCardSwatches` in `overrides/theme.json` (default 10); the target size is not
+configurable.
+
+### Every fixed-bottom surface offsets by the consent banner's published height
+
+Two `position: fixed` surfaces pinned to the bottom edge overlap, and raising one's `z-index`
+alone just swaps which is hidden. The banner publishes its measured height as a `:root` custom
+property and each consumer lifts itself with one `calc()` — `lib/consent-banner-offset.ts` owns
+the property, the reasoning, and the two shapes that were rejected (a React store every consumer
+would have to subscribe to; padding the document, which reintroduces the layout shift
+`position: fixed` avoids). Consumers TRANSLATE rather than re-place themselves: a fixed element
+that moves by its `bottom` is a layout-shift source like any other. The property is ABSENT, not
+`0px`, when no banner is up, so every `var(…, 0px)` fallback makes the no-banner case byte-for-byte
+what it was. Current consumers: the PDP sticky add-to-cart bar and the toast viewport.
+
+### Empty WordPress placeholder pages are one list, read by two files
+
+WooCommerce keeps real page nodes for `cart` and `my-account` even in a headless store, and
+`app/[...slug]` rendered them as a 200 with an H1 and no body. `lib/cms-placeholder-pages.ts` is
+the single list the catch-all gate and `app/sitemap.ts`'s page discovery both read, so a slug that
+404s can never also be advertised. Slugs are BARE and matched EXACTLY, never as a prefix. The
+platform default carries only what WooCommerce publishes empty on every store; a store's own empty
+parent page (a `legal` or `policies` node whose children are real) goes in `overrides/theme.json`
+under `cms.placeholderNotFound` / `cms.placeholderRedirects`, which ADD to the defaults.
+
+### The PDP availability line resolves on the server
+
+`components/headkit-ui/availability-status.tsx` derives its status synchronously from its props.
+It used to seed `useState` with `IN_STOCK` and correct it in an effect, so the server render and
+the first client paint said "In Stock" for every product, an out-of-stock one included. Both
+predicates are pure functions of the props and need no browser; `resolveAvailability` is exported
+so the rule is testable without a render.
+
 ## Maintaining this file
 
 Keep this file for knowledge useful to almost every future agent session in this app.

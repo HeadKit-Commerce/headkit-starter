@@ -9,6 +9,7 @@ import {
   storefrontUrl,
 } from "@/lib/make-metadata";
 import { getBranding } from "@/lib/branding";
+import { cmsPlaceholderVerdict } from "@/lib/cms-placeholder-pages";
 import { getPostsBasePath, postsIndexPath } from "@/lib/posts-base-path";
 import { TAG } from "@/lib/cache-tags";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
@@ -248,6 +249,12 @@ export default async function Page({ params }: Props) {
   if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) notFound();
   const contentSlug = slug.join("/");
 
+  // Empty WordPress/WooCommerce placeholder pages — see
+  // `lib/cms-placeholder-pages.ts`, which the sitemap reads from too.
+  const placeholder = cmsPlaceholderVerdict(contentSlug);
+  if (placeholder?.kind === "not-found") notFound();
+  if (placeholder?.kind === "redirect") permanentRedirect(placeholder.to);
+
   const redirectTo = await postsLandingRedirectTarget(contentSlug);
   if (redirectTo) permanentRedirect(redirectTo);
 
@@ -273,6 +280,10 @@ async function CmsRoute({ params }: Props) {
   const { slug } = await params;
   if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) return notFound();
   const contentSlug = slug.join("/");
+
+  const placeholder = cmsPlaceholderVerdict(contentSlug);
+  if (placeholder?.kind === "not-found") return notFound();
+  if (placeholder?.kind === "redirect") permanentRedirect(placeholder.to);
 
   // Posts page may use any WP slug (Insights, Blog, …). That page alone has no
   // post grid. `proxy.ts` normally rewrites the slug onto the internal `/news`

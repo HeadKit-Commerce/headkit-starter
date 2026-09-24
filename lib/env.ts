@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 
 const clientSchema = z.object({
   NEXT_PUBLIC_HEADKIT_PUBLIC_KEY: z.string().min(1),

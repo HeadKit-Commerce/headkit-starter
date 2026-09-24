@@ -11,6 +11,10 @@ import {
   type ConsentDecision,
 } from "@/lib/consent";
 import {
+  clearConsentBannerHeight,
+  publishConsentBannerHeight,
+} from "@/lib/consent-banner-offset";
+import {
   readConsent,
   saveConsent,
   subscribeConsent,
@@ -110,6 +114,36 @@ export function ConsentBanner({
   const [reopened, setReopened] = useState(false);
   const [showChoices, setShowChoices] = useState(false);
   const [draft, setDraft] = useState<ConsentChoices>(CONSENT_ALL_DENIED);
+  // A ref CALLBACK into state, not a `useRef`: the element is what the
+  // measuring effect depends on, and every branch that hides this banner does
+  // so by returning `null`, which fires this with `null` and runs the cleanup
+  // that removes the property. A `useRef` would give the effect nothing to
+  // re-run on and would leave the offset behind after a press.
+  const [bannerElement, setBannerElement] = useState<HTMLDivElement | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!bannerElement) return;
+    const publish = (): void =>
+      publishConsentBannerHeight(bannerElement.offsetHeight);
+    publish();
+    // Re-measured rather than taken once: the action row wraps to a second
+    // line on a narrow viewport, and "Choose what to allow" grows the bar by
+    // the height of two checkbox rows. `ResizeObserver` is absent in jsdom, so
+    // the single measurement above is the whole mechanism under test — which
+    // is honest, since jsdom reports `offsetHeight` 0 and can see none of this
+    // anyway.
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(publish);
+    observer?.observe(bannerElement);
+    return () => {
+      observer?.disconnect();
+      clearConsentBannerHeight();
+    };
+  }, [bannerElement]);
 
   useEffect(() => {
     // The re-open control: ONE delegated listener claims every
@@ -144,7 +178,13 @@ export function ConsentBanner({
 
   return (
     <div
-      className="headkit-consent-banner fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white/95 backdrop-blur-sm"
+      // `z-[45]`, not `z-40`: the PDP sticky add-to-cart bar is `z-40` and they
+      // share the bottom edge. The offset keeps them from overlapping at rest;
+      // this keeps the banner on top during the bar's 300 ms slide and if a
+      // future bar grows taller than its own offset. It must NEVER be the only
+      // half of the fix — see `lib/consent-banner-offset.ts`.
+      className="headkit-consent-banner fixed inset-x-0 bottom-0 z-[45] border-t border-black/10 bg-white/95 backdrop-blur-sm"
+      ref={setBannerElement}
       role="region"
       aria-label={COPY.title}
     >

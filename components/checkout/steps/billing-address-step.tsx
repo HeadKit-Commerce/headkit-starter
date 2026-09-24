@@ -8,7 +8,7 @@ import {
   buildCheckoutShippingAddressElementOptions,
   buildCheckoutShippingContacts,
 } from "@/lib/checkout-address-seed";
-import { z } from "zod";
+import * as z from "zod";
 import {
   Form,
   FormField,
