@@ -42,12 +42,37 @@ export function resolveDisplayBrand(
  * Brand logo for the PDP — ONE cache entry per brand, shared by every product
  * that carries it.
  *
- * Tagged `TAG.brand(slug)` only. The theme fires that tag on a brand-term edit
- * or delete (which is when a logo can change), and ALSO on every save of a
- * product in that brand — but the PDP route entry already carries
- * `TAG.products`, which the same product save fires, so this adds no purge the
- * PDP was not already subject to. `TAG.brands` is deliberately NOT added: it is
- * the index tag and buys nothing here beyond what the entity tag covers.
+ * Tagged `TAG.brands` — the PLURAL term tag — and deliberately NOT
+ * `TAG.brand(slug)`. The two name two different data domains, and this read is
+ * in the second one:
+ *
+ *   - `headkit:brand:{slug}` means "the set of products in this brand changed".
+ *     The theme fires it on EVERY save of a product in the brand, including a
+ *     stock change arriving from an order (`headkit_product_brand_tags`,
+ *     reached from the product builder). `/brand/{slug}`'s grid subscribes to
+ *     it, correctly.
+ *   - `headkit:brands` means "a brand TERM was created, edited or deleted" —
+ *     exactly when a brand's name or logo can change. It is emitted only from
+ *     the `brands_data` endpoint suffix, reachable only from the
+ *     `product_brand` branches of `created_term` / `edited_term` /
+ *     `delete_term`. No product event path reaches it
+ *     (`lib/wp-revalidation-events.test.ts` asserts that against the theme).
+ *
+ * This read answers the brand TERM's name and logo, so the term tag is the one
+ * whose events actually change its output. Carrying the product-SET tag instead
+ * meant one stock movement on any product in a brand purged the prerendered PDP
+ * entry of every other product in it, none of whose logos had changed — tags
+ * propagate outward unconditionally onto the awaiting route's CDN entry.
+ *
+ * THE TRADE THIS ACCEPTS, so nobody re-derives it: `headkit:brands` reaches
+ * every PDP on the store, not only one brand's, so a brand-term edit now
+ * refreshes all of them. That is a rare admin action against the most frequent
+ * event in the system, and it is an INVALIDATION rather than a deletion, so
+ * each page serves its previous copy while refreshing behind the request.
+ * `headkit:brands` is therefore classified WIDE in `lib/cache-tags.ts`; that
+ * classification is not optional and must not be reverted while this line
+ * stands, or one brand-term edit becomes a site-wide DELETION. A narrower fix
+ * needs a new `headkit:brand-term:{slug}` tag, which needs a theme release.
  *
  * A failed brand read is a missing logo, never a failed PDP: the product is
  * the page, the logo is decoration. `brands.get` answers the brand detail
@@ -59,7 +84,7 @@ export async function getCachedProductBrand(
 ): Promise<ProductDisplayBrand | null> {
   "use cache";
   cacheLife("days");
-  cacheTag(TAG.brand(slug));
+  cacheTag(TAG.brands);
   try {
     const brand = await headkit.brands.get(slug);
     if (!brand) return null;

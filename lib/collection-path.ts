@@ -35,9 +35,11 @@ async function collectionPathIndex(): Promise<Map<string, string>> {
   // one and takes the MIN, so an `hours` entry awaited inside `HomeContent`
   // (`"use cache"` + `cacheLife("days")`) would silently narrow the whole
   // homepage to hourly revalidation. `TAG.collections` — which WordPress fires
-  // on any product or category change, and which `HomeContent` already
-  // subscribes to — is what actually keeps this fresh; the life is only a
-  // backstop, so matching the caller's costs nothing.
+  // on a product-CATEGORY term edit and never on a product save
+  // (`docs/cache-revalidation-contract.md`), and which `HomeContent` already
+  // subscribes to — is what keeps this fresh for the edits that can change it;
+  // the life is the backstop for everything else, so matching the caller's
+  // costs nothing.
   cacheLife("days");
   cacheTag(TAG.collections);
 

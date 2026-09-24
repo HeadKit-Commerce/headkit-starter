@@ -38,6 +38,7 @@
     "@stripe/react-stripe-js": "^6.8.2",
     "@stripe/stripe-js": "^9.14.0",
     "@types/sanitize-html": "^2.16.0",
+    "@vercel/functions": "3.9.9",
     "@vercel/global-config": "1.5.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

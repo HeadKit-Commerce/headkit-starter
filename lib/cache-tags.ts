@@ -21,6 +21,13 @@
  *                 (threat T-09.5-01). A RAW legacy tag is only valid AFTER
  *                 passing through `bridgeTags` — so `bridgeTags` completeness is
  *                 measurable as the route's `dropped` count (threat T-09.5-02).
+ *  - `invalidatesManyPages` — blast-radius classification over that same
+ *                 vocabulary, so the route can INVALIDATE a whole-catalogue or
+ *                 layout-chrome tag while still DELETING a narrow editor-facing
+ *                 one. Lives here because the tag set is owned here.
+ *  - `tagCoveringPath` — whether a tag in the same payload already covers a
+ *                 path, so the route can skip a `revalidatePath` delete that
+ *                 would otherwise defeat that invalidation.
  *
  * Convention: `headkit:{type}[:{id}]`, lowercase prefix, `id` = stable slug/id.
  * Cache Components limits: 128 tags/call, 256 chars each.
@@ -199,4 +206,249 @@ export function isKnownTag(tag: string): boolean {
     if (tag.startsWith(prefix) && tag.length > prefix.length) return true;
   }
   return false;
+}
+
+/**
+ * Tags whose blast radius is the WHOLE catalogue, matched exactly. A purge of
+ * one of these reaches thousands of CDN entries at once, because every PDP and
+ * every listing page's cached HTML carries them transitively (`TAG.products`
+ * via `getCachedProduct`, `TAG.catalog` / `TAG.route(...)` via the grid reads).
+ *
+ * `TAG.brands` is the one member that is not a catalogue tag. It is the brand
+ * TERM tag, and it is site-reaching because `getCachedProductBrand`
+ * (`lib/product-brand.ts`) subscribes to it and every PDP awaits that read —
+ * under Cache Components a tag declared inside a nested cached read propagates
+ * outward onto the awaiting route's CDN entry unconditionally. **Reverting this
+ * classification while `lib/product-brand.ts` still carries `TAG.brands` turns
+ * one brand-term edit into a site-wide DELETION**, so the two move together or
+ * not at all.
+ *
+ * The four LAYOUT-CHROME tags below are the largest-reaching members of the
+ * whole vocabulary. See `ROOT_LAYOUT_CHROME_TAGS` for their carriers.
+ *
+ * See `invalidatesManyPages` below for why the distinction exists at all.
+ */
+const WIDE_BLAST_RADIUS_EXACT: ReadonlySet<string> = new Set([
+  TAG.products,
+  TAG.collections,
+  TAG.catalog,
+  TAG.brands,
+  // Layout chrome — on EVERY CDN entry by construction (see below).
+  TAG.branding,
+  TAG.footer,
+  TAG.emailMarketing,
+  TAG.settings,
+]);
+
+/**
+ * Prefix families with the same whole-catalogue reach. `headkit:catalog:`
+ * covers `headkit:catalog:cat:{slug}` as well — a category grid key that every
+ * listing page and, through grid propagation, the home page subscribes to.
+ * `headkit:route:` covers the synthetic landings (home / shop / sale / new /
+ * featured), each of which is a whole page family rather than one entity.
+ *
+ * `headkit:menu:` is the fifth layout-chrome tag. It is a PREFIX family and not
+ * an exact string because the location is part of the tag
+ * (`headkit:menu:PRIMARY`, `…:FOOTER_POLICY`, …), and `KNOWN_MENU_LOCATIONS` is
+ * this repo's list rather than WordPress's — enumerating them here would
+ * silently mis-class a location the CMS starts firing that we do not yet list.
+ * Every location is read by `fetchMenu` / `getFooterMenus`, both awaited by the
+ * root layout, so the whole family is site-wide.
+ */
+const WIDE_BLAST_RADIUS_PREFIXES: readonly string[] = [
+  "headkit:catalog:",
+  "headkit:route:",
+  "headkit:menu:",
+];
+
+/**
+ * The five tags carried by reads the ROOT LAYOUT awaits, and therefore present
+ * on every CDN entry in the storefront. Exported so a guard can bind the class
+ * to the carriers rather than to a hand-kept list
+ * (`lib/root-layout-chrome-tags.test.ts`).
+ *
+ * `app/layout.tsx` awaits `getBranding()`, `getFooterMenus()`,
+ * `getBrandingAssets()` and `getEmailMarketingStatus()`, and `NavigationWrapper`
+ * awaits `fetchMenu` for every header location. Their carriers are
+ * `lib/branding.ts` (`TAG.branding`), `lib/email-marketing.ts`
+ * (`TAG.emailMarketing`, `TAG.settings`) and
+ * `components/headkit-ui/navigation-wrapper.tsx` (`TAG.menu(loc)`, `TAG.footer`,
+ * `TAG.branding`).
+ *
+ * The rule this encodes, which is the durable half: **a tag's class follows its
+ * CARRIERS, not what the tag means.** Anything reachable from a read
+ * `app/layout.tsx` awaits is site-wide, however editor-facing it sounds — which
+ * is why these five are wide even though each names a single CMS setting.
+ *
+ * The classification changes the MECHANISM, not the blast radius. A branding
+ * purge still marks every entry in the storefront, because a tag on the root
+ * layout is on every page by construction; those entries are now invalidated
+ * (serve the existing copy, refresh behind the request) rather than deleted.
+ * Shrinking the radius would mean moving the chrome out of the static shell
+ * into a request-time island, which is a much larger change.
+ */
+export const ROOT_LAYOUT_CHROME_TAGS: readonly string[] = [
+  TAG.branding,
+  TAG.footer,
+  TAG.menu("PRIMARY"),
+  TAG.emailMarketing,
+  TAG.settings,
+];
+
+/**
+ * True when purging this tag can invalidate MANY pages at once (the whole
+ * catalogue, a whole route family, the brand-term domain every PDP subscribes
+ * to, or the layout chrome that sits on every entry), rather than the one page
+ * an editor is looking at after a save.
+ *
+ * The distinction exists because the two classes WANT opposite purge semantics
+ * at the CDN (see `app/api/revalidate/route.ts`, the only caller): a narrow tag
+ * should be DELETED so the editor's next load is guaranteed fresh, while a wide
+ * tag should be INVALIDATED so the thousands of pages it touches keep serving
+ * their previous copy while they refresh in the background, instead of each
+ * blocking its first visitor on a foreground re-render.
+ *
+ * Deletion remains the wide class's FALLBACK when the runtime handed the
+ * invocation no purge API or that call rejected — fail towards slow, never
+ * towards wrong.
+ *
+ * Deliberately NOT wide: the singular entity tags (`headkit:product:{slug}`,
+ * `headkit:collection:{slug}`, `headkit:brand:{slug}`, `headkit:post:{slug}`,
+ * …) and the small type indexes (`headkit:posts`, `headkit:projects`,
+ * `headkit:clients`, `headkit:pages`). Each reaches at most a page or a single
+ * index, which an editor checks immediately after saving.
+ *
+ * `headkit:brand:{slug}` staying narrow beside a wide `headkit:brands` is
+ * load-bearing, not an oversight: it is the product-SET tag, its reach is the
+ * `/brand/{slug}` grid plus that brand's PLP shell, and deleting it is what
+ * keeps an editor's own brand page guaranteed-fresh once the term tag beside it
+ * only invalidates.
+ *
+ * The cost of the chrome tags being wide, stated rather than implied: an editor
+ * who saves branding, a menu, the footer or an email-marketing / Stripe setting
+ * may read the PREVIOUS copy once while it refreshes behind them, instead of
+ * blocking on a fresh render. That is a stale-while-revalidate cost paid by one
+ * person who is looking, against every visitor of every page paying a cold
+ * render.
+ *
+ * Every member of the `TAG` contract is pinned to one class or the other by
+ * `lib/cache-tags.test.ts`, so a tag added to `TAG` without a deliberate
+ * classification fails CI rather than silently taking the narrow default.
+ */
+export function invalidatesManyPages(tag: string): boolean {
+  if (WIDE_BLAST_RADIUS_EXACT.has(tag)) return true;
+  for (const prefix of WIDE_BLAST_RADIUS_PREFIXES) {
+    if (tag.startsWith(prefix) && tag.length > prefix.length) return true;
+  }
+  return false;
+}
+
+/**
+ * The tag that already covers `path`, or `null` when no tag in `payloadTags`
+ * does — the input to the route's decision to SKIP `revalidatePath(path)`.
+ *
+ * ## Why this exists, and why it ships with the invalidate change
+ *
+ * `revalidatePath()` has **no lifetime parameter anywhere in `next/cache`**. It
+ * builds the implicit tag `_N_T_${path}` and calls the shared revalidate with no
+ * profile, which is an unconditional DELETE. A delete is strictly stronger than
+ * an invalidate, so it wins regardless of ordering: sending a wide tag through
+ * the purge API and then deleting the same page by its path one line later
+ * leaves the page exactly as it was, while every log line says the invalidate
+ * fired. Without this rule the wide-purge change is inert on every page that
+ * appears in a webhook's `paths` array — which is every page anyone looks at.
+ *
+ * ## Why skipping is SAFE — by construction, not by luck
+ *
+ * Two independent facts, both readable in
+ * `integrations/wordpress/theme/inc/headkit-webhook.php`:
+ *
+ * 1. **The sender builds a path and its covering tag from the same term, in the
+ *    same function.** `headkit_build_product_revalidation` pushes
+ *    `"/products/{$slug}"` and `headkit_tag_product($slug)` on adjacent lines
+ *    off one `$post->post_name`. `headkit_category_term_surfaces` takes its path
+ *    from `headkit_build_collection_path_from_term($term)` — whose LAST segment
+ *    is `$term->slug` — and its tags from `headkit_tag_catalog_cat()` /
+ *    `headkit_tag_collection()` over the same `$term`. `headkit_resolve_endpoint_tags`
+ *    pairs `project_{slug}`, `projects` and `page_{uri}` the same way, and the
+ *    `page_` branch takes `get_page_uri($post)`, so a nested page's path and its
+ *    `headkit:page:a/b` tag carry the identical multi-segment string.
+ * 2. **The covering tag's reach is a SUPERSET of the path's.** A path purge
+ *    reaches exactly one route entry; each tag below is carried by a cached read
+ *    the same route awaits, and tags propagate onto the awaiting route's CDN
+ *    entry from any depth. Checked against this app's `cacheTag` call sites in
+ *    `lib/product-cache.ts`, `lib/catalog-cache.ts`,
+ *    `app/collections/[...slug]/page.tsx`, `app/projects/[...slug]/page.tsx`,
+ *    `app/projects/page.tsx` and `app/[...slug]/page.tsx`.
+ *
+ * ## The rules, and what is deliberately left uncovered
+ *
+ * Candidates are decided by FIRST SEGMENT so the families can never overlap — a
+ * WordPress page whose URI happened to start `collections/` must not have its
+ * `headkit:page:collections/x` tag accepted as cover for the collections route,
+ * which that tag does not reach.
+ *
+ * Uncovered on purpose, and each of these still gets its `revalidatePath`:
+ * `/` (the theme emits no path for a home edit), any path whose matching tag was
+ * DROPPED by `isKnownTag` (a dropped tag purged nothing, so it covers nothing —
+ * which is why the caller must pass the FILTERED tag list), and any shape not
+ * enumerated below. **A path with no covering tag must always be purged**: a
+ * page purged by neither a path nor a tag is stale for the whole of its cache
+ * life, silently.
+ *
+ * @param path        A path from the webhook payload (`/collections/a/b`).
+ * @param payloadTags The tags of the SAME payload, AFTER `isKnownTag` filtering.
+ * @returns The covering tag, or `null` when the path must still be purged.
+ */
+export function tagCoveringPath(
+  path: string,
+  payloadTags: readonly string[],
+): string | null {
+  for (const candidate of coveringTagCandidates(path)) {
+    if (payloadTags.includes(candidate)) return candidate;
+  }
+  return null;
+}
+
+/**
+ * Tags that, if present in the same payload, cover `path` — in preference
+ * order. Empty for any shape whose coverage is not established above.
+ */
+function coveringTagCandidates(path: string): string[] {
+  if (typeof path !== "string" || !path.startsWith("/")) return [];
+  // Query / fragment are not part of a `_N_T_` implicit tag; strip before
+  // matching so a decorated path is classified as the page it is.
+  const bare = path.split("?")[0]?.split("#")[0] ?? "";
+  const segments = bare.split("/").filter((s) => s.length > 0);
+  const first = segments[0];
+  const leaf = segments[segments.length - 1];
+  // "/" — the theme emits no path for a home edit; never skipped.
+  if (first === undefined || leaf === undefined) return [];
+  const depth = segments.length;
+
+  // `/products/{slug}` ← the product entity tag.
+  if (first === "products") {
+    return depth === 2 ? [TAG.product(leaf)] : [];
+  }
+
+  // `/collections/{…ancestors}/{leaf}` ← the leaf's grid tag, or its collection
+  // entity tag on a listing event (`headkit_category_term_surfaces`).
+  if (first === "collections") {
+    return depth >= 2 ? [TAG.catalogCat(leaf), TAG.collection(leaf)] : [];
+  }
+
+  // `/projects` and `/projects/{slug}`. The index also arrives as a `page_projects`
+  // send, which carries `headkit:page:projects` for the same path.
+  if (first === "projects") {
+    if (depth === 1) return [TAG.projects, TAG.page("projects")];
+    return depth === 2 ? [TAG.project(leaf)] : [];
+  }
+
+  // Everything else is the CMS page family: the theme sends `/{get_page_uri()}`
+  // beside `headkit:page:{the same uri}`, with two landing slugs it swaps for a
+  // route tag instead of a page tag.
+  const uri = segments.join("/");
+  if (uri === "sale") return [TAG.route("sale")];
+  if (uri === "new-in") return [TAG.route("new")];
+  return [TAG.page(uri)];
 }

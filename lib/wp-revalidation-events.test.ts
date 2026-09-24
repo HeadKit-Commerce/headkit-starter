@@ -595,10 +595,12 @@ describe.skipIf(SKIPPING)(SUITE_TITLE, () => {
       //
       // A brand tag has two reaches depending on the payload that carries it
       // (see `headkit_entity_reach_tags()`), and on a PRODUCT payload it is the
-      // wide one: `headkit_product_brand_tags()` merges it into every stock
-      // movement, and `getCachedProductBrand` (`lib/product-brand.ts:62`) is
-      // awaited by every PDP in the brand, so the tag propagates onto all of
-      // them — the ~1,100-entry figure. It must not ride the second send.
+      // wider one: `headkit_product_brand_tags()` merges it into every stock
+      // movement, and it reaches that brand's whole `/brand/{slug}` grid, which
+      // pages through the brand's entire catalogue. It must not ride the second
+      // send. (It used to reach every PDP in the brand too, because
+      // `getCachedProductBrand` carried it; that read now subscribes to the
+      // brand TERM tag instead — see `lib/product-brand.ts`.)
       const repaired = onlyRepair("create").tags;
       expect(repaired).not.toContain(TAG.collection("electric-bikes"));
       expect(repaired).not.toContain(TAG.collection("bikes"));

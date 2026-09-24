@@ -174,7 +174,7 @@ const BlockEditor = async ({
   // and Next propagates a nested entry's tags outward — so resolving
   // unconditionally would subscribe EVERY surface that renders a `BlockEditor`
   // (every CMS page, `/contact`, every news post) to the tag WordPress fires on
-  // any product or category change, where those routes previously subscribed
+  // a product-CATEGORY term edit, where those routes previously subscribed
   // only to `TAG.page(slug)` / `TAG.pages` / `TAG.posts`. Widening a purge's
   // blast radius that way is a known hazard here — see `lib/cache-tags.ts`
   // ("NEVER a route/page tag (Bike Society incident)") and `app/sitemap.ts`

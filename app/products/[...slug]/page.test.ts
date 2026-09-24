@@ -438,7 +438,7 @@ describe("ProductPageContent display brand", () => {
     ],
   };
 
-  it("resolves the FIRST brand term, fetches its logo once under TAG.brand, and names it in JSON-LD", async () => {
+  it("resolves the FIRST brand term, fetches its logo once under TAG.brands, and names it in JSON-LD", async () => {
     productsGet.mockResolvedValue(BRANDED_PRODUCT);
     brandsGet.mockResolvedValue({
       name: "S-Works",
@@ -455,11 +455,20 @@ describe("ProductPageContent display brand", () => {
 
     expect(brandsGet).toHaveBeenCalledTimes(1);
     expect(brandsGet).toHaveBeenCalledWith("s-works");
-    expect(cacheTag).toHaveBeenCalledWith(TAG.brand("s-works"));
+    // The brand-TERM tag, not the product-SET tag. `headkit:brand:{slug}`
+    // rides every product save in the brand (a stock movement included), and
+    // this read is awaited by every PDP in it, so carrying the singular here
+    // propagated one stock change onto every one of that brand's PDP entries.
+    // `headkit:brands` fires only on a brand term create / edit / delete —
+    // which is the only thing that can change this read's output. See
+    // `lib/product-brand.ts` for the trade, and `lib/cache-tags.ts`, where
+    // `headkit:brands` is classified WIDE so the purge invalidates rather than
+    // deletes.
+    expect(cacheTag).toHaveBeenCalledWith(TAG.brands);
     expect(
       cacheTag.mock.calls.flat(),
-      "the index tag buys nothing here and would widen the purge surface",
-    ).not.toContain(TAG.brands);
+      "the product-SET tag rides every stock movement and would purge this entry from events that cannot change a brand's logo",
+    ).not.toContain(TAG.brand("s-works"));
 
     expect(productDetailProps).toHaveBeenCalledTimes(1);
     expect(productDetailProps.mock.calls[0]![0]["brand"]).toEqual({

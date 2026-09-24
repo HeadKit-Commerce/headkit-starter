@@ -179,7 +179,7 @@ const redirectedTo = vi.fn<(path: string) => void>();
 /**
  * The category-tree read, spied. The PDP must never reach it: it is a
  * `"use cache"` entry tagged `TAG.collections`, and WordPress fires that tag on
- * any product or category change (see the fallback-crumb note in
+ * a product-CATEGORY term edit (see the fallback-crumb note in
  * `app/products/[...slug]/page.tsx`).
  */
 const getCategories = vi.fn<() => Promise<unknown>>();

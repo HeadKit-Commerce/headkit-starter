@@ -506,6 +506,47 @@ left alone — the 2026-09-11 decision scoped this to collection pages only (`pl
 if a future task extends it there, reuse the same `Breadcrumb` component and the same gate, not a
 new implementation.
 
+### A cache tag's purge SEMANTIC follows its carriers, not its name
+
+`/api/revalidate` no longer purges every allowlisted tag the same way. `invalidatesManyPages`
+(`lib/cache-tags.ts`) splits the contract vocabulary in two and the route sends each half to a
+different call:
+
+- **wide** — whole catalogue (`headkit:products`, `headkit:catalog*`), whole route family
+  (`headkit:route:*`), the brand-TERM tag (`headkit:brands`) and the five layout-chrome tags →
+  `invalidateByTag` from `@vercel/functions`. The CDN keeps serving the existing copy and
+  refreshes behind the request.
+- **narrow** — the singular entity tags and the small type indexes → `revalidateTag(t,
+{ expire: 0 })`, unchanged. A deletion, which is what the editor reloading the one page they
+  just saved wants.
+
+Three things about it are load-bearing and easy to undo by accident:
+
+- **A tag is wide because of what CARRIES it.** `headkit:branding` names one CMS setting and
+  sounds editor-facing, but `app/layout.tsx` awaits `getBranding()`, and under Cache Components
+  a tag declared in a nested cached read propagates outward onto the awaiting route's entry — so
+  it sits on every CDN entry in the storefront, a larger reach than `headkit:products`.
+  `ROOT_LAYOUT_CHROME_TAGS` names the five, and `lib/root-layout-chrome-tags.test.ts` derives
+  the set from `app/layout.tsx` and its carrier modules rather than trusting the list, so a
+  SIXTH root-layout read fails CI until it is classified.
+- **`revalidatePath` is an unconditional DELETE and beats an invalidate regardless of
+  ordering.** WordPress sends paths beside tags, so purging a wide tag and then deleting the
+  same page by path one line later makes the change inert while the log still says the
+  invalidate fired. `tagCoveringPath` skips a path a tag in the SAME payload already covers —
+  against the FILTERED tag list, because a dropped tag purged nothing and so covers nothing —
+  and an uncovered path is always still purged.
+- **The failure mode is biased towards slow, never wrong.** `invalidateByTag` resolves silently
+  when the runtime handed the invocation no purge API, so `lib/vercel-purge.ts` probes the
+  request-context symbol itself; with no purge API, or on a rejected call, the wide class falls
+  back to deletion. That probe is also what keeps the whole path inert off Vercel. `purgeApi`,
+  `purgeFallback`, `outcomes` and `skippedPaths` are in the log line and `purgeApi` in
+  `GET /api/revalidate`, because "the purge landed" must be readable rather than assumed.
+
+`lib/product-brand.ts` is the one read whose tag moved with this: the PDP brand logo subscribes
+to `headkit:brands` (the term tag, fired only by a brand term create/edit/delete) and not
+`headkit:brand:{slug}` (the product-SET tag, fired by every stock movement in the brand). That
+pairing is why `headkit:brands` must stay wide — see the note in that file.
+
 ## Maintaining this file
 
 Keep this file for knowledge useful to almost every future agent session in this app.

@@ -33,8 +33,9 @@ export interface ResolvedCarouselProducts {
  * renders a carousel through this path inherits those product tags. Post and
  * CMS bodies render OUTSIDE any cached scope, so nothing there widens; the
  * only cached scope that can reach here is `HomeContent`, which already
- * subscribes to `TAG.collections` — a tag WordPress fires on any product
- * change — so its blast radius does not grow either.
+ * subscribes to `TAG.collections` — a tag WordPress fires on a product-CATEGORY
+ * term edit, never on a product save — so its blast radius does not grow
+ * either.
  */
 export async function resolveCarouselProductsFromHtml(
   html: string,
