@@ -951,7 +951,6 @@ nothing is unaffected; moving one is a measured, per-store decision.
 platform default, and it is a deliberate hour of blindness: a tag purge drops the cached
 entry behind the route, never the CDN copy. `app/sitemap-cache-control.test.ts` pins it.
 
-
 ## Maintaining this file
 
 Keep this file for knowledge useful to almost every future agent session in this app.
