@@ -22,16 +22,19 @@ Use **CSS hook classes** documented in [`overrides/README.md`](./overrides/READM
 
 ## Typical tasks
 
-| Task                          | Where                                                                                           |
-| ----------------------------- | ----------------------------------------------------------------------------------------------- |
-| Change nav link style         | `overrides/styles.css` → `.headkit-nav`                                                         |
-| Homepage section backgrounds  | `overrides/styles.css` → `.headkit-home .headkit-*-carousel`                                    |
-| Hide prices                   | `overrides/styles.css` → `.price`, `[data-price]`                                               |
-| Hide footer payment icons     | `overrides/styles.css` → `.headkit-footer-payment-methods`                                      |
-| Restyle callout / promo       | `overrides/styles.css` → `.headkit-callout`                                                     |
-| Add header phone / extra icon | `overrides/header-actions.tsx` → `HeaderActionExtras`                                           |
-| New landing page              | `app/<route>/page.tsx` + declare the route in `sitemap.config.ts` (never edit `app/sitemap.ts`) |
-| Change checkout logic         | `lib/` + `app/checkout/` (behaviour, not cosmetics)                                             |
+| Task                                          | Where                                                                                           |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Change nav link style                         | `overrides/styles.css` → `.headkit-nav`                                                         |
+| Homepage section backgrounds                  | `overrides/styles.css` → `.headkit-home .headkit-*-carousel`                                    |
+| Hide prices                                   | `overrides/styles.css` → `.price`, `[data-price]`                                               |
+| Hide footer payment icons                     | `overrides/styles.css` → `.headkit-footer-payment-methods`                                      |
+| Restyle callout / promo                       | `overrides/styles.css` → `.headkit-callout`                                                     |
+| Add header phone / extra icon                 | `overrides/header-actions.tsx` → `HeaderActionExtras`                                           |
+| Extra homepage tile or block                  | `overrides/home-slots.tsx`                                                                      |
+| Script in `<head>` or block under main        | `overrides/layout-slots.tsx` (`BelowMain` stays a sibling of `{children}`)                      |
+| PDP block beside bundles or under the buy box | `overrides/pdp-beside-bundles.tsx`, `overrides/pdp-buy-box-extras.tsx`                          |
+| New landing page                              | `app/<route>/page.tsx` + declare the route in `sitemap.config.ts` (never edit `app/sitemap.ts`) |
+| Change checkout logic                         | `lib/` + `app/checkout/` (behaviour, not cosmetics)                                             |
 
 ## Missing hook?
 

@@ -38,6 +38,7 @@ import {
   productPath,
 } from "@/lib/canonical-path";
 import { ProductPageShell } from "./product-page-shell";
+import { PdpBesideBundles } from "@/overrides/pdp-beside-bundles";
 import { stripTitleMarkers } from "@/lib/title-emphasis";
 import { env } from "@/lib/env";
 import { isShopifyStorefront } from "@/lib/shopify-storefront";
@@ -815,23 +816,26 @@ export async function ProductPageBody({
         </section>
       )}
 
-      {bundlesAsProducts.length > 0 && (
-        <section className="overflow-x-clip py-10">
-          <SectionHeader
-            title={bundlesCopy.title}
-            description={bundlesCopy.description}
-            allButton={bundlesCopy.allButton}
-            allButtonPath={bundlesCopy.allButtonPath}
-            className="px-5 md:px-10"
-          />
-          <div className="mt-5">
-            <ProductCarousel
-              products={bundlesAsProducts}
-              id="bundle-products"
+      <div className="headkit-pdp-beside-bundles">
+        <PdpBesideBundles />
+        {bundlesAsProducts.length > 0 && (
+          <section className="overflow-x-clip py-10">
+            <SectionHeader
+              title={bundlesCopy.title}
+              description={bundlesCopy.description}
+              allButton={bundlesCopy.allButton}
+              allButtonPath={bundlesCopy.allButtonPath}
+              className="px-5 md:px-10"
             />
-          </div>
-        </section>
-      )}
+            <div className="mt-5">
+              <ProductCarousel
+                products={bundlesAsProducts}
+                id="bundle-products"
+              />
+            </div>
+          </section>
+        )}
+      </div>
 
       {relatedAsProducts.length > 0 && (
         <section className="overflow-x-clip py-10">

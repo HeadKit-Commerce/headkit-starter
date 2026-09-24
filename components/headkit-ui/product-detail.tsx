@@ -20,6 +20,7 @@ import type {
 import { ProductImageGallery } from "@/components/headkit-ui/product-image-gallery";
 import { ProductBrandLink } from "@/components/headkit-ui/product-brand-link";
 import { ProductIdentifiers } from "@/components/headkit-ui/product-identifiers";
+import { PdpBuyBoxExtras } from "@/overrides/pdp-buy-box-extras";
 import { ProductPrice } from "@/components/headkit-ui/product-price";
 import { pickFirstPrice } from "@/lib/price-display";
 import { VariantSwatch } from "@/components/headkit-ui/variant-swatch";
@@ -1498,6 +1499,19 @@ export function ProductDetail({
           <ProductIdentifiers gtin={gtin} mpn={mpn} />
         </div>
       </div>
+
+      <PdpBuyBoxExtras
+        selectedColor={selectedColor}
+        options={(
+          variationAttributes.find(
+            (attr) => attr.slug === swatchAttribute?.slug,
+          )?.fullOptions ?? []
+        ).map((option) => ({
+          name: option.name,
+          slug: option.slug,
+          ...(option.swatchColor ? { swatchColor: option.swatchColor } : {}),
+        }))}
+      />
 
       {/* Sticky ATC — desktop + mobile, after main ATC scrolls out of view */}
       <div

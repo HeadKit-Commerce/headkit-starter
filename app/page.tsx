@@ -47,6 +47,10 @@ import { PostCarousel } from "@/components/headkit-ui/post/post-carousel";
 import { SectionHeader } from "@/components/headkit-ui/section-header";
 import { getPostsBasePath } from "@/lib/posts-base-path";
 import { postsIndexPath } from "@/lib/posts-path";
+import {
+  extendHomepageCategories,
+  HomeAfterFeatured,
+} from "@/overrides/home-slots";
 
 const EMPTY_COLLECTION = {
   products: [] as Product[],
@@ -193,10 +197,12 @@ export async function HomeContent() {
   // path from the category tree so a nested category's tile does not link the
   // flat shape the collection route 308s away from.
   const collectionPath = await collectionPathResolver();
-  const featuredCategories = featuredCategoriesFiltered.map((category) => ({
-    ...category,
-    uri: collectionPath(category.slug),
-  }));
+  const featuredCategories = extendHomepageCategories(
+    featuredCategoriesFiltered.map((category) => ({
+      ...category,
+      uri: collectionPath(category.slug),
+    })),
+  );
   const { blocks: editorBlocks, segments } = processHomepageContent(
     homepage?.page?.content ?? "",
     (homepage?.page?.editorBlocks ?? []) as Array<{
@@ -282,6 +288,8 @@ export async function HomeContent() {
           </div>
         </section>
       )}
+
+      <HomeAfterFeatured />
 
       {/* On Sale — skipped when WP already provides a product-on-sale carousel */}
       {showHardcodedSale && (

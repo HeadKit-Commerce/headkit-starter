@@ -6,16 +6,20 @@ Platform template upgrades should leave `overrides/` alone. You still have the f
 
 ## What goes here
 
-| Path                 | Purpose                                                                |
-| -------------------- | ---------------------------------------------------------------------- |
-| `styles.css`         | CSS beyond dashboard branding (layout, spacing, hide elements, tweaks) |
-| `theme.json`         | Layout modes (nav, hero, homepage nav) — validated at build time       |
-| `theme.schema.json`  | JSON Schema for `theme.json` (for editors and future tooling)          |
-| `design-tokens.json` | Design reference tokens (Figma-aligned; not loaded at runtime yet)     |
-| `FIGMA.md`           | How Figma variables map to repo tokens and `theme.json`                |
-| `GAPS.md`            | Known gaps, hard-coded areas, and follow-up work                       |
-| `header-actions.tsx` | Extra header icons (e.g. phone) between Account and Cart               |
-| `maintenance.ts`     | Copy, colours and logo for the maintenance page (`../MAINTENANCE.md`)  |
+| Path                     | Purpose                                                                |
+| ------------------------ | ---------------------------------------------------------------------- |
+| `styles.css`             | CSS beyond dashboard branding (layout, spacing, hide elements, tweaks) |
+| `theme.json`             | Layout modes (nav, hero, homepage nav) — validated at build time       |
+| `theme.schema.json`      | JSON Schema for `theme.json` (for editors and future tooling)          |
+| `design-tokens.json`     | Design reference tokens (Figma-aligned; not loaded at runtime yet)     |
+| `FIGMA.md`               | How Figma variables map to repo tokens and `theme.json`                |
+| `GAPS.md`                | Known gaps, hard-coded areas, and follow-up work                       |
+| `header-actions.tsx`     | Extra header icons (e.g. phone) between Account and Cart               |
+| `home-slots.tsx`         | Extra homepage category tiles and a block after Featured               |
+| `layout-slots.tsx`       | Pre-paint `<head>` script and a sibling after `<main>`                 |
+| `pdp-beside-bundles.tsx` | Content beside the PDP bundles carousel                                |
+| `pdp-buy-box-extras.tsx` | Block after the PDP buy box, before sticky add to cart                 |
+| `maintenance.ts`         | Copy, colours and logo for the maintenance page (`../MAINTENANCE.md`)  |
 
 ## What stays elsewhere
 

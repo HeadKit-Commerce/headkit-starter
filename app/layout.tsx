@@ -35,6 +35,7 @@ import { DeferredThirdPartyScripts } from "@/components/headkit-ui/deferred-thir
 import { getEmailMarketingStatus } from "@/lib/email-marketing";
 import { Toaster } from "@/components/ui/toaster";
 import { getThemeHtmlAttributes } from "@/lib/store-theme";
+import { BelowMain, HeadRouteScript } from "@/overrides/layout-slots";
 
 // Build-time env GTM id (kept as a fallback); per-tenant gtmId from
 // dashboard-api StoreSettings takes precedence at runtime (FE-08).
@@ -217,6 +218,7 @@ export default async function RootLayout({
     >
       <head>
         <meta name="apple-mobile-web-app-title" content={siteName} />
+        <HeadRouteScript />
         {/*
           Brand fonts: selected curated faces as inline @font-face (Fontsource
           latin woff2) + upload @font-face via same-origin proxy. No
@@ -303,6 +305,9 @@ export default async function RootLayout({
                   <LazyCartDrawer />
                   <NavigationWrapper />
                   <main className="headkit-main pb-10">{children}</main>
+                  <Suspense fallback={null}>
+                    <BelowMain />
+                  </Suspense>
                   <Footer
                     siteName={siteName}
                     description={siteDescription}
