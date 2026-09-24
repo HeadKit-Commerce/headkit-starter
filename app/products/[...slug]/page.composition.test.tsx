@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Suspense, type ReactElement, type ReactNode } from "react";
+import { DynamicMetadataMarker } from "@/components/seo/dynamic-metadata-marker";
 
 /**
  * Where the flat PDP puts its ONE Suspense boundary, and what goes inside it.
@@ -24,6 +25,14 @@ import { Suspense, type ReactElement, type ReactNode } from "react";
  *     product, the build-time placeholder, a failed read) falls into the one
  *     boundary, whose child `ProductPageContent` is the only place that awaits
  *     `searchParams` and reads with the preview key.
+ *
+ * The route also returns a SECOND, always-empty boundary holding
+ * `DynamicMetadataMarker` — this route's
+ * `generateMetadata` awaits `searchParams`, and the marker is what keeps that
+ * legal now the root layout no longer supplies a hole for every route. It is a
+ * SIBLING of the content and renders `null`, so it changes no split; `pageContent`
+ * below pulls the two apart, and one case asserts the marker is exactly one
+ * empty boundary rather than a wrapper.
  *
  * A unit render cannot see the HTML split itself — that is
  * `scripts/static-shell-split.ts` against a built file — but it CAN see the
@@ -222,6 +231,43 @@ function elements(node: ReactNode, out: ReactElement[] = []): ReactElement[] {
   return out;
 }
 
+/** The route's returned children, flattened out of its wrapping fragment. */
+function routeChildren(element: ReactElement): ReactElement[] {
+  const children = (element.props as { children?: ReactNode }).children;
+  return (Array.isArray(children) ? children : [children]).filter(
+    (child): child is ReactElement =>
+      typeof child === "object" && child !== null && "type" in child,
+  );
+}
+
+/**
+ * The page content the route composed — everything except the metadata
+ * marker's empty boundary. Throws rather than returning undefined so a route
+ * that stops rendering content fails here instead of passing vacuously.
+ */
+function pageContent(element: ReactElement): ReactElement {
+  const content = routeChildren(element).filter(
+    (child) => !isMarkerBoundary(child),
+  );
+  expect(
+    content,
+    "the route must return exactly one content element beside the marker",
+  ).toHaveLength(1);
+  return content[0]!;
+}
+
+/** True for the `<Suspense>` whose only child is the metadata marker. */
+function isMarkerBoundary(element: ReactElement): boolean {
+  if (element.type !== Suspense) return false;
+  const child = (element.props as { children?: ReactNode }).children;
+  return (
+    typeof child === "object" &&
+    child !== null &&
+    "type" in child &&
+    (child as ReactElement).type === DynamicMetadataMarker
+  );
+}
+
 beforeEach(() => {
   getCachedProduct.mockReset();
   getProductForPage.mockReset();
@@ -232,18 +278,20 @@ describe("products/[...slug] — a resolvable product renders OUTSIDE the bounda
     getCachedProduct.mockResolvedValue(FLAT_PRODUCT);
     const searchParams = trackedSearchParams({ preview_key: "unused" });
 
-    const element = (await ProductPage({
-      params: Promise.resolve({ slug: [SLUG] }),
-      searchParams: searchParams.promise,
-    })) as ReactElement<{ product: unknown; colorSlug: unknown }>;
+    const body = pageContent(
+      (await ProductPage({
+        params: Promise.resolve({ slug: [SLUG] }),
+        searchParams: searchParams.promise,
+      })) as ReactElement,
+    ) as ReactElement<{ product: unknown; colorSlug: unknown }>;
 
     expect(
-      element.type,
+      body.type,
       "a product the public read resolves must be composed in the route itself; any boundary above it — postponed by a request-time read, or outlined by size — puts the whole product after the visible shell",
     ).toBe(ProductPageBody);
-    expect(element.type).not.toBe(Suspense);
+    expect(body.type).not.toBe(Suspense);
     expect(
-      element.props.product,
+      body.props.product,
       "and it renders the very object the gate resolved — one read, no second lookup below a boundary",
     ).toBe(FLAT_PRODUCT);
 
@@ -260,12 +308,39 @@ describe("products/[...slug] — a resolvable product renders OUTSIDE the bounda
   it("forwards the colourway segment to the body", async () => {
     getCachedProduct.mockResolvedValue(FLAT_PRODUCT);
 
-    const element = (await ProductPage({
-      params: Promise.resolve({ slug: [SLUG, "red"] }),
-    })) as ReactElement<{ colorSlug: unknown }>;
+    const body = pageContent(
+      (await ProductPage({
+        params: Promise.resolve({ slug: [SLUG, "red"] }),
+      })) as ReactElement,
+    ) as ReactElement<{ colorSlug: unknown }>;
 
-    expect(element.type).toBe(ProductPageBody);
-    expect(element.props.colorSlug).toBe("red");
+    expect(body.type).toBe(ProductPageBody);
+    expect(body.props.colorSlug).toBe("red");
+  });
+
+  it("mounts the metadata marker as one EMPTY sibling boundary, never a wrapper", async () => {
+    getCachedProduct.mockResolvedValue(FLAT_PRODUCT);
+
+    const element = (await ProductPage({
+      params: Promise.resolve({ slug: [SLUG] }),
+    })) as ReactElement;
+    const children = routeChildren(element);
+    const markers = children.filter(isMarkerBoundary);
+
+    expect(
+      markers,
+      "generateMetadata awaits searchParams, so this route needs exactly one marker — and only this route does; the root layout must never carry one again",
+    ).toHaveLength(1);
+    expect(
+      markers[0]!.props,
+      "the marker renders null behind a null fallback; a fallback with content would land in the shell",
+    ).toMatchObject({ fallback: null });
+    expect(
+      children.some(
+        (child) => child.type === Suspense && !isMarkerBoundary(child),
+      ),
+      "the product must not gain a boundary of its own",
+    ).toBe(false);
   });
 
   it("composes the body with no page-level Suspense — the stock slot is the plain cached component", async () => {
@@ -319,27 +394,29 @@ describe("products/[...slug] — a NULL public read is the only path into the bo
     getProductForPage.mockResolvedValue(FLAT_PRODUCT);
     const searchParams = trackedSearchParams({ preview_key: "draft-key" });
 
-    const element = (await ProductPage({
-      params: Promise.resolve({ slug: [SLUG] }),
-      searchParams: searchParams.promise,
-    })) as ReactElement<{
+    const boundary = pageContent(
+      (await ProductPage({
+        params: Promise.resolve({ slug: [SLUG] }),
+        searchParams: searchParams.promise,
+      })) as ReactElement,
+    ) as ReactElement<{
       fallback: ReactElement;
       children: ReactElement<Parameters<typeof ProductPageContent>[0]>;
     }>;
 
     expect(
-      element.type,
+      boundary.type,
       "a draft and a missing product are the same null here; only a request-time read can tell them apart, and that read must sit below a boundary",
     ).toBe(Suspense);
-    expect(element.props.fallback.type).toBe(ProductPageShell);
-    expect(element.props.children.type).toBe(ProductPageContent);
+    expect(boundary.props.fallback.type).toBe(ProductPageShell);
+    expect(boundary.props.children.type).toBe(ProductPageContent);
     expect(
       searchParams.awaited(),
       "the route itself never awaits searchParams — doing so would turn the whole route dynamic",
     ).toBe(false);
 
     // The branch inside the boundary is where the preview key is read.
-    const rendered = await ProductPageContent(element.props.children.props);
+    const rendered = await ProductPageContent(boundary.props.children.props);
     expect(searchParams.awaited()).toBe(true);
     expect(getProductForPage).toHaveBeenCalledWith(SLUG, {
       shopifyPreviewKey: "draft-key",
@@ -348,23 +425,27 @@ describe("products/[...slug] — a NULL public read is the only path into the bo
   });
 
   it("answers the build-time placeholder from the boundary without touching the cache", async () => {
-    const element = (await ProductPage({
-      params: Promise.resolve({ slug: ["__hk_static_placeholder"] }),
-    })) as ReactElement;
+    const boundary = pageContent(
+      (await ProductPage({
+        params: Promise.resolve({ slug: ["__hk_static_placeholder"] }),
+      })) as ReactElement,
+    );
 
-    expect(element.type).toBe(Suspense);
+    expect(boundary.type).toBe(Suspense);
     expect(getCachedProduct).not.toHaveBeenCalled();
   });
 
   it("falls through to the boundary when the public read throws, so the request-time branch can retry", async () => {
     getCachedProduct.mockRejectedValue(new Error("provider 401"));
 
-    const element = (await ProductPage({
-      params: Promise.resolve({ slug: [SLUG] }),
-    })) as ReactElement;
+    const boundary = pageContent(
+      (await ProductPage({
+        params: Promise.resolve({ slug: [SLUG] }),
+      })) as ReactElement,
+    );
 
     expect(
-      element.type,
+      boundary.type,
       "a thrown read is not evidence of a missing product and must not fail the route; the branch below the boundary reads again and degrades honestly if that fails too",
     ).toBe(Suspense);
   });

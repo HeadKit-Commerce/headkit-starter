@@ -37,20 +37,18 @@ import {
   productCategorySegments,
   productPath,
 } from "@/lib/canonical-path";
+import {
+  productRedirectTarget,
+  STATIC_GEN_PLACEHOLDER_SLUG,
+} from "@/lib/product-canonical";
 import { ProductPageShell } from "./product-page-shell";
+import { DynamicMetadataMarker } from "@/components/seo/dynamic-metadata-marker";
 import { PdpBesideBundles } from "@/overrides/pdp-beside-bundles";
 import { stripTitleMarkers } from "@/lib/title-emphasis";
 import { env } from "@/lib/env";
 import { isShopifyStorefront } from "@/lib/shopify-storefront";
 import { getStoreTheme } from "@/lib/store-theme";
 import { resolveSectionCopy } from "@/lib/section-copy";
-
-// Cache Components requires generateStaticParams to return ≥1 param. When the
-// catalog API is unreachable at build we emit this single placeholder (which
-// generateMetadata/the page resolve to noindex/notFound) instead of throwing —
-// a transient backend error must not fail the whole tenant deploy. Mirrors the
-// pattern in app/collections/[...slug]/page.tsx.
-const STATIC_GEN_PLACEHOLDER_SLUG = "__hk_static_placeholder";
 
 /**
  * WooCommerce shop archive slug (WP product permalinks use `/shop/…`).
@@ -402,26 +400,43 @@ export default async function ProductPage({ params, searchParams }: Props) {
       unstable_rethrow(error);
     }
     if (product) {
-      const canonical = productPath(product, colorSlug);
-      const requested = `/products/${slug.join("/")}`;
-      if (canonical !== requested) permanentRedirect(canonical);
+      // The RULE lives in `lib/product-canonical.ts` because `proxy.ts` has to
+      // apply the identical one to carry a campaign link's query string through
+      // this 308. The pure form is used here so the product this route already
+      // read is not read a second time for one string.
+      const canonical = productRedirectTarget(product, slug);
+      if (canonical) permanentRedirect(canonical);
     }
   }
 
-  if (product) {
-    return (
-      <ProductPageBody
-        product={product}
-        productSlug={productSlug}
-        colorSlug={colorSlug}
-      />
-    );
-  }
-
   return (
-    <Suspense fallback={<ProductPageShell />}>
-      <ProductPageContent params={params} searchParams={searchParams} />
-    </Suspense>
+    <>
+      {product ? (
+        <ProductPageBody
+          product={product}
+          productSlug={productSlug}
+          colorSlug={colorSlug}
+        />
+      ) : (
+        <Suspense fallback={<ProductPageShell />}>
+          <ProductPageContent params={params} searchParams={searchParams} />
+        </Suspense>
+      )}
+      {/*
+        Request-time metadata opt-in, and the ONLY route in the app that mounts
+        one. `generateMetadata` above awaits `searchParams` for the Shopify
+        Admin preview key; the prerendered branch renders `ProductPageBody`
+        outside any boundary, so without this marker that read is a build error
+        ("uncached or runtime data in generateMetadata()"). It is a SIBLING of
+        the page content, never a wrapper — a boundary around the body would
+        hide the product from a client with JavaScript off. It used to live in
+        `app/layout.tsx`, where it cost every route in the app its static shell;
+        see components/seo/dynamic-metadata-marker.tsx for the measurement.
+      */}
+      <Suspense fallback={null}>
+        <DynamicMetadataMarker />
+      </Suspense>
+    </>
   );
 }
 

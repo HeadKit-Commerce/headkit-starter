@@ -3,13 +3,20 @@ import { unstable_rethrow } from "next/navigation";
 import { isIndexableHost } from "@/lib/host-indexing";
 
 /**
- * The ONE host decision behind both indexing signals (ENG-868 / ENG-876).
+ * The host decision behind `robots.txt` (ENG-868 / ENG-876).
  *
- * `robots.txt` and the HTML `robots` meta must never disagree: a `Disallow: /`
- * served next to a page that says `index, follow` still invites indexing,
- * because `Disallow` is a CRAWL directive — a URL discovered by a link can be
- * indexed on the strength of the page's own meta alone. So both callers derive
- * their host verdict from this function, and neither re-implements the read.
+ * `robots.txt` and the page's own indexing signal must never disagree: a
+ * `Disallow: /` served next to a page that says `index, follow` still invites
+ * indexing, because `Disallow` is a CRAWL directive — a URL discovered by a
+ * link can be indexed on the strength of the page's own directives alone.
+ *
+ * The PAGE side of that pair no longer runs through here. It is now an
+ * `X-Robots-Tag: noindex, nofollow` response header set in `proxy.ts`, which
+ * makes the same host comparison against the same {@link isIndexableHost}
+ * predicate — see `lib/host-robots.ts` for why it moved and what it cost to
+ * leave it in `generateMetadata`. This function survives for `app/robots.ts`
+ * alone, which reads the Host in process because it is a tiny uncached route
+ * with no static shell to lose.
  *
  * Deliberately NOT keyed on `VERCEL_ENV`: a rehearsal storefront is a Vercel
  * *production* deployment served at a temporary `*.headkit.app` host, which is
@@ -19,13 +26,12 @@ import { isIndexableHost } from "@/lib/host-indexing";
  * unknown host, and {@link isIndexableHost} already fails closed for a missing
  * or unparseable configured url, a missing Host, a subdomain, or a lookalike.
  *
- * Reading the Host header makes the caller dynamic — for metadata that means
- * the `robots` tag streams rather than sitting in the static shell, which is
- * the intended trade: a stale cached `index, follow` is the bug.
+ * Reading the Host header makes the caller dynamic, which is why `app/robots.ts`
+ * carries no cache directive.
  *
  * @param configuredUrl the store's declared frontend origin, already resolved
- *   by the caller through `resolveSiteUrl` so both callers compare the same
- *   origin. REQUIRED, and typed without `undefined`: an omitted origin used to
+ *   by the caller through `resolveSiteUrl` so it compares the same origin the
+ *   header gate does. REQUIRED, and typed without `undefined`: an omitted origin used to
  *   fail closed silently, which turned a forgotten argument into a site-wide
  *   `noindex` that no type error and no assertion could catch. `null` and `""`
  *   still mean "the store declares no origin" and still fail closed.

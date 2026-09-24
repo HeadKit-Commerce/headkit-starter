@@ -35,6 +35,11 @@ const projectsList = vi.fn<(args: ListArgs) => Promise<unknown>>();
 
 vi.mock("server-only", () => ({}));
 
+// `app/sitemap.ts` reads the thin-facet bars through `lib/env.ts`, which
+// validates the whole environment at import; an empty object is the
+// "no bar configured" case, i.e. today's sitemap.
+vi.mock("@/lib/env", () => ({ env: {} }));
+
 vi.mock("next/cache", () => ({
   cacheLife: (): void => {},
   cacheTag: (): void => {},

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
 import { TAG } from "@/lib/cache-tags";
+import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { CollectionHeader } from "@/components/headkit-ui/collection/collection-header";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
 import {
@@ -95,6 +96,16 @@ async function getFilters() {
 }
 
 /**
+ * The ONE breadcrumb trail for `/shop`: the visible crumb and the
+ * `BreadcrumbList` are rendered from this array, so the two cannot drift — the
+ * rule `/collections/[...slug]` already follows.
+ */
+const SHOP_BREADCRUMBS = [
+  { name: "Home", uri: "/", current: false },
+  { name: "Shop", uri: "/shop", current: true },
+] as const;
+
+/**
  * Shop header with top-level category carousel. `'use cache'` via
  * getRootCategories — safe outside Suspense under Cache Components.
  */
@@ -108,10 +119,7 @@ async function ShopHeader() {
   return (
     <CollectionHeader
       name="Shop"
-      breadcrumbs={[
-        { name: "Home", uri: "/", current: false },
-        { name: "Shop", uri: "/shop", current: true },
-      ]}
+      breadcrumbs={[...SHOP_BREADCRUMBS]}
       childBasePath="/collections"
       {...(rootCategories.length > 0 ? { children: rootCategories } : {})}
     />
@@ -128,6 +136,18 @@ export const instant = true;
 export default function Page() {
   return (
     <>
+      {/*
+        BreadcrumbList for /shop, built from the SAME array the visible
+        breadcrumb renders, so the two cannot drift. This route has no
+        <Suspense> at all, so it is in the prerendered shell and a crawler that
+        runs no JavaScript sees it.
+      */}
+      <BreadcrumbJsonLD
+        items={SHOP_BREADCRUMBS.map((crumb) => ({
+          name: crumb.name,
+          href: crumb.uri,
+        }))}
+      />
       <ShopHeader />
       <ShopProductsShell />
     </>

@@ -13,12 +13,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * sitemap `<loc>` and the page canonical for the SAME path, compared directly.
  */
 
-const BAKED_ENV = "https://stale.headkit.app";
-const RUNTIME_DOMAIN = "customer.com";
-
-vi.hoisted(() => {
-  process.env.NEXT_PUBLIC_FRONTEND_URL = "https://stale.headkit.app";
+// Hoisted, because the `@/lib/env` mock factory below reads it. `vi.mock` is
+// lifted above every module-scope `const`, and the factory runs as soon as
+// something in the import graph imports `@/lib/env` — a plain `const` here is
+// then still in its temporal dead zone ("Cannot access 'BAKED_ENV' before
+// initialization"). Which import pulls env first is not this file's to know.
+const { BAKED_ENV } = vi.hoisted(() => {
+  const baked = "https://stale.headkit.app";
+  process.env.NEXT_PUBLIC_FRONTEND_URL = baked;
+  return { BAKED_ENV: baked };
 });
+const RUNTIME_DOMAIN = "customer.com";
 
 vi.mock("server-only", () => ({}));
 

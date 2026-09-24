@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import type { SeoData } from "@headkit/sdk";
 import { decodeHtmlEntities } from "@/lib/utils";
-import { isIndexableCurrentHost } from "@/lib/indexing-decision";
 import { normalizeSiteUrl, resolveSiteUrl } from "@/lib/site-url";
 import { stripTitleMarkers } from "@/lib/title-emphasis";
 
@@ -261,41 +260,31 @@ export function resolveOgImageUrl(options: {
 }
 
 /**
- * HTML `robots` meta — the SAME host decision `app/robots.ts` uses (ENG-868).
+ * HTML `robots` meta — the STORE switch only (ENG-868).
  *
- * Both inputs can only CLOSE indexing, and only both agreeing opens it:
- *  - the host gate ({@link isIndexableCurrentHost}) — a rehearsal / unknown
- *    host is `noindex, nofollow` whatever the store says;
+ * Two inputs used to close indexing here and both had to agree to open it. The
+ * HOST arm has MOVED OUT of metadata and is now an `X-Robots-Tag` response
+ * header set in `proxy.ts` — see `lib/host-robots.ts` for the measurement that
+ * forced the move and for why the two signals cannot contradict each other.
+ * What is left is the arm that never needed a runtime read:
+ *
  *  - the store switch (`allowIndexing`) — a store with indexing turned off
- *    stays off even on its own production host.
+ *    stays off on every host. It is part of the cached branding bundle, so
+ *    reading it keeps `generateMetadata` fully prerenderable.
  *
- * `VERCEL_ENV` is deliberately not read: a rehearsal storefront is a Vercel
- * *production* deployment on a temporary host, so keying on it waved through
- * exactly the case `robots.txt` was refusing — the two signals disagreed by
- * construction.
+ * `VERCEL_ENV` is deliberately not read ANYWHERE in this chain: a rehearsal
+ * storefront is a Vercel *production* deployment on a temporary host, so keying
+ * on it would wave through exactly the case `robots.txt` refuses.
  *
- * Both arguments are REQUIRED, and `configuredUrl` is typed without
- * `undefined`. A caller that forgot the origin used to still compile and still
- * return a well-formed answer — the WRONG one, `noindex, nofollow` on the
- * store's own live host — so the omission was invisible to the type checker and
- * to every assertion. It now fails loudly instead (see
- * {@link isIndexableCurrentHost}); `null` / `""` remain the honest "this store
- * declares no origin" value and still fail closed.
+ * Synchronous and origin-free on purpose. It used to take the store's origin so
+ * it could compare it against the request host; passing one now would be a
+ * parameter nothing reads, and a reader would reasonably assume the host gate
+ * still lived here.
  *
  * @param allowIndexing store-level “show on search engines”
- * @param configuredUrl the store's declared frontend origin, already resolved
- *   through `resolveSiteUrl` so it matches what `app/robots.ts` compares.
  */
-export async function resolveRobots(
-  allowIndexing: boolean,
-  configuredUrl: string | null,
-): Promise<Metadata["robots"]> {
-  // Resolved BEFORE the `&&` so a missing origin cannot be short-circuited past
-  // by `allowIndexing === false` — the loud failure must not depend on which
-  // input happens to close indexing first.
-  const indexableHost = await isIndexableCurrentHost(configuredUrl);
-  const index = allowIndexing && indexableHost;
-  return { index, follow: index };
+export function resolveRobots(allowIndexing: boolean): Metadata["robots"] {
+  return { index: allowIndexing, follow: allowIndexing };
 }
 
 /**
@@ -398,7 +387,7 @@ export async function makeRootMetadata(options?: {
     description,
     metadataBase: new URL(siteUrl || "http://localhost:3000"),
     applicationName: siteName,
-    robots: await resolveRobots(allowIndexing, siteUrl),
+    robots: resolveRobots(allowIndexing),
     alternates: {
       ...(options?.canonical ? { canonical: options.canonical } : {}),
       types: {
@@ -543,7 +532,7 @@ export async function makeSeoMetadata(
     // `robots: undefined` would resolve to null and clobber it.
     ...(fallback?.allowIndexing === undefined
       ? {}
-      : { robots: await resolveRobots(fallback.allowIndexing, siteUrl) }),
+      : { robots: resolveRobots(fallback.allowIndexing) }),
     openGraph: {
       type: "website",
       title: openGraphTitle,

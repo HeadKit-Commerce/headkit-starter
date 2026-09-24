@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { INDEXNOW_KEY_FILE, maintenanceGate } from "@/lib/maintenance";
+import { hostRobotsTag, ROBOTS_TAG_HEADER } from "@/lib/host-robots";
+import {
+  INDEXNOW_KEY_FILE,
+  maintenanceGate,
+  requestHost,
+} from "@/lib/maintenance";
+import {
+  canonicalRedirectUrl,
+  isCanonicalRedirectCandidate,
+} from "@/lib/canonical-redirect-request";
 
 /** Must match `DEFAULT_POSTS_BASE_PATH` in lib/posts-base-path.ts (internal route). */
 const DEFAULT_POSTS_BASE_PATH = "news";
@@ -52,24 +61,65 @@ function rewriteIndexNowKeyFile(
   return NextResponse.rewrite(rewriteUrl);
 }
 
+/** The per-store values the proxy needs, read once per request. */
+interface ProxyConfig {
+  /** WordPress Posts page slug used as the public blog base path. */
+  postsBase: string;
+  /**
+   * The store's declared frontend origin, or `""` when it cannot be read.
+   * `""` is the honest "this store declares no origin" value and makes the
+   * robots gate fail closed, exactly as the metadata host gate used to.
+   */
+  siteUrl: string;
+}
+
+const UNKNOWN_CONFIG: ProxyConfig = {
+  postsBase: DEFAULT_POSTS_BASE_PATH,
+  siteUrl: "",
+};
+
 /**
- * Resolve the public blog base path (WordPress Posts page slug).
- * Defaults to `news` when the API is unreachable or returns the default.
+ * Paths that never need the per-store config: Next internals, the API surface
+ * (including the config endpoint itself — fetching it from here would recurse)
+ * and anything with a file extension.
+ *
+ * Kept as ONE predicate because both consumers must skip the same set: the blog
+ * rewrite has always skipped these, and the robots header is pointless on them
+ * (static assets are not matched at all, and `robots.txt` disallows `/api/*`).
  */
-async function resolvePostsBasePath(request: NextRequest): Promise<string> {
+function needsProxyConfig(pathname: string): boolean {
+  return !(
+    pathname.startsWith("/api/") ||
+    pathname.startsWith("/_next/") ||
+    pathname.includes(".")
+  );
+}
+
+/**
+ * Read `/api/posts-base-path` — one subrequest per matched page request,
+ * revalidated hourly, carrying BOTH values the proxy needs. Any failure
+ * degrades to {@link UNKNOWN_CONFIG}: the blog rewrite falls back to `news` as
+ * it always has, and the robots gate falls back to closed.
+ */
+async function readProxyConfig(request: NextRequest): Promise<ProxyConfig> {
+  if (!needsProxyConfig(request.nextUrl.pathname)) return UNKNOWN_CONFIG;
   try {
     const url = new URL("/api/posts-base-path", request.url);
     const res = await fetch(url, {
       // Edge-friendly: honour Cache-Control from the route handler.
       next: { revalidate: 3600 },
     });
-    if (!res.ok) return DEFAULT_POSTS_BASE_PATH;
-    const data = (await res.json()) as { base?: unknown };
-    return typeof data.base === "string" && data.base.length > 0
-      ? data.base
-      : DEFAULT_POSTS_BASE_PATH;
+    if (!res.ok) return UNKNOWN_CONFIG;
+    const data = (await res.json()) as { base?: unknown; siteUrl?: unknown };
+    return {
+      postsBase:
+        typeof data.base === "string" && data.base.length > 0
+          ? data.base
+          : DEFAULT_POSTS_BASE_PATH,
+      siteUrl: typeof data.siteUrl === "string" ? data.siteUrl : "",
+    };
   } catch {
-    return DEFAULT_POSTS_BASE_PATH;
+    return UNKNOWN_CONFIG;
   }
 }
 
@@ -80,20 +130,11 @@ async function resolvePostsBasePath(request: NextRequest): Promise<string> {
  * `/news` and `/news/<slug>` so the URL matches Settings → Reading. Legacy
  * `/news` URLs 308 to the canonical base when it differs.
  */
-async function rewritePostsBasePath(
+function rewritePostsBasePath(
   request: NextRequest,
   pathname: string,
-): Promise<NextResponse | null> {
-  // Skip the JSON endpoint itself and obvious non-page assets.
-  if (
-    pathname.startsWith("/api/") ||
-    pathname.startsWith("/_next/") ||
-    pathname.includes(".")
-  ) {
-    return null;
-  }
-
-  const base = await resolvePostsBasePath(request);
+  base: string,
+): NextResponse | null {
   if (base === DEFAULT_POSTS_BASE_PATH) {
     return null;
   }
@@ -121,15 +162,87 @@ async function rewritePostsBasePath(
   return null;
 }
 
+/**
+ * The canonical 308 for a flat product or collection URL that carries a query
+ * string — issued HERE so the query survives it.
+ *
+ * The routes themselves cannot do this. `app/products/[...slug]/page.tsx` and
+ * `app/collections/[...slug]/page.tsx` build their `Location` from `params`
+ * alone because reading `searchParams` (or `headers()`) in a default export is
+ * a dynamic read above every Suspense boundary, and on a route that also
+ * exports `generateStaticParams` that is a build error under Cache Components —
+ * the rule in "Setting a status code needs THREE conditions" in `AGENTS.md`.
+ * The proxy is the layer that sees the whole URL, so it is where a campaign
+ * link's `gclid` / `utm_*` / `_kx` can be carried through.
+ *
+ * The DECISION is not made here: `/api/canonical-redirect` calls the routes'
+ * own functions. Two copies of a redirect rule is the one arrangement that can
+ * loop, so there is no second copy.
+ *
+ * `null` on any failure — a non-200, a malformed body, a network error. The
+ * route then 308s exactly as it does today, dropping the query: strictly the
+ * behaviour this replaces, never a wrong destination and never a loop.
+ *
+ * `cache: "no-store"` on purpose. The caching that matters is the `"use cache"`
+ * entries the endpoint resolves through, which the routes share; a revalidating
+ * fetch on top would be a second lifetime able to pin a stale redirect, and
+ * these are status-code decisions.
+ */
+async function canonicalRedirect(
+  request: NextRequest,
+): Promise<NextResponse | null> {
+  const { pathname, search } = request.nextUrl;
+  if (!isCanonicalRedirectCandidate(request.method, pathname, search)) {
+    return null;
+  }
+  try {
+    const endpoint = new URL("/api/canonical-redirect", request.url);
+    endpoint.searchParams.set("path", pathname);
+    const res = await fetch(endpoint, { cache: "no-store" });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { redirect?: unknown };
+    if (typeof data.redirect !== "string" || !data.redirect.startsWith("/")) {
+      return null;
+    }
+    return NextResponse.redirect(
+      canonicalRedirectUrl(new URL(request.url), data.redirect),
+      308,
+    );
+  } catch {
+    return null;
+  }
+}
+
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   // Maintenance gate (cutover gate G6) runs FIRST — before the routing rules
-  // below, and in particular before `rewritePostsBasePath`'s API fetch, so a
-  // dark store never waits on the systems a cutover window is changing.
+  // below, and in particular before `readProxyConfig`'s API fetch, so a dark
+  // store never waits on the systems a cutover window is changing.
   // Mechanism, key naming, and the lift command: apps/starter/MAINTENANCE.md.
   const maintenance = await maintenanceGate(request);
   if (maintenance.response) return maintenance.response;
 
-  const response = await route(request);
+  // Canonical consolidation WITH the query string attached. Gated to the flat
+  // product and collection shapes carrying a query (see
+  // `lib/canonical-redirect-request.ts`), so an ordinary request never pays the
+  // lookup — and it returns before `readProxyConfig`, because a request that is
+  // leaving on a 308 needs neither the blog rewrite nor a robots header.
+  const canonical = await canonicalRedirect(request);
+  if (canonical) return canonical;
+
+  // ONE read of the per-store config, shared by the blog rewrite and the
+  // host-indexing gate below, so neither costs a subrequest of its own.
+  const config = await readProxyConfig(request);
+
+  const response = route(request, config.postsBase);
+  // Host-based `noindex` — the signal that used to be a per-request `robots`
+  // meta and cost every route in the app its static shell. See
+  // lib/host-robots.ts.
+  const robotsTag = needsProxyConfig(request.nextUrl.pathname)
+    ? hostRobotsTag(config.siteUrl, requestHost(request))
+    : null;
+  if (robotsTag) {
+    response.headers.set(ROBOTS_TAG_HEADER, robotsTag);
+  }
   // Only set when a config store is connected: lets an operator confirm the
   // exact key this host reads, and that the gate is armed at all, before a
   // window rather than after.
@@ -142,13 +255,13 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   return response;
 }
 
-async function route(request: NextRequest): Promise<NextResponse> {
+function route(request: NextRequest, postsBase: string): NextResponse {
   const pathname = request.nextUrl.pathname;
 
   const indexNow = rewriteIndexNowKeyFile(request, pathname);
   if (indexNow) return indexNow;
 
-  const postsRewrite = await rewritePostsBasePath(request, pathname);
+  const postsRewrite = rewritePostsBasePath(request, pathname, postsBase);
   if (postsRewrite) return postsRewrite;
 
   if (isPublicAccountPath(pathname)) {

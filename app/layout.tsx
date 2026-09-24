@@ -15,7 +15,6 @@ import { Footer } from "@/components/headkit-ui/footer";
 import { LazyCartDrawer } from "@/components/headkit-ui/lazy-cart-drawer";
 import { WebsiteJsonLD } from "@/components/seo/website-json-ld";
 import { OrganizationJsonLD } from "@/components/seo/organization-json-ld";
-import { DynamicMetadataMarker } from "@/components/seo/dynamic-metadata-marker";
 import {
   makeRootMetadata,
   brandingIcons,
@@ -274,11 +273,6 @@ export default async function RootLayout({
           {...(orgLogoUrl ? { logoUrl: orgLogoUrl } : {})}
         />
 
-        {/* Request-time metadata opt-in — see the component's doc comment. */}
-        <Suspense fallback={null}>
-          <DynamicMetadataMarker />
-        </Suspense>
-
         {/*
           NO <Suspense> may wrap {children} here. Under Cache Components a
           redirect thrown below a boundary lands after the response has
@@ -288,6 +282,16 @@ export default async function RootLayout({
           boundary also emptied the prerendered shell, leaving no page content
           at all for a client that runs no JavaScript. `e2e/canonical-url-308.spec.ts`
           is what observes both.
+
+          And NOTHING here may make a REQUEST-TIME read, boundary or no
+          boundary. A boundary in this layout is free — the `<Suspense>` around
+          <BelowMain /> below costs nothing, because its child is cached — but a
+          request-time read inside one postpones a dynamic hole in EVERY route
+          in the application, so no response can be served as a finished file.
+          Measured: +1.4 s on a 27 KB page, +2.4 s on a 236 KB page, +44-68 %
+          bytes, on every page and every RSC payload. This layout used to carry
+          <DynamicMetadataMarker /> (`await connection()`) for exactly that
+          reason and no longer does; see lib/host-robots.ts.
         */}
         <BrandingIconsProvider library={branding.iconLibrary}>
           <CatalogDisplayProvider

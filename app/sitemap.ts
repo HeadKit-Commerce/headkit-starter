@@ -11,6 +11,11 @@ import {
 } from "@/components/headkit-ui/collection/utils";
 import { toAttributeKey } from "@/lib/color-attr-slug";
 import { brandSlugsPerCategory } from "@/lib/brand-facets";
+import {
+  facetCountsBySlug,
+  keepsBrandFacet,
+  keepsColourFacet,
+} from "@/lib/facet-sitemap-thresholds";
 import { walkCategoryPaths } from "./shop/shop-slug";
 import { productPath } from "@/lib/canonical-path";
 import { getPostsBasePath, postsIndexPath } from "@/lib/posts-base-path";
@@ -187,6 +192,14 @@ async function makeCollectionSitemap(siteUrl: string): Promise<SitemapItem[]> {
       );
       const seen = new Set<string>();
       for (const option of colorAttr?.options ?? []) {
+        // Thin-facet cut, OFF by default: a colour holding fewer products than
+        // the store's bar is a near-duplicate of those products' own pages, and
+        // on a store that does not prerender facet params it is also a URL
+        // whose first visitor pays a cold render. The bar, its default of 0 and
+        // the measured distribution behind the value one store chose live in
+        // `lib/facet-sitemap-thresholds.ts`. `option.count` comes from the
+        // getFilters call above — no extra read.
+        if (!keepsColourFacet(option?.count)) continue;
         // colorFilterSlug yields exactly `color.<c>` for a single color, so the
         // emitted URL is `/collections/<path>/f/color.<c>` (Tier-1 only).
         const slug = colorFilterSlug(colorAttr?.slug ?? "", option?.slug ?? "");
@@ -202,7 +215,19 @@ async function makeCollectionSitemap(siteUrl: string): Promise<SitemapItem[]> {
       // Tier-1 category×brand single-facet URLs (06.1) — only for pairs that
       // contain a product. Single value, no combos.
       const seenBrand = new Set<string>();
+      // Counts for THIS category's scoped brands. `brandSlugsPerCategory` has
+      // already made the scoped-vs-global fallback decision on the unfiltered
+      // lists, so the threshold is applied to its result rather than to its
+      // input — filtering first could empty every category's brand list and
+      // flip that fallback on, re-emitting the whole cross-product. In fallback
+      // mode this map is empty, every count reads as unknown and nothing is
+      // dropped, which is the behaviour that mode exists to preserve.
+      const brandCounts = facetCountsBySlug(filters?.brands);
       for (const brandSlug of perCategoryBrands[i] ?? []) {
+        // Thin-facet cut, OFF by default: a category x brand pair below the
+        // store's bar is covered by both that product's page and
+        // `/brand/<slug>`.
+        if (!keepsBrandFacet(brandCounts.get(brandSlug))) continue;
         const slug = brandFilterSlug(brandSlug);
         if (!slug || seenBrand.has(slug)) continue;
         seenBrand.add(slug);

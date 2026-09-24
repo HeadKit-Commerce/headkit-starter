@@ -323,9 +323,9 @@ describe("missing pages answer a real 404, not a 200 shell", () => {
     );
 
     // Every boundary that OPENS before {children} must also CLOSE before it.
-    // Counting nesting rather than matching text keeps the unrelated
-    // <Suspense> around <DynamicMetadataMarker /> (which closes immediately)
-    // legal, while any boundary left open across {children} fails.
+    // Counting nesting rather than matching text means a boundary that closes
+    // immediately (a SIBLING of {children}) stays legal, while any boundary
+    // left open across {children} fails.
     const before = src.slice(0, children);
     const opened = (before.match(/<Suspense[\s>]/g) ?? []).length;
     const closed = (before.match(/<\/Suspense>/g) ?? []).length;
@@ -338,5 +338,50 @@ describe("missing pages answer a real 404, not a 200 shell", () => {
         `status line is already sent and the whole gate above is inert. Keep ` +
         `boundaries below {children}, inside the routes.`,
     ).toBe(0);
+  });
+
+  it("the root layout makes no request-time read", () => {
+    // The SECOND rule this layout has to keep, and the one the boundary check
+    // above cannot see. A boundary in the root layout is FREE — the one around
+    // the customer's <BelowMain /> slot costs nothing, because its child is
+    // cached. A request-time read INSIDE one is not: it postpones a dynamic
+    // hole in EVERY route in the application, so no response can be served as
+    // a finished file and each is produced by a runtime React resume.
+    // Measured on a deployed probe, one variable at a time: +1.4 s on a 27 KB
+    // page, +2.4 s on a 236 KB page, +44-68% bytes, on every page and every
+    // RSC payload (lib/host-robots.ts carries the full table).
+    //
+    // This layout used to render <DynamicMetadataMarker /> — a SIBLING of
+    // {children}, so the nesting check above was green for it — purely so the
+    // `robots` meta could be decided from the request Host. That signal is an
+    // X-Robots-Tag response header now, and nothing request-time may come back.
+    //
+    // SCOPE: a SOURCE scan of this one file. It catches the four request-time
+    // APIs and the marker by name, in the layout itself. It does NOT follow
+    // into a component the layout renders — including the customer-owned
+    // `overrides/layout-slots.tsx` slots, whose whole point is that a store
+    // writes them; a request-time read added THERE costs the same thing and
+    // nothing here will say so. The build is still the only place the real
+    // rule is enforced.
+    const src = read("app/layout.tsx")
+      .replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+
+    const reads = [
+      ...src.matchAll(
+        /\b(connection|headers|cookies|draftMode)\s*\(\s*\)|<DynamicMetadataMarker\b/g,
+      ),
+    ].map((match) => match[0]);
+
+    expect(
+      reads,
+      `app/layout.tsx performs a request-time read (${reads.join(", ")}). ` +
+        `In the ROOT layout that postpones a dynamic hole in EVERY route, so ` +
+        `no page in the app can be served as a finished file — measured at ` +
+        `+1.4 s / +2.4 s and +44-68% bytes. Put the read in the one route ` +
+        `that needs it, or move the signal off the render path entirely (see ` +
+        `lib/host-robots.ts).`,
+    ).toEqual([]);
   });
 });

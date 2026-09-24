@@ -24,6 +24,9 @@ const getCategory = vi.fn();
 const getFilters = vi.fn();
 const getCategories = vi.fn();
 const brandsList = vi.fn();
+// The brand-facet metadata branch reads the display name through
+// `getCachedProductBrand`, which is `brands.get` — never the 100-brand list.
+const brandsGet = vi.fn();
 const redirectedTo = vi.fn<(path: string) => void>();
 
 vi.mock("next/cache", () => ({
@@ -46,26 +49,38 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-// The facet `robots` meta is decided by the request Host (ENG-868 / ENG-876).
+// Kept mocked even though this route's metadata no longer reads a header:
+// `setRequestHost` below still drives it, and one test asserts it is NEVER
+// called — the property that keeps `generateMetadata` prerenderable.
+const mockedHeaders = vi.hoisted(() => vi.fn());
+
 vi.mock("next/headers", async () => {
   const { currentRequestHeaders } =
     await import("@/lib/test-support/request-host");
-  return {
-    headers: async (): Promise<Headers> => {
-      if (bailout.armed) throw new BailoutSignal("dynamic usage");
-      return currentRequestHeaders();
-    },
-  };
+  mockedHeaders.mockImplementation(
+    async (): Promise<Headers> => currentRequestHeaders(),
+  );
+  return { headers: mockedHeaders };
 });
 
 vi.mock("@/lib/sdk", () => ({
   headkit: {
     collections: {
-      getCategory: (slug: string): unknown => getCategory(slug),
+      getCategory: (slug: string): unknown => {
+        // Stands in for Next throwing its dynamic-access signal from inside a
+        // read `generateMetadata` awaits. It used to be armed on `headers()`,
+        // which this route's metadata no longer calls; the property under test
+        // — the route's catch must not swallow Next control flow — is the same.
+        if (bailout.armed) throw new BailoutSignal("dynamic usage");
+        return getCategory(slug);
+      },
       getFilters: (slug: string): unknown => getFilters(slug),
       getCategories: (): unknown => getCategories(),
     },
-    brands: { list: (): unknown => brandsList() },
+    brands: {
+      list: (): unknown => brandsList(),
+      get: (slug: string): unknown => brandsGet(slug),
+    },
   },
 }));
 
@@ -160,6 +175,7 @@ beforeEach(() => {
   getFilters.mockReset();
   getCategories.mockReset();
   brandsList.mockReset();
+  brandsGet.mockReset();
   redirectedTo.mockReset();
   getCategory.mockResolvedValue(nestedCategory());
   getFilters.mockResolvedValue({
@@ -167,6 +183,7 @@ beforeEach(() => {
   });
   getCategories.mockResolvedValue([]);
   brandsList.mockResolvedValue({ brands: [] });
+  brandsGet.mockResolvedValue(null);
 });
 
 describe("base collection canonical", () => {
@@ -203,36 +220,46 @@ describe("Tier-1 facet canonical", () => {
 /**
  * ENG-868 / ENG-876: a Tier-1 facet URL is a deliberate SEO surface — it gets a
  * self-canonical, a facet title and a facet description precisely so it can be
- * indexed, and robots.txt allows `/collections/*`. Its `robots` meta must
- * therefore be judged against the store's own origin like every other surface;
- * omitting that origin made it `noindex, nofollow` on EVERY host, silently
- * de-indexing the page while robots.txt kept inviting the crawl.
+ * indexed, and robots.txt allows `/collections/*`. It used to carry a
+ * `noindex, nofollow` on EVERY host because its `resolveRobots` call omitted
+ * the store origin, silently de-indexing the page while robots.txt kept
+ * inviting the crawl.
+ *
+ * SCOPE: the meta carries the STORE SWITCH only. A rehearsal host is closed by
+ * the `X-Robots-Tag` header `proxy.ts` sets, which is `lib/host-robots.test.ts`
+ * — nothing here proves it, and the host-independence below is the cost of that
+ * split stated out loud rather than hidden.
  */
 describe("Tier-1 facet robots", () => {
-  it("indexes on the store's own host when the store switch is on", async () => {
+  it("indexes when the store switch is on, and reads no request header", async () => {
+    mockedHeaders.mockClear();
+
     const meta = await metadataFor(["child", "f", COLOR_FACET]);
 
     expect(
       meta.robots,
       "the facet meta must not refuse the crawl robots.txt allows",
     ).toEqual({ index: true, follow: true });
+    expect(
+      mockedHeaders,
+      "a header read here postpones a dynamic hole in this route",
+    ).not.toHaveBeenCalled();
   });
 
-  it("noindexes the same URL on a rehearsal host", async () => {
+  it("answers the same on a rehearsal host — the HEADER is what closes it", async () => {
     setRequestHost("acme-rehearsal.headkit.app");
 
     const meta = await metadataFor(["child", "f", COLOR_FACET]);
 
-    expect(meta.robots).toEqual({ index: false, follow: false });
+    expect(meta.robots).toEqual({ index: true, follow: true });
   });
 });
 
 /**
- * Metadata became request-time when the `robots` meta started consulting the
- * request Host, so Next's dynamic-access signal can now originate INSIDE
- * `generateMetadata`'s own try block. A `catch` that consumes it turns "mark
- * this render dynamic" into a page that silently loses its title, description
- * and canonical.
+ * Next's dynamic-access signal can originate INSIDE `generateMetadata`'s own
+ * try block — a cached read it awaits can throw one during prerender. A `catch`
+ * that consumes it turns "mark this render dynamic" into a page that silently
+ * loses its title, description and canonical.
  */
 describe("generateMetadata dynamic bailout", () => {
   it("propagates Next's bailout signal instead of degrading to empty metadata", async () => {
@@ -240,7 +267,7 @@ describe("generateMetadata dynamic bailout", () => {
 
     await expect(
       metadataFor(["parent", "child"]),
-      "the route catch must not swallow the signal the host read re-throws",
+      "the route catch must not swallow the signal a cached read re-throws",
     ).rejects.toBeInstanceOf(BailoutSignal);
   });
 

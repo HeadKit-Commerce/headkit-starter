@@ -1,53 +1,51 @@
 import { connection } from "next/server";
 
 /**
- * Opts every route into request-time `generateMetadata` (ENG-868 / ENG-876).
+ * Opts ONE route into request-time `generateMetadata`.
  *
- * The HTML `robots` meta is decided by the request HOST, so metadata cannot be
- * baked into a prerendered shell that is served for every host. Under Cache
- * Components a route whose metadata reads a runtime input FAILS the build
- * ("Next.js encountered uncached or runtime data in `generateMetadata()`")
- * unless the route also has a dynamic hole; this marker is that hole, rendered
- * from the root layout inside `<Suspense>` so it covers all routes at once.
+ * Under Cache Components, a `generateMetadata` that reads runtime data
+ * (`searchParams`, `cookies()`, `headers()`, an uncached fetch) fails the build
+ * — "Next.js encountered uncached or runtime data in `generateMetadata()`" —
+ * unless the route also has a dynamic hole. Next's own remedy for that error is
+ * literally this component: "Render a marker component that calls
+ * `await connection()` inside `<Suspense>` on the page". It renders nothing.
  *
- * It renders nothing. The static shell is still prerendered — only the marker
- * and the metadata resolve per request — which is the price of a `robots` tag
- * that can tell a rehearsal host from the customer's live one. `export const
- * dynamic` is not an option here: Cache Components rejects it, and
- * `connection()` is the documented replacement.
+ * ---------------------------------------------------------------------------
+ * IT MUST NEVER GO BACK IN THE ROOT LAYOUT
+ * ---------------------------------------------------------------------------
+ * It used to live there, so that every route got a hole at once, which is what
+ * let the `robots` meta be decided per request from the Host. A request-time
+ * read in the root layout postpones a hole in EVERY route in the application,
+ * so no response can be served as a finished file — each is produced by a
+ * runtime React resume that re-emits flight rows and inflates the payload.
+ * Measured on a deployed probe, one variable at a time (Bike Society, report
+ * `260915-bs-click-latency-scout` §4.2): **+1.4 s on a 27 KB page, +2.4 s on a
+ * 236 KB page, +44–68 % bytes**, on every page and every RSC payload. The same
+ * `<Suspense>` with a CACHED child cost nothing, so the boundary is not the
+ * problem — the read inside it is.
  *
- * WHAT THAT PRICE IS, MEASURED (Next 16.3 production build, 2026-09-10; the
- * numbers and the method are in "Request-time metadata costs the function
- * resume, not cache lookups" in `apps/starter/AGENTS.md`):
+ * The host-based `robots` signal that needed it is now an `X-Robots-Tag`
+ * response header (`lib/host-robots.ts`), so the layout needs no marker.
  *
- * - It is NOT a cache lookup. `generateMetadata` reads `getBranding()` and
- *   `getBrandingAssets()` (`"use cache: remote"`), and it is tempting to read
- *   the per-request tail as "two Runtime Cache round trips". It is zero. The
- *   prerender's postponed state carries the Resume Data Cache — every
- *   `use cache` entry the prerender read, remote ones included — the platform
- *   POSTs that state back to the function on each resume, and `use cache`
- *   consults it BEFORE any cache handler. On every route family the warm
- *   request made 0 handler `get`s for these two keys. Moving the reads out of
- *   metadata therefore removes nothing; the same keys are also read by the
- *   layout body in the same request and de-duplicated with it.
- * - It IS the function resume itself: one invocation per HIT that re-renders
- *   the RSC tree from the postponed state and streams the holes — metadata,
- *   this marker, and the route's other holes (locally 4–6 per route). Nothing
- *   inside `generateMetadata` can shorten that; only a route with NO dynamic
- *   hole at all is served without a function.
- * - It cannot be split. A `generateMetadata` result is one object: it is
- *   either wholly prerenderable or wholly deferred (Next 16.3 bundled docs,
- *   `generate-metadata.md`, "With Cache Components"). A host-dependent
- *   `robots` tag inside it therefore keeps `<title>`, canonical and OG out of
- *   the shell too. Two shapes that would change that were evaluated for
- *   PR #470 and REJECTED: emitting the host gate as a rendered
- *   `<meta name="robots">` from this hole (metadata joins the shell, the
- *   function still runs, and a rehearsal host carries two robots metas that
- *   port-verify reports as a finding), or as an `X-Robots-Tag` header from
- *   `proxy.ts` with this marker removed (the HTML tag stops being
- *   host-dependent, which is the ENG-868 / ENG-876 constraint). Both are
- *   decisions about what a non-indexable host emits, not refactors; the
- *   second is lever 11 of the scout report and is weighed separately.
+ * ---------------------------------------------------------------------------
+ * WHO STILL MOUNTS IT
+ * ---------------------------------------------------------------------------
+ * `app/products/[...slug]` alone. Its `generateMetadata` reads `searchParams`
+ * for the Shopify Admin `preview_key`, and the route prerenders real products
+ * through `ProductPageBody` with no boundary of its own, so without a marker
+ * that read is a build error. The cost is confined to the FLAT product URL,
+ * which 308s onto the canonical `/shop/…` path anyway and is not the route
+ * shoppers land on.
+ *
+ * Before adding a second caller, check whether the route already has a dynamic
+ * hole inside a `<Suspense>` — one is enough for the whole route, and `/search`
+ * needs no marker for exactly that reason. Mount it as a SIBLING of the page
+ * content, never as a wrapper: a boundary around content hides that content
+ * from a client with JavaScript off (see `AGENTS.md`, "Cached content renders
+ * OUTSIDE the boundary").
+ *
+ * `export const dynamic` is not an option here: Cache Components rejects it,
+ * and `connection()` is the documented replacement.
  */
 export async function DynamicMetadataMarker(): Promise<null> {
   await connection();

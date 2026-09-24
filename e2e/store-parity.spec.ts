@@ -1008,7 +1008,7 @@ test.describe("Store V1->V2 route parity gate (MIG-03/MIG-04)", () => {
       if (TEMP_HOST === true) {
         expect(
           blanketDisallow,
-          `${ctx()} this run is flagged as a TEMPORARY host but /robots.txt does not disallow everything. Both SEO gates default OPEN (branding.ts DEFAULT_BUNDLE ships enableSitemap/allowIndexing true, and returns that bundle on any thrown error), so an untouched rehearsal host is fully crawlable with the customer's real catalogue. The page-level noindex derives from the SAME host decision this file is checking (isIndexableCurrentHost in lib/indexing-decision.ts), so the two cannot disagree — a robots.txt open here means every page of this deployment also says index, follow. robots.txt was:\n${body}`,
+          `${ctx()} this run is flagged as a TEMPORARY host but /robots.txt does not disallow everything. Both SEO gates default OPEN (branding.ts DEFAULT_BUNDLE ships enableSitemap/allowIndexing true, and returns that bundle on any thrown error), so an untouched rehearsal host is fully crawlable with the customer's real catalogue. The page-level signal is the X-Robots-Tag header (lib/host-robots.ts), asserted by the next case — it is a SEPARATE comparison against the same isIndexableHost predicate, not the same call, so this case proves only robots.txt. robots.txt was:\n${body}`,
         ).toBe(true);
         expect(
           advertisesSitemap,
@@ -1023,6 +1023,44 @@ test.describe("Store V1->V2 route parity gate (MIG-03/MIG-04)", () => {
           advertisesSitemap,
           `${ctx()} this run is flagged as the LIVE host but /robots.txt advertises no sitemap — the rehearsal posture was carried into production. robots.txt was:\n${body}`,
         ).toBe(true);
+      }
+    } finally {
+      await api.dispose();
+    }
+  });
+
+  test("the page-level X-Robots-Tag matches the declared host role", async () => {
+    // The page half of the pair, and the ONLY place it can be observed: it is
+    // a response header set in `proxy.ts` from the request host, so no unit
+    // test and no page-source check can see it. It must agree with robots.txt
+    // above — a `Disallow: /` beside pages a crawler may index is exactly the
+    // desynchronisation ENG-868 exists to remove.
+    //
+    // SCOPE: this asserts the header on ONE document request against the host
+    // under test. It says nothing about which origin the store declares (that
+    // is `/api/posts-base-path`'s `siteUrl`), and nothing about the store's own
+    // `allowIndexing` switch, which rides the `robots` meta instead.
+    const api = await request.newContext();
+    try {
+      const res = await api.get(`${BASE_URL}/`, { failOnStatusCode: false });
+      expect(
+        res.status(),
+        `${ctx()} the home page returned ${res.status()} — the indexing posture of this host cannot be established from it`,
+      ).toBeLessThan(400);
+
+      const tag = res.headers()["x-robots-tag"] ?? "";
+      const noindex = /\bnoindex\b/i.test(tag);
+
+      if (TEMP_HOST === true) {
+        expect(
+          noindex,
+          `${ctx()} this run is flagged as a TEMPORARY host but the home page carries no noindex X-Robots-Tag (header was ${JSON.stringify(tag)}). This host serves the customer's REAL catalogue; left indexable it competes with their live site in search and the damage outlives the rehearsal. Check that the store's declared origin (/api/posts-base-path -> siteUrl) is not this host.`,
+        ).toBe(true);
+      } else {
+        expect(
+          noindex,
+          `${ctx()} this run is flagged as the LIVE host but the home page carries a noindex X-Robots-Tag (header was ${JSON.stringify(tag)}) — the store is being de-indexed on its own domain. The gate compares the request host against the store's declared origin, so either the domain record or NEXT_PUBLIC_FRONTEND_URL disagrees with the host actually served.`,
+        ).toBe(false);
       }
     } finally {
       await api.dispose();

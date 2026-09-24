@@ -28,8 +28,30 @@ const cacheTag = vi.fn<(...tags: string[]) => void>();
 const collectionsGetCategories = vi.fn<() => Promise<unknown[]>>();
 const collectionsGetFilters = vi.fn<(slug: string) => Promise<unknown>>();
 const brandsList = vi.fn<() => Promise<unknown>>();
+// The thin-facet cut's two predicates. Spied rather than driven by env because
+// both bars are resolved once at module load; the emitter half under test here
+// is "does app/sitemap.ts consult them, with the count the getFilters payload
+// carried, and drop what they refuse" — the RULE is
+// `lib/facet-sitemap-thresholds.test.ts`.
+const keepsColourFacet = vi.fn<(count: unknown) => boolean>();
+const keepsBrandFacet = vi.fn<(count: unknown) => boolean>();
 
 vi.mock("server-only", () => ({}));
+
+// `app/sitemap.ts` reads the thin-facet bars through `lib/env.ts`, which
+// validates the whole environment at import; an empty object is the
+// "no bar configured" case, i.e. today's sitemap.
+vi.mock("@/lib/env", () => ({ env: {} }));
+
+vi.mock("@/lib/facet-sitemap-thresholds", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/facet-sitemap-thresholds")>();
+  return {
+    ...actual,
+    keepsColourFacet: (count: unknown): boolean => keepsColourFacet(count),
+    keepsBrandFacet: (count: unknown): boolean => keepsBrandFacet(count),
+  };
+});
 
 vi.mock("next/cache", () => ({
   cacheLife: (profile: string): void => cacheLife(profile),
@@ -75,6 +97,7 @@ vi.mock("@/lib/sdk", () => ({
 
 import { KNOWN_MENU_LOCATIONS } from "@/lib/cache-tags";
 import { decodeFilterSlug } from "@/components/headkit-ui/collection/utils";
+import { meetsFacetThreshold } from "@/lib/facet-sitemap-thresholds";
 import sitemap from "./sitemap";
 import { uriToRelativePath } from "./shop/shop-slug";
 
@@ -126,6 +149,12 @@ beforeEach(() => {
   collectionsGetCategories.mockReset();
   collectionsGetFilters.mockReset();
   brandsList.mockReset();
+  keepsColourFacet.mockReset();
+  keepsBrandFacet.mockReset();
+  // Default: the platform bars, which cut nothing. Every existing assertion in
+  // this file predates the thin-facet cut and must keep seeing every facet.
+  keepsColourFacet.mockReturnValue(true);
+  keepsBrandFacet.mockReturnValue(true);
   // Default: no menus, so the WordPress-page section is empty and the
   // product assertions below see only product entries.
   menuGetMenus.mockResolvedValue([]);
@@ -628,5 +657,185 @@ describe("category×brand facet emptiness", () => {
       { category: "bikes", brand: "shimano" },
       { category: "bikes", brand: "abus" },
     ]);
+  });
+});
+
+describe("thin facet cut", () => {
+  // The emitter half of `lib/facet-sitemap-thresholds.ts`. That file's own test
+  // proves the RULE and the platform default (both bars 0 — no cut). This one
+  // proves `app/sitemap.ts` APPLIES the rule, to BOTH families, from the count
+  // the getFilters payload already carries.
+  //
+  // COVERS: which /collections/<cat>/f/<facet> URLs come out of sitemap(), and
+  // which counts the emitter hands each predicate.
+  // DOES NOT COVER: the route's runtime behaviour. A dropped URL still routes
+  // and still answers 200 — nothing here touches that, and no test in this repo
+  // asserts it.
+
+  /** Every collection facet URL's `{category, facet}` pair. */
+  async function facets(): Promise<{ category: string; facet: string }[]> {
+    const entries = await sitemap();
+    return entries
+      .map((e) => new URL(e.url).pathname)
+      .filter((p) => p.startsWith("/collections/") && p.includes("/f/"))
+      .map((p) => {
+        const [base, facet] = p.split("/f/");
+        return {
+          category: base!.split("/").filter(Boolean).pop()!,
+          facet: facet!,
+        };
+      });
+  }
+
+  function colourSlugs(rows: { facet: string }[]): string[] {
+    return rows
+      .map((r) => decodeFilterSlug(r.facet))
+      .filter((d) => d.brands.length === 0)
+      .flatMap((d) => Object.values(d.attributes).flat());
+  }
+
+  beforeEach(() => {
+    productsList.mockResolvedValue({ products: [], totalPages: 0 });
+    collectionsGetCategories.mockResolvedValue([
+      { slug: "bikes", children: [] },
+    ]);
+  });
+
+  it("advertises every facet under the platform default, cutting nothing", async () => {
+    // The default both bars sit at. This is the case that must not change for
+    // a store that sets neither env value.
+    // The real predicate at the real default bar. `meetsFacetThreshold` is the
+    // shared implementation and is NOT one of the two names this file spies on,
+    // so it comes through the partial mock unchanged.
+    keepsColourFacet.mockImplementation((c) =>
+      meetsFacetThreshold(c as number, 0),
+    );
+    keepsBrandFacet.mockImplementation((c) =>
+      meetsFacetThreshold(c as number, 0),
+    );
+    brandsList.mockResolvedValue({ brands: [{ slug: "factor" }] });
+    collectionsGetFilters.mockResolvedValue({
+      attributes: [
+        {
+          slug: "colour",
+          options: [
+            { slug: "black", name: "Black", count: 53 },
+            { slug: "agave-sunset", name: "Agave Sunset", count: 1 },
+          ],
+        },
+      ],
+      brands: [{ slug: "factor", name: "Factor", count: 1 }],
+    });
+
+    const rows = await facets();
+    expect(colourSlugs(rows)).toEqual(["black", "agave-sunset"]);
+    expect(rows.flatMap((r) => decodeFilterSlug(r.facet).brands)).toEqual([
+      "factor",
+    ]);
+  });
+
+  it("drops the colours the bar refuses, and hands it the reported count", async () => {
+    keepsColourFacet.mockImplementation(
+      (count) => typeof count === "number" && count >= 3,
+    );
+    keepsBrandFacet.mockReturnValue(true);
+    brandsList.mockResolvedValue({ brands: [] });
+    collectionsGetFilters.mockResolvedValue({
+      attributes: [
+        {
+          slug: "colour",
+          options: [
+            { slug: "black", name: "Black", count: 53 },
+            { slug: "red", name: "Red", count: 3 },
+            { slug: "oak-green", name: "Oak Green", count: 2 },
+            { slug: "agave-sunset", name: "Agave Sunset", count: 1 },
+          ],
+        },
+      ],
+      brands: [],
+    });
+
+    expect(colourSlugs(await facets())).toEqual(["black", "red"]);
+    // The count reaching the predicate is the one the payload carried — the
+    // whole cut is free precisely because it needs no read of its own.
+    expect(keepsColourFacet.mock.calls.map(([c]) => c)).toEqual([53, 3, 2, 1]);
+  });
+
+  it("drops the brands the bar refuses, looked up by SLUG from the same payload", async () => {
+    keepsColourFacet.mockReturnValue(true);
+    keepsBrandFacet.mockImplementation(
+      (count) => typeof count === "number" && count >= 2,
+    );
+    brandsList.mockResolvedValue({
+      brands: [{ slug: "scott" }, { slug: "abus" }, { slug: "factor" }],
+    });
+    collectionsGetFilters.mockResolvedValue({
+      attributes: [],
+      brands: [
+        { slug: "scott", name: "Scott", count: 98 },
+        { slug: "abus", name: "Abus", count: 2 },
+        { slug: "factor", name: "Factor", count: 1 },
+      ],
+    });
+
+    const brands = (await facets())
+      .map((r) => decodeFilterSlug(r.facet).brands)
+      .flat();
+    expect(brands).toEqual(["scott", "abus"]);
+    expect(keepsBrandFacet.mock.calls.map(([c]) => c)).toEqual([98, 2, 1]);
+  });
+
+  it("reports an UNKNOWN count for a brand the payload gave no count for", async () => {
+    // Only an OBSERVED count may drop a URL; the predicate must be able to tell
+    // "one product" from "this backend reports no counts". `undefined` is how
+    // it is told, and `keepsBrandFacet` answers keep.
+    keepsColourFacet.mockReturnValue(true);
+    keepsBrandFacet.mockImplementation((count) => count === undefined);
+    brandsList.mockResolvedValue({ brands: [{ slug: "scott" }] });
+    collectionsGetFilters.mockResolvedValue({
+      attributes: [],
+      brands: [{ slug: "scott", name: "Scott" }],
+    });
+
+    const rows = await facets();
+    expect(rows.flatMap((r) => decodeFilterSlug(r.facet).brands)).toEqual([
+      "scott",
+    ]);
+    expect(keepsBrandFacet).toHaveBeenCalledWith(undefined);
+  });
+
+  it("leaves the global-brand fallback emitting the full cross-product", async () => {
+    // The threshold is applied to brandSlugsPerCategory's RESULT, not its
+    // input, so it cannot empty every category's brand list and flip the
+    // fallback on. In fallback mode no slug has a count, so nothing is dropped.
+    keepsColourFacet.mockReturnValue(true);
+    keepsBrandFacet.mockImplementation((count) => count === undefined);
+    brandsList.mockResolvedValue({
+      brands: [{ slug: "shimano" }, { slug: "abus" }],
+    });
+    collectionsGetFilters.mockResolvedValue({ attributes: [] });
+
+    const brands = (await facets())
+      .map((r) => decodeFilterSlug(r.facet).brands)
+      .flat();
+    expect(brands).toEqual(["shimano", "abus"]);
+  });
+
+  it("leaves the bare category PLP alone", async () => {
+    keepsColourFacet.mockReturnValue(false);
+    keepsBrandFacet.mockReturnValue(false);
+    brandsList.mockResolvedValue({ brands: [{ slug: "factor" }] });
+    collectionsGetFilters.mockResolvedValue({
+      attributes: [
+        { slug: "colour", options: [{ slug: "agave-sunset", count: 1 }] },
+      ],
+      brands: [{ slug: "factor", count: 1 }],
+    });
+
+    const entries = await sitemap();
+    const collections = entries
+      .map((e) => new URL(e.url).pathname)
+      .filter((p) => p.startsWith("/collections/"));
+    expect(collections).toEqual(["/collections/bikes"]);
   });
 });

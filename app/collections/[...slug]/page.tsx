@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, permanentRedirect, unstable_rethrow } from "next/navigation";
-import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
+import { getCachedProductBrand } from "@/lib/product-brand";
 import { CollectionHeader } from "@/components/headkit-ui/collection/collection-header";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
 import {
@@ -27,8 +27,6 @@ import {
   storefrontUrl,
 } from "@/lib/make-metadata";
 import { getBranding } from "@/lib/branding";
-import { resolveSiteUrl } from "@/lib/site-url";
-import { TAG } from "@/lib/cache-tags";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import type { SortKeyType } from "@/components/headkit-ui/collection/utils";
 import type { ProductFilters } from "@headkit/sdk";
@@ -39,80 +37,18 @@ import {
 import { CATALOG_PAGE_SIZE } from "@/components/headkit-ui/catalog-grid";
 import { getCachedCatalogPage } from "@/lib/catalog-cache";
 import { walkCategoryPaths } from "@/app/shop/shop-slug";
-
-/** Satisfies Cache Components: `generateStaticParams` must not return []. Never a real category slug. */
-const STATIC_GEN_PLACEHOLDER_SLUG = "__hk_static_placeholder";
+import {
+  canonicalCollectionRedirect,
+  getCategoryData,
+  parseCollectionSlug,
+  STATIC_GEN_PLACEHOLDER_SLUG,
+} from "@/lib/collection-canonical";
 
 interface Props {
   params: Promise<{ slug: string[] }>;
 }
 
 const PER_PAGE = CATALOG_PAGE_SIZE;
-
-/**
- * Parse the catch-all slug into category path and optional filter slug.
- * URL formats:
- *   /collections/hoodies                            → no filter
- *   /collections/hoodies/f/color.blue.red_size.l   → filtered
- *   /collections/clothing/hoodies/f/color.red       → nested category + filter
- */
-function parseCollectionSlug(slug: string[]): {
-  categorySlug: string;
-  filterSlug: string | undefined;
-  categoryBasePath: string;
-} {
-  const fIndex = slug.indexOf("f");
-  if (fIndex > 0 && slug[fIndex + 1]) {
-    const categorySegments = slug.slice(0, fIndex);
-    return {
-      categorySlug: categorySegments[categorySegments.length - 1]!,
-      filterSlug: slug[fIndex + 1]!,
-      categoryBasePath: `/collections/${categorySegments.join("/")}`,
-    };
-  }
-  return {
-    categorySlug: slug[slug.length - 1]!,
-    filterSlug: undefined,
-    categoryBasePath: `/collections/${slug.join("/")}`,
-  };
-}
-
-/**
- * Params-keyed category read for the Instant Navigation shell.
- * Cached (`'use cache'`) so runtime prefetch (`prefetch={true}` on category
- * links) can resolve header/breadcrumb/children before click.
- *
- * `Page` awaits it once to decide the canonical redirect, which does cost this
- * route its App Shell (see the note there). Being `'use cache'` is what keeps
- * that affordable: `CollectionRoute` awaits the same entry, so the shell and
- * the body share one read, and prerendered params resolve it at build.
- * `searchParams` is the read that must never be awaited ANYWHERE on this route
- * — it opts the whole segment dynamic, and nothing here awaits it any more (see
- * `CollectionProductsShell`).
- */
-async function getCategoryData(categorySlug: string) {
-  "use cache";
-  // 2-week stale / 1h revalidate — safety net if webhooks fail.
-  cacheLife({
-    stale: 60 * 60 * 24 * 14,
-    revalidate: 60 * 60,
-    expire: 60 * 60 * 24 * 14,
-  });
-  // headkit:collections is sent by WordPress on a product-CATEGORY term edit
-  // (created_term / edited_term / delete_term on product_cat) and by nothing
-  // else — measured, not assumed: no product event reaches it
-  // (`lib/wp-revalidation-events.test.ts`, docs/cache-revalidation-contract.md).
-  // headkit:collection:${categorySlug} is sent on category-specific changes and
-  // on a listing event for any product in that category.
-  cacheTag(TAG.collection(categorySlug), TAG.collections);
-
-  const [category, productFilter] = await Promise.all([
-    sdk.collections.getCategory(categorySlug),
-    sdk.collections.getFilters(categorySlug),
-  ]);
-
-  return { category, productFilter };
-}
 
 /**
  * Encode a single-color filter slug (`color.<c>`) consistently with the URL
@@ -276,19 +212,26 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         let facetLabel: string;
         if (decoded.brands.length === 1) {
           const brandSlug = decoded.brands[0]!;
-          // Resolve brand display name from the brands list; fall back to the slug.
-          let brandName: string | undefined;
-          try {
-            // perPage capped at 100 — the headkit/v2/brands WP endpoint 400s
-            // above 100 (REST arg maximum). 100 covers realistic brand counts.
-            const brandsRes = await sdk.brands.list({ perPage: 100 });
-            brandName = brandsRes.brands.find(
-              (b) => b.slug === brandSlug,
-            )?.name;
-          } catch {
-            brandName = undefined;
-          }
-          facetLabel = brandName ?? formatOptionName(brandSlug);
+          // The brand display name comes from the CACHED per-brand read, and
+          // it has to: an uncached read here is "uncached data in
+          // generateMetadata()", which under Cache Components fails the
+          // prerender of every `/f/brand.*` page on the store (189 of them,
+          // measured on Bike Society). It did not fail while the root layout's
+          // `DynamicMetadataMarker` gave every route a dynamic hole that masked
+          // it — so this was always an uncached read on the hottest metadata
+          // path, just an invisible one. `app/generate-metadata-cached-reads.test.ts`
+          // is what makes the class visible in 200 ms instead of a 25-minute
+          // build.
+          //
+          // `getCachedProductBrand` is the same entry the PDP uses: one per
+          // brand, tagged `TAG.brand(slug)`, `null` on failure. It adds no
+          // purge class this route lacked — the same product save that fires
+          // that tag already fires the catalogue tags this route's category
+          // read carries — and it replaces a 100-brand list with a single-brand
+          // read, which also lifts the `perPage: 100` ceiling the old code
+          // documented: a brand past the 100th used to fall back to its slug.
+          const brand = await getCachedProductBrand(brandSlug);
+          facetLabel = brand?.name ?? formatOptionName(brandSlug);
         } else {
           const colorSlug =
             decoded.attributes.pa_color?.[0] ??
@@ -323,17 +266,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
           alternates: { canonical: selfCanonical },
           // Was `{ index: isProduction, follow: isProduction }` — it consulted
           // VERCEL_ENV but never the store's own switch, so a facet URL stayed
-          // indexable on a store with indexing turned off. resolveRobots now
-          // gates on the HOST instead of VERCEL_ENV AND honours the setting; a
-          // rehearsal host noindexes whatever the switch says. The origin is the same
-          // runtime store domain the self-canonical above is built from, so a
-          // facet URL is judged against the store's own host like every other
-          // surface — robots.txt allows /collections/*, and this must not
-          // contradict it.
-          robots: await resolveRobots(
-            seoSettings.allowIndexing,
-            resolveSiteUrl(storeSettings.domain),
-          ),
+          // indexable on a store with indexing turned off. `resolveRobots`
+          // honours the setting instead. The HOST arm is no longer here: a
+          // rehearsal host is closed by the `X-Robots-Tag` header `proxy.ts`
+          // sets on every page response (lib/host-robots.ts), so this facet URL
+          // is judged against the store's own host like every other surface —
+          // robots.txt allows /collections/*, and this must not contradict it.
+          robots: resolveRobots(seoSettings.allowIndexing),
           openGraph: {
             type: "website",
             title,
@@ -493,34 +432,6 @@ export default async function Page({ params }: Props) {
   if (!category) notFound();
 
   return <CollectionRoute params={params} />;
-}
-
-/**
- * The path this collection URL must 308 to, or null when it is already
- * canonical.
- *
- * Null — never a redirect — for the build-time placeholder, an unresolvable
- * slug, and a category the API cannot supply, so an outage can never turn into
- * a redirect. Null also when the canonical equals the requested path, which is
- * what makes a root category (no ancestors, canonical `/collections/{slug}`)
- * serve rather than redirect to itself.
- */
-async function canonicalCollectionRedirect(
-  slug: string[],
-): Promise<string | null> {
-  if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) return null;
-  const { categorySlug, filterSlug, categoryBasePath } =
-    parseCollectionSlug(slug);
-  if (!categorySlug) return null;
-
-  const { category } = await getCategoryData(categorySlug);
-  if (!category) return null;
-
-  const canonicalBasePath = collectionPathFromCategory(category);
-  if (canonicalBasePath === categoryBasePath) return null;
-  return filterSlug
-    ? `${canonicalBasePath}/f/${filterSlug}`
-    : canonicalBasePath;
 }
 
 /**

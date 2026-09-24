@@ -9,14 +9,19 @@ import {
   resolveStoreName,
   resolveOgImageUrl,
   isRealSeoTitle,
-  resolveRobots,
 } from "./make-metadata";
 import { setRequestHost } from "@/lib/test-support/request-host";
+
+// A spy, not a plain arrow: one test below asserts that metadata reads NO
+// request header at all, which is the property that keeps `generateMetadata`
+// prerenderable. Only a spy can observe "never called".
+const mockedHeaders = vi.hoisted(() => vi.fn());
 
 vi.mock("next/headers", async () => {
   const { currentRequestHeaders } =
     await import("@/lib/test-support/request-host");
-  return { headers: async () => currentRequestHeaders() };
+  mockedHeaders.mockImplementation(async () => currentRequestHeaders());
+  return { headers: mockedHeaders };
 });
 
 describe("isRealSeoTitle", () => {
@@ -693,6 +698,11 @@ describe("makeSeoMetadata canonical + og:url follow resolveCanonical", () => {
  * dashboard switch was off. Omitting the key (rather than emitting `undefined`)
  * is what makes Next inherit the layout's value: its metadata merge only walks
  * keys PRESENT on the object.
+ *
+ * SCOPE: this block covers the STORE SWITCH arm only, which is all the meta
+ * decides now that the host arm rides an `X-Robots-Tag` response header;
+ * `lib/host-robots.test.ts` covers that one, and covers the two together.
+ * Neither file alone proves a rehearsal host is closed — read them as a pair.
  */
 describe("makeSeoMetadata robots wiring", () => {
   const prevEnv = process.env.VERCEL_ENV;
@@ -736,36 +746,63 @@ describe("makeSeoMetadata robots wiring", () => {
     expect(meta.robots).toEqual({ index: false, follow: false });
   });
 
-  it("noindexes a rehearsal host even with allowIndexing true and VERCEL_ENV=production", async () => {
-    // ENG-868 / ENG-876: the rehearsal deployment is production, and the host
-    // gate must win regardless.
+  it("is HOST-INDEPENDENT: the same meta on a rehearsal host and the live one", async () => {
+    // The host arm moved to `X-Robots-Tag` (lib/host-robots.ts). What that
+    // costs is stated here rather than hidden: the META alone now says
+    // `index, follow` on a rehearsal host, and the HEADER is what closes it.
+    // Asserting both hosts in ONE test is deliberate — two separate green
+    // tests would not show that the answer stopped varying with the host.
     setRequestHost("acme-rehearsal.headkit.app");
-    const meta = await makeSeoMetadata(null, {
+    const rehearsal = await makeSeoMetadata(null, {
       title: "About",
       storeName: "Acme",
       allowIndexing: true,
       siteUrl: "customer.com",
     });
-    expect(meta.robots).toEqual({ index: false, follow: false });
+
+    setRequestHost("customer.com");
+    const live = await makeSeoMetadata(null, {
+      title: "About",
+      storeName: "Acme",
+      allowIndexing: true,
+      siteUrl: "customer.com",
+    });
+
+    expect(rehearsal.robots).toEqual({ index: true, follow: true });
+    expect(rehearsal.robots).toEqual(live.robots);
   });
 
-  it("noindexes when no request host is available (fails closed)", async () => {
+  it("reads NO request header, so it cannot postpone a hole", async () => {
+    // The whole point of the move: `generateMetadata` must stay prerenderable.
+    // A `headers()` read here is what postponed a dynamic hole in every route,
+    // so the guard is that the header store is never touched — not that some
+    // particular value comes back from it. `setRequestHost(null)` makes the
+    // mock THROW if anything does read it, so this fails loudly both ways.
     setRequestHost(null);
+    mockedHeaders.mockClear();
+
     const meta = await makeSeoMetadata(null, {
       title: "About",
       storeName: "Acme",
       allowIndexing: true,
       siteUrl: "customer.com",
     });
-    expect(meta.robots).toEqual({ index: false, follow: false });
+    const root = await makeRootMetadata({
+      siteName: "Acme",
+      allowIndexing: true,
+      siteUrl: "customer.com",
+    });
+
+    expect(meta.robots).toEqual({ index: true, follow: true });
+    expect(root.robots).toEqual({ index: true, follow: true });
+    expect(mockedHeaders).not.toHaveBeenCalled();
   });
 
   it("noindexes when the store switch is unknown, even on the store's own host", async () => {
     // The degraded branch of app/layout.tsx / app/page.tsx builds root metadata
     // with no branding read, so the switch is unknown. app/robots.ts answers
     // that same failure with `Disallow: /`; an omitted switch must not resolve
-    // to `index, follow` beside it. The host gate is satisfied here, so the
-    // unknown switch is the only thing closing indexing.
+    // to `index, follow` beside it.
     const meta = await makeRootMetadata({
       siteName: "Store",
       siteUrl: "customer.com",
@@ -773,50 +810,20 @@ describe("makeSeoMetadata robots wiring", () => {
     expect(meta.robots).toEqual({ index: false, follow: false });
   });
 
-  it("throws when a call site omits the origin instead of quietly noindexing", async () => {
-    // Regression guard for the shape of this class of bug: a caller that never
-    // passed the origin still compiled and still returned a well-formed answer
-    // — `noindex, nofollow` on the store's live host — so nothing could catch
-    // it. Omission must now fail loudly. Cast because the type already rejects
-    // it; this pins the RUNTIME behaviour a JS caller would hit.
-    const omitted = resolveRobots as unknown as (
-      allowIndexing: boolean,
-    ) => Promise<unknown>;
-
-    await expect(omitted(true)).rejects.toThrow(TypeError);
-    // ...and the store switch being off must not short-circuit past the guard.
-    await expect(omitted(false)).rejects.toThrow(TypeError);
-  });
-
-  it("still fails closed, without throwing, when the store declares no origin", async () => {
-    // `null` / `""` are honest values — a store with no domain and no baked
-    // env — and must stay a quiet `noindex`, not a crash.
-    await expect(resolveRobots(true, null)).resolves.toEqual({
-      index: false,
-      follow: false,
+  it("applies the same switch to makeRootMetadata", async () => {
+    const off = await makeRootMetadata({
+      siteName: "Acme",
+      allowIndexing: false,
+      siteUrl: "customer.com",
     });
-    await expect(resolveRobots(true, "")).resolves.toEqual({
-      index: false,
-      follow: false,
-    });
-  });
+    expect(off.robots).toEqual({ index: false, follow: false });
 
-  it("applies the same gate to makeRootMetadata", async () => {
-    setRequestHost("acme-rehearsal.headkit.app");
-    const rehearsal = await makeRootMetadata({
+    const on = await makeRootMetadata({
       siteName: "Acme",
       allowIndexing: true,
       siteUrl: "customer.com",
     });
-    expect(rehearsal.robots).toEqual({ index: false, follow: false });
-
-    setRequestHost("customer.com");
-    const live = await makeRootMetadata({
-      siteName: "Acme",
-      allowIndexing: true,
-      siteUrl: "customer.com",
-    });
-    expect(live.robots).toEqual({ index: true, follow: true });
+    expect(on.robots).toEqual({ index: true, follow: true });
   });
 });
 

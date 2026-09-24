@@ -46,6 +46,7 @@ import { getBranding, type Branding } from "@/lib/branding";
 import sitemap from "./sitemap";
 import robots from "./robots";
 import { makeRootMetadata, resolveRobots } from "@/lib/make-metadata";
+import { hostRobotsTag } from "@/lib/host-robots";
 
 const mockedGetBranding = vi.mocked(getBranding);
 
@@ -389,16 +390,21 @@ describe("robots allowIndexing + enableSitemap", () => {
 });
 
 /**
- * ENG-868 / ENG-876: robots.txt and the HTML `robots` meta must never disagree.
+ * ENG-868 / ENG-876: robots.txt and the PAGE's own directive must never disagree.
  *
  * They used to, by construction — robots.txt consulted the request HOST while
  * the meta consulted `VERCEL_ENV`. A rehearsal storefront is a Vercel
  * *production* deployment on a temporary host, so it served `Disallow: /`
  * beside pages that said `index, follow`. `Disallow` is a CRAWL directive: a
- * URL discovered by a link can still be indexed, and the page's own meta is
- * what invites it. So the agreement is asserted directly, not per side.
+ * URL discovered by a link can still be indexed, and the page's own directives
+ * are what invite it. So the agreement is asserted directly, not per side.
+ *
+ * The page side is now TWO signals, not one: the store switch in the `robots`
+ * meta and the host gate in the `X-Robots-Tag` header `proxy.ts` sets.
+ * `pageIndexes` below composes both, because asserting the meta alone would now
+ * pass on a rehearsal host — the exact disagreement this block exists to forbid.
  */
-describe("robots.txt and the HTML robots meta agree", () => {
+describe("robots.txt and the page's own directive agree", () => {
   beforeEach(() => {
     mockedGetBranding.mockReset();
     requestHost = "shop.example";
@@ -415,15 +421,20 @@ describe("robots.txt and the HTML robots meta agree", () => {
       : JSON.stringify(result.rules) !== JSON.stringify(DISALLOW_EVERYTHING);
   }
 
-  /** True when the HTML meta emits `index, follow`. */
-  async function metaIndexes(allowIndexing: boolean): Promise<boolean> {
-    const meta = await resolveRobots(allowIndexing, SITE_URL);
-    return (
+  /**
+   * True when the PAGE invites indexing — the meta AND the header, composed the
+   * way a crawler composes them (most restrictive wins). `requestHost` is the
+   * same variable `robots()` reads through the mocked `headers()`, so both
+   * sides of every assertion below are judging the same request.
+   */
+  function pageIndexes(allowIndexing: boolean): boolean {
+    const meta = resolveRobots(allowIndexing);
+    const metaIndexes =
       typeof meta === "object" &&
       meta !== null &&
       meta.index === true &&
-      meta.follow === true
-    );
+      meta.follow === true;
+    return metaIndexes && hostRobotsTag(SITE_URL, requestHost) === null;
   }
 
   it("both refuse on a non-indexable host even when allowIndexing is true", async () => {
@@ -431,10 +442,10 @@ describe("robots.txt and the HTML robots meta agree", () => {
     requestHost = "acme-rehearsal.headkit.app";
 
     const txt = robotsTxtIndexes(await robots());
-    const meta = await metaIndexes(true);
+    const page = pageIndexes(true);
 
     expect(txt).toBe(false);
-    expect(meta, "the meta must not invite indexing robots.txt refuses").toBe(
+    expect(page, "the page must not invite indexing robots.txt refuses").toBe(
       txt,
     );
   });
@@ -446,28 +457,29 @@ describe("robots.txt and the HTML robots meta agree", () => {
     });
 
     const txt = robotsTxtIndexes(await robots());
-    const meta = await metaIndexes(false);
+    const page = pageIndexes(false);
 
     expect(txt).toBe(false);
-    expect(meta, "the store switch must close both signals").toBe(txt);
+    expect(page, "the store switch must close both signals").toBe(txt);
   });
 
   it("both allow on an indexable host when allowIndexing is true", async () => {
     mockedGetBranding.mockResolvedValue(permissiveSeo);
 
     const txt = robotsTxtIndexes(await robots());
-    const meta = await metaIndexes(true);
+    const page = pageIndexes(true);
 
     expect(txt).toBe(true);
-    expect(meta, "only both inputs agreeing opens indexing").toBe(txt);
+    expect(page, "only both inputs agreeing opens indexing").toBe(txt);
   });
 
   it("both refuse when the branding read throws and the switch is unknown", async () => {
     // The degraded branch of app/layout.tsx and app/page.tsx: getBranding()
     // threw, so the store's switch cannot be read. robots.txt answers that with
     // `Disallow: /`, and the meta must not answer it with `index, follow`.
-    // `siteUrl` is supplied so the HOST gate is satisfied — the unknown switch
-    // is then the only thing left to close the meta, which is the point.
+    // `siteUrl` is supplied and the request host matches it, so the HOST gate
+    // is satisfied — the unknown switch is then the only thing left to close
+    // the page, which is the point.
     mockedGetBranding.mockRejectedValue(new Error("dashboard-api unreachable"));
 
     const txt = robotsTxtIndexes(await robots());

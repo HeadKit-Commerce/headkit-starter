@@ -87,6 +87,22 @@ const serverSchema = clientSchema.extend({
   // paced content read, so the number is minutes of build time: 100 ≈ 1 min
   // at commerce's 1.8 req/s origin bucket. "0" = the placeholder param only.
   HEADKIT_PRERENDER_POST_LIMIT: z.string().regex(/^\d+$/).optional(),
+  // Minimum products behind a colour / brand facet option for `app/sitemap.ts`
+  // to advertise its `/collections/<cat>/f/<facet>` URL. BOTH default to 0 in
+  // `lib/facet-sitemap-thresholds.ts`, i.e. advertise everything, which is what
+  // every store does today — the numbers that make a cut worthwhile are a
+  // property of one catalogue, not of the platform. The two bars are separate
+  // on purpose: a two-product colour is a thin near-duplicate, a two-product
+  // brand is a real search intent. Advertising only; a dropped URL still routes
+  // and still answers 200. Takes effect on REDEPLOY, not on a tag purge.
+  HEADKIT_SITEMAP_MIN_COLOUR_FACET_PRODUCTS: z
+    .string()
+    .regex(/^\d+$/)
+    .optional(),
+  HEADKIT_SITEMAP_MIN_BRAND_FACET_PRODUCTS: z
+    .string()
+    .regex(/^\d+$/)
+    .optional(),
   REVALIDATION_SECRET: z.string().optional(),
   DASHBOARD_API_URL: z.string().url().optional(),
   DASHBOARD_API_TOKEN: z.string().min(1).optional(),

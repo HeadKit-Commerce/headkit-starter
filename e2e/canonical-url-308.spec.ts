@@ -162,6 +162,74 @@ test.describe("one canonical URL shape @seo", () => {
     expect(locationPath(res)).toBe(nested);
   });
 
+  /**
+   * ISSUE #74. A 308 built from the path alone drops the whole query string, so
+   * a campaign link to a flat URL loses `gclid`, `utm_*` and Klaviyo's `_kx`
+   * before the page can read them — and the visitor still ends on a 200, which
+   * is why it goes unreported. The redirect is issued from `proxy.ts` (the only
+   * layer that sees the query; a route's default export cannot read
+   * `searchParams` — see "Setting a status code needs THREE conditions" in
+   * `AGENTS.md`), so the target path and the 308 itself must be UNCHANGED and
+   * only the query is added. Both are asserted here.
+   *
+   * The unit guard `lib/canonical-redirect.test.ts` covers the rule; it cannot
+   * see a status line or a `Location` header, which is why these live here.
+   */
+  const CAMPAIGN_QUERY =
+    "utm_source=e2e&utm_medium=email&gclid=e2e-gclid&_kx=e2e-kx";
+
+  test("the flat product 308 carries the campaign query through @seo", async ({
+    request,
+  }) => {
+    const paths = await sitemapPaths(request);
+    const nested = nestedProductBase(paths);
+    test.skip(!nested, "no nested product URL in this store's sitemap");
+
+    const slug = nested!.split("/").pop()!;
+    const res = await request.get(
+      `${BASE_URL}/products/${slug}?${CAMPAIGN_QUERY}`,
+      { maxRedirects: 0 },
+    );
+
+    expect(
+      res.status(),
+      "preserving the query must not change WHICH urls redirect, or the status",
+    ).toBe(308);
+    const location = new URL(
+      res.headersArray().find((h) => h.name.toLowerCase() === "location")!
+        .value,
+      BASE_URL,
+    );
+    expect(location.pathname, "nor the target path").toBe(nested);
+    expect(
+      location.search,
+      "a dropped gclid cannot be tied back to the click that paid for it",
+    ).toBe(`?${CAMPAIGN_QUERY}`);
+  });
+
+  test("the flat collection 308 carries the campaign query through @seo", async ({
+    request,
+  }) => {
+    const paths = await sitemapPaths(request);
+    const nestedChain = categoryChains(paths).filter((c) => c.length >= 2)[0];
+    test.skip(!nestedChain, "no nested collection URL in this store's sitemap");
+
+    const nested = `/collections/${nestedChain!.join("/")}`;
+    const res = await request.get(
+      `${BASE_URL}/collections/${nestedChain!.at(-1)}?${CAMPAIGN_QUERY}`,
+      { maxRedirects: 0 },
+    );
+
+    expect(res.status()).toBe(308);
+    const location = new URL(
+      res.headersArray().find((h) => h.name.toLowerCase() === "location")!
+        .value,
+      BASE_URL,
+    );
+    expect(location.pathname).toBe(nested);
+    expect(location.search).toBe(`?${CAMPAIGN_QUERY}`);
+  });
+
   test("the flat product URL still resolves, and lands on the canonical", async ({
     request,
   }) => {

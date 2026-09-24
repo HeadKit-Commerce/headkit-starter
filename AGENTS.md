@@ -77,8 +77,10 @@ index equity, and deliberately NOT configurable). The flat `/products/<slug>` an
   once below, under "Setting a status code needs THREE conditions" — one of them was
   `app/layout.tsx` wrapping `{children}`, which is why nothing there may wrap `{children}`
   in one again. What decides is ANCESTRY, not presence: the narrow boundary `app/layout.tsx`
-  still carries around `DynamicMetadataMarker` is a SIBLING of `{children}`, so it puts no
-  page inside a boundary and no route's redirect below one. Measured on
+  still carries around the customer's `<BelowMain />` slot is a SIBLING of `{children}`, so
+  it puts no page inside a boundary and no route's redirect below one. A boundary there is
+  free; a REQUEST-TIME read inside one is not, and that is a separate rule — see "A
+  request-time read in the ROOT layout costs every route its static shell". Measured on
   Next 16.3 with `cacheComponents: true`, one variable at a time: any of them present
   → 200; all absent → a real 308, prerendered and at runtime alike. `instant = true`
   makes no difference either way. Render the fallback from the page's own `<Suspense>`
@@ -150,8 +152,56 @@ request that carries a cart cookie, so it relies solely on the empty-cart short-
 anything that server-renders a POPULATED cart or quote summary still puts the flat guess into
 crawlable HTML for the brief window before the client resolves the canonical.
 
+**The 308 carries the incoming QUERY STRING, and it is `proxy.ts` that makes that possible.**
+A redirect built from the path alone drops `gclid`, `utm_*` and Klaviyo's `_kx` before the
+page can read them, and the visitor still lands on a 200 — so the attribution hole reports
+nothing. (The two `redirects()` entries in `next.config.ts` never had it, because Next
+preserves the query there by default.) Neither route can fix it in its own default export:
+reading `searchParams` or `headers()` there is a dynamic read above every Suspense boundary,
+and on a route that also exports `generateStaticParams` that is a BUILD ERROR under Cache
+Components — the same two closed levers the Shopify preview paragraph below describes. So the
+redirect is ISSUED one layer earlier, from `proxy.ts`, which sees the whole URL. Five things
+about it, and each closes a way it could have gone wrong:
+
+- **There is no second copy of the redirect rule.** `/api/canonical-redirect` calls the
+  routes' own decision functions — `canonicalCollectionRedirect` (`lib/collection-canonical.ts`)
+  and `canonicalProductRedirect` (`lib/product-canonical.ts`), both moved out of their page
+  files for exactly this. A proxy-side reimplementation is the one arrangement that can LOOP:
+  the proxy sends A → B while the route at B sends B → A. For the same reason the collection
+  target comes from the category's OWN ancestry and never from `collectionPathIndex`, whose
+  tree can promote an orphaned child to a root
+  (`260822-commerce-category-list-orphan-promotion`).
+- **It adds no origin read.** Both decision functions resolve through the SAME `"use cache"`
+  entries the routes await (`getCachedProduct`, `getCategoryData`), so a warm catalogue
+  answers from cache and a cold one pays the single read the route would have paid a moment
+  later. That matters on a WordPress origin rate-limited at ~1.8 req/s, where a runaway read
+  pattern has caused an outage.
+- **The gate is narrow, and the narrowing is what keeps it free**
+  (`lib/canonical-redirect-request.ts`): GET/HEAD only (a Server Action POSTs to the page's
+  own URL, query and all), a query string must be present (with nothing to preserve the
+  route's own 308 is already right), and for collections only a SINGLE category segment — the
+  shape the theme actually emits, measured 127 of 127 on one store.
+- **Every failure degrades to today's behaviour**, never to a wrong destination: a non-200
+  from the endpoint, a malformed body, a network error, an unresolvable slug or a THROWN
+  catalogue read all return null, and the route then 308s with the query dropped as before.
+- **Two classes are still uncovered, deliberately.** The proxy's matcher excludes any path
+  containing a dot, so an encoded facet URL (`/collections/locks/f/colour.black?gclid=…`)
+  never reaches the proxy — measured: still a 308, still no query. Widening the matcher would
+  newly subject those URLs to the maintenance gate and the `X-Robots-Tag` header, which is a
+  bigger decision than this. And a nested collection URL whose parent is wrong keeps the old
+  behaviour, because the gate skips it.
+
+Guards: `lib/canonical-redirect.test.ts` composes the gate, the real decision functions and
+the URL builder in ONE test (a gate test and a target test that each pass individually are
+green while the query is dropped between them) and asserts at SOURCE level that `proxy.ts`
+calls it before `readProxyConfig` and after the maintenance gate. It observes no status line
+and no header — the two query-preservation cases in `e2e/canonical-url-308.spec.ts` are what
+do, over real HTTP.
+
 **Shopify Admin preview needs no exemption from the 308, and must not be given one.** A 308
-drops the query string, so `?preview_key=` cannot survive one — yet the exemption that would
+issued from a ROUTE drops the query string, so `?preview_key=` could not survive one (the
+proxy-side redirect above now carries it, but the argument below is what made the exemption
+unnecessary in the first place, and it still stands) — yet the exemption that would
 normally require is unavailable: reading `searchParams` in the default export is a dynamic
 read above every Suspense boundary, which under Cache Components is a BUILD ERROR on a route
 with `generateStaticParams`, and the boundary that would fix it is the one that turns the 308
@@ -330,6 +380,123 @@ in the tail; it no longer does. React also outlines a boundary in the shell that
 an eager `<img>` (`hasSuspenseyContent`), so a gallery or carousel that must be JS-off
 visible gets no boundary of its own.
 
+### A merchant CLAIM in JSON-LD is never defaulted, and the starter makes none
+
+`OrganizationJsonLD` accepts `telephone`, `email`, `hasMerchantReturnPolicy` and
+`hasShippingService`, and `app/layout.tsx` passes none of them. These are public promises to
+a shopper and to Google, so a caller either has a real source — the merchant's own returns
+and shipping pages — or omits the prop; the component emits no key at all rather than an
+empty or invented one. A store that adds them should record, per property, where the value
+came from AND which claims on its pages it deliberately did NOT mark up, because that second
+list is what stops the next person inventing a property to fill a gap. Typical gaps: a
+free-delivery threshold scoped to "capital cities and metro areas", which no `DefinedRegion`
+can state; a dispatch cut-off time, whose `handlingTime.cutoffTime` takes a fixed UTC offset
+and so is wrong for half the year anywhere that observes DST; and `returnFees:
+ReturnShippingFees`, which obliges a non-zero `returnShippingFeesAmount`.
+
+Two shape facts worth not re-deriving: organization-level shipping is `hasShippingService` /
+`ShippingService` / `ShippingConditions` (`Offer.shippingDetails` on an `Organization` is an
+unknown field at validator.schema.org), and `MerchantReturnPolicy` nests directly under
+`Organization`.
+
+`/shop` emits its `BreadcrumbList` from `SHOP_BREADCRUMBS`, the same array its visible
+breadcrumb renders, outside the route's Suspense boundary so a crawler running no JavaScript
+sees it — the rule `/collections/[...slug]` already follows. Neither guard
+(`app/shop/page.breadcrumb.test.tsx`, `components/seo/organization-json-ld-claims.test.tsx`)
+can see the served HTML; that is an HTTP read.
+
+### The sitemap can stop advertising thin facet URLs, and by default does not
+
+`lib/facet-sitemap-thresholds.ts` lets a store drop `/collections/<cat>/f/<facet>` URLs
+whose product count is below a bar, PER FACET TYPE. Both bars default to `0` — advertise
+everything — because the numbers that make a cut worthwhile belong to one catalogue, not to
+the platform. A store opts in with `HEADKIT_SITEMAP_MIN_COLOUR_FACET_PRODUCTS` and
+`HEADKIT_SITEMAP_MIN_BRAND_FACET_PRODUCTS` (`lib/env.ts`), and must set them separately: on
+the store this was measured on, colour sat 80.2 % at exactly one product (the slugs are
+per-model paint names) and took a bar of 3, while brand was only 28.1 % at one product
+(`specialized helmets` is a real search intent) and took 2. Collapsing them to one number
+either re-adds hundreds of dead colour URLs or deletes live brand ones.
+
+Three properties are load-bearing whatever the bars are set to. `ProductFilterOption.count`
+is already in the `getFilters` payload the emitter reads, so the cut adds **no origin read
+and no cache tag**. An ABSENT count KEEPS the URL — "this facet holds one product" and "this
+backend does not report counts" are opposite situations, and only an observed count may drop
+anything. And the brand bar is applied to `brandSlugsPerCategory`'s RESULT, never its input,
+or an all-singleton store would empty every category and flip the global-brand fallback back
+on. This narrows ADVERTISING only: a dropped URL still routes and still answers 200. A change
+to either value reaches production by REDEPLOY, not by a tag purge.
+
+### A request-time read in the ROOT layout costs every route its static shell
+
+`app/layout.tsx` performs NO request-time read. A `<Suspense>` there is fine on its own —
+the one around the customer's `<BelowMain />` override slot costs nothing, because its child
+is cached — but a request-time read INSIDE one postpones a dynamic hole in every route in
+the application, so no response can be served as a finished file: each is produced by a
+runtime React resume that re-emits flight rows and inflates the payload.
+
+Measured on a deployed probe, three deployments differing only in the root layout, same
+region and hour (Bike Society, report `260915-bs-click-latency-scout` §4.2): no boundary →
+6 ms body on a 27 KB page and 70 ms on a 236 KB one; `<Suspense>` + a CACHED child →
+6 ms / 79 ms; `<Suspense>` + `await connection()` → **1,419 ms / 2,378 ms and +44–68 %
+bytes**. The middle row is what makes the attribution exact: the boundary is free, the read
+inside it is not.
+
+The read that used to be there was `DynamicMetadataMarker` (`await connection()`), and it
+existed so `generateMetadata` could decide the `robots` meta from the request Host — under
+Cache Components a `generateMetadata` that reads runtime data is a build error unless the
+route has a dynamic hole, and that marker was the hole for every route at once. The signal
+rides a response header instead:
+
+- **`lib/host-robots.ts`** is the decision, called from `proxy.ts`, which already read the
+  request host for the maintenance gate. A host that is not the store's declared production
+  host gets `X-Robots-Tag: noindex, nofollow`; the store's own host gets no header. It uses
+  the same `isIndexableHost` predicate the metadata gate used, so a rehearsal at
+  `*.headkit.app` stays closed and the customer's live host stays open.
+- **`resolveRobots` keeps the STORE switch only** (`allowIndexing`) and is now synchronous
+  and origin-free. That arm is a cached per-store value, so it costs no hole. The two
+  signals can never contradict — neither emits `index` as an override, and Google resolves
+  conflicting robots rules by applying the more restrictive one.
+- **The origin the header is judged against is the RUNTIME store domain first**, the baked
+  env only as a fallback, resolved exactly as `app/robots.ts` resolves it. That order is the
+  difference between a correct cutover and deindexing the customer: dashboard-api updates
+  Mongo `Store.domain` when a custom domain is attached but has historically not redeployed,
+  so a build-time-only read would judge the new live host against the OLD rehearsal origin.
+  It reaches the proxy through `/api/posts-base-path`, which the proxy already fetched once
+  per page request — that endpoint now carries `siteUrl` beside `base`, the fetch is hoisted
+  into `proxy()`, and the blog rewrite takes the base as a parameter. A second endpoint
+  would be a second subrequest on every page request for one short string.
+- **`app/robots.ts` keeps its own in-process host read** (`lib/indexing-decision.ts`).
+
+One class carries no header: `proxy.ts`'s matcher excludes any path containing a dot, so a
+path-encoded facet URL (`/collections/locks/f/colour.black`) never reaches the proxy. It is
+not an exposure the meta covered either — a non-indexable host answers `Disallow: /`, so a
+compliant crawler fetches neither the page nor its head. Widening the matcher would newly
+subject those URLs to the maintenance gate too, which is a separate decision.
+
+`app/products/[...slug]` is the ONE route that still mounts the marker: its
+`generateMetadata` awaits `searchParams` for the Shopify Admin preview key and it prerenders
+real products with no boundary of its own. Mount it as a SIBLING of the content, never a
+wrapper. Before adding a second caller, check whether the route already has a dynamic hole
+inside a `<Suspense>` — one is enough for the whole route, which is why `/search` needs none.
+
+Guards, and where each stops. `app/not-found-status.test.ts` now carries two assertions
+about this file: no boundary left open across `{children}` (the redirect rule) and no
+request-time read at all (this one) — a SOURCE scan of `app/layout.tsx` only, which does not
+follow into the customer-owned `overrides/layout-slots.tsx` slots, where a store can add the
+same cost invisibly. `app/generate-metadata-cached-reads.test.ts` fails in 200 ms on a direct
+provider call inside any `generateMetadata` rather than after a 25-minute build; it is a
+source scan with three blind spots stated in the file. `lib/host-robots.test.ts` covers the
+host decision AND composes it with the store switch, because a test of either half alone
+passes while the other is broken. No unit test can see a response header on a real request —
+`e2e/store-parity.spec.ts` reads it over HTTP for both host classes.
+
+Removing the marker exposed a pre-existing uncached read it had been masking:
+`app/collections/[...slug]`'s brand-facet `generateMetadata` called `sdk.brands.list()`
+directly, which on a real store was 189 failed prerenders, all `/collections/**/f/brand.*`.
+It reads `getCachedProductBrand` now — the entry the PDP already uses, tagged per brand —
+which also lifts the `perPage: 100` ceiling that used to render a brand past the 100th as
+its slug.
+
 ### The footer ships NO social links, and that is the fix
 
 `app/layout.tsx` is a template file: a literal here reaches every merchant's footer, and a
@@ -410,10 +577,13 @@ zero-read path; extend it rather than adding a mock of the decision.
 
 ### Request-time metadata costs the function resume, not cache lookups
 
-Every route's `generateMetadata` is request-time by design (the `robots` meta reads the
-request Host; `components/seo/dynamic-metadata-marker.tsx` is the hole that makes that
-legal), and it reads `getBranding()` / `getBrandingAssets()` — two `"use cache: remote"`
-entries. It is tempting to read the per-request tail on a CDN HIT as "two Runtime Cache
+Written when every route's `generateMetadata` was request-time by design (the `robots` meta
+read the request Host, and `components/seo/dynamic-metadata-marker.tsx` was the hole that
+made that legal). The host arm has since moved to a response header and the marker is gone
+from the root layout, so the tail described here is no longer paid site-wide — but the
+measurements stand, and they are the reason NOT to spend a change moving `use cache` reads
+out of a `generateMetadata` that still has a hole. It reads `getBranding()` /
+`getBrandingAssets()` — two `"use cache: remote"` entries. It is tempting to read the per-request tail on a CDN HIT as "two Runtime Cache
 round trips" and to try to move those reads out of metadata. MEASURED, it is not:
 
 - The prerender's postponed state carries the **Resume Data Cache** — every `use cache`
@@ -454,12 +624,15 @@ host emits:
   the more restrictive rule, but `e2e/port-verify` deliberately reports a duplicate robots
   meta as a finding and `e2e/not-found-status.spec.ts` asserts at most one on a 404.
   Dropping the explicit `index, follow` instead leaves the live host with no robots meta.
-- **An `X-Robots-Tag` header from `proxy.ts`, marker removed.** The only shape under which
-  metadata needs no function, but the HTML robots tag stops being host-dependent — the
-  header becomes the host signal — which is the ENG-868 / ENG-876 constraint, and the route
-  still needs a function for its other holes. That is lever 11 of
-  `data/260910-bikesociety-edge-cache-scout/report.md`: a separate decision for the
-  captain, not something to fold into a metadata change.
+- **An `X-Robots-Tag` header from `proxy.ts`, marker removed.** This is the shape that was
+  TAKEN, and the paragraph above is why it needed its own decision rather than being folded
+  into a metadata change: the HTML robots tag stops being host-dependent, the header becomes
+  the host signal, and the ENG-868 / ENG-876 agreement then has to be asserted across two
+  signals instead of one. It is, in `app/seo-robots-sitemap.test.ts`. What tipped it was the
+  root-layout measurement, which is a different and much larger number than the metadata
+  tail this section is about — see "A request-time read in the ROOT layout costs every route
+  its static shell" below. The route still needs a function for its other holes; what it no
+  longer needs is one on EVERY route.
 
 ### A WordPress mega-menu column is a `hidden` Custom Link, not a link
 

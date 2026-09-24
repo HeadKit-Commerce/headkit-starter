@@ -21,6 +21,27 @@ interface OrganizationJsonLDProps {
   contactPoint?: ContactPointProps;
   address?: PostalAddressProps;
   sameAs?: string[];
+  /** E.164-or-display phone for the trading address. */
+  telephone?: string;
+  email?: string;
+  /**
+   * Pre-built schema.org nodes, passed through verbatim. They are merchant
+   * CLAIMS — what the business will do for a customer — so they are NEVER
+   * defaulted here and the starter passes neither: a caller either has a real
+   * source (the merchant's own returns / shipping pages) or omits the prop. An
+   * absent claim is always better than an invented one, and a store that adds
+   * one should record per property where the value came from.
+   *
+   * `MerchantReturnPolicy` nests directly under `Organization`.
+   */
+  hasMerchantReturnPolicy?: Record<string, unknown>;
+  /**
+   * Organization-level shipping is `hasShippingService` / `ShippingService` /
+   * `ShippingConditions` — NOT `shippingDetails`, which schema.org defines on
+   * `Offer` only and which validator.schema.org reports as an unknown field on
+   * an `Organization`. Same claim rule as above: never defaulted.
+   */
+  hasShippingService?: Record<string, unknown>[];
 }
 
 /**
@@ -35,6 +56,10 @@ export function OrganizationJsonLD({
   contactPoint,
   address,
   sameAs,
+  telephone,
+  email,
+  hasMerchantReturnPolicy,
+  hasShippingService,
 }: OrganizationJsonLDProps) {
   const logo =
     logoUrl?.trim() ||
@@ -93,6 +118,15 @@ export function OrganizationJsonLD({
 
   if (sameAs && sameAs.length > 0) {
     schema.sameAs = sameAs;
+  }
+
+  if (telephone) schema.telephone = telephone;
+  if (email) schema.email = email;
+  if (hasMerchantReturnPolicy) {
+    schema.hasMerchantReturnPolicy = hasMerchantReturnPolicy;
+  }
+  if (hasShippingService && hasShippingService.length > 0) {
+    schema.hasShippingService = hasShippingService;
   }
 
   return (
