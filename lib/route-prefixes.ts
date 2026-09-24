@@ -21,11 +21,14 @@
 /**
  * The route segment every category listing is served under.
  *
- * Three places have to agree on it: the two URL builders
- * (`collectionPathFromCategory` in `components/headkit-ui/collection/utils.ts`
- * and `collectionPathFromSegments` in `lib/canonical-path.ts`) and the
- * navigation skeleton's target test (`lib/navigation-skeleton-target.ts`), which
- * decides whether an href is a category listing by recognising exactly what
- * those two emit.
+ * Two kinds of module have to agree on it: the URL BUILDERS
+ * (`collectionPathFromCategory` in `components/headkit-ui/collection/utils.ts`,
+ * `collectionPathFromSegments` in `lib/canonical-path.ts`) and the RECOGNISERS,
+ * which decide whether a path is a category listing by matching exactly what
+ * those emit — the navigation skeleton's target test
+ * (`lib/navigation-skeleton-target.ts`), the proxy's canonical-redirect gate
+ * (`lib/canonical-redirect-request.ts`, and so `proxy.ts`, which is why this
+ * file must stay dependency-free) and the CMS-menu href rewrite
+ * (`lib/menu-canonical-href.ts`).
  */
 export const COLLECTION_PATH_PREFIX = "collections";

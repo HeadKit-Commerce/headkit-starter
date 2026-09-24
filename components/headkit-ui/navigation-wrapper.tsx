@@ -16,6 +16,11 @@ import {
   filterMenuItemsByNonEmptyCollections,
   getNonEmptyCollectionSlugs,
 } from "@/lib/hide-empty-collections";
+import { collectionPathIndex } from "@/lib/collection-path";
+import {
+  applyCanonicalCollectionHrefs,
+  type CollectionPathLookup,
+} from "@/lib/menu-canonical-href";
 import { getStoreTheme } from "@/lib/store-theme";
 
 /** Permissive shape for API menu nodes (GraphQL fragment stops at 3 levels, so innermost lacks children). */
@@ -100,15 +105,58 @@ function normalizeMenuItems(items: MenuItemLike[]): NavMenuItem[] {
 }
 
 /**
+ * Normalize, then re-derive every `/collections/...` href from the category
+ * tree.
+ *
+ * The WordPress theme hands back the FLAT `/collections/{leaf}` for every
+ * product-category menu item (it overwrites the term permalink — see
+ * `lib/menu-canonical-href.ts`), and the flat shape 308s onto the canonical
+ * nested one, so an unrewritten menu spends a redirect on most of its links.
+ * Every menu this module returns goes through here; nothing else in the app
+ * reads these hrefs from another path.
+ */
+function normalizeMenu(
+  items: MenuItemLike[],
+  canonicalPath: CollectionPathLookup,
+): NavMenuItem[] {
+  return applyCanonicalCollectionHrefs(
+    normalizeMenuItems(items),
+    canonicalPath,
+  );
+}
+
+/**
+ * The slug → canonical-path lookup the rewrite above needs.
+ *
+ * `collectionPathIndex` is its own `"use cache"` entry tagged `TAG.collections`,
+ * so it costs one catalogue read per build/purge cycle however many menus ask
+ * for it. Awaiting it narrows no caller under either cache profile: Next
+ * propagates a nested entry's life outward and takes the MIN, and the index is
+ * `("days", "max")` against these chrome reads' `("hours", "max")` — longer on
+ * conservative, equal on aggressive. A transport failure deliberately PROPAGATES
+ * rather than degrading to flat hrefs — the degraded render would be WRITTEN to
+ * the enclosing cache entry and pinned until the next purge, and the same read
+ * already fails a build from `app/page.tsx`. Every caller below therefore also
+ * carries `TAG.collections`.
+ */
+async function collectionPathLookup(): Promise<CollectionPathLookup> {
+  const index = await collectionPathIndex();
+  return (slug: string): string | undefined => index.get(slug);
+}
+
+/**
  * Plain (uncached) SDK menu load + normalize. Kept separate from the cached
  * entries below so each cached fn owns its OWN `cacheTag` — the by-location menu
  * tag vs the isolated footer tag — without a nested `use cache` boundary (nested
  * tags don't bubble, so the tag must sit on the data-producing cache entry).
  */
-async function loadMenu(location: MenuLocation): Promise<NavMenuItem[]> {
+async function loadMenu(
+  location: MenuLocation,
+  canonicalPath: CollectionPathLookup,
+): Promise<NavMenuItem[]> {
   try {
     const tree = await headkit.menu.get(location);
-    return normalizeMenuItems(tree);
+    return normalizeMenu(tree, canonicalPath);
   } catch {
     return [];
   }
@@ -178,8 +226,11 @@ export async function fetchMenu(
 ): Promise<NavMenuItem[]> {
   "use cache: remote";
   cacheLifeForProfile("hours", "max");
-  cacheTag(TAG.menu(location));
-  return loadMenu(location);
+  // `TAG.collections` because the hrefs are re-derived from the category tree
+  // (see `collectionPathLookup`): a category rename or re-parent changes this
+  // entry's output even when the menu itself never moves.
+  cacheTag(TAG.menu(location), TAG.collections);
+  return loadMenu(location, await collectionPathLookup());
 }
 
 /**
@@ -220,7 +271,10 @@ export async function getFooterMenus(): Promise<
     TAG.collections,
   );
 
-  const menus = await loadMenusBatch(FOOTER_LOCATIONS);
+  const [menus, canonicalPath] = await Promise.all([
+    loadMenusBatch(FOOTER_LOCATIONS),
+    collectionPathLookup(),
+  ]);
   const footer = menus[0] ?? EMPTY_MENU;
   const footer2 = menus[1] ?? EMPTY_MENU;
   const footer3 = menus[2] ?? EMPTY_MENU;
@@ -240,7 +294,7 @@ export async function getFooterMenus(): Promise<
     name: string;
     items: { id: string; label: string; uri: string }[];
   } => {
-    let items = normalizeMenuItems(menu.items);
+    let items = normalizeMenu(menu.items, canonicalPath);
     if (nonEmptySlugs) {
       items = filterMenuItemsByNonEmptyCollections(items, nonEmptySlugs);
     }
@@ -271,8 +325,9 @@ export async function getFooterMenus(): Promise<
 export async function getFooterMenu(): Promise<NavMenuItem[]> {
   "use cache: remote";
   cacheLifeForProfile("hours", "max");
-  cacheTag(TAG.footer, TAG.menu("FOOTER"));
-  return loadMenu("FOOTER");
+  // `TAG.collections` — same reason as `fetchMenu`.
+  cacheTag(TAG.footer, TAG.menu("FOOTER"), TAG.collections);
+  return loadMenu("FOOTER", await collectionPathLookup());
 }
 
 export async function NavigationWrapper() {
@@ -294,9 +349,10 @@ export async function NavigationWrapper() {
 
   // One menus(locations:) GraphQL RTT for PRIMARY + SECONDARY + PRE_HEADER
   // (commerce fetches WP in parallel). Branding stays parallel with that batch.
-  const [headerMenus, { logoUrl }, { storeSettings, branding }] =
+  const [headerMenus, canonicalPath, { logoUrl }, { storeSettings, branding }] =
     await Promise.all([
       loadMenusBatch(HEADER_LOCATIONS),
+      collectionPathLookup(),
       getBrandingAssets(),
       getBranding(),
     ]);
@@ -305,8 +361,14 @@ export async function NavigationWrapper() {
     ? await getNonEmptyCollectionSlugs()
     : null;
 
-  let primaryItems = normalizeMenuItems((headerMenus[0] ?? EMPTY_MENU).items);
-  let secondaryItems = normalizeMenuItems((headerMenus[1] ?? EMPTY_MENU).items);
+  let primaryItems = normalizeMenu(
+    (headerMenus[0] ?? EMPTY_MENU).items,
+    canonicalPath,
+  );
+  let secondaryItems = normalizeMenu(
+    (headerMenus[1] ?? EMPTY_MENU).items,
+    canonicalPath,
+  );
   if (nonEmptySlugs) {
     primaryItems = filterMenuItemsByNonEmptyCollections(
       primaryItems,
@@ -318,7 +380,7 @@ export async function NavigationWrapper() {
     );
   }
   const preheaderMenu = headerMenus[2] ?? EMPTY_MENU;
-  const preheaderItems = normalizeMenuItems(preheaderMenu.items);
+  const preheaderItems = normalizeMenu(preheaderMenu.items, canonicalPath);
   const preheaderTitle = resolvePreheaderTitle(preheaderMenu);
   const preheaderLinks = resolvePreheaderLinks(preheaderItems);
 

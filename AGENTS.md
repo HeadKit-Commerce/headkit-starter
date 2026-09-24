@@ -230,6 +230,47 @@ make IS the response; they previously borrowed the boundary `app/layout.tsx` wra
 Giving them a boundary instead would make them answer 200 + empty shell and redirect on the
 client — the same defect the product and collection routes exist to close.
 
+### A CMS menu href is NOT a permalink — the theme flattens every category link
+
+The HeadKit WordPress theme's menus endpoint (`integrations/wordpress/theme/inc/rest-api/
+headkit-menus.php`) OVERWRITES the stored URL of every `product_cat` menu item with the flat
+`/collections/{leaf-slug}`, discarding the hierarchical term permalink WooCommerce built, and
+stamps `hk-collection:{slug}` alongside it. Since the nested shape became canonical, every
+such link naming a CHILD category costs a 308 hop; a ROOT category is self-canonical, so the
+damage looks partial per store and the menu looks internally inconsistent when it is not.
+
+`lib/menu-canonical-href.ts` re-derives those hrefs from the category tree, and every menu
+read in `components/headkit-ui/navigation-wrapper.tsx` goes through it. Four things about it:
+
+- **It triggers on the URI SHAPE, never on `hk-collection:{slug}`.** The theme stamps that
+  class on taxonomy items, but a merchant can set it by hand on a Custom Link pointing at a
+  curated landing page, and that link must keep its own href.
+- **An unknown leaf is left EXACTLY as it arrived**, not passed through
+  `collectionPathResolver`'s `/collections/{slug}` fallback — the fallback would FLATTEN a
+  hand-authored nested href, a worse bug than the hop. That is why `collectionPathIndex` is
+  exported from `lib/collection-path.ts`: this is the one caller that must tell "no such
+  slug" from "the tree says flat".
+- **Every menu read also carries `TAG.collections`**, because a category re-parent changes a
+  menu entry's output with no menu edit. No new blast radius: `NavigationWrapper` and
+  `getFooterMenus` already carried it, and `collectionPathIndex` is one cached catalogue read
+  at `("days", "max")` against the chrome reads' `("hours", "max")` — longer on the
+  conservative profile, equal on the aggressive one, so it narrows neither.
+- **A tree-read failure PROPAGATES** rather than degrading to flat hrefs, matching the
+  sibling category reads: a degraded render would be written into the enclosing cache entry
+  and pinned until the next purge.
+
+**Do not "fix" this in WordPress.** Nothing is wrong with the stored data — the theme
+discards it on every read, so a corrected URL in Appearance → Menus never reaches the
+storefront, and correcting the theme would still leave the storefront trusting a CMS string
+for a URL shape the storefront owns.
+
+Guards: `lib/menu-canonical-href.test.ts` (the pure rule) and the "category hrefs are
+re-derived from the tree" block in `components/headkit-ui/navigation-wrapper.test.ts` (the
+wiring, through the real `NavigationWrapper` / `getFooterMenus` / `fetchMenu`). Neither can
+see the served HTML or a timing — those are HTTP reads against a running store. Note also
+that a mega-menu's leaf links may not be crawlable anchors at all (the Radix panels and the
+mobile sheet render client-side), so on such a store this buys a click, not an indexing fix.
+
 ### A `redirects()` source in `next.config.ts` is also a blog base path
 
 `RESERVED_POSTS_BASE` (`lib/posts-path.ts`) exists so a storefront route can never become the
@@ -950,6 +991,39 @@ nothing is unaffected; moving one is a measured, per-store decision.
 `/sitemap.xml` also carries `s-maxage=3600` from `next.config.ts` `headers()`. That one IS a
 platform default, and it is a deliberate hour of blindness: a tag purge drops the cached
 entry behind the route, never the CDN copy. `app/sitemap-cache-control.test.ts` pins it.
+
+### One `CollectionProvider` per product set, and the key is what guarantees it
+
+`CollectionProvider` seeds `products` / `totalProducts` / `currentPage` with
+`useState(initial…)`, so a re-render with new props does NOT resync them — correct while a
+shopper stays on one listing (Load More has appended pages no re-render may wipe) and wrong
+the instant the route underneath changes. `collection-page.tsx` settles it:
+`collectionInstanceKey` derives a React `key` from the identity-bearing props only
+(`categoryBasePath`, `categorySlug`, `brandSlug`, `search`, `onSale`, `isNew`, `initialPage`,
+`initialBrands`, `initialFilterValues`) and deliberately EXCLUDES `initialProducts`,
+`initialTotal`, `itemsPerPage` and `productFilter` — keying on the content would make a
+revalidation of the same URL discard the loaded pages.
+
+The trap is that most listing routes hide the defect. Next keys each dynamic-segment VALUE as
+its own subtree, so `/collections/a` → `/collections/b`, `/shop/*` and `/brand/*` remount the
+provider unaided. `/search` has no dynamic segment, so `?q=a` → `?q=b` re-rendered the SAME
+instance and the grid served the first query's products under the second query's heading and
+pagination cursor. Any future listing route that varies by query rather than by segment
+inherits exactly that, so do not read the category→category case as evidence the provider is
+safe, and do not "simplify" this to a per-route `key` at the mount sites.
+
+`components/headkit-ui/collection/collection-page.route-change.test.tsx` holds it by rendering
+the real `CollectionPage` → `CollectionProvider` → `ProductGrid` chain into a DOM and
+re-rendering at the same tree position. It covers the same-route re-render ONLY: no router
+runs in it, so it cannot see Next's segment keying, the live navigation, or the server read
+behind `initialProducts`. It is also this app's only `jsdom` test — the vitest environment
+stays `node` and that file opts in with a `@vitest-environment jsdom` docblock. Reach for
+jsdom only when the claim is literally about state surviving (or not surviving) a re-render.
+
+One measurement worth not re-deriving: after a client navigation the PREVIOUS listing's DOM
+is retained beside the new one, `display:none` on its own `.headkit-collection`, so a naive
+`document.querySelectorAll` count doubles with nothing wrong on screen. Scope any DOM
+measurement to the VISIBLE grid.
 
 ## Maintaining this file
 

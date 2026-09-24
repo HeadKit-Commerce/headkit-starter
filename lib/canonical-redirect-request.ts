@@ -8,17 +8,10 @@
  * `/api/canonical-redirect` (see `lib/canonical-redirect.ts`).
  */
 
-/**
- * The route segment every category listing is served under, declared here
- * because this module is the one both sides can read: `proxy.ts` imports it and
- * so cannot reach anything that touches the SDK, while `lib/canonical-redirect.ts`
- * needs the same literal to dispatch a path to the right decision function. The
- * URL BUILDERS keep their own (`collectionPathFromCategory` in
- * `components/headkit-ui/collection/utils.ts`, `collectionPathFromSegments` in
- * `lib/canonical-path.ts`); a shared leaf constant those could read too would be
- * better, and is not this change's to introduce.
- */
-export const COLLECTION_PATH_PREFIX = "collections";
+// `lib/route-prefixes.ts` is the one declaration of this segment and is itself
+// dependency-free, so importing it keeps this module — and `proxy.ts`, which
+// imports it — clear of anything that touches the SDK.
+import { COLLECTION_PATH_PREFIX } from "@/lib/route-prefixes";
 
 /** Route families whose flat shape 308s onto a nested canonical. */
 const PRODUCT_PREFIX = "/products/";

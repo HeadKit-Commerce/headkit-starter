@@ -15,10 +15,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  *    (primary + secondary + pre-header), never a single blanket tag.
  *  - every chrome read uses `cacheLife('days')` (finite D4 backstop, was `max`).
  *  - no `headkit:navigation` / `footer-menu` literal drives invalidation anymore.
+ *  - every menu read ALSO carries `headkit:collections`, because the
+ *    `/collections/...` hrefs are re-derived from the category tree rather than
+ *    taken from the CMS (see `lib/menu-canonical-href.ts`), so a category
+ *    re-parent changes a menu entry's output with no menu edit.
  *
  * `next/cache` is mocked so `cacheTag` / `cacheLife` calls are captured; the SDK
  * + UI components are stubbed so the module imports cleanly in a node env.
  */
+
+// `vi.hoisted` because the `@/lib/sdk` factory below reads it: the factory runs
+// before module-scope consts exist.
+const { getCategories } = vi.hoisted(() => ({
+  getCategories: vi.fn<() => Promise<unknown[]>>(),
+}));
 
 const cacheTag = vi.fn<(...tags: string[]) => void>();
 const cacheLife = vi.fn<(profile: string) => void>();
@@ -66,7 +76,7 @@ vi.mock("@/lib/sdk", () => ({
       > => menuGetMenus(locations),
     },
     collections: {
-      getCategories: vi.fn(async () => []),
+      getCategories: (): Promise<unknown[]> => getCategories(),
     },
   },
 }));
@@ -101,6 +111,8 @@ function allTags(): string[] {
 }
 
 beforeEach(() => {
+  getCategories.mockReset();
+  getCategories.mockResolvedValue([]);
   cacheTag.mockClear();
   cacheLife.mockClear();
   menuGet.mockReset();
@@ -120,18 +132,27 @@ beforeEach(() => {
 describe("fetchMenu — tagged by location, hours backstop", () => {
   it("tags the PRIMARY menu with headkit:menu:PRIMARY at cacheLife('hours')", async () => {
     await fetchMenu("PRIMARY");
-    expect(cacheTag).toHaveBeenCalledWith("headkit:menu:PRIMARY");
+    expect(cacheTag).toHaveBeenCalledWith(
+      "headkit:menu:PRIMARY",
+      "headkit:collections",
+    );
     expect(cacheLife).toHaveBeenCalledWith("hours");
   });
 
   it("tags the SECONDARY menu with headkit:menu:SECONDARY", async () => {
     await fetchMenu("SECONDARY");
-    expect(cacheTag).toHaveBeenCalledWith("headkit:menu:SECONDARY");
+    expect(cacheTag).toHaveBeenCalledWith(
+      "headkit:menu:SECONDARY",
+      "headkit:collections",
+    );
   });
 
   it("tags the PRE_HEADER menu with headkit:menu:PRE_HEADER", async () => {
     await fetchMenu("PRE_HEADER");
-    expect(cacheTag).toHaveBeenCalledWith("headkit:menu:PRE_HEADER");
+    expect(cacheTag).toHaveBeenCalledWith(
+      "headkit:menu:PRE_HEADER",
+      "headkit:collections",
+    );
   });
 
   it("degrades to [] when the SDK read throws", async () => {
@@ -205,6 +226,7 @@ describe("getFooterMenu — legacy FOOTER-only helper", () => {
     expect(cacheTag).toHaveBeenCalledWith(
       "headkit:footer",
       "headkit:menu:FOOTER",
+      "headkit:collections",
     );
     expect(cacheLife).toHaveBeenCalledWith("hours");
   });
@@ -254,5 +276,138 @@ describe("no legacy tag literal drives invalidation", () => {
     await getFooterMenus();
     await fetchMenu("PRIMARY");
     expect(cacheLife).not.toHaveBeenCalledWith("max");
+  });
+});
+
+/**
+ * The WIRING half of the CMS-menu href rewrite. The rule itself is
+ * `lib/menu-canonical-href.test.ts`; this drives the real
+ * `NavigationWrapper` / `getFooterMenus` / `fetchMenu` chain, because a rule
+ * that is never called is green while every menu link still 308s.
+ *
+ * It does NOT prove the href reaches the served HTML, that the redirect hop is
+ * gone, or that `collectionPathIndex` reads the same tree the sitemap walks —
+ * the first two are HTTP reads against a running store, the third is
+ * `collectionPathIndex`'s own use of `walkCategoryPaths`.
+ */
+describe("category hrefs are re-derived from the tree, not taken from the CMS", () => {
+  /** The shape the HeadKit WP theme emits: FLAT `/collections/{leaf}`, at depth. */
+  const FLAT_MENU = [
+    {
+      id: "1",
+      label: "Clothing",
+      uri: "/",
+      cssClasses: [],
+      children: [
+        {
+          id: "2",
+          label: "Column 1",
+          uri: "/",
+          cssClasses: ["hidden"],
+          children: [
+            {
+              id: "3",
+              label: "Apparel",
+              uri: "/collections/apparel",
+              cssClasses: ["hk-collection:apparel"],
+              children: [
+                {
+                  id: "4",
+                  label: "Socks",
+                  uri: "/collections/socks",
+                  cssClasses: ["hk-collection:socks"],
+                  children: [],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      id: "5",
+      label: "Hats",
+      uri: "/collections/hats",
+      cssClasses: ["hk-collection:hats"],
+      children: [],
+    },
+  ];
+
+  const TREE = [
+    { slug: "apparel", children: [{ slug: "socks", children: [] }] },
+    { slug: "hats", children: [] },
+  ];
+
+  type NavItemLike = { uri: string; children?: NavItemLike[] };
+
+  function hrefs(items: readonly NavItemLike[]): string[] {
+    return items.flatMap((item) => [item.uri, ...hrefs(item.children ?? [])]);
+  }
+
+  beforeEach(() => {
+    getCategories.mockResolvedValue(TREE);
+  });
+
+  it("NavigationWrapper nests a flat CHILD href and leaves a ROOT one alone", async () => {
+    menuGetMenus.mockResolvedValue([
+      { name: "Main", description: null, items: FLAT_MENU },
+      { name: "", description: null, items: [] },
+      { name: "", description: null, items: [] },
+    ]);
+    // hideEmptyCollections is on in this file's branding stub, so the filter
+    // runs over the rewritten items too — proving the two passes compose.
+    const element = (await NavigationWrapper()) as {
+      props: { primaryMenuItems: NavItemLike[] };
+    };
+    expect(hrefs(element.props.primaryMenuItems)).toEqual([
+      "/",
+      "/",
+      "/collections/apparel",
+      "/collections/apparel/socks",
+      "/collections/hats",
+    ]);
+  });
+
+  it("getFooterMenus rewrites footer category links too", async () => {
+    menuGetMenus.mockResolvedValue([
+      {
+        name: "Shop",
+        description: null,
+        items: [
+          {
+            id: "4",
+            label: "Socks",
+            uri: "/collections/socks",
+            cssClasses: ["hk-collection:socks"],
+            children: [],
+          },
+        ],
+      },
+      { name: "", description: null, items: [] },
+      { name: "", description: null, items: [] },
+      { name: "", description: null, items: [] },
+      { name: "", description: null, items: [] },
+    ]);
+    const sections = await getFooterMenus();
+    expect(sections[0]?.items[0]?.uri).toBe("/collections/apparel/socks");
+  });
+
+  it("fetchMenu rewrites too — a single-location caller is not a back door", async () => {
+    menuGet.mockResolvedValue(FLAT_MENU);
+    expect(hrefs(await fetchMenu("PRIMARY"))).toContain(
+      "/collections/apparel/socks",
+    );
+  });
+
+  it("leaves every href untouched when the tree read comes back empty", async () => {
+    getCategories.mockResolvedValue([]);
+    menuGet.mockResolvedValue(FLAT_MENU);
+    expect(hrefs(await fetchMenu("PRIMARY"))).toEqual([
+      "/",
+      "/",
+      "/collections/apparel",
+      "/collections/socks",
+      "/collections/hats",
+    ]);
   });
 });

@@ -28,8 +28,14 @@ import { TAG } from "@/lib/cache-tags";
  * app serves, which then 308s to the canonical if one exists. Degrading to a
  * served path matters more than the extra hop — the alternative is a tile that
  * links nowhere.
+ *
+ * {@link collectionPathIndex} is exported for the ONE caller that must tell
+ * "the tree has no such slug" from "the tree says the path is `/collections/x`":
+ * the CMS-menu rewrite in `lib/menu-canonical-href.ts`, whose no-match rule is
+ * to leave a hand-authored href alone rather than flatten it to the fallback.
+ * Everything else wants {@link collectionPathResolver}.
  */
-async function collectionPathIndex(): Promise<Map<string, string>> {
+export async function collectionPathIndex(): Promise<Map<string, string>> {
   "use cache";
   // `days`, deliberately, and NOT the `hours` the other category reads use.
   // Next 16.3 propagates a nested entry's cache life outward to the enclosing

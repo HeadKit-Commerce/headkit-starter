@@ -1,7 +1,7 @@
 import "server-only";
 import { canonicalCollectionRedirect } from "@/lib/collection-canonical";
 import { canonicalProductRedirect } from "@/lib/product-canonical";
-import { COLLECTION_PATH_PREFIX } from "@/lib/canonical-redirect-request";
+import { COLLECTION_PATH_PREFIX } from "@/lib/route-prefixes";
 
 /**
  * The canonical 308 target for a request PATH, or null when the path is
