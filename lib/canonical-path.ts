@@ -21,6 +21,7 @@ import {
   uriToRelativePath,
   SHOP_PATH_PREFIX,
 } from "@/app/shop/shop-slug";
+import { COLLECTION_PATH_PREFIX } from "@/lib/route-prefixes";
 
 /**
  * The minimal product shape a canonical path is derived from.
@@ -48,7 +49,7 @@ export function collectionPathFromSegments(
   const clean = segments.filter(
     (segment): segment is string => !!segment && segment.length > 0,
   );
-  return `/collections/${clean.join("/")}`;
+  return `/${COLLECTION_PATH_PREFIX}/${clean.join("/")}`;
 }
 
 /**

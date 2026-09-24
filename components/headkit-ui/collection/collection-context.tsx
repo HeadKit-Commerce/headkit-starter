@@ -16,6 +16,8 @@ import type {
 } from "@headkit/sdk";
 import { listCollectionProducts } from "@/lib/collection-actions";
 import { useCatalogDisplay } from "@/components/headkit-ui/catalog-display-provider";
+import { requestNavigationSkeleton } from "@/lib/navigation-skeleton-store";
+import { navigationSkeletonEnabled } from "@/lib/nav-interaction-flags";
 import {
   buildProductListFilter,
   deriveFilterValues,
@@ -96,6 +98,30 @@ export function CollectionProvider({
   const { defaultCollectionSort } = useCatalogDisplay();
   // Filter / catalog updates are non-urgent — keep checkbox/toggle INP low (ENG-856).
   const [, startFilterTransition] = useTransition();
+  // A SECOND transition, and the reason it is second rather than the first one
+  // extended is a measured race, not a preference.
+  //
+  // The two have different jobs and, crucially, different lifetimes. The filter
+  // transition ends when the new `filterValues` commit — which is what SCHEDULES
+  // the effect the push lives in, so by the time the navigation starts that
+  // transition is already finishing. Carrying the push in it means `isPending` dips
+  // false between the two, and any flag lowered on that dip is lowered
+  // mid-navigation: traced render by render in jsdom, the sequence is pending=true
+  // (state commit) → pending=false (committed, push not yet started) → pending=true
+  // (push in flight). A transition whose ONLY member is the push has no middle step.
+  //
+  // It is also what makes the exclusion structural rather than a condition somebody
+  // has to keep true: nothing else is ever wrapped in it, so the skeleton cannot be
+  // raised over a change served in place by `fetchProducts` — sort, price, in-stock,
+  // category chips, Load More, Load Previous. Those already have their own in-grid
+  // cue (`ProductGrid` keeps the cards the shopper is reading and appends a skeleton
+  // row) and must keep it.
+  //
+  // What it gives that a link's own pending state cannot: a filter tick is not a
+  // link click, so nothing in `InstantLink` fires for it, and React keeps a
+  // transition pending across a `router.push` until the destination's RSC payload
+  // has arrived and committed.
+  const [isNavigationPending, startNavigationTransition] = useTransition();
 
   const [products, setProducts] = useState(initialProducts);
   const [totalProducts, setTotalProducts] = useState(initialTotal);
@@ -109,6 +135,11 @@ export function CollectionProvider({
   const isInitialLoadRef = useRef(true);
   const [hasFirstPage, setHasFirstPage] = useState(initialPage === 1);
   const prevAttributeSlugRef = useRef<string | undefined>(undefined);
+  // The live navigation-skeleton request for a filter change, and the destination
+  // it was opened for. Declared with the other refs; both are read by the effect at
+  // the bottom of this component.
+  const skeletonTokenRef = useRef<number | null>(null);
+  const pendingFilterPathRef = useRef<string>("");
   // Loading flags live in refs so fetchProducts never closes over a stale
   // isLoadingAfter=true after a filter change mid-request (that bug made
   // load-more permanently no-op while the UI looked idle).
@@ -316,7 +347,23 @@ export function CollectionProvider({
       if (filterValues.instock) params.set("instock", "true");
       if (filterValues.sort) params.set("sort", filterValues.sort);
       const qs = params.toString();
-      router.push(`${categoryBasePath}${filterPath}${qs ? `?${qs}` : ""}`);
+      // Recorded for the skeleton request below, which needs the DESTINATION so the
+      // host can tell "landed" from "never left" — a filter change that resolves to
+      // the path already showing has no route change to observe.
+      pendingFilterPathRef.current = filterPath;
+      // The push, and nothing else, so `isNavigationPending` means exactly "a filter
+      // navigation is in flight" for as long as one is.
+      //
+      // Concise body, so whatever `router.push` returns is the transition's result.
+      // Today that is `undefined` and React treats the scope as an ordinary sync
+      // transition, which is what production runs; if a future Next returns a
+      // thenable, awaiting it is the correct behaviour rather than a surprise. It is
+      // also the seam a guard uses — a mocked `push` returning a promise is the only
+      // way to hold a transition open in jsdom, where there is no router to suspend
+      // on a real payload.
+      startNavigationTransition(() =>
+        router.push(`${categoryBasePath}${filterPath}${qs ? `?${qs}` : ""}`),
+      );
       return;
     }
 
@@ -363,6 +410,28 @@ export function CollectionProvider({
       setFilterValues({ ...DEFAULT_FILTER_VALUES, page: 1 });
     });
   }, [startFilterTransition]);
+
+  // The full-page skeleton for a FILTER navigation, when the store has opted into
+  // it (`NEXT_PUBLIC_NAVIGATION_SKELETON`). Same delay constant, same
+  // `CollectionPageSkeleton` body and the same host a clicked link uses: a
+  // filter-path navigation IS an ordinary route navigation to a `/collections/*`
+  // URL — warm or cold exactly as a clicked one is. What differs is only how it
+  // starts.
+  //
+  // Request only, and never a withdrawal: the host ends it when the route commits.
+  // Withdrawing here on `isNavigationPending === false` would put the teardown back
+  // in a place that cannot tell a finished navigation from an unmounted requester —
+  // see `lib/navigation-skeleton-store.ts`.
+  useEffect(() => {
+    // The per-store switch, checked first so an "off" store never opens a request
+    // the (unmounted) host could not end.
+    if (!navigationSkeletonEnabled()) return;
+    if (!isNavigationPending) return;
+    skeletonTokenRef.current ??= requestNavigationSkeleton(
+      "collection",
+      `${categoryBasePath ?? ""}${pendingFilterPathRef.current}`,
+    );
+  }, [isNavigationPending, categoryBasePath]);
 
   return (
     <CollectionContext.Provider

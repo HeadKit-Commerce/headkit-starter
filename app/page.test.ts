@@ -54,6 +54,10 @@ vi.mock("@/lib/process-editor-blocks", () => ({
   } => ({ blocks: [], leftoverHtml: "", segments: [] }),
   getBlockQueryType: (): null => null,
   hasEditorSectionClass: (): boolean => false,
+  // No segments in this harness, so no WP carousel can claim the prefetch
+  // budget's one warm row. `lib/process-editor-blocks.test.ts` covers the
+  // function itself.
+  firstProductCarouselSegmentIndex: (): number => -1,
 }));
 vi.mock("@/lib/make-metadata", () => ({
   makeRootMetadata: (): Record<string, unknown> => ({}),

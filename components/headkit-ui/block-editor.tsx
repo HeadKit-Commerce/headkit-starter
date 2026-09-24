@@ -1,6 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { SectionHeader } from "@/components/headkit-ui/section-header";
-import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
+import {
+  CAROUSEL_FIRST_ROW,
+  ProductCarousel,
+} from "@/components/headkit-ui/product-carousel";
 import { CategoryCarousel } from "@/components/headkit-ui/category-carousel";
 import { BrandCarousel } from "@/components/headkit-ui/brand-carousel";
 import { ClientCarousel } from "@/components/headkit-ui/client-carousel";
@@ -31,6 +34,14 @@ interface Props {
    * When omitted, every block in `blocks` is rendered (document-order segments).
    */
   section?: string;
+  /**
+   * Warm the first visible row of the FIRST `headkit-product-carousel` block
+   * rendered here (`ProductCarousel`'s `prefetchCount`). Off by default: under the
+   * prefetch budget a link no longer prefetches on its own, and the caller is the
+   * only one that knows whether this block editor owns the page's first carousel.
+   * `app/page.tsx` is the one place that passes it.
+   */
+  prefetchFirstProductCarouselRow?: boolean;
 }
 
 const MEDIA_CLASSES = [
@@ -145,6 +156,7 @@ function toProjectSummaries(
 const BlockEditor = async ({
   blocks,
   section,
+  prefetchFirstProductCarouselRow = false,
 }: Props): Promise<React.JSX.Element> => {
   const result =
     section === undefined
@@ -269,6 +281,10 @@ const BlockEditor = async ({
           const colourwayPins = hydrateColourwayPins(
             data.attrs?.["productColourways"],
           );
+          const isFirstProductCarousel =
+            (result ?? []).findIndex((b) =>
+              b.cssClasses.includes("headkit-product-carousel"),
+            ) === index;
           return (
             <HeadKitProductCarouselSection
               key={index}
@@ -278,6 +294,9 @@ const BlockEditor = async ({
               products={data.products ?? []}
               html={data.html}
               colourwayPins={colourwayPins}
+              prefetchFirstRow={
+                prefetchFirstProductCarouselRow && isFirstProductCarousel
+              }
             />
           );
         }
@@ -443,6 +462,7 @@ async function HeadKitProductCarouselSection({
   products: hydratedProducts,
   html,
   colourwayPins,
+  prefetchFirstRow = false,
 }: {
   title: string;
   description: string;
@@ -450,6 +470,7 @@ async function HeadKitProductCarouselSection({
   products: Product[];
   html?: string | null | undefined;
   colourwayPins?: Record<string, string> | undefined;
+  prefetchFirstRow?: boolean;
 }): Promise<React.JSX.Element | null> {
   let products = hydratedProducts;
   let pins = colourwayPins;
@@ -474,7 +495,11 @@ async function HeadKitProductCarouselSection({
         className="px-5 md:px-10"
       />
       <div className="mt-8">
-        <ProductCarousel products={products} colourwayPins={pins} />
+        <ProductCarousel
+          products={products}
+          colourwayPins={pins}
+          prefetchCount={prefetchFirstRow ? CAROUSEL_FIRST_ROW : 0}
+        />
       </div>
     </div>
   );

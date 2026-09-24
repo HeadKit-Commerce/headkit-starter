@@ -65,6 +65,26 @@ const clientSchema = z.object({
   NEXT_PUBLIC_STRIPE_ADVANCED_FRAUD_SIGNALS: z
     .enum(["true", "false"])
     .optional(),
+  // The three per-store navigation-interaction switches. ALL DEFAULT OFF: unset,
+  // empty and any unrecognised value leave the storefront exactly as it behaves
+  // today, and only an explicit "true" / "1" / "on" / "yes" turns one on.
+  //
+  //   NEXT_PUBLIC_NAV_PREFETCH_BUDGET — spend the prefetch head start on the
+  //     desktop nav and one carousel row instead of on every link (and turn on
+  //     `partialPrefetching`, which `next.config.ts` reads from the same variable).
+  //   NEXT_PUBLIC_NAV_MOUSEDOWN — start an in-app navigation on `mousedown`.
+  //   NEXT_PUBLIC_NAVIGATION_SKELETON — draw a full-page skeleton while a
+  //     navigation is pending.
+  //
+  // Declared here because this is where the full variable set is documented; the
+  // values are READ in `lib/nav-interaction-flags.ts`, which is the one place the
+  // rule lives and which states why the reads cannot come through this module.
+  //
+  // Deliberately NOT a z.enum: an unrecognised value must be accepted and mean off,
+  // not fail the store's boot.
+  NEXT_PUBLIC_NAV_PREFETCH_BUDGET: z.string().optional(),
+  NEXT_PUBLIC_NAV_MOUSEDOWN: z.string().optional(),
+  NEXT_PUBLIC_NAVIGATION_SKELETON: z.string().optional(),
 });
 
 const serverSchema = clientSchema.extend({
@@ -181,6 +201,12 @@ function createEnv(): ClientEnv & Partial<ServerEnv> {
       process.env.NEXT_PUBLIC_STRIPE_ADVANCED_FRAUD_SIGNALS === "false"
         ? process.env.NEXT_PUBLIC_STRIPE_ADVANCED_FRAUD_SIGNALS
         : undefined,
+    NEXT_PUBLIC_NAV_PREFETCH_BUDGET:
+      process.env.NEXT_PUBLIC_NAV_PREFETCH_BUDGET || undefined,
+    NEXT_PUBLIC_NAV_MOUSEDOWN:
+      process.env.NEXT_PUBLIC_NAV_MOUSEDOWN || undefined,
+    NEXT_PUBLIC_NAVIGATION_SKELETON:
+      process.env.NEXT_PUBLIC_NAVIGATION_SKELETON || undefined,
   });
 }
 

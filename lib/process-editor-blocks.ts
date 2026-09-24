@@ -530,6 +530,31 @@ export function getBlockQueryType(
 }
 
 /**
+ * Index of the first `headkit-product-carousel` segment in document order, or
+ * `-1` when the WordPress front page carries none.
+ *
+ * `app/page.tsx` uses it to give exactly ONE carousel on the page the warm first
+ * row (`ProductCarousel`'s `prefetchCount`) when a store runs the prefetch budget;
+ * every other product link falls back to whatever `InstantLink` resolves. See
+ * `lib/nav-interaction-flags.ts`.
+ *
+ * Covers segment ORDER only. It does not know whether the block resolves to any
+ * products (a carousel whose handpicked products all 404 still counts as the
+ * first), and it says nothing about the platform's own hard-coded Featured and On
+ * Sale carousels — `app/page.tsx` owns the "WP first, platform carousel otherwise"
+ * fallback.
+ */
+export function firstProductCarouselSegmentIndex(
+  segments: readonly HomepageSegment[],
+): number {
+  return segments.findIndex(
+    (seg) =>
+      seg?.kind === "block" &&
+      seg.block.cssClasses.includes("headkit-product-carousel"),
+  );
+}
+
+/**
  * True when any processed block includes the given CSS class
  * (e.g. headkit-category-carousel → skip hardcoded Shop by Category).
  */

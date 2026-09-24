@@ -13,6 +13,8 @@ import { HostedCartSync } from "@/components/checkout/hosted-cart-sync";
 import { AuthProvider } from "@/components/headkit-ui/auth-context";
 import { Footer } from "@/components/headkit-ui/footer";
 import { LazyCartDrawer } from "@/components/headkit-ui/lazy-cart-drawer";
+import { NavigationSkeletonHost } from "@/components/headkit-ui/skeletons/navigation-skeleton-host";
+import { navigationSkeletonEnabled } from "@/lib/nav-interaction-flags";
 import { WebsiteJsonLD } from "@/components/seo/website-json-ld";
 import { OrganizationJsonLD } from "@/components/seo/organization-json-ld";
 import {
@@ -307,6 +309,24 @@ export default async function RootLayout({
                 <CartProvider>
                   <HostedCartSync />
                   <LazyCartDrawer />
+                  {/* The ONE renderer of the pending-navigation skeleton. Here,
+                      and not inside the link that asked for it, because a link in
+                      the mega-menu / mobile sheet / search or cart drawer is
+                      unmounted by its own container ~160 ms after the click — long
+                      before the 400 ms threshold — and used to take the skeleton
+                      with it. It adds no <Suspense> and makes no request-time read,
+                      so the status-code rule above still holds.
+
+                      Gated on NEXT_PUBLIC_NAVIGATION_SKELETON (see
+                      lib/nav-interaction-flags.ts for the value table). The gate is
+                      HERE, on the mount, rather than as an early return inside the
+                      host: a host that mounts still runs useSyncExternalStore and
+                      useDelayedFlag, and the switch is meant to leave nothing
+                      running at all. DEFAULT OFF, so a store that sets nothing
+                      renders exactly what it does today. */}
+                  {navigationSkeletonEnabled() ? (
+                    <NavigationSkeletonHost />
+                  ) : null}
                   <NavigationWrapper />
                   <main className="headkit-main pb-10">{children}</main>
                   <Suspense fallback={null}>

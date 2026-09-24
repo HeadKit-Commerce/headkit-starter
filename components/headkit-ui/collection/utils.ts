@@ -5,6 +5,7 @@ import type {
 } from "@headkit/sdk";
 import { COLOR_ATTR_SLUGS, isColorAttrSlug } from "@/lib/color-attr-slug";
 import { decodeHtmlEntities } from "@/lib/utils";
+import { COLLECTION_PATH_PREFIX } from "@/lib/route-prefixes";
 
 export { isColorAttrSlug };
 
@@ -399,7 +400,7 @@ export function collectionPathFromCategory(
     ...(category.ancestors ?? []).map((ancestor) => ancestor.slug),
     category.slug,
   ].filter((segment) => segment.length > 0);
-  return `/collections/${segments.join("/")}`;
+  return `/${COLLECTION_PATH_PREFIX}/${segments.join("/")}`;
 }
 
 /** Build breadcrumb URIs to match the Next.js route /collections/[...slug] (same as URL path). */

@@ -11,6 +11,7 @@ import type {
 } from "@headkit/sdk";
 import {
   processHomepageContent,
+  firstProductCarouselSegmentIndex,
   getBlockQueryType,
   hasEditorSectionClass,
 } from "@/lib/process-editor-blocks";
@@ -41,7 +42,10 @@ import {
 import { shouldShowHomepageFeaturedProducts } from "@/lib/homepage-featured";
 import { BlockEditor } from "@/components/headkit-ui/block-editor";
 import { EditorialContent } from "@/components/headkit-ui/editorial-content";
-import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
+import {
+  CAROUSEL_FIRST_ROW,
+  ProductCarousel,
+} from "@/components/headkit-ui/product-carousel";
 import { CategoryCarousel } from "@/components/headkit-ui/category-carousel";
 import { PostCarousel } from "@/components/headkit-ui/post/post-carousel";
 import { SectionHeader } from "@/components/headkit-ui/section-header";
@@ -253,6 +257,19 @@ export async function HomeContent() {
 
   const heroLayout = theme.layout.heroLayout;
 
+  // Exactly ONE product carousel on this page keeps a warm first row, and only
+  // when the store runs the prefetch budget (`NEXT_PUBLIC_NAV_PREFETCH_BUDGET`;
+  // with it off, `InstantLink` prefetches every link as it does today and this
+  // choice costs nothing). The WP front page's first `headkit-product-carousel`
+  // wins when it has one, because editor segments render above the platform's own
+  // carousels; when it has none, the first hard-coded carousel a shopper sees takes
+  // it — Featured when that is shown, otherwise On Sale.
+  const warmCarouselSegment = firstProductCarouselSegmentIndex(segments);
+  const warmPlatformFeaturedCarousel =
+    warmCarouselSegment === -1 && showHardcodedFeatured;
+  const warmPlatformSaleCarousel =
+    warmCarouselSegment === -1 && !showHardcodedFeatured;
+
   return (
     <>
       {showHardcodedHero && (
@@ -271,7 +288,13 @@ export async function HomeContent() {
             </section>
           );
         }
-        return <BlockEditor key={`wp-block-${index}`} blocks={[seg.block]} />;
+        return (
+          <BlockEditor
+            key={`wp-block-${index}`}
+            blocks={[seg.block]}
+            prefetchFirstProductCarouselRow={index === warmCarouselSegment}
+          />
+        );
       })}
 
       {/* Platform commerce modules (not WP page blocks) */}
@@ -290,6 +313,9 @@ export async function HomeContent() {
             <ProductCarousel
               products={featuredProducts.slice(0, 12)}
               id="featured-products"
+              prefetchCount={
+                warmPlatformFeaturedCarousel ? CAROUSEL_FIRST_ROW : 0
+              }
             />
           </div>
         </section>
@@ -311,6 +337,7 @@ export async function HomeContent() {
             <ProductCarousel
               products={onSaleProducts.products.slice(0, 12) as Product[]}
               id="on-sale-products"
+              prefetchCount={warmPlatformSaleCarousel ? CAROUSEL_FIRST_ROW : 0}
             />
           </div>
         </section>

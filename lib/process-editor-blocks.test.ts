@@ -3,6 +3,7 @@ import {
   processHomepageContent,
   processEditorBlocks,
   extractHeadkitSections,
+  firstProductCarouselSegmentIndex,
   getBlockQueryType,
   hasEditorSectionClass,
 } from "./process-editor-blocks";
@@ -152,6 +153,53 @@ describe("hasEditorSectionClass", () => {
         "headkit-brand-carousel",
       ),
     ).toBe(false);
+  });
+});
+
+/**
+ * Which segment, if any, gets the prefetch budget's one warm carousel row.
+ *
+ * Covers segment ORDER only, which is all the function claims. Whether the store
+ * runs the budget at all, and the Featured / On Sale fallback when the front page
+ * carries no carousel of its own, are `app/page.tsx`'s and are not covered by any
+ * unit test.
+ */
+describe("firstProductCarouselSegmentIndex", () => {
+  it("finds the first product carousel in document order", () => {
+    const { segments } = processHomepageContent(
+      `${EARLY_COPY}${HILIGHT_SECTION}${CAROUSEL_SECTION}${CAROUSEL_SECTION}`,
+      [],
+    );
+
+    const index = firstProductCarouselSegmentIndex(segments);
+    expect(index).toBeGreaterThanOrEqual(0);
+    expect(segments[index]).toMatchObject({ kind: "block" });
+    // The FIRST one, not merely any: a second carousel below the fold must not
+    // claim the row.
+    const all = segments.flatMap((seg, i) =>
+      seg.kind === "block" &&
+      seg.block.cssClasses.includes("headkit-product-carousel")
+        ? [i]
+        : [],
+    );
+    expect(all.length).toBeGreaterThan(1);
+    expect(index).toBe(all[0]);
+  });
+
+  it("reports -1 when the front page carries no product carousel", () => {
+    const { segments } = processHomepageContent(
+      `${HILIGHT_SECTION}${GALLERY_SECTION}`,
+      [],
+    );
+
+    expect(
+      firstProductCarouselSegmentIndex(segments),
+      "-1 is what makes app/page.tsx fall back to a platform carousel; any other sentinel would warm segment 0.",
+    ).toBe(-1);
+  });
+
+  it("reports -1 for no segments at all", () => {
+    expect(firstProductCarouselSegmentIndex([])).toBe(-1);
   });
 });
 

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   NavigationMenu,
@@ -6,7 +6,14 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu";
-import { InstantLink } from "@/components/headkit-ui/instant-link";
+import {
+  InstantLink,
+  mouseDownNavigationRefusal,
+} from "@/components/headkit-ui/instant-link";
+
+const { observedPrefetch } = vi.hoisted(() => ({
+  observedPrefetch: vi.fn<(prefetch: boolean | undefined) => void>(),
+}));
 
 /**
  * Regression cover for `InstantLink`'s prop-forwarding contract.
@@ -42,19 +49,26 @@ vi.mock("next/link", () => ({
   default: ({
     children,
     href,
-    prefetch: _prefetch,
+    prefetch,
     ...rest
   }: {
     children: React.ReactNode;
     href: string;
     prefetch?: boolean;
-  }) => (
-    <a href={href} {...rest}>
-      {children}
-    </a>
-  ),
+  }) => {
+    observedPrefetch(prefetch);
+    return (
+      <a href={href} {...rest}>
+        {children}
+      </a>
+    );
+  },
   useLinkStatus: () => ({ pending: false }),
 }));
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 function renderTrigger(href: string): string {
   return renderToStaticMarkup(
@@ -71,6 +85,102 @@ function renderTrigger(href: string): string {
     </NavigationMenu>,
   );
 }
+
+/**
+ * The prefetch-resolution contract, in BOTH states of the prefetch budget.
+ *
+ * `InstantLink` defaults `prefetch` to `true`, which is what the starter's 50-odd
+ * call sites were written against. With `NEXT_PUBLIC_NAV_PREFETCH_BUDGET` on it
+ * defaults to UNSET instead, and only the two surfaces that ask explicitly keep a
+ * full prefetch. The measurement behind the budget is on the Bike Society fork: 63
+ * product links on one home page, a sweep whose last prefetch landed at 33,084 ms
+ * having covered 31 of 213 links, and a click made during it costing 4.0-5.8 s MORE
+ * than the same click with prefetching blocked.
+ *
+ * WHAT THESE COVER: what `InstantLink` hands `next/link` — `true` by default,
+ * `undefined` under the budget, and whatever the caller said when the caller was
+ * explicit. That is the prop plumbing and nothing else.
+ *
+ * WHERE THEY STOP, and it is a wide stop:
+ *   - They do NOT exercise Next's own prefetch behaviour. What `undefined`
+ *     ('auto' → `FetchStrategy.PPR`) versus `true` ('full' → `FetchStrategy.Full`)
+ *     actually puts on the wire is Next's code, observable only over HTTP.
+ *   - They do NOT cover the 50-odd other `InstantLink` call sites. Only the two
+ *     surfaces that pass an explicit `true` are covered, in
+ *     `prefetch-budget.test.tsx`, and only for the shapes named there.
+ *   - They say nothing about hover/touch prefetch, which `prefetch={false}`
+ *     disables and an unset value keeps.
+ */
+describe("InstantLink prefetch resolution", () => {
+  it("defaults to prefetch={true} with the budget OFF, which is today's platform behaviour", () => {
+    vi.stubEnv("NEXT_PUBLIC_NAV_PREFETCH_BUDGET", undefined);
+    observedPrefetch.mockClear();
+
+    renderToStaticMarkup(<InstantLink href="/shop/foo">Product</InstantLink>);
+
+    expect(
+      observedPrefetch,
+      "Removing the default is a platform-wide change to perceived navigation speed. Unset must keep it.",
+    ).toHaveBeenCalledWith(true);
+  });
+
+  it("passes prefetch through UNSET with the budget ON", () => {
+    vi.stubEnv("NEXT_PUBLIC_NAV_PREFETCH_BUDGET", "true");
+    observedPrefetch.mockClear();
+
+    renderToStaticMarkup(<InstantLink href="/shop/foo">Product</InstantLink>);
+
+    expect(
+      observedPrefetch,
+      "Under the budget an unset prop is next/link's 'auto' intent; defaulting it to true is what produced the 63-link prefetch storm.",
+    ).toHaveBeenCalledWith(undefined);
+  });
+
+  it.each(["", "ture", "2"])(
+    "keeps the default for the unrecognised budget value %o",
+    (raw) => {
+      vi.stubEnv("NEXT_PUBLIC_NAV_PREFETCH_BUDGET", raw);
+      observedPrefetch.mockClear();
+
+      renderToStaticMarkup(<InstantLink href="/shop/foo">Product</InstantLink>);
+
+      expect(observedPrefetch).toHaveBeenCalledWith(true);
+    },
+  );
+
+  it("forwards an explicit prefetch={true} in either state", () => {
+    for (const budget of [undefined, "true"]) {
+      vi.stubEnv("NEXT_PUBLIC_NAV_PREFETCH_BUDGET", budget);
+      observedPrefetch.mockClear();
+
+      renderToStaticMarkup(
+        <InstantLink href="/shop/foo" prefetch>
+          Product
+        </InstantLink>,
+      );
+
+      expect(
+        observedPrefetch,
+        "The warm-link opt-in is the whole point of the budget: an explicit prefetch={true} must still reach next/link.",
+      ).toHaveBeenCalledWith(true);
+    }
+  });
+
+  it("forwards an explicit prefetch={false} rather than swallowing it", () => {
+    // `false` is a real, different mode ('none': no viewport prefetch AND no
+    // hover/touch prefetch), so it must not be collapsed into the default.
+    vi.stubEnv("NEXT_PUBLIC_NAV_PREFETCH_BUDGET", "true");
+    observedPrefetch.mockClear();
+
+    renderToStaticMarkup(
+      <InstantLink href="/shop/foo" prefetch={false}>
+        Product
+      </InstantLink>,
+    );
+
+    expect(observedPrefetch).toHaveBeenCalledWith(false);
+  });
+});
 
 describe("InstantLink as a Radix asChild target", () => {
   it("forwards injected asChild wiring for a '#' href", () => {
@@ -141,5 +251,94 @@ describe("InstantLink as a Radix asChild target", () => {
     expect(html).toContain('href="https://www.instagram.com/velvetmuse/"');
     expect(html).toContain('target="_blank"');
     expect(html).toContain('rel="noopener noreferrer"');
+  });
+});
+
+/**
+ * The mouse-down navigation guard (NextFaster technique 1), which is the rule
+ * whether or not a store has switched the behaviour on.
+ *
+ * WHAT THESE COVER: the refusal rule itself, exhaustively, for the five gestures
+ * that must keep their browser default — middle-click, ctrl-click, cmd-click,
+ * shift-click, right-click — plus alt-click, a `target` that opens elsewhere, a
+ * `download` anchor, and an event some ancestor already claimed.
+ *
+ * WHERE THEY STOP: this is a pure predicate, so it says nothing about what
+ * `InstantLink` then does with the answer. That the plain left-click actually
+ * navigates, that the click following it does NOT navigate a second time, and that
+ * the whole behaviour is off until a store opts in, are in
+ * `instant-link.mouse-down.test.tsx`. That a real browser honours the refusals — a
+ * new tab genuinely opening on cmd-click, a context menu genuinely appearing — is
+ * only observable in a browser, and the fork's PR #40 measured all five.
+ */
+describe("mouseDownNavigationRefusal", () => {
+  const plainLeftClick = {
+    button: 0,
+    defaultPrevented: false,
+    metaKey: false,
+    ctrlKey: false,
+    shiftKey: false,
+    altKey: false,
+  };
+
+  it("allows a plain left-click", () => {
+    expect(mouseDownNavigationRefusal(plainLeftClick)).toBeNull();
+  });
+
+  it("refuses middle-click, which is open-in-new-tab", () => {
+    expect(
+      mouseDownNavigationRefusal({ ...plainLeftClick, button: 1 }),
+      "Middle-click opens a product in a new tab. Hijacking it into a same-tab navigation loses the page the shopper was comparing from.",
+    ).toBe("not-left-button");
+  });
+
+  it("refuses right-click, which opens the context menu and navigates nowhere", () => {
+    expect(mouseDownNavigationRefusal({ ...plainLeftClick, button: 2 })).toBe(
+      "not-left-button",
+    );
+  });
+
+  it.each([
+    ["ctrl-click (Windows/Linux new tab)", "ctrlKey"],
+    ["cmd-click (macOS new tab)", "metaKey"],
+    ["shift-click (new window)", "shiftKey"],
+    ["alt-click (download the target)", "altKey"],
+  ] as const)("refuses %s", (_label, key) => {
+    expect(mouseDownNavigationRefusal({ ...plainLeftClick, [key]: true })).toBe(
+      "modifier-key",
+    );
+  });
+
+  it("refuses an event an ancestor already claimed", () => {
+    expect(
+      mouseDownNavigationRefusal({
+        ...plainLeftClick,
+        defaultPrevented: true,
+      }),
+    ).toBe("already-handled");
+  });
+
+  it("refuses an anchor that targets another tab, and allows _self / unset", () => {
+    expect(
+      mouseDownNavigationRefusal({
+        ...plainLeftClick,
+        anchorTarget: "_blank",
+      }),
+    ).toBe("opens-elsewhere");
+    expect(
+      mouseDownNavigationRefusal({ ...plainLeftClick, anchorTarget: "_self" }),
+    ).toBeNull();
+    expect(
+      mouseDownNavigationRefusal({ ...plainLeftClick, anchorTarget: "" }),
+    ).toBeNull();
+    expect(
+      mouseDownNavigationRefusal({ ...plainLeftClick, anchorTarget: null }),
+    ).toBeNull();
+  });
+
+  it("refuses a download anchor", () => {
+    expect(
+      mouseDownNavigationRefusal({ ...plainLeftClick, anchorDownload: true }),
+    ).toBe("download");
   });
 });

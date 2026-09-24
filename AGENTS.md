@@ -848,6 +848,72 @@ the first client paint said "In Stock" for every product, an out-of-stock one in
 predicates are pure functions of the props and need no browser; `resolveAvailability` is exported
 so the rule is testable without a render.
 
+### Three navigation-interaction switches, all OFF by default
+
+`lib/nav-interaction-flags.ts` is the ONE place each variable is read and its value
+interpreted, and it carries the value table (only an explicit `true`/`1`/`on`/`yes` turns a
+switch on; unset, empty and any unrecognised value mean off, so a typo can never hand every
+shopper new behaviour). Do not read `process.env.NEXT_PUBLIC_NAV_*` anywhere else — Next inlines
+a public variable only where the name appears verbatim, which is why the reads live there and
+the declarations live in `lib/env.ts`.
+
+- **`NEXT_PUBLIC_NAV_PREFETCH_BUDGET`** — one switch, two spellings that must agree.
+  `InstantLink`'s `resolvePrefetch` stops defaulting `prefetch` to `true`, and `next.config.ts`
+  sets `partialPrefetching: true` from the same variable; partial prefetching is what makes an
+  unset `prefetch` cheap, so a build with one half and not the other is a state nobody measured.
+  With the budget on the head start is spent explicitly, on the top-level desktop nav
+  (`DesktopMenuSection`'s `prefetch` prop) and the first visible row of the page's first product
+  carousel (`ProductCarousel`'s `prefetchCount`, wired in `app/page.tsx` and `block-editor.tsx`
+  via `firstProductCarouselSegmentIndex`). `prefetch={false}` is not the way to quieten a link —
+  that is `'none'` and kills hover/touch prefetch too.
+- **`NEXT_PUBLIC_NAV_MOUSEDOWN`** — an in-app link starts its navigation on `mousedown`.
+  `mouseDownNavigationRefusal` is the guard, and the five gestures it must never hijack
+  (middle-click, cmd/ctrl-click, shift-click, right-click, alt-click) are why it returns a reason
+  rather than a boolean. The navigation is started by dispatching a click on the anchor, never by
+  `useRouter().push()`, so `replace`/`scroll`/`onNavigate`/`useLinkStatus` and any injected
+  `onClick` behave as they do on a real click, and the component stays renderable with no
+  app-router context.
+- **`NEXT_PUBLIC_NAVIGATION_SKELETON`** — the full-page skeleton for a pending navigation.
+
+### A navigation skeleton is REQUESTED by a gesture and DRAWN by one host
+
+Two raisers, one renderer. `InstantLink` requests from its own event handler, and
+`CollectionProvider` requests from a transition that wraps ONLY the filter-path `router.push`.
+Neither renders the skeleton and neither withdraws its request: `NavigationSkeletonHost` (mounted
+once in `app/layout.tsx`, behind the switch, outside `{children}`) owns the whole lifetime and
+ends a request when the route commits, or at a 15 s ceiling.
+
+Three rules hold it together, each of which cost a measured failure on the fork this came from:
+
+- **Request from a handler, never from a render or an effect.** A container that dismisses on
+  click unmounts the link ~160 ms after the press, which is before the 400 ms threshold, and the
+  superseded render means `useLinkStatus()` never reports `pending` there at all. A function call
+  in a handler always runs.
+- **Only something that OBSERVED the navigation end may end the request.** An effect cleanup
+  cannot tell "the navigation finished" from "my container closed", so there is no release call
+  anywhere — see `lib/navigation-skeleton-store.ts`.
+- **The host reads `window.location.pathname` inside an effect, never `usePathname()`.** Next
+  treats that hook as URL data during prerender and suspends on a route whose params are not
+  enumerated; from the root layout there is no boundary to give it, because a boundary there
+  re-opens the soft 404 (see "Setting a status code needs THREE conditions").
+
+Which body a route gets is decided in ONE place, `lib/navigation-skeleton-target.ts`: a table of
+predicates written against the app's own URL builders, plus an opt-out set. A kind a URL cannot
+carry is THREADED instead — `"post"` comes from the post cards' `skeleton` prop, because the blog
+base is per-store server data. None of this is server-rendered, so no route, `loading.tsx` or
+`<Suspense>` is involved and the 404/308 gates are untouched.
+
+### `images.minimumCacheTTL` is env-driven, and there is one escape from it
+
+Unset by default, which means Next's 4 h. `NEXT_IMAGE_MINIMUM_CACHE_TTL` raises it per store.
+The effective TTL is `max(minimumCacheTTL, upstream max-age)`, so WordPress-hosted media
+(Pressable serves `max-age=31536000`) is unaffected either way; what the key governs is `/public`
+assets and dashboard branding on `storage.googleapis.com`. A merchant who swaps a dashboard logo
+has NO automatic purge path — the theme's hooks fire Next cache tags, which never reach the image
+cache — so the only escape is `vercel cache invalidate --srcimg <path>` (or
+`invalidateBySrcImage()` from `@vercel/functions`), and whatever is set here is the worst case
+they must otherwise wait out. `next.config.ts` carries the measurements.
+
 ## Maintaining this file
 
 Keep this file for knowledge useful to almost every future agent session in this app.

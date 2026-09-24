@@ -147,6 +147,68 @@ const positiveIntEnv = (raw: string | undefined, fallback: number): number => {
   const n = Number(raw ?? "");
   return Number.isInteger(n) && n > 0 ? n : fallback;
 };
+
+/**
+ * The prefetch budget's build-time half.
+ *
+ * `partialPrefetching` and `InstantLink`'s `prefetch` default are ONE decision
+ * read from ONE variable: partial prefetching is what makes an unset `prefetch`
+ * cheap (a `/_tree` request plus static per-segment bundles, no runtime request),
+ * so a build with the config key and without the default change — or the reverse —
+ * is a state nobody measured. `lib/nav-interaction-flags.ts` owns the value table
+ * and the client-side half; this is the same rule, spelled out here because
+ * `next.config.ts` cannot import from `@/lib` paths that pull in client code.
+ *
+ * Off by default, which is the platform's behaviour today. The key itself is valid
+ * on the pinned Next (>= 16.3); it used to be omitted because on 16.2.x it failed
+ * `next build`'s type check, and that blocker is gone.
+ */
+const navPrefetchBudget = ["true", "1", "on", "yes"].includes(
+  (process.env.NEXT_PUBLIC_NAV_PREFETCH_BUDGET ?? "").trim().toLowerCase(),
+);
+
+/**
+ * Minimum lifetime of an OPTIMIZED image in the image cache, in seconds.
+ *
+ * UNSET BY DEFAULT, which means Next's own default of 14,400 s / 4 h
+ * (`next/dist/shared/lib/image-config.js`). `NEXT_IMAGE_MINIMUM_CACHE_TTL` raises
+ * it per store; the Bike Society fork runs 2592000 (30 days).
+ *
+ * Read the next paragraph before reasoning about product photos: this key does NOT
+ * govern them, and the obvious worry about it is misplaced.
+ *
+ * The effective TTL is `Math.max(minimumCacheTTL, upstream max-age)`
+ * (`next/dist/server/image-optimizer.js`). Measured on a rehearsal storefront
+ * 2026-09-17: Pressable serves every `wp-content/uploads/…` asset with
+ * `Cache-Control: max-age=31536000`, and the optimized response for one came back
+ * `public, max-age=31536000, must-revalidate` on a deployment where this key was
+ * UNSET. So every WordPress-hosted product, hero and brand image is already cached
+ * for a year by the origin's own header, and no value here can shorten that.
+ *
+ * What it does govern is every source whose upstream sends a SHORT or absent
+ * `Cache-Control`: this repo's own `/public` assets (measured `max-age=0`, so they
+ * re-optimize every 4 h for nothing, since they can only change by deploying) and
+ * dashboard branding on `storage.googleapis.com`. That second class is why the
+ * fork chose 30 days rather than NextFaster's year, and why this is a per-store
+ * value rather than a new platform default: a merchant who swaps a logo in the
+ * dashboard has NO automatic purge path to the image cache, so whatever is set
+ * here is the worst case they must wait out.
+ *
+ * There IS a manual purge path, and it is the only one:
+ * `vercel cache invalidate --srcimg <path>`, or `invalidateBySrcImage()` from
+ * `@vercel/functions`. Nothing in this repo or in the WordPress theme calls it —
+ * the theme's purge hooks fire Next cache TAGS, which reach page entries and never
+ * the image cache.
+ *
+ * What the browser sees is a separate question with a separate answer: on Vercel
+ * the optimized response's own `max-age` tracks the UPSTREAM header, not this key
+ * (measured above), so raising it pins nothing in a shopper's browser — the one
+ * cache nobody can purge.
+ */
+const imageMinimumCacheTTL = positiveIntEnv(
+  process.env.NEXT_IMAGE_MINIMUM_CACHE_TTL,
+  0,
+);
 const buildCpus = positiveIntEnv(
   process.env.NEXT_BUILD_CPUS,
   resolveBuildWorkers({
@@ -194,12 +256,12 @@ const nextConfig: NextConfig = {
   // requests, Instant Insights / Navigation Inspector in dev.
   // https://nextjs.org/blog/next-16-3
   //
-  // `partialPrefetching: true` is NOT re-added until the pinned Next is >= 16.3.
-  // On the pinned 16.2.x it is not a valid NextConfig key: Next logs
-  // "Unrecognized key(s) in object: 'partialPrefetching'" and drops it, so it
-  // was already inert at runtime — but it failed `next build`'s type check,
-  // which broke `bun run build` (a CI gate) for the whole workspace.
+  // Partial Prefetching makes a default link fetch only the reusable App Shell,
+  // and it is half of ONE per-store decision with `InstantLink`'s `prefetch`
+  // default — see `navPrefetchBudget` above and that component's docblock, which
+  // owns the rule. Off unless the store sets NEXT_PUBLIC_NAV_PREFETCH_BUDGET.
   cacheComponents: true,
+  ...(navPrefetchBudget ? { partialPrefetching: true } : {}),
   experimental: {
     optimizePackageImports: [
       "react-icons",
@@ -233,6 +295,11 @@ const nextConfig: NextConfig = {
     // logos). AVIF first, WebP fallback — never serve source PNG/JPEG bytes
     // when the optimizer can negotiate a smaller format.
     formats: ["image/avif", "image/webp"],
+    // See `imageMinimumCacheTTL` above: absent unless the store sets a value, and
+    // absent means Next's 4 h default.
+    ...(imageMinimumCacheTTL > 0
+      ? { minimumCacheTTL: imageMinimumCacheTTL }
+      : {}),
     // 65 = PLP/carousel default (FeaturedImage); 50 = cart thumbs; 75 = heroes.
     qualities: [50, 65, 75, 100],
     remotePatterns,
