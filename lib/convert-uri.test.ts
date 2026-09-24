@@ -55,6 +55,15 @@ describe("convertToRelativePath", () => {
       "https://facebook.com/brand",
     );
   });
+
+  it("keeps Substack profile URLs absolute, including the @ handle", () => {
+    expect(convertToRelativePath("https://substack.com/@velvet")).toBe(
+      "https://substack.com/@velvet",
+    );
+    expect(convertToRelativePath("https://velvet.substack.com/")).toBe(
+      "https://velvet.substack.com/",
+    );
+  });
 });
 
 describe("normalizeNavigationHref", () => {

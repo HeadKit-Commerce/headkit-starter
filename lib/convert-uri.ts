@@ -59,6 +59,7 @@ const EXTERNAL_LINK_HOST_SUFFIXES = [
   "vimeo.com",
   "spotify.com",
   "open.spotify.com",
+  "substack.com",
 ] as const;
 
 export function isExternalHttpHost(hostname: string): boolean {
