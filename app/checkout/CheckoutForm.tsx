@@ -7,7 +7,6 @@ import {
   useCallback,
   useRef,
   type ReactNode,
-  useReducer,
 } from "react";
 import type { Stripe } from "@stripe/stripe-js";
 import { getStripePromise } from "@/lib/stripe-js-singleton";
@@ -25,16 +24,6 @@ import { DeliveryMethodStep } from "@/components/checkout/steps/delivery-method-
 import { ShippingOptionsStep } from "@/components/checkout/steps/shipping-options-step";
 import { BillingAddressStep } from "@/components/checkout/steps/billing-address-step";
 import { StripePaymentStep } from "@/components/checkout/steps/stripe-checkout-step";
-import { usePayPalPaymentOption } from "@/components/checkout/steps/paypal-payment-option";
-import { useOfflinePaymentOption } from "@/components/checkout/steps/offline-payment-option";
-import {
-  INITIAL_PAYMENT_SELECTION,
-  isExternalMethodSelected,
-  paymentSelectionReducer,
-  selectedOfflineGatewayId,
-} from "@/lib/payment-method-selection";
-import type { PayPalClientOptions } from "@/lib/paypal/config";
-import type { OfflineGatewayOption } from "@/lib/offline-gateway-details";
 import {
   ExpressCheckoutTop,
   shouldMountExpressCheckout,
@@ -91,14 +80,7 @@ interface FormData {
   pickupLocationRateId?: string;
 }
 
-/**
- * The accordion itself. Exported ONLY so `app/checkout/paypal-absent.test.tsx`
- * can render the real step tree: `CheckoutForm` mounts Stripe.js from an
- * effect, so a server render of it never gets past the skeleton branch and any
- * assertion about the steps made through it is vacuous. Not part of the
- * component's public API — mount `CheckoutForm`.
- */
-export function CheckoutSteps({
+function CheckoutSteps({
   sessionId,
   shippingOptionMapping,
   pickupLocationsFromApi = [],
@@ -106,8 +88,6 @@ export function CheckoutSteps({
   initialStep,
   initialEmail,
   onRefreshSession,
-  payPalOptions,
-  offlineGateways = [],
 }: {
   sessionId: string;
   shippingOptionMapping?: Array<{
@@ -144,23 +124,6 @@ export function CheckoutSteps({
    * shoppers). Not destructured to avoid an unused-var warning.
    */
   isAuthenticated?: boolean;
-  /**
-   * PayPal's public client options, or undefined when this
-   * store has no PayPal credentials. Undefined is the DEFAULT and renders
-   * nothing at all — that is the property `app/checkout/paypal-absent.test.tsx`
-   * holds, and it is why this is an optional prop rather than a flag the
-   * payment step reads for itself.
-   */
-  payPalOptions?: PayPalClientOptions | undefined;
-  /**
-   * The OFFLINE gateways this cart offers (bank transfer /
-   * cheque / cash on delivery), each already carrying the title and the
-   * instructions the shopper reads — both resolved SERVER-SIDE in
-   * `app/checkout/page.tsx`. Empty is the DEFAULT and the only value on a
-   * store whose cart offers none, and it renders nothing at all: that is the
-   * property `app/checkout/offline-gateway-absent.test.tsx` holds.
-   */
-  offlineGateways?: readonly OfflineGatewayOption[];
 }) {
   const { cartData, setCartData } = useCartContext();
 
@@ -217,64 +180,6 @@ export function CheckoutSteps({
   // formData.shippingAddress, so a declined card leaves the collapsed summary
   // and the sync checkbox exactly as they were.
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
-
-  // Which payment method the step is offering to charge.
-  // Inert on a store without PayPal — there is one method, the reducer never
-  // leaves "stripe", and nothing about the rendered step changes. The rule
-  // itself lives in `lib/payment-method-selection.ts`.
-  const [paymentSelection, dispatchPaymentSelection] = useReducer(
-    paymentSelectionReducer,
-    INITIAL_PAYMENT_SELECTION,
-  );
-  const payPalSelected = paymentSelection.selection === "paypal";
-  const offlineGatewayId = selectedOfflineGatewayId(paymentSelection);
-  // Either of this store's own rows owning the step means the same two things
-  // to `StripePaymentStep`: collapse the Payment Element, and render no
-  // `Pay {amount}` button. The reducer is what decides which one owns it.
-  const externalSelected = isExternalMethodSelected(paymentSelection);
-  const showPayPalRow = Boolean(payPalOptions && cartData);
-  const showOfflineRows = offlineGateways.length > 0;
-  const hasAlternativeMethods = showPayPalRow || showOfflineRows;
-
-  // Called UNCONDITIONALLY (hooks rule — `showPayPalRow`
-  // can flip once `cartData` loads), gated internally instead. `options: null`
-  // is the gate that keeps a store without credentials from ever touching
-  // `loadPayPalSdk` — see the hook's own docblock and
-  // `app/checkout/paypal-absent.test.tsx`. Splitting `row` (rendered inline,
-  // a peer of Stripe's own rows) from `action` (rendered in the step's ONE
-  // shared action slot, below every row) is what puts PayPal's buttons at the
-  // bottom of the list instead of between the PayPal and offline rows.
-  const paypal = usePayPalPaymentOption({
-    options: payPalOptions ?? null,
-    currency: cartData?.currency.code ?? "",
-    stripeSessionId: sessionId,
-    disabled: isConfirmingPayment,
-    selected: payPalSelected,
-    onSelect: () => dispatchPaymentSelection({ type: "paypal-selected" }),
-    onBusyChange: (busy) =>
-      dispatchPaymentSelection({
-        type: "external-busy-change",
-        method: "paypal",
-        busy,
-      }),
-  });
-  const offline = useOfflinePaymentOption({
-    gateways: offlineGateways,
-    selectedGatewayId: offlineGatewayId,
-    disabled: isConfirmingPayment,
-    stripeSessionId: sessionId,
-    onSelect: (gatewayId) =>
-      dispatchPaymentSelection({ type: "offline-selected", gatewayId }),
-    onBusyChange: (busy) =>
-      dispatchPaymentSelection({
-        type: "external-busy-change",
-        method: "offline",
-        busy,
-      }),
-  });
-  // Exactly one of the two is ever non-null — the reducer's invariant, not
-  // re-decided here.
-  const externalAction = paypal.action ?? offline.action;
 
   const [emailMarketingEnabled, setEmailMarketingEnabled] = useState(false);
   const [formData, setFormData] = useState<FormData>({
@@ -983,25 +888,6 @@ export function CheckoutSteps({
             !isStepCompleted(CheckoutFormStepEnum.PAYMENT)
           }
         >
-          {/* PayPal and the store's OFFLINE gateways are
-              PEER ROWS of Stripe's own payment methods, passed in as
-              `alternativeMethodRows` so the step renders ONE list of rows —
-              and, below every row, ONE action (`externalAction`). The action
-              sits below every method row, never between two of them.
-              The reducer above decides which method owns the step;
-              `paypal`/`offline` (from `usePayPalPaymentOption` /
-              `useOfflinePaymentOption`) decide what that method's row and
-              action actually render. Each is absent unless the SERVER said
-              otherwise: PayPal needs the store's credentials and an
-              eligible cart (`hasPayPalOption`), the offline rows need the
-              cart to actually offer such a gateway
-              (`hasOfflineGatewayOption`). With both false the props below are
-              not passed at all and the step is byte-for-byte what it was
-              (`app/checkout/paypal-absent.test.tsx`,
-              `app/checkout/offline-gateway-absent.test.tsx`). Every path locks
-              the others out in both directions — our rows are `disabled` while
-              Stripe confirms, and no Stripe `Pay` button renders while one of
-              them is selected. */}
           <StripePaymentStep
             showBillingSameAsShipping={
               needsShipping &&
@@ -1011,26 +897,6 @@ export function CheckoutSteps({
             sessionId={sessionId}
             onSessionExpired={handleSessionExpired}
             onConfirmingChange={setIsConfirmingPayment}
-            {...(hasAlternativeMethods
-              ? {
-                  externalMethodSelected: externalSelected,
-                  onStripeMethodSelected: () =>
-                    dispatchPaymentSelection({
-                      type: "stripe-method-selected",
-                    }),
-                  alternativeMethodRows: (
-                    <div
-                      className="space-y-3"
-                      role="radiogroup"
-                      aria-label="Other payment methods"
-                    >
-                      {paypal.row}
-                      {offline.rows}
-                    </div>
-                  ),
-                  externalAction,
-                }
-              : {})}
           />
         </AccordionWrapper>
       </div>
@@ -1062,8 +928,6 @@ export function CheckoutForm({
   initialStep,
   initialEmail,
   isAuthenticated = false,
-  payPalOptions,
-  offlineGateways = [],
 }: {
   checkoutSession: CheckoutSessionProp;
   cartSidebar: ReactNode;
@@ -1094,10 +958,6 @@ export function CheckoutForm({
    * CheckoutElementsProvider options below.
    */
   isAuthenticated?: boolean;
-  /** See the same prop on CheckoutSteps. */
-  payPalOptions?: PayPalClientOptions | undefined;
-  /** See the same prop on CheckoutSteps. */
-  offlineGateways?: readonly OfflineGatewayOption[];
 }) {
   const [stripePromise, setStripePromise] =
     useState<Promise<Stripe | null> | null>(null);
@@ -1281,8 +1141,6 @@ export function CheckoutForm({
                 initialEmail: sessionPrefillEmail,
               })}
               {...(onRefreshSession && { onRefreshSession })}
-              {...(payPalOptions && { payPalOptions })}
-              {...(offlineGateways.length > 0 && { offlineGateways })}
             />
           </div>
           {/* Cart sidebar — right on desktop, collapsible on mobile */}

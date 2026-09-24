@@ -44,15 +44,6 @@ const clientSchema = z.object({
   // hostedCheckoutUrl rewrites cart.checkoutUrl to this host (Dashboard →
   // Checkout → custom checkout subdomain).
   NEXT_PUBLIC_SHOPIFY_CHECKOUT_DOMAIN: z.string().min(1).optional(),
-  // PayPal REST app client id. PUBLIC by design — PayPal's JS SDK needs it in
-  // the browser. Pairs with the server-only `PAYPAL_CLIENT_SECRET` below;
-  // PayPal is offered ONLY when BOTH are present (`lib/paypal/config.ts` is
-  // the one place that rule lives). Unset = the Payment step renders exactly
-  // what it renders today and the /api/paypal/* routes answer 503.
-  NEXT_PUBLIC_PAYPAL_CLIENT_ID: z.string().min(1).optional(),
-  // "true" = PayPal LIVE. Anything else — including unset — is sandbox, so a
-  // half-configured store cannot take real money by accident.
-  NEXT_PUBLIC_PAYPAL_LIVE_MODE: z.enum(["true", "false"]).optional(),
   // Per-store opt-out from Stripe's advanced fraud signals, read once by
   // `lib/stripe-js-singleton.ts`.
   //
@@ -162,25 +153,6 @@ const serverSchema = clientSchema.extend({
   SHOPIFY_CAA_CLIENT_ID: z.string().optional(),
   SHOPIFY_STORE_DOMAIN: z.string().optional(),
   SHOPIFY_SHOP_ID: z.string().optional(),
-  // PayPal REST app secret. Set per store on the hosting platform only — it
-  // must never appear in this repository, and nothing derived from it may
-  // cross to a client.
-  PAYPAL_CLIENT_SECRET: z.string().min(1).optional(),
-  // Per-store titles and payment instructions for the OFFLINE WooCommerce
-  // gateways a cart offers (bacs / cheque / cod), as one JSON object keyed by
-  // gateway id:
-  //   {"bacs":{"title":"Pay by bank","description":"…"}}
-  // Merchant copy (it can carry account details), so it lives with the store's
-  // configuration and never in this repository. Unset = each gateway keeps
-  // WooCommerce's core label and shows no instructions.
-  // `lib/offline-gateway-details.ts` states why this is an env var today and
-  // what replaces it.
-  OFFLINE_PAYMENT_GATEWAY_DETAILS: z.string().min(1).optional(),
-  // The webhook id of the PayPal REST app's subscription, used as the
-  // `webhook_id` argument to PayPal's
-  // POST /v1/notifications/verify-webhook-signature. Unset = the webhook route
-  // FAILS CLOSED (503) rather than acting on an event it cannot verify.
-  PAYPAL_WEBHOOK_ID: z.string().min(1).optional(),
 });
 
 type ClientEnv = z.infer<typeof clientSchema>;
@@ -219,13 +191,6 @@ function createEnv(): ClientEnv & Partial<ServerEnv> {
       process.env.NEXT_PUBLIC_SHOPIFY_CAA_CLIENT_ID || undefined,
     NEXT_PUBLIC_SHOPIFY_CHECKOUT_CHANNEL:
       process.env.NEXT_PUBLIC_SHOPIFY_CHECKOUT_CHANNEL || undefined,
-    NEXT_PUBLIC_PAYPAL_CLIENT_ID:
-      process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || undefined,
-    NEXT_PUBLIC_PAYPAL_LIVE_MODE:
-      process.env.NEXT_PUBLIC_PAYPAL_LIVE_MODE === "true" ||
-      process.env.NEXT_PUBLIC_PAYPAL_LIVE_MODE === "false"
-        ? process.env.NEXT_PUBLIC_PAYPAL_LIVE_MODE
-        : undefined,
     NEXT_PUBLIC_STRIPE_ADVANCED_FRAUD_SIGNALS:
       process.env.NEXT_PUBLIC_STRIPE_ADVANCED_FRAUD_SIGNALS === "true" ||
       process.env.NEXT_PUBLIC_STRIPE_ADVANCED_FRAUD_SIGNALS === "false"

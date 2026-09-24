@@ -19,13 +19,7 @@ import { CartChangedBanner } from "@/components/checkout/cart-changed-banner";
 import { CheckoutTestModeBanner } from "@/components/checkout/test-mode-banner";
 import { getBranding } from "@/lib/branding";
 import { normalizeCheckoutMode } from "@/lib/checkout-mode";
-import {
-  isOfflineOnlyCart,
-  hasPayPalOption,
-  hasOfflineGatewayOption,
-} from "@/lib/payment-gateways";
-import { getPayPalClientOptions } from "@/lib/paypal/config";
-import { resolveOfflineGatewayOptions } from "@/lib/offline-gateway-details";
+import { isOfflineOnlyCart } from "@/lib/payment-gateways";
 import { getStripeConfig } from "@/lib/stripe-config";
 
 export default async function CheckoutPage({
@@ -238,33 +232,6 @@ export default async function CheckoutPage({
     // Fallback: checkout will use cart-derived list with empty addresses
   }
 
-  // PayPal, decided entirely on the server.
-  //
-  // `getPayPalClientOptions()` is null unless this store carries BOTH PayPal
-  // credentials, and `hasPayPalOption` additionally requires a WooCommerce
-  // cart that offers `headkit-payments` and has something to pay. Undefined
-  // here means the whole feature is absent below — no prop, no component, no
-  // script, no bundle. That is the property `app/checkout/paypal-absent.test.tsx`
-  // asserts, and it is why the decision is made here rather than inside the
-  // payment step.
-  const payPalOptions =
-    hasPayPalOption(cart, true) && !isSettledFreeCart && !offlineOnly
-      ? (getPayPalClientOptions() ?? undefined)
-      : undefined;
-
-  // The store's OFFLINE gateways (bacs / cheque / cod, or any other gateway
-  // WooCommerce reports), decided on the server for the same reasons and gated
-  // the same way. `hasOfflineGatewayOption` requires a WooCommerce cart that
-  // offers BOTH a card gateway and at least one offline one — the offline-ONLY
-  // cart is `offlineOnly` above and never reaches the Stripe-backed steps at
-  // all, and a settled-free cart has no payment step to add a row to. An empty
-  // array is the whole feature absent below: no prop, no component, no action
-  // import.
-  const offlineGateways =
-    hasOfflineGatewayOption(cart) && !isSettledFreeCart && !offlineOnly
-      ? resolveOfflineGatewayOptions(cart.paymentMethods)
-      : [];
-
   // NO `min-h-screen` here. It forced this wrapper to a full 100vh BELOW the
   // header, so the page was always at least a viewport-and-a-header tall no
   // matter how little content the accordion had — measured as a void between
@@ -336,8 +303,6 @@ export default async function CheckoutPage({
         isAuthenticated={isAuthenticated}
         allowedCountries={["AU", "NZ"]}
         bnplMessagingEnabled={stripeConfig.bnplMessagingEnabled}
-        {...(payPalOptions && { payPalOptions })}
-        {...(offlineGateways.length > 0 && { offlineGateways })}
       />
     </div>
   );

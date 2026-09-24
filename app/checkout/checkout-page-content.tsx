@@ -24,8 +24,6 @@ import { getFullCartAction } from "@/lib/cart-actions";
 import { Input } from "@/components/ui/input";
 import { CartChangedBanner } from "@/components/checkout/cart-changed-banner";
 import type { Step } from "@/app/checkout/CheckoutForm";
-import type { PayPalClientOptions } from "@/lib/paypal/config";
-import type { OfflineGatewayOption } from "@/lib/offline-gateway-details";
 function CheckoutErrorHandler({
   onError,
 }: {
@@ -125,27 +123,6 @@ interface CheckoutPageContentProps {
    * account the shopper is actually paying through.
    */
   bnplMessagingEnabled?: boolean;
-  /**
-   * PayPal's public client options, resolved SERVER-SIDE in
-   * page.tsx from the store's credentials AND this cart's eligibility
-   * (`hasPayPalOption`). Undefined — the default, and the only value on a
-   * store without PayPal credentials — renders nothing anywhere below.
-   *
-   * Only the public half travels: the client id and the live/sandbox flag.
-   * `PAYPAL_CLIENT_SECRET` never leaves the server.
-   */
-  payPalOptions?: PayPalClientOptions | undefined;
-  /**
-   * The OFFLINE gateways this cart offers, with the title
-   * and instructions the merchant wrote, resolved SERVER-SIDE in page.tsx
-   * (`resolveOfflineGatewayOptions`). Empty — the default, and the only value
-   * on a cart that offers none — renders nothing anywhere below.
-   *
-   * Note this is the MIXED case only (offline alongside Stripe). A cart with
-   * no card capability at all never reaches here: `isOfflineOnlyCart` below
-   * returns `OfflinePaymentCheckout`, which owns its own address form.
-   */
-  offlineGateways?: readonly OfflineGatewayOption[];
 }
 
 export function CheckoutPageContent({
@@ -158,8 +135,6 @@ export function CheckoutPageContent({
   isAuthenticated = false,
   allowedCountries = ["AU", "NZ"],
   bnplMessagingEnabled = false,
-  payPalOptions,
-  offlineGateways = [],
 }: CheckoutPageContentProps) {
   const router = useRouter();
   const { cartData, setCartData, toggleCart } = useCartContext();
@@ -613,8 +588,6 @@ export function CheckoutPageContent({
           {...(returnUrl && { onRefreshSession: refreshSession })}
           {...(initialStep && { initialStep: initialStep as Step })}
           {...(initialEmail && { initialEmail })}
-          {...(payPalOptions && { payPalOptions })}
-          {...(offlineGateways.length > 0 && { offlineGateways })}
           cartSidebar={
             <div className="px-[20px] py-[17px] md:py-0 border-y border-[#d6d6d6] md:border-0">
               {/* Mobile toggle */}

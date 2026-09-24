@@ -227,21 +227,13 @@ export async function syncCheckoutSessionLineItemsAction(
 
 /**
  * Finalises checkout after Stripe payment confirmation.
- * Runs server-side so totals are re-validated before order creation.
- *
- * The cart token normally comes from cookies. `explicitCartToken` is for the
- * callers that have no cookie jar at all — today only the PayPal webhook,
- * which carries the token on the PayPal order instead
- * (`lib/paypal/context.ts`). It grants nothing new: the cart token IS the
- * cart's bearer credential, so anyone holding one could already spend it by
- * setting it as their own cookie, and `processCheckoutOrderAction` below has
- * taken one explicitly since day one for the same reason.
+ * Resolves cart token from cookies. Runs server-side so totals are
+ * re-validated before order creation.
  */
 export async function processCheckoutAction(
   input: ProcessCheckoutInput,
-  explicitCartToken?: string,
 ): Promise<CheckoutOrder> {
-  const cartToken = explicitCartToken ?? (await getCartToken());
+  const cartToken = await getCartToken();
   if (!cartToken) throw new Error("No active cart session.");
   const authToken = getAuthToken(await cookies());
   return createServerHeadkit(cartToken, undefined, authToken).checkout.process(

@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   PaymentElement,
   BillingAddressElement,
@@ -14,14 +8,12 @@ import {
   CurrencySelectorElement,
 } from "@stripe/react-stripe-js/checkout";
 import type { AddressInput } from "@headkit/sdk";
-import type { StripePaymentElement } from "@stripe/stripe-js";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCheckoutActions } from "@/app/checkout/checkout-actions-context";
 import { writeBillingAddressCookie } from "@/lib/checkout-billing-cookie";
 import { isCheckoutSessionDead } from "@/lib/checkout-session-status";
 import { buildCheckoutBillingAddressElementOptions } from "@/lib/checkout-address-seed";
-import { isStripeMethodSelected } from "@/lib/payment-method-selection";
 
 interface StripePaymentStepProps {
   /**
@@ -56,47 +48,6 @@ interface StripePaymentStepProps {
    * component docblock.
    */
   onConfirmingChange?: (confirming: boolean) => void;
-  /**
-   * True while a payment method OUTSIDE Stripe's Payment
-   * Element is the step's selected one (today: PayPal or an offline gateway).
-   * Two things follow, and together they are the whole "exactly one primary
-   * action" rule:
-   *
-   *   1. the Payment Element is `collapse()`d, so no Stripe row reads as
-   *      selected while another method is — Stripe owns that radio state and
-   *      there is no way to write to it, only to collapse the whole element;
-   *   2. the `Pay {amount}` button is not rendered at all — `externalAction`
-   *      is rendered in its place instead.
-   *
-   * The billing element goes with it: "billing same as shipping" belongs to
-   * the Stripe confirm, which cannot run while this is true.
-   */
-  externalMethodSelected?: boolean;
-  /**
-   * Raised when a row INSIDE the Payment Element is selected, which is the
-   * only signal Stripe gives for "the shopper came back to a Stripe method".
-   */
-  onStripeMethodSelected?: () => void;
-  /**
-   * Peer payment-method ROWS the store adds after Stripe's own (today: the
-   * PayPal row and the offline-gateway rows) — no action content. Rendered as
-   * a sibling of the accordion rows, so the step reads as ONE list of methods
-   * before any action button. Owning this split (rows here, action below) is
-   * what puts the action after every row regardless of which method is
-   * selected — see the docblocks on
-   * `usePayPalPaymentOption` and `useOfflinePaymentOption`, which return the
-   * two pieces from one hook call so the underlying button/iframe is still
-   * mounted exactly once.
-   */
-  alternativeMethodRows?: ReactNode;
-  /**
-   * The selected external method's OWN action (PayPal's buttons, or the
-   * offline "Place order" button) — rendered in the SAME bottom slot this
-   * step's own `Pay {amount}` button occupies, only while
-   * `externalMethodSelected` is true. Never rendered alongside the Stripe
-   * button — the two are mutually exclusive by construction below.
-   */
-  externalAction?: ReactNode;
 }
 
 /** Billing value tracked from BillingAddressElement change events (ENG-801).
@@ -193,10 +144,6 @@ export function StripePaymentStep({
   sessionId,
   onSessionExpired,
   onConfirmingChange,
-  externalMethodSelected = false,
-  onStripeMethodSelected,
-  alternativeMethodRows,
-  externalAction,
 }: StripePaymentStepProps) {
   const checkoutState = useCheckout();
   const { actions } = useCheckoutActions();
@@ -233,17 +180,6 @@ export function StripePaymentStep({
   // confirm fails (e.g. declined card) → user re-checks → Pay must restore
   // billing = shipping before confirming (ENG-801).
   const billingOverriddenRef = useRef(false);
-
-  // The live Payment Element, captured on ready. The ONLY
-  // write Stripe exposes for its accordion's radio state is `collapse()`; a
-  // selection cannot be pushed in, which is why the step collapses the whole
-  // element when the shopper picks a method outside it.
-  const paymentElementRef = useRef<StripePaymentElement | null>(null);
-
-  useEffect(() => {
-    if (!externalMethodSelected) return;
-    paymentElementRef.current?.collapse();
-  }, [externalMethodSelected]);
 
   const handleSubmit = useCallback(async () => {
     if (checkoutState.type !== "success") return;
@@ -441,75 +377,53 @@ export function StripePaymentStep({
           // remains mounted — Shopify / Stripe hosted checkout do the same.
           wallets: { applePay: "auto", googlePay: "auto" },
         }}
-        onReady={(element) => {
-          paymentElementRef.current = element;
-        }}
-        onChange={(event) => {
-          // `collapsed: false` is Stripe's only "a method in here is selected"
-          // signal, and it also fires for the collapse WE trigger — hence the
-          // guard, which lives in `isStripeMethodSelected` with the reducer.
-          if (isStripeMethodSelected(event)) onStripeMethodSelected?.();
-        }}
       />
-      {alternativeMethodRows}
-      {showBillingSameAsShipping &&
-        !hideBillingElement &&
-        !externalMethodSelected && (
-          <BillingAddressElement
-            // `remountContacts` ONLY — seeding this element from the shipping
-            // address makes Stripe render a saved-address card instead of the
-            // native billing-same-as-shipping checkbox (see the helper).
-            options={buildCheckoutBillingAddressElementOptions({
-              remountContacts,
-            })}
-            onChange={(event) => {
-              if (event.complete && event.value) {
-                const { address, firstName, lastName, name } = event.value;
-                const first = (name?.split(" ")?.[0] || firstName) ?? "";
-                const last = (name?.split(" ")?.[1] || lastName) ?? "";
-                const addr = address ?? {};
-                const value: BillingValue = {
-                  firstName: first,
-                  lastName: last,
-                  line1: addr.line1 ?? "",
-                  line2: addr.line2 ?? "",
-                  city: addr.city ?? "",
-                  state: addr.state ?? "",
-                  country: addr.country ?? "",
-                  postalCode: addr.postal_code ?? "",
-                };
-                setLastBillingValue(value);
-                setBillingElementComplete(!!value.line1);
-              } else {
-                setBillingElementComplete(false);
-              }
-            }}
-          />
-        )}
+      {showBillingSameAsShipping && !hideBillingElement && (
+        <BillingAddressElement
+          // `remountContacts` ONLY — seeding this element from the shipping
+          // address makes Stripe render a saved-address card instead of the
+          // native billing-same-as-shipping checkbox (see the helper).
+          options={buildCheckoutBillingAddressElementOptions({
+            remountContacts,
+          })}
+          onChange={(event) => {
+            if (event.complete && event.value) {
+              const { address, firstName, lastName, name } = event.value;
+              const first = (name?.split(" ")?.[0] || firstName) ?? "";
+              const last = (name?.split(" ")?.[1] || lastName) ?? "";
+              const addr = address ?? {};
+              const value: BillingValue = {
+                firstName: first,
+                lastName: last,
+                line1: addr.line1 ?? "",
+                line2: addr.line2 ?? "",
+                city: addr.city ?? "",
+                state: addr.state ?? "",
+                country: addr.country ?? "",
+                postalCode: addr.postal_code ?? "",
+              };
+              setLastBillingValue(value);
+              setBillingElementComplete(!!value.line1);
+            } else {
+              setBillingElementComplete(false);
+            }
+          }}
+        />
+      )}
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-3">
           <p className="text-sm text-red-700">{error}</p>
         </div>
       )}
-      {/* The ONE action slot every row list ends in (see the
-          `alternativeMethodRows` docblock above).
-          Never both branches: `externalMethodSelected` and `externalAction`
-          are set together by the caller (`app/checkout/CheckoutForm.tsx`). */}
-      <div className="headkit-payment-action-area">
-        {externalMethodSelected ? (
-          externalAction
-        ) : (
-          <Button
-            type="button"
-            onClick={() => void handleSubmit()}
-            disabled={isSubmitting}
-            loading={isSubmitting}
-            className="w-full"
-          >
-            {payAmount ? `Pay ${payAmount}` : "Pay Now"}
-          </Button>
-        )}
-      </div>
+      <Button
+        type="button"
+        onClick={() => void handleSubmit()}
+        disabled={isSubmitting}
+        loading={isSubmitting}
+        className="w-full"
+      >
+        {payAmount ? `Pay ${payAmount}` : "Pay Now"}
+      </Button>
     </div>
   );
 }
