@@ -4,6 +4,7 @@ import { cacheTag } from "next/cache";
 import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { headkit as sdk } from "@/lib/sdk";
 import { TAG } from "@/lib/cache-tags";
+import { getCatalogFilters } from "@/lib/catalog-filters";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { CollectionHeader } from "@/components/headkit-ui/collection/collection-header";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
@@ -100,14 +101,6 @@ async function getRootCategories(): Promise<ProductCategoryDetail[]> {
   );
 }
 
-/** Aggregated facet options (categories/attributes/price bounds). Shared + durable. */
-async function getFilters() {
-  "use cache: remote";
-  cacheLifeForProfile("hours", "max");
-  cacheTag("catalog:filters");
-  return sdk.collections.getFilters();
-}
-
 /**
  * The ONE breadcrumb trail for `/shop`: the visible crumb and the
  * `BreadcrumbList` are rendered from this array, so the two cannot drift — the
@@ -187,7 +180,7 @@ async function ShopProductsShell() {
   );
   const [productsResult, productFilter] = await Promise.all([
     getCachedCatalogPage(filter, 1, PER_PAGE, { kind: "shop" }),
-    getFilters(),
+    getCatalogFilters(),
   ]);
   return (
     <CollectionPage

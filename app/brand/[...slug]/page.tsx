@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { notFound, unstable_rethrow } from "next/navigation";
 import { cacheLife, cacheTag } from "next/cache";
-import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { headkit as sdk } from "@/lib/sdk";
 import { TAG } from "@/lib/cache-tags";
+import { getCatalogFilters } from "@/lib/catalog-filters";
 import { BrandHeader } from "@/components/headkit-ui/brand/brand-header";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
 import {
@@ -28,28 +28,6 @@ interface Props {
 }
 
 const PER_PAGE = CATALOG_PAGE_SIZE;
-
-/**
- * Aggregated facet options. Shared + durable — the SAME entry `/sale`, `/new`,
- * `/featured` and `/shop` read. Keyed on nothing, so one read serves every
- * brand.
- *
- * It does NOT live in {@link getBrandShell}, and that is the whole point. The
- * payload is the store-wide, un-scoped `product-filters` aggregation, which
- * costs the WordPress origin ~12 s to compute on a large catalogue. Inside a
- * per-brand plain `"use cache"` scope it was re-read at request time on every
- * brand-page view — a per-instance in-memory LRU does not persist across
- * requests in serverless — which measured as a 14–20 s dead click with every
- * cache header reporting HIT, because the cost lands in the streamed tail.
- * Out here, under `"use cache: remote"` keyed on nothing, it is one read per
- * deploy shared with the four sibling landing routes.
- */
-async function getFilters() {
-  "use cache: remote";
-  cacheLifeForProfile("hours", "max");
-  cacheTag("catalog:filters");
-  return sdk.collections.getFilters();
-}
 
 /**
  * Params-only brand shell (header). Durable `"use cache: remote"` so Cache
@@ -102,7 +80,7 @@ async function BrandProductsShell({
   );
 
   const [productFilter, productsResult] = await Promise.all([
-    getFilters(),
+    getCatalogFilters(),
     getCachedCatalogPage(filter, 1, PER_PAGE, {
       kind: "brand",
       slug: brandSlug,

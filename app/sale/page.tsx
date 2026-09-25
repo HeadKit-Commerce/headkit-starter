@@ -1,8 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { cacheTag } from "next/cache";
-import { cacheLifeForProfile } from "@/lib/cache-profile";
-import { headkit as sdk } from "@/lib/sdk";
+import { getCatalogFilters } from "@/lib/catalog-filters";
 import { CollectionHeader } from "@/components/headkit-ui/collection/collection-header";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
 import {
@@ -50,14 +48,6 @@ interface Props {
 
 const PER_PAGE = CATALOG_PAGE_SIZE;
 
-/** Aggregated facet options. Shared + durable. */
-async function getFilters() {
-  "use cache: remote";
-  cacheLifeForProfile("hours", "max");
-  cacheTag("catalog:filters");
-  return sdk.collections.getFilters();
-}
-
 /**
  * Dynamic island: reads searchParams (must live inside <Suspense> under
  * cacheComponents). Preserves the onSale filter for this route.
@@ -78,7 +68,7 @@ async function LandingResults({ searchParams }: Props) {
       kind: "route",
       route: "sale",
     }),
-    getFilters(),
+    getCatalogFilters(),
   ]);
 
   return (

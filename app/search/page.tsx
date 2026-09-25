@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Suspense } from "react";
-import { cacheTag } from "next/cache";
-import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { headkit as sdk } from "@/lib/sdk";
+import { getCatalogFilters } from "@/lib/catalog-filters";
 import { CollectionHeader } from "@/components/headkit-ui/collection/collection-header";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
 import { buildProductListFilter } from "@/components/headkit-ui/collection/utils";
@@ -35,23 +34,6 @@ export async function generateMetadata({
     title: `Search results for "${q}"`,
     description: `Search for "${q}" in our store`,
   };
-}
-
-/**
- * Aggregated facet options for the search shell.
- *
- * `"use cache: remote"`, not plain `"use cache"`: the plain directive is a
- * per-instance in-memory LRU that does not persist across requests in
- * serverless, so this store-wide `product-filters` read — ~12 s of WordPress
- * aggregation on a large catalogue — was re-executed on every `/search` view
- * and measured 14.4–17.1 s, all of it in the streamed tail behind a cache
- * header reading HIT.
- */
-async function getSearchFilters() {
-  "use cache: remote";
-  cacheLifeForProfile("hours", "max");
-  cacheTag("headkit:products");
-  return sdk.collections.getFilters();
 }
 
 /**
@@ -88,7 +70,7 @@ async function SearchResults({ searchParams }: Props): Promise<ReactNode> {
 
   const [productsResult, productFilter] = await Promise.all([
     sdk.collections.list(filter, page, PER_PAGE),
-    getSearchFilters(),
+    getCatalogFilters(),
   ]);
 
   const title = q ? `Search results for "${q}"` : "Search products";
