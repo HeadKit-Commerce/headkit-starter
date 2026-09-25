@@ -12,7 +12,8 @@ import {
  * Closes UAT rows P1-14 (simple PDP), P1-15 (color swatch → colorway PATH
  * URL), P1-16 (colorway deep-link preselects), P1-17 (size persists to
  * localStorage `headkit:size:{slug}`, restores on revisit, never in URL),
- * P1-18 (out-of-stock: availability + add-to-cart blocked), P1-19
+ * P1-18 (out-of-stock: availability + add-to-cart blocked), P1-18b
+ * (out-of-stock SIZE on an in-stock colourway: line + button agree), P1-19
  * (lightbox), P1-20 (related carousel navigates), P1-22 (legacy
  * /shop/{cat}/{slug} catch-all renders the same PDP), P1-25 (breadcrumbs +
  * JSON-LD).
@@ -23,6 +24,9 @@ import {
  *   - test-product-12: simple $22 product
  *   - folding-bike: simple product seeded OUT OF STOCK — used for P1-18 so
  *     the shared WP needs no stock mutation (additive-only rule)
+ *   - stock-mix-tee: VARIABLE, pa_color black/navy + pa_size s/m/l, with black/L
+ *     OUT OF STOCK and everything else in stock — the only fixture that can show
+ *     an out-of-stock size on an in-stock colourway (P1-18b)
  *
  * ── REAL APP GAP (fixme'd): recently-viewed rail (P1-21) is DEAD CODE ──
  *   components/headkit-ui/recently-viewed.tsx exports RecentlyViewed +
@@ -34,6 +38,13 @@ import {
  */
 
 const TEE = VARIABLE_PRODUCT_SLUG; // classic-tee
+
+/**
+ * The only fixture with an out-of-stock SIZE on an in-stock colourway — seeded
+ * by `docker/wordpress/seed-variation-stock.php` (black/L out of stock). Not
+ * env-overridable: the spec asserts the seeded stock layout, not just the slug.
+ */
+const STOCK_MIX = "stock-mix-tee";
 
 /**
  * The trailing-slash-normalised pathname of a URL.
@@ -199,6 +210,64 @@ test.describe("PDP: rendering, colorway paths, size persistence, stock, legacy U
       "add-to-cart button did not switch to its out-of-stock state",
     ).toBeVisible();
     await expect(addButton).toBeDisabled();
+  });
+
+  /**
+   * The availability line and the Add to Bag button must agree about the size
+   * the shopper actually selected.
+   *
+   * They used to resolve stock from two different variations: the line came from
+   * a server slot keyed to the COLOURWAY IN THE URL (first variation in payload
+   * order, of whatever size), the button from the full attribute match. Clicking
+   * a size moved the button and left the line frozen, so an out-of-stock size on
+   * an in-stock colourway rendered a green "In Stock" line above an
+   * "Out of stock" button (`260925-bs-variable-stock-out-of-stock`). P1-18 above
+   * cannot see it: folding-bike is a SIMPLE product, and a simple product reads
+   * both answers off the same object.
+   *
+   * This is the only layer that observes the real static shell and the real
+   * client hydration together. `stock-mix-tee` is seeded by
+   * `docker/wordpress/seed-variation-stock.php` with black/L out of stock and
+   * everything else in stock.
+   */
+  test("P1-18b: an out-of-stock SIZE on an in-stock colourway flips the availability line and the button together", async ({
+    page,
+  }) => {
+    await page.goto(`${BASE_URL}/products/${STOCK_MIX}/black`);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Stock Mix Tee" }),
+    ).toBeVisible({ timeout: 30_000 });
+
+    const availability = page.locator(".headkit-availability-status").first();
+    const atc = page
+      .getByRole("button", { name: /add to cart|out of stock/i })
+      .first();
+
+    // Preselected size is the colourway's first variation (black/S, in stock).
+    // Asserting the in-stock state FIRST is load-bearing: a regression that
+    // pinned the line to "Out of Stock" would otherwise pass the flip below.
+    await expect(availability).toHaveAttribute("data-status", "IN_STOCK", {
+      timeout: 30_000,
+    });
+    await expect(atc).toHaveText(/add to cart/i);
+    await expect(atc).toBeEnabled();
+
+    // L is out of stock for this colourway.
+    await page.getByRole("button", { name: "L", exact: true }).first().click();
+
+    await expect(
+      availability,
+      "the availability line did not follow the selected size — it is resolving stock from a different variation than the button",
+    ).toHaveAttribute("data-status", "OUT_OF_STOCK", { timeout: 15_000 });
+    await expect(atc).toHaveText(/out of stock/i);
+    await expect(atc).toBeDisabled();
+
+    // …and back, so the line is tracking the selection rather than latching.
+    await page.getByRole("button", { name: "S", exact: true }).first().click();
+    await expect(availability).toHaveAttribute("data-status", "IN_STOCK", {
+      timeout: 15_000,
+    });
+    await expect(atc).toHaveText(/add to cart/i);
   });
 
   test("P1-19: gallery image click opens the lightbox dialog", async ({

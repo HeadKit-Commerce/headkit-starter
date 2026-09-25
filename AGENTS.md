@@ -844,6 +844,33 @@ the first client paint said "In Stock" for every product, an out-of-stock one in
 predicates are pure functions of the props and need no browser; `resolveAvailability` is exported
 so the rule is testable without a render.
 
+**It resolves from the SELECTED variation, and the server slot is for SIMPLE products only.**
+`components/headkit-ui/product-stock.tsx` is the prerendered slot, and it resolves stock from the
+COLOURWAY IN THE URL alone — the first variation in payload order carrying that colour, of
+whatever size. Payload order is not display order, so on a product with a size axis it named a
+different variation than the Add to Bag button (`selectedVariation`, the full attribute match) and
+the page rendered both answers ~40px apart: a green "In Stock" line above an "Out of stock"
+button, on one size click. `useServerStock` (`product-detail.tsx`) therefore carries
+`!isVariable`; a variable product renders `<AvailabilityStatus>` from the selected variation, the
+same source as the button and every other stock-bearing element. Do not widen that condition to
+"restore" the slot — add the size axis to the slot, or delete it.
+
+Three things hold it up, and the last is the one a refactor loses:
+
+- `product-detail.stock-agreement.test.tsx` (jsdom) pins the AGREEMENT across a size click, not
+  the copy, and passes a recognisable `stockSlot` so a test that forgets one cannot be green
+  under the bug.
+- `e2e/pdp-variants.spec.ts` P1-18b is the only layer that sees the real shell and real
+  hydration together. It needs `stock-mix-tee`
+  (`docker/wordpress/seed-variation-stock.php`) — every other variable fixture is instock on
+  every variation, and `folding-bike` is SIMPLE, so neither can reach the state.
+- **The static shell is unchanged, and that is a property of the SEED, not luck**:
+  `selectedAttributes` is seeded on the server from the first variation matching `initialColor`
+  — the same variation the slot picks — so the prerendered line is byte-identical.
+  `product-detail.stock-shell-parity.test.tsx` renders both and compares them, which is the only
+  cheap signal if either resolver moves. Measured on a built page: same 247,788 bytes, 0
+  boundaries, 0 hidden segments before and after.
+
 ### Three navigation-interaction switches, all OFF by default
 
 `lib/nav-interaction-flags.ts` is the ONE place each variable is read and its value

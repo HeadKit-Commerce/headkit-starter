@@ -959,10 +959,32 @@ export function ProductDetail({
 
   const colorKey = findSwatchAttribute(variationAttributes)?.slug;
   const selectedColor = colorKey ? selectedAttributes[colorKey] : undefined;
-  // Server stockSlot is keyed to the SSR colourway. After a shallow colour
-  // switch, show client variation stock so the badge stays in sync.
+  // The server `stockSlot` (`components/headkit-ui/product-stock.tsx`) resolves
+  // stock from the COLOURWAY IN THE URL alone: it takes the first variation in
+  // payload order carrying that colour, of whatever size that happens to be,
+  // and it cannot see the size the shopper selected. The Add to Bag button and
+  // every other stock-bearing element on this page read `selectedVariation` —
+  // the FULL attribute match. Two different objects, so for any product with a
+  // second variation axis the page could render both answers ~40px apart: a
+  // green "In Stock" line above an "Out Of Stock" button, on one size click.
+  // Measured at 36.3% of colourway PDPs on one store
+  // (`260925-bs-variable-stock-out-of-stock`).
+  //
+  // So the server slot is used for SIMPLE products only. They structurally
+  // cannot disagree: `variations` is empty, so both resolvers read
+  // `product.stockStatus` off the same object. A variable product renders
+  // `<AvailabilityStatus>` from `stockStatus` / `stockQuantity` below, which are
+  // the selected variation's — ONE source of truth, shared with the button.
+  //
+  // This costs the static shell nothing, and that is a property of the seed
+  // rather than luck: `selectedAttributes` is seeded on the server from the
+  // first variation matching `initialColor` (see its initialiser above) — the
+  // same variation `ProductStock` picks — so the prerendered line is unchanged.
+  // Do not "restore" the slot for variable products by widening this condition;
+  // add the size axis to the slot instead, or delete the slot.
   const useServerStock =
     Boolean(stockSlot) &&
+    !isVariable &&
     (!productBasePath ||
       selectedColor === initialColor ||
       (!selectedColor && !initialColor));
