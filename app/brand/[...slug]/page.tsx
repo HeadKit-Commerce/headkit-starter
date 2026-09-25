@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { notFound, unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 import { cacheLife, cacheTag } from "next/cache";
+import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { headkit as sdk } from "@/lib/sdk";
 import { TAG } from "@/lib/cache-tags";
 import { BrandHeader } from "@/components/headkit-ui/brand/brand-header";
@@ -32,19 +33,42 @@ interface Props {
 const PER_PAGE = CATALOG_PAGE_SIZE;
 
 /**
- * Params-only brand shell (header + facet options). Uses durable `"use cache"`
- * so Cache Components can prerender it into the HTML shell. Mirrors collections
- * `getCategoryData`.
+ * Aggregated facet options. Shared + durable — the SAME entry `/sale`, `/new`,
+ * `/featured` and `/shop` read. Keyed on nothing, so one read serves every
+ * brand.
+ *
+ * It does NOT live in {@link getBrandShell}, and that is the whole point. The
+ * payload is the store-wide, un-scoped `product-filters` aggregation, which
+ * costs the WordPress origin ~12 s to compute on a large catalogue. Inside a
+ * per-brand plain `"use cache"` scope it was re-read at request time on every
+ * brand-page view — a per-instance in-memory LRU does not persist across
+ * requests in serverless — which measured as a 14–20 s dead click with every
+ * cache header reporting HIT, because the cost lands in the streamed tail.
+ * Out here, under `"use cache: remote"` keyed on nothing, it is one read per
+ * deploy shared with the four sibling landing routes.
+ */
+async function getFilters() {
+  "use cache: remote";
+  cacheLifeForProfile("hours", "max");
+  cacheTag("catalog:filters");
+  return sdk.collections.getFilters();
+}
+
+/**
+ * Params-only brand shell (header). Durable `"use cache: remote"` so Cache
+ * Components can prerender it into the HTML shell AND so the read survives
+ * across serverless instances. Mirrors collections `getCategoryData`.
+ *
+ * Keeps a finite `cacheLife("days")` and a plain literal, never
+ * `cacheLifeForProfile`: this read feeds the route's 404 gate, so pinning it
+ * at `max` would pin a wrong status code until the next deploy
+ * (`lib/cache-profile-call-sites.test.ts`).
  */
 async function getBrandShell(brandSlug: string) {
-  "use cache";
+  "use cache: remote";
   cacheLife("days");
-  cacheTag(TAG.brand(brandSlug), TAG.brands, "catalog:filters");
-  const [brand, productFilter] = await Promise.all([
-    sdk.brands.get(brandSlug),
-    sdk.collections.getFilters(),
-  ]);
-  return { brand, productFilter };
+  cacheTag(TAG.brand(brandSlug), TAG.brands);
+  return { brand: await sdk.brands.get(brandSlug) };
 }
 
 /**
@@ -77,8 +101,8 @@ async function BrandProductsServer({
     },
   );
 
-  const [{ productFilter }, productsResult] = await Promise.all([
-    getBrandShell(brandSlug),
+  const [productFilter, productsResult] = await Promise.all([
+    getFilters(),
     getCachedCatalogPage(filter, page, PER_PAGE, {
       kind: "brand",
       slug: brandSlug,
