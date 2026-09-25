@@ -910,6 +910,29 @@ cache — so the only escape is `vercel cache invalidate --srcimg <path>` (or
 `invalidateBySrcImage()` from `@vercel/functions`), and whatever is set here is the worst case
 they must otherwise wait out. `next.config.ts` carries the measurements.
 
+### Plain `"use cache"` does not survive a request, so an expensive read inside one re-runs per view
+
+A plain `"use cache"` entry is a per-instance in-memory LRU: on serverless it typically does
+not persist across requests. That is harmless for a cheap read and invisible in every cache
+header — a route whose shell is prerendered answers `x-vercel-cache: HIT` with a fast TTFB
+while the re-read burns in the **streamed tail**, which no header describes. Two rules follow:
+
+- An expensive read reached from a dynamic hole belongs in `"use cache: remote"`. The
+  measured case is the store-wide, un-scoped `sdk.collections.getFilters()` payload (~12 s of
+  WordPress aggregation on a 2,678-product catalogue): under plain `"use cache"` it made a
+  brand PLP click a 14–20 s dead click on every view, while the four sibling landing routes
+  made the identical call under `"use cache: remote"` and paid it once per deploy
+  (`data/260925-bs-brand-page-cold-latency/report.md` in the firstmate workspace).
+- **A store-wide payload does not belong in a scope keyed on something narrower.** Keyed per
+  brand it was one entry per brand for one identical payload; keyed on nothing, one entry
+  serves every consumer. `getFilters()` in `app/brand/[...slug]/page.tsx`, `app/sale`,
+  `app/new`, `app/featured` and `app/shop/page.tsx` are the same scope by construction —
+  same directive, same `catalog:filters` tag, no key.
+
+The cost of `cacheLife("max")` under `catalog:filters` is that `isKnownTag`
+(`lib/cache-tags.ts`) rejects that tag, so nothing purges the facet options before a
+redeploy. That is one staleness class shared by every consumer, not a per-route decision.
+
 ### Cache lifetimes and prerender shape are PER-STORE levers, not constants
 
 Three settings decide how stale a storefront may serve and how much of it a build

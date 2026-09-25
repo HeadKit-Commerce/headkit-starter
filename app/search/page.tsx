@@ -37,8 +37,18 @@ export async function generateMetadata({
   };
 }
 
+/**
+ * Aggregated facet options for the search shell.
+ *
+ * `"use cache: remote"`, not plain `"use cache"`: the plain directive is a
+ * per-instance in-memory LRU that does not persist across requests in
+ * serverless, so this store-wide `product-filters` read — ~12 s of WordPress
+ * aggregation on a large catalogue — was re-executed on every `/search` view
+ * and measured 14.4–17.1 s, all of it in the streamed tail behind a cache
+ * header reading HIT.
+ */
 async function getSearchFilters() {
-  "use cache";
+  "use cache: remote";
   cacheLifeForProfile("hours", "max");
   cacheTag("headkit:products");
   return sdk.collections.getFilters();
