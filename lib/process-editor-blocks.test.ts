@@ -250,6 +250,9 @@ describe("category / brand / post hydration from attrs", () => {
                 slug: "hello",
                 uri: "/news/hello",
                 featuredImage: { src: "https://example.com/p.jpg", alt: "H" },
+                categories: [
+                  { id: "3", name: "Society News", slug: "society-news" },
+                ],
               },
             ],
           },
@@ -263,6 +266,8 @@ describe("category / brand / post hydration from attrs", () => {
     expect(blocks[1]?.brands?.[0]?.name).toBe("Acme");
     expect(blocks[2]?.posts?.[0]?.slug).toBe("hello");
     expect(blocks[2]?.posts?.[0]?.featuredImage?.src).toContain("p.jpg");
+    expect(blocks[2]?.posts?.[0]?.categories?.[0]?.name).toBe("Society News");
+    expect(blocks[2]?.posts?.[0]?.categories?.[0]?.slug).toBe("society-news");
   });
 
   it("merges clients onto client-carousel for auto and handpicked queryTypes", () => {

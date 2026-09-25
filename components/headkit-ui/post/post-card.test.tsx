@@ -56,6 +56,34 @@ describe("PostCard", () => {
     );
     expect(html).toContain('href="/news/how-to-fold"');
     expect(html).not.toContain("Play How to fold a towel");
+    expect(html).toContain("News");
+  });
+
+  it("renders the category name from a homepage 'latestPosts' hydrated post, hiding uncategorized", () => {
+    const html = renderToStaticMarkup(
+      <PostCard
+        post={post({
+          categories: [
+            {
+              __typename: "PostCategory",
+              id: "3",
+              name: "Society News",
+              slug: "society-news",
+              count: 4,
+            },
+            {
+              __typename: "PostCategory",
+              id: "1",
+              name: "Uncategorized",
+              slug: "uncategorized",
+              count: 0,
+            },
+          ],
+        })}
+      />,
+    );
+    expect(html).toContain("Society News");
+    expect(html).not.toContain("Uncategorized");
   });
 
   it("opens a video-tagged post in a modal instead of navigating", () => {
