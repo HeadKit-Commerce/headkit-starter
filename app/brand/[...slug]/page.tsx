@@ -1,22 +1,20 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { notFound, unstable_rethrow } from "next/navigation";
-import { Suspense } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { headkit as sdk } from "@/lib/sdk";
 import { TAG } from "@/lib/cache-tags";
 import { BrandHeader } from "@/components/headkit-ui/brand/brand-header";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
-import { buildProductListFilter } from "@/components/headkit-ui/collection/utils";
+import {
+  buildProductListFilter,
+  DEFAULT_FILTER_VALUES,
+} from "@/components/headkit-ui/collection/utils";
 import { getCachedCatalogPage } from "@/lib/catalog-cache";
 import { makeSeoMetadata, storefrontUrl } from "@/lib/make-metadata";
 import { getBranding } from "@/lib/branding";
 import type { SortKeyType } from "@/components/headkit-ui/collection/utils";
-import {
-  CollectionPageSkeleton,
-  CollectionProductsSkeleton,
-} from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import { CATALOG_PAGE_SIZE } from "@/components/headkit-ui/catalog-grid";
 
 /**
@@ -27,7 +25,6 @@ const STATIC_GEN_PLACEHOLDER_SLUG = "__hk_static_placeholder";
 
 interface Props {
   params: Promise<{ slug: string[] }>;
-  searchParams: Promise<Record<string, string>>;
 }
 
 const PER_PAGE = CATALOG_PAGE_SIZE;
@@ -72,28 +69,31 @@ async function getBrandShell(brandSlug: string) {
 }
 
 /**
- * Dynamic island: awaits `searchParams` inside Suspense (required under
- * cacheComponents — see nextjs blocking-route / next-cache-components skill).
+ * Page 1 of the brand, in the store's default order, rendered in the static
+ * shell — no `<Suspense>` above it anywhere on this route, so a JS-off shopper
+ * and a non-rendering crawler see the cards.
+ *
+ * Both reads are cached and nothing here awaits `searchParams`; awaiting it
+ * opts the whole segment dynamic and leaves a 0-byte shell for every request.
+ * The full contract is stated once on `CollectionProductsShell`
+ * (`app/collections/[...slug]/page.tsx`); this is the brand-scoped twin of
+ * `ShopProductsShell` (`app/shop/page.tsx`). `?page=` / `?sort=` /
+ * `?instock=` / `?categories=` are applied in the browser by
+ * `CollectionProvider`'s mount effect — none of them is canonical or in the
+ * sitemap.
  */
-async function BrandProductsServer({
+async function BrandProductsShell({
   brandSlug,
-  searchParams,
 }: {
   brandSlug: string;
-  searchParams: Promise<Record<string, string>>;
 }): Promise<ReactNode> {
-  const sp = await searchParams;
-  const page = sp.page ? parseInt(sp.page) : 1;
   const { branding } = await getBranding();
 
   const filter = buildProductListFilter(
     {
-      categories: sp.categories?.split(",").filter(Boolean) ?? [],
+      ...DEFAULT_FILTER_VALUES,
       brands: [brandSlug],
-      attributes: {},
-      instock: sp.instock === "true",
-      sort: (sp.sort ?? "") as SortKeyType | "",
-      page,
+      page: 1,
     },
     {
       brandSlug,
@@ -103,7 +103,7 @@ async function BrandProductsServer({
 
   const [productFilter, productsResult] = await Promise.all([
     getFilters(),
-    getCachedCatalogPage(filter, page, PER_PAGE, {
+    getCachedCatalogPage(filter, 1, PER_PAGE, {
       kind: "brand",
       slug: brandSlug,
     }),
@@ -114,7 +114,7 @@ async function BrandProductsServer({
       initialProducts={productsResult.products}
       initialTotal={productsResult.total}
       productFilter={productFilter}
-      initialPage={page}
+      initialPage={1}
       itemsPerPage={PER_PAGE}
       brandSlug={brandSlug}
     />
@@ -132,8 +132,8 @@ const BRAND_PER_PAGE = 100;
 const BRAND_MAX_PAGES = 100;
 
 /**
- * Prerender known brand PLPs so awaiting `params` under Suspense is valid
- * under Cache Components (blocking-route docs: generateStaticParams).
+ * Prerender known brand PLPs so awaiting `params` in the default export is
+ * valid under Cache Components (blocking-route docs: generateStaticParams).
  *
  * PAGINATE, NEVER CAP — and this function capped until 2026-09-16.
  *
@@ -207,26 +207,32 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 /**
  * Blocking route so `notFound()` can still set a real 404: under Cache
  * Components the response commits as 200 the moment a `<Suspense>` fallback
- * renders, and a `notFound()` raised inside the boundary only earns a `noindex`
- * meta tag. The existence check therefore runs in the default export, above the
- * boundary, forfeiting this route's App Shell. What that costs, what else can
- * commit the 200 first, and why `instant` is NOT one of those things live once
- * in "Setting a status code needs THREE conditions" in `apps/starter/AGENTS.md`.
+ * renders, and a `notFound()` raised inside a boundary only earns a `noindex`
+ * meta tag. This route now has no boundary at all, but the existence check
+ * still runs in the default export — ABOVE anything that could commit — and
+ * that costs this route its App Shell. What that costs, what else can commit
+ * the 200 first, and why `instant` is NOT one of those things live once in
+ * "Setting a status code needs THREE conditions" in `apps/starter/AGENTS.md`.
  * `instant = false` is that section's declaration rule: this route blocks on a
  * cached read before it responds.
+ *
+ * The awaited read is `getBrandShell`, which `BrandRoute` awaits anyway and
+ * which is `"use cache: remote"`, so the gate is the same cache entry rather
+ * than an extra round trip, and every param in `generateStaticParams` still
+ * prerenders.
  */
 export const instant = false;
 
-export default async function Page({ params, searchParams }: Props) {
-  // Pre-commit gate — only existence is hoisted; the product grid keeps
-  // streaming behind the boundary below. `BrandRoute` repeats the checks and
-  // the `"use cache"` shell read dedupes. A THROWN read still propagates (see
-  // the note there): only a null brand is a genuine miss.
+export default async function Page({ params }: Props) {
+  // Pre-commit gate. `BrandRoute` repeats the checks and the `"use cache"`
+  // shell read dedupes, so the repeat is a cache hit. What the gate resolves
+  // is then RENDERED rather than re-read behind a boundary: there is no
+  // boundary on this route. A THROWN read still propagates (see the note
+  // there): only a null brand is a genuine miss.
   //
   // The build-time placeholder is a 404 HERE rather than a skipped gate: it is
-  // never served from a prerender, so skipping the gate let a runtime request
-  // for it fall through to `BrandRoute`, whose `notFound()` fires below the
-  // boundary — the exact soft 404 this route exists to close.
+  // never served from a prerender, so a runtime request for it is a junk URL
+  // and must 404 before anything commits a 200.
   const { slug } = await params;
   if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) notFound();
   const brandSlug = slug[slug.length - 1];
@@ -234,14 +240,10 @@ export default async function Page({ params, searchParams }: Props) {
   const { brand } = await getBrandShell(brandSlug);
   if (!brand) notFound();
 
-  return (
-    <Suspense fallback={<CollectionPageSkeleton variant="brand" />}>
-      <BrandRoute params={params} searchParams={searchParams} />
-    </Suspense>
-  );
+  return <BrandRoute params={params} />;
 }
 
-async function BrandRoute({ params, searchParams }: Props) {
+async function BrandRoute({ params }: Props) {
   const { slug } = await params;
   if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) return notFound();
   const brandSlug = slug[slug.length - 1];
@@ -267,12 +269,7 @@ async function BrandRoute({ params, searchParams }: Props) {
           { name: brand.name, uri: `/brand/${brandSlug}`, current: true },
         ]}
       />
-      <Suspense fallback={<CollectionProductsSkeleton />}>
-        <BrandProductsServer
-          brandSlug={brandSlug}
-          searchParams={searchParams}
-        />
-      </Suspense>
+      <BrandProductsShell brandSlug={brandSlug} />
     </>
   );
 }

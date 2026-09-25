@@ -9,6 +9,7 @@ import {
   canonicalRedirectUrl,
   isCanonicalRedirectCandidate,
 } from "@/lib/canonical-redirect-request";
+import { legacyFacetRedirectPath } from "@/lib/legacy-facet-redirect";
 
 /** Must match `DEFAULT_POSTS_BASE_PATH` in lib/posts-base-path.ts (internal route). */
 const DEFAULT_POSTS_BASE_PATH = "news";
@@ -220,6 +221,20 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   // Mechanism, key naming, and the lift command: apps/starter/MAINTENANCE.md.
   const maintenance = await maintenanceGate(request);
   if (maintenance.response) return maintenance.response;
+
+  // V1 facet query keys (`?brands=`, `?pa_color=`) fold into the canonical
+  // `/f/<slug>` path here, ahead of the canonical lookup below: the facet then
+  // rides in the PATH, where the route's own `permanentRedirect` preserves it,
+  // and the request never pays a subrequest it was going to be redirected out
+  // of anyway. Why this cannot live in the page at all —
+  // `lib/legacy-facet-redirect.ts`.
+  const legacyFacet = legacyFacetRedirectPath(
+    request.nextUrl.pathname,
+    request.nextUrl.search,
+  );
+  if (legacyFacet) {
+    return NextResponse.redirect(new URL(legacyFacet, request.url), 308);
+  }
 
   // Canonical consolidation WITH the query string attached. Gated to the flat
   // product and collection shapes carrying a query (see
