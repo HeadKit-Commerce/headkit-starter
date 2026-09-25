@@ -120,6 +120,17 @@ export interface StoreSettings {
    * store — so absent must mean "behave exactly as before".
    */
   cookieConsentEnabled: boolean;
+  /**
+   * The store's WebMCP tools (catalogue, cart, and navigation on
+   * document.modelContext).
+   *
+   * ABSENT MEANS OFF, the same way as cookieConsentEnabled: it is read through
+   * its own isolated query, so a dashboard-api revision that has never heard
+   * of the field answers nothing and this stays false. There is no env
+   * fallback. An env var would be per-deploy, and this must be per-store and
+   * flippable from the dashboard without a rebuild.
+   */
+  webmcpEnabled: boolean;
 }
 
 export interface SeoSettings {
@@ -170,6 +181,14 @@ export const DEFAULT_MULTI_ADD_ENABLED = false;
  * customers without anyone asking them.
  */
 export const DEFAULT_COOKIE_CONSENT_ENABLED = false;
+/**
+ * WebMCP tools — off until the merchant enables them.
+ *
+ * Same compatibility story as the consent gate: every existing store has no
+ * value for the field, and if absent meant on, the next deploy would register
+ * cart-writing tools on every merchant's storefront.
+ */
+export const DEFAULT_WEBMCP_ENABLED = false;
 
 const KNOWN_COLLECTION_SORTS = new Set([
   "FEATURED",
@@ -229,6 +248,7 @@ const DEFAULT_BUNDLE: BrandingBundle = {
     domain: null,
     checkoutType: null,
     cookieConsentEnabled: DEFAULT_COOKIE_CONSENT_ENABLED,
+    webmcpEnabled: DEFAULT_WEBMCP_ENABLED,
   },
   seoSettings: {
     title: null,
@@ -558,6 +578,23 @@ const COOKIE_CONSENT_QUERY = /* GraphQL */ `
 `;
 
 /**
+ * Isolated WebMCP read.
+ *
+ * Isolated for the same reason as COOKIE_CONSENT_QUERY: an unknown field on
+ * the main branding selection makes gqlgen answer `data: null` for the whole
+ * document. Keeping this query alone makes "dashboard-api does not know this
+ * field" and "the merchant has not turned it on" reach the storefront as the
+ * same answer, false.
+ */
+const WEBMCP_QUERY = /* GraphQL */ `
+  query StorefrontWebmcp {
+    storeSettings {
+      webmcpEnabled
+    }
+  }
+`;
+
+/**
  * Isolated gallery-layout read so unknown-field failures on older
  * dashboard-api do not discard branding via the main queries, and so a
  * fallback to EXTENDED / COMPAT still overlays the merchant's choice.
@@ -707,6 +744,9 @@ function coerce(data: NonNullable<BrandingResponse["data"]>): BrandingBundle {
       // Never read from the main query — see COOKIE_CONSENT_QUERY. `=== true`
       // rather than `!== false` so any absent / unknown value means OFF.
       cookieConsentEnabled: s.cookieConsentEnabled === true,
+      // Never read from the main query — see WEBMCP_QUERY. `=== true` so any
+      // absent / unknown value means OFF.
+      webmcpEnabled: s.webmcpEnabled === true,
     },
     seoSettings: {
       title: seo.title ?? null,
@@ -801,12 +841,14 @@ export async function getBranding(): Promise<BrandingBundle> {
       productFeatures,
       pdpGalleryLayout,
       cookieConsentEnabled,
+      webmcpEnabled,
     ] = await Promise.all([
       fetchBrandingBundle(endpoint, token),
       fetchCheckoutType(endpoint, token),
       fetchProductFeatures(endpoint, token),
       fetchPdpGalleryLayout(endpoint, token),
       fetchCookieConsent(endpoint, token),
+      fetchWebmcp(endpoint, token),
     ]);
 
     if (!bundle) return DEFAULT_BUNDLE;
@@ -822,6 +864,7 @@ export async function getBranding(): Promise<BrandingBundle> {
       ...bundle.storeSettings,
       ...(checkoutType === null ? {} : { checkoutType }),
       cookieConsentEnabled,
+      webmcpEnabled,
     };
 
     return { ...bundle, branding, storeSettings };
@@ -961,6 +1004,33 @@ async function fetchCookieConsent(
     return json.data?.storeSettings?.cookieConsentEnabled === true;
   } catch {
     return DEFAULT_COOKIE_CONSENT_ENABLED;
+  }
+}
+
+/**
+ * The store's WebMCP switch.
+ *
+ * Returns a BOOLEAN, and every failure path returns false: a missing field, a
+ * non-200, a parse error, an unreachable dashboard-api. The only safe reading
+ * of "we could not find out" is "register nothing".
+ */
+async function fetchWebmcp(endpoint: string, token: string): Promise<boolean> {
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: brandingRequestHeaders(token),
+      body: JSON.stringify({ query: WEBMCP_QUERY }),
+    });
+    if (!res.ok) return DEFAULT_WEBMCP_ENABLED;
+
+    const json = (await res.json()) as {
+      data?: {
+        storeSettings?: { webmcpEnabled?: boolean | null } | null;
+      } | null;
+    };
+    return json.data?.storeSettings?.webmcpEnabled === true;
+  } catch {
+    return DEFAULT_WEBMCP_ENABLED;
   }
 }
 

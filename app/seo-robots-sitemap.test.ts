@@ -111,6 +111,7 @@ describe("sitemap enableSitemap gate", () => {
         domain: null,
         checkoutType: null,
         cookieConsentEnabled: false,
+        webmcpEnabled: false,
       },
       seoSettings: {
         title: null,
@@ -137,6 +138,7 @@ describe("sitemap enableSitemap gate", () => {
         domain: "paralelfurniture.com.au",
         checkoutType: null,
         cookieConsentEnabled: false,
+        webmcpEnabled: false,
       },
       seoSettings: {
         title: null,
@@ -175,6 +177,7 @@ const permissiveSeo = {
     domain: null,
     checkoutType: null,
     cookieConsentEnabled: false,
+    webmcpEnabled: false,
   },
   seoSettings: {
     title: null,
@@ -285,6 +288,7 @@ describe("robots allowIndexing + enableSitemap", () => {
         domain: null,
         checkoutType: null,
         cookieConsentEnabled: false,
+        webmcpEnabled: false,
       },
       seoSettings: {
         title: null,
@@ -313,6 +317,7 @@ describe("robots allowIndexing + enableSitemap", () => {
         domain: null,
         checkoutType: null,
         cookieConsentEnabled: false,
+        webmcpEnabled: false,
       },
       seoSettings: {
         title: null,
@@ -341,6 +346,7 @@ describe("robots allowIndexing + enableSitemap", () => {
         domain: null,
         checkoutType: null,
         cookieConsentEnabled: false,
+        webmcpEnabled: false,
       },
       seoSettings: {
         title: null,
@@ -368,6 +374,7 @@ describe("robots allowIndexing + enableSitemap", () => {
         domain: "paralelfurniture.com.au",
         checkoutType: null,
         cookieConsentEnabled: false,
+        webmcpEnabled: false,
       },
       seoSettings: {
         title: null,

@@ -15,6 +15,7 @@ import { Footer } from "@/components/headkit-ui/footer";
 import { LazyCartDrawer } from "@/components/headkit-ui/lazy-cart-drawer";
 import { NavigationSkeletonHost } from "@/components/headkit-ui/skeletons/navigation-skeleton-host";
 import { navigationSkeletonEnabled } from "@/lib/nav-interaction-flags";
+import { WebMcpRegistrar } from "@/components/headkit-ui/webmcp-registrar";
 import { WebsiteJsonLD } from "@/components/seo/website-json-ld";
 import { OrganizationJsonLD } from "@/components/seo/organization-json-ld";
 import {
@@ -145,6 +146,10 @@ export default async function RootLayout({
   // `ENV_GTM_ID` is one: an env var would be per-DEPLOY, and this must be
   // per-STORE and flippable from the dashboard without a rebuild.
   const cookieConsentEnabled = storeSettings.cookieConsentEnabled;
+  // The store's WebMCP tools. Absent means off, and there is deliberately NO
+  // env fallback: an env var would be per-deploy, and this must be per-store
+  // and flippable from the dashboard without a rebuild. See lib/branding.ts.
+  const webmcpEnabled = storeSettings.webmcpEnabled;
   const checkoutMode = normalizeCheckoutMode(storeSettings.checkoutType);
   const emailProvider = emailMarketing.provider.toLowerCase();
   const klaviyoPublicKey =
@@ -305,6 +310,12 @@ export default async function RootLayout({
             }}
           >
             <CheckoutModeProvider mode={checkoutMode}>
+              {/* WebMCP tools for an in-page agent. Gated on the store
+                  setting (dashboard → In-page agents). DEFAULT OFF, so the
+                  component is not mounted and nothing runs. The gate is on
+                  the mount, the same shape as NavigationSkeletonHost: the
+                  registrar adds no <Suspense> and makes no request-time read. */}
+              {webmcpEnabled ? <WebMcpRegistrar /> : null}
               <AuthProvider>
                 <CartProvider>
                   <HostedCartSync />
