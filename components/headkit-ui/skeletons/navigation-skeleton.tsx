@@ -4,6 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CollectionPageSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
+import {
+  HEADER_REGION_SELECTOR,
+  headerBottomCssValue,
+} from "@/lib/header-bottom";
 import type { NavigationSkeletonKind } from "@/lib/navigation-skeleton-target";
 
 /**
@@ -291,19 +295,41 @@ function LoadingAnnouncement({ text }: { text: string }): React.JSX.Element {
  * `transform: translate3d(…)`), so an un-portalled overlay gets trapped inside
  * one of them instead of covering the page.
  *
- * IT COVERS THE WHOLE VIEWPORT, NAV INCLUDED. An earlier version of this feature
- * on the fork measured the overlay's top from the lower of `<main>`'s top and the
- * sticky nav's bottom and kept it under the nav's `z-20`, reasoning that hiding
- * the header would make a loading page look broken. Tested, it does the opposite:
- * the old page shows through at the top and reads as "nothing happened, I am
- * still on the same page". The offset had a second flaw that made it worse — it
- * was measured ONCE on mount, so any scroll afterwards slid the old page through
- * the uncovered strip while the fixed overlay stayed put. `top: 0` and a z-index
- * above the nav remove both at once.
+ * IT STARTS AT THE HEADER'S BOTTOM EDGE AND NEVER COVERS THE HEADER. In the App
+ * Router the header is a LAYOUT element: it is mounted once and survives every
+ * client navigation, so it is the one part of the page that provably does not
+ * need to reload. An overlay drawn over it makes it vanish and come back, which
+ * reads to a shopper — and read to this project's client on 2026-09-25 — as the
+ * header reloading on every link press ("nav bar should already be in place, but
+ * that reloads too"). Nothing reloaded; the cover was simply too tall. So the
+ * skeleton is confined to the main content region, which is the only region that
+ * actually has new content coming.
  *
- * `z-50` clears the sticky nav's `z-20` and a sticky filter card's `z-30`, and
- * stays under the mobile sheet's `z-[60]` — which is closing anyway on any
- * navigation that raises this.
+ * This reverses an earlier `top: 0` on the fork, and the two objections that
+ * produced it are answered rather than ignored:
+ *
+ *  - "The old page shows through at the top and reads as nothing happened." What
+ *    showed through there was arbitrary page content under a nav-height strip.
+ *    What shows through now is the HEADER and only the header — a persistent
+ *    element the shopper expects to stay put, with every skeleton body starting
+ *    flush under it. There is no strip of stale page left.
+ *  - "The offset was measured ONCE on mount, so scrolling slid the old page
+ *    through it." That was the real defect, and it is gone by construction: the
+ *    top is the live CSS custom property `NavigationBar` republishes on every
+ *    scroll and resize frame (`lib/header-bottom.ts`), so the browser re-resolves
+ *    it with no React work. The measurement is the nav's own
+ *    `getBoundingClientRect().bottom`, which is why a preheader is included at the
+ *    top of the page and excluded once it has scrolled away, and why the mobile
+ *    sheet and this overlay cannot disagree about where the header ends.
+ *
+ * `z-50` IS KEPT, and the header is uncovered by GEOMETRY, not by z-order.
+ * Dropping under the nav's `z-20` would also drop under two things that are page
+ * content rather than chrome — the PDP sticky add-to-cart bar (`z-40`) and the
+ * consent banner (`z-[45]`) — and the OLD page's copy of those would then float
+ * over the skeleton. Since the overlay no longer overlaps the header at all, its
+ * z-index says nothing about the header either way. `z-50` still clears a sticky
+ * filter card's `z-30` and stays under the mobile sheet's `z-[60]`, which is
+ * closing anyway on any navigation that raises this.
  *
  * `pointer-events-none` IS WHAT LETS THE PAGE SCROLL. A fixed, opaque,
  * `overflow: hidden` box under the cursor swallows the wheel, so the shopper
@@ -314,17 +340,42 @@ function LoadingAnnouncement({ text }: { text: string }): React.JSX.Element {
  * cannot see. So `mousedown` / `pointerdown` / `click` are swallowed in the
  * capture phase and wheel and touch are deliberately left alone — blocking
  * `touchstart` there would take touch scrolling away again.
+ *
+ * THE SWALLOW EXEMPTS THE HEADER, or the fix would be cosmetic only. That
+ * listener is on `document`, so it deadens the whole page including the strip the
+ * overlay has just stopped covering — a visible, unclickable header is a worse
+ * lie than a hidden one. A press is let through when BOTH hold: it landed inside
+ * the marked header region, and the pressed element sits entirely above the
+ * overlay's top edge. The second half is what keeps an open mega-menu PANEL
+ * swallowed: Radix renders the viewport inside the nav root, so it is inside the
+ * header region by containment while hanging below the header's bottom edge —
+ * under the overlay, invisible, and not something a press should reach.
  */
 export function NavigationSkeleton({
   kind,
 }: {
   kind: NavigationSkeletonKind;
 }): React.JSX.Element | null {
-  // Swallow presses, but never wheel or touch. See the docblock: the overlay is
-  // `pointer-events-none` so scrolling works, which also means a click would
-  // otherwise reach the old page underneath and start a second navigation.
+  const overlay = useRef<HTMLDivElement>(null);
+
+  // Swallow presses, but never wheel or touch, and never inside the header. See
+  // the docblock: the overlay is `pointer-events-none` so scrolling works, which
+  // also means a click would otherwise reach the old page underneath and start a
+  // second navigation — while the header, which the overlay no longer covers,
+  // has to stay live.
   useEffect(() => {
+    const inUncoveredHeader = (target: EventTarget | null): boolean => {
+      if (!(target instanceof Element)) return false;
+      if (!target.closest(HEADER_REGION_SELECTOR)) return false;
+      const top = overlay.current?.getBoundingClientRect().top;
+      if (typeof top !== "number") return false;
+      // Entirely above the overlay. The 1px slack absorbs subpixel rounding
+      // between the nav's measured bottom and the overlay's resolved top, which
+      // are the same edge.
+      return target.getBoundingClientRect().bottom <= top + 1;
+    };
     const swallow = (event: Event): void => {
+      if (inUncoveredHeader(event.target)) return;
       event.preventDefault();
       event.stopPropagation();
     };
@@ -346,7 +397,13 @@ export function NavigationSkeleton({
   return createPortal(
     <>
       <div
+        ref={overlay}
         aria-hidden
+        // `inset-0` still supplies right/bottom/left; the inline `top` overrides
+        // its `top: 0` with the live header-bottom property. Inline rather than a
+        // Tailwind arbitrary value so the custom property and its fallback have
+        // exactly one definition, in `lib/header-bottom.ts`.
+        style={{ top: headerBottomCssValue() }}
         className="animate-in fade-in pointer-events-none fixed inset-0 z-50 overflow-hidden bg-brand-bg duration-200"
         data-testid="navigation-skeleton"
         data-skeleton-kind={kind}

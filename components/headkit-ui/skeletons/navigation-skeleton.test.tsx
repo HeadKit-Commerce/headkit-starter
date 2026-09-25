@@ -10,6 +10,12 @@ import {
   NAVIGATION_SKELETON_MAX_MS,
 } from "@/components/headkit-ui/skeletons/navigation-skeleton-host";
 import { resetNavigationSkeletonStore } from "@/lib/navigation-skeleton-store";
+import {
+  DEFAULT_HEADER_BOTTOM_PX,
+  HEADER_BOTTOM_CSS_VAR,
+  HEADER_REGION_ATTRIBUTE,
+  headerBottomCssValue,
+} from "@/lib/header-bottom";
 
 /**
  * The claim this file exists to make: with `NEXT_PUBLIC_NAVIGATION_SKELETON` on, a
@@ -38,9 +44,10 @@ import { resetNavigationSkeletonStore } from "@/lib/navigation-skeleton-store";
  *  - `next/link` is mocked, so `pending` here is a value this file sets. That a real
  *    navigation reports `pending` for as long as it runs is Next's.
  *  - jsdom has no layout, so nothing here can see that the skeleton MATCHES the
- *    PDP, that it covers the sticky nav, or that `position: fixed` escapes a
- *    transformed carousel ancestor. Those are browser claims, measured on the fork
- *    this is ported from.
+ *    PDP, that it starts flush under the sticky nav, or that `position: fixed`
+ *    escapes a transformed carousel ancestor. Those are browser claims, measured on
+ *    the fork this is ported from — and, for the header offset, re-measured in
+ *    Chrome for the geometry cases at the foot of this file.
  *  - It says nothing about the direct-load path. That one is load-bearing and is
  *    proved where it is observable: over HTTP, with JavaScript off.
  *
@@ -454,5 +461,128 @@ describe("navigation skeleton on a pending navigation", () => {
       vi.advanceTimersByTime(0);
     });
     expect(status?.textContent).toBe("Loading product page");
+  });
+});
+
+/**
+ * The geometry contract, added 2026-09-25 after the client reported the header
+ * "reloading" on every link press.
+ *
+ * Nothing reloaded — the overlay was `top: 0` and full-viewport, so it painted over
+ * a header that in the App Router is a layout element and never unmounts. These
+ * cases pin the two halves of the fix that a unit test can reach: the overlay's top
+ * is BOUND to the published header-bottom measurement rather than to 0, and the
+ * document-level press swallow lets the now-visible header stay clickable.
+ *
+ * WHERE IT STOPS. jsdom has no layout engine, so it cannot resolve
+ * `var(--headkit-header-bottom, 80px)` to a pixel, and it cannot see that the
+ * skeleton body starts flush under the header with no gap and no overlap. Those are
+ * browser claims and were measured in Chrome at 1180 and 390 CSS px, with and
+ * without a preheader, before and after scrolling past it. What IS assertable here
+ * is the binding — that the host reads the property the header publishes, and never
+ * renders a `top` of 0 — plus the press behaviour, whose rects are stubbed.
+ */
+describe("navigation skeleton geometry", () => {
+  /** Raise a skeleton and hand back the overlay element. */
+  function raise(): HTMLElement {
+    linkStatus.pending = true;
+    render(<InstantLink href={PRODUCT_HREF}>Product</InstantLink>);
+    press();
+    advance(NAVIGATION_SKELETON_DELAY_MS);
+    const el = skeleton();
+    if (!el) throw new Error("expected a skeleton to be up");
+    return el;
+  }
+
+  /** Pretend the overlay resolved to a top of `top` CSS px. */
+  function overlayTop(el: HTMLElement, top: number): void {
+    el.getBoundingClientRect = () =>
+      ({
+        top,
+        bottom: 900,
+        left: 0,
+        right: 1180,
+        width: 1180,
+        height: 900 - top,
+      }) as DOMRect;
+  }
+
+  const hosts: HTMLElement[] = [];
+  afterEach(() => {
+    while (hosts.length) hosts.pop()?.remove();
+  });
+
+  /** A node at a known vertical band, optionally inside the marked header. */
+  function nodeAt(bottom: number, inHeader: boolean): HTMLElement {
+    const host = document.createElement("div");
+    if (inHeader) host.setAttribute(HEADER_REGION_ATTRIBUTE, "");
+    const node = document.createElement("button");
+    node.getBoundingClientRect = () =>
+      ({
+        top: bottom - 20,
+        bottom,
+        left: 0,
+        right: 100,
+        width: 100,
+        height: 20,
+      }) as DOMRect;
+    host.appendChild(node);
+    document.body.appendChild(host);
+    hosts.push(host);
+    return node;
+  }
+
+  /** Press `node` and report whether the swallow stopped it. */
+  function swallowed(node: HTMLElement): boolean {
+    const event = new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      detail: 1,
+    });
+    act(() => {
+      node.dispatchEvent(event);
+    });
+    return event.defaultPrevented;
+  }
+
+  it("binds its top to the header-bottom property, never to 0", () => {
+    const el = raise();
+    expect(
+      el.style.top,
+      "The client's complaint was a full-viewport overlay painting over a header that never unmounts. The top must come from the header's own live measurement.",
+    ).toBe(headerBottomCssValue());
+    expect(el.style.top).not.toBe("0px");
+    expect(el.style.top).toContain(HEADER_BOTTOM_CSS_VAR);
+    // The fallback matters as much as the property: a consumer that renders before
+    // the first publish must start under a header-sized strip, not over the header.
+    expect(el.style.top).toContain(`${DEFAULT_HEADER_BOTTOM_PX}px`);
+  });
+
+  it("lets a press through in the header the overlay no longer covers", () => {
+    const el = raise();
+    overlayTop(el, 110);
+    expect(
+      swallowed(nodeAt(110, true)),
+      "A visible but dead header is a worse lie than a hidden one — the cart button and nav links have to keep working during a pending navigation.",
+    ).toBe(false);
+  });
+
+  it("still swallows a press on the page under the overlay", () => {
+    const el = raise();
+    overlayTop(el, 110);
+    expect(
+      swallowed(nodeAt(400, false)),
+      "The overlay is pointer-events-none, so an unswallowed press lands on the old page and starts a second navigation to something the shopper cannot see.",
+    ).toBe(true);
+  });
+
+  it("swallows a press on a mega-menu panel, which hangs below the header", () => {
+    const el = raise();
+    overlayTop(el, 110);
+    expect(
+      swallowed(nodeAt(300, true)),
+      "Radix renders the menu viewport inside the nav root, so containment alone would exempt a panel that is under the overlay and invisible.",
+    ).toBe(true);
   });
 });

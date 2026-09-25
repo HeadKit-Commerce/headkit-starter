@@ -919,6 +919,16 @@ Three rules hold it together, each of which cost a measured failure on the fork 
   treats that hook as URL data during prerender and suspends on a route whose params are not
   enumerated; from the root layout there is no boundary to give it, because a boundary there
   re-opens the soft 404 (see "Setting a status code needs THREE conditions").
+- **The overlay NEVER covers the header, and that is geometry rather than z-order.** The header
+  is a layout element that survives every client navigation, so painting over it is what makes a
+  shopper report the header "reloading" on every press — the complaint that produced this rule on
+  2026-09-25. Its top is the header's LIVE bottom edge, published as a CSS custom property by
+  `NavigationBar`'s existing scroll/resize measurement and read through `lib/header-bottom.ts`;
+  never take a second measurement, and never freeze one at mount (that froze strip was the defect
+  behind the earlier `top: 0`). The document-level press swallow exempts the marked header region
+  for the same reason: a visible, dead header is worse than a hidden one. `z-50` is deliberate —
+  dropping below the nav's `z-20` would also drop below the PDP sticky bar (`z-40`) and the
+  consent banner (`z-[45]`), which are page content and would then float over the skeleton.
 
 Which body a route gets is decided in ONE place, `lib/navigation-skeleton-target.ts`: a table of
 predicates written against the app's own URL builders, plus an opt-out set. A kind a URL cannot

@@ -30,6 +30,10 @@ import { normalizeMenuTree, toMegaMenuColumns } from "@/lib/menu-columns";
 import { cn, decodeHtmlEntities } from "@/lib/utils";
 import { HeaderActions } from "@/components/headkit-ui/header-actions";
 import { CartTriggerButton } from "@/components/headkit-ui/cart-drawer";
+import {
+  HEADER_REGION_ATTRIBUTE,
+  publishHeaderBottom,
+} from "@/lib/header-bottom";
 import type { NavLayout, NavStyle } from "@/lib/store-theme";
 
 /** A navigation tree node returned by headkit.menu.get(). */
@@ -105,10 +109,24 @@ export function NavigationBar({
 
   // Keep the mobile drawer/overlay flush under the sticky logo bar (and any
   // visible preheader) so the panel never covers the brand mark or hamburger.
+  //
+  // The same reading is PUBLISHED as a CSS custom property, because the mobile
+  // sheet is no longer its only consumer: the pending-navigation skeleton starts
+  // at the header's bottom edge too, and a second measurement taken in that
+  // component would drift from this one the first time the header gains a row.
+  // See `lib/header-bottom.ts` for why it travels as a custom property rather
+  // than as state — in short, this runs on every scroll frame.
+  //
+  // The publish is deliberately NOT behind the `bottom > 0` guard below. That
+  // guard exists so the sheet keeps its last usable offset; a header measured at
+  // or above the viewport top is a header with nothing left to uncover, and an
+  // overlay should then start at 0 rather than hold a stale strip open.
   useEffect(() => {
     const updateMenuTop = () => {
       const bottom = navRef.current?.getBoundingClientRect().bottom;
-      if (typeof bottom === "number" && bottom > 0) {
+      if (typeof bottom !== "number") return;
+      publishHeaderBottom(bottom);
+      if (bottom > 0) {
         setMobileMenuTop(Math.round(bottom));
       }
     };
@@ -143,6 +161,7 @@ export function NavigationBar({
 
       <NavigationMenu
         ref={navRef}
+        {...{ [HEADER_REGION_ATTRIBUTE]: "" }}
         onValueChange={(val) => setMenuOpen(!!val)}
         className={cn(
           "headkit-nav sticky top-0 flex items-center justify-between h-20 w-full max-w-full px-5 md:px-10 font-body text-primary backdrop-blur-xs transition-colors",
@@ -321,7 +340,10 @@ function Preheader({
   links?: { label: string; uri: string }[];
 }) {
   return (
-    <div className="headkit-preheader flex h-[30px] items-center justify-end sm:justify-between bg-primary px-5 text-sm text-brand-bg md:px-10">
+    <div
+      {...{ [HEADER_REGION_ATTRIBUTE]: "" }}
+      className="headkit-preheader flex h-[30px] items-center justify-end sm:justify-between bg-primary px-5 text-sm text-brand-bg md:px-10"
+    >
       {title ? (
         <div className="hidden sm:block text-brand-bg">
           {decodeHtmlEntities(title)}
