@@ -184,6 +184,11 @@ export interface WebMcpDeps {
   >;
   navigate: (path: string) => void;
   assignExternal: (url: string) => void;
+  /**
+   * This storefront's checkout is hosted (Shopify). Known at registration
+   * from the store, not from a cart. Quote mode still wins.
+   */
+  hostedCheckout: boolean;
   checkoutPlan: () => Promise<WebMcpCheckoutPlan>;
 }
 
@@ -340,6 +345,36 @@ export function resolveCheckoutPlan(input: {
     };
   }
   return { kind: "checkout", path: "/checkout", externalUrl: null };
+}
+
+/**
+ * The checkout this storefront uses. Quote mode is the store setting; hosted
+ * checkout is the store's provider. An agent sees one of these, never a menu
+ * of the others.
+ */
+export function proceedToCheckoutKind(input: {
+  quote: boolean;
+  hostedCheckout: boolean;
+}): WebMcpCheckoutPlan["kind"] {
+  if (input.quote) return "quote";
+  if (input.hostedCheckout) return "shopify_checkout";
+  return "checkout";
+}
+
+const PROCEED_TO_CHECKOUT_DESCRIPTION: Record<
+  WebMcpCheckoutPlan["kind"],
+  string
+> = {
+  quote: "Continue checkout. Open the quote page. Does not take payment.",
+  shopify_checkout:
+    "Continue checkout. Leave for hosted checkout. Does not take payment.",
+  checkout: "Continue checkout. Open /checkout. Does not take payment.",
+};
+
+export function describeProceedToCheckout(
+  kind: WebMcpCheckoutPlan["kind"],
+): string {
+  return PROCEED_TO_CHECKOUT_DESCRIPTION[kind];
 }
 
 function readString(
@@ -659,8 +694,12 @@ export function registerWebMcpTools(
     },
     {
       name: "proceed_to_checkout",
-      description:
-        "Continue checkout. Quote stores open the quote page. Shopify stores leave for hosted checkout. WooCommerce stores open /checkout. Does not take payment.",
+      description: describeProceedToCheckout(
+        proceedToCheckoutKind({
+          quote: deps.hidePrices,
+          hostedCheckout: deps.hostedCheckout,
+        }),
+      ),
       inputSchema: objectSchema({}, []),
       annotations: { readOnlyHint: false },
       execute: async (_input, agent) => {

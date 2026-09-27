@@ -2,6 +2,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  describeProceedToCheckout,
+  proceedToCheckoutKind,
   projectCart,
   projectSearchHit,
   registerWebMcpTools,
@@ -97,6 +99,7 @@ function deps(overrides: Partial<WebMcpDeps> = {}): WebMcpDeps {
     }),
     navigate: () => undefined,
     assignExternal: () => undefined,
+    hostedCheckout: false,
     checkoutPlan: async () =>
       resolveCheckoutPlan({ quote: false, hostedUrl: null }),
     ...overrides,
@@ -260,6 +263,33 @@ describe("resolveCheckoutPlan", () => {
   });
 });
 
+describe("describeProceedToCheckout", () => {
+  it("names only the checkout this storefront uses", () => {
+    const quote = describeProceedToCheckout(
+      proceedToCheckoutKind({ quote: true, hostedCheckout: true }),
+    );
+    const hosted = describeProceedToCheckout(
+      proceedToCheckoutKind({ quote: false, hostedCheckout: true }),
+    );
+    const checkout = describeProceedToCheckout(
+      proceedToCheckoutKind({ quote: false, hostedCheckout: false }),
+    );
+
+    expect(quote).toBe(
+      "Continue checkout. Open the quote page. Does not take payment.",
+    );
+    expect(hosted).toBe(
+      "Continue checkout. Leave for hosted checkout. Does not take payment.",
+    );
+    expect(checkout).toBe(
+      "Continue checkout. Open /checkout. Does not take payment.",
+    );
+    expect(quote).not.toMatch(/Shopify|WooCommerce|\/checkout/);
+    expect(hosted).not.toMatch(/quote|WooCommerce|\/checkout/);
+    expect(checkout).not.toMatch(/quote|Shopify|hosted/);
+  });
+});
+
 describe("registerWebMcpTools", () => {
   it("registers the Shopify-aligned names and annotations", () => {
     const { ctx, tools } = harness();
@@ -269,7 +299,32 @@ describe("registerWebMcpTools", () => {
     expect(tools.get("search_catalog")?.annotations?.readOnlyHint).toBe(true);
     expect(tools.get("cancel_cart")?.annotations?.destructiveHint).toBe(true);
     expect(tools.get("update_cart")?.annotations?.readOnlyHint).toBe(false);
+    expect(tools.get("proceed_to_checkout")?.description).toBe(
+      "Continue checkout. Open /checkout. Does not take payment.",
+    );
     controller.abort();
+  });
+
+  it("describes proceed_to_checkout from the store's checkout, not every provider", () => {
+    const quote = harness();
+    registerWebMcpTools(
+      quote.ctx,
+      deps({ hidePrices: true, hostedCheckout: true }),
+      new AbortController().signal,
+    );
+    expect(quote.tools.get("proceed_to_checkout")?.description).toBe(
+      "Continue checkout. Open the quote page. Does not take payment.",
+    );
+
+    const hosted = harness();
+    registerWebMcpTools(
+      hosted.ctx,
+      deps({ hostedCheckout: true }),
+      new AbortController().signal,
+    );
+    expect(hosted.tools.get("proceed_to_checkout")?.description).toBe(
+      "Continue checkout. Leave for hosted checkout. Does not take payment.",
+    );
   });
 
   it("search omits price when the store is in quote mode", async () => {
@@ -440,13 +495,20 @@ describe("the layout gate", () => {
   it("renders the registrar only behind the store setting, inside CheckoutModeProvider", () => {
     const layout = readFileSync("app/layout.tsx", "utf8");
     expect(layout).toMatch(
-      /\{\s*webmcpEnabled\s*\?\s*\(?\s*<WebMcpRegistrar\s*\/>\s*\)?\s*:\s*null\s*\}/,
+      /\{\s*webmcpEnabled\s*\?\s*\(\s*<WebMcpRegistrar\s+hostedCheckout=\{hostedCheckout\}\s*\/>\s*\)\s*:\s*null\s*\}/,
     );
+    expect(layout).toContain("isShopifyStorefront(env)");
     expect(layout).not.toContain("NEXT_PUBLIC_WEBMCP");
     expect(layout).not.toContain("webmcp-flag");
-    expect(layout.match(/<WebMcpRegistrar \/>/g)).toHaveLength(1);
+    expect(
+      layout.match(
+        /<WebMcpRegistrar\s+hostedCheckout=\{hostedCheckout\}\s*\/>/g,
+      ),
+    ).toHaveLength(1);
     const provider = layout.indexOf("<CheckoutModeProvider");
-    const mount = layout.indexOf("<WebMcpRegistrar />");
+    const mount = layout.indexOf(
+      "<WebMcpRegistrar hostedCheckout={hostedCheckout} />",
+    );
     const close = layout.indexOf("</CheckoutModeProvider>");
     expect(provider).toBeGreaterThan(-1);
     expect(mount).toBeGreaterThan(provider);

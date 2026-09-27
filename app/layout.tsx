@@ -27,6 +27,8 @@ import {
 import { getBranding, getBrandingAssets } from "@/lib/branding";
 import { resolveSiteUrl } from "@/lib/site-url";
 import { normalizeCheckoutMode } from "@/lib/checkout-mode";
+import { env } from "@/lib/env";
+import { isShopifyStorefront } from "@/lib/shopify-storefront";
 import { CheckoutModeProvider } from "@/components/checkout/checkout-mode-provider";
 import { CatalogDisplayProvider } from "@/components/headkit-ui/catalog-display-provider";
 import { resolveBrandFonts } from "@/lib/brand-fonts";
@@ -150,6 +152,10 @@ export default async function RootLayout({
   // env fallback: an env var would be per-deploy, and this must be per-store
   // and flippable from the dashboard without a rebuild. See lib/branding.ts.
   const webmcpEnabled = storeSettings.webmcpEnabled;
+  // Shopify leaves for hosted checkout. WooCommerce stays on /checkout.
+  // Quote mode is checkoutType, read inside the registrar. One of the three,
+  // never a description that lists all of them.
+  const hostedCheckout = isShopifyStorefront(env);
   const checkoutMode = normalizeCheckoutMode(storeSettings.checkoutType);
   const emailProvider = emailMarketing.provider.toLowerCase();
   const klaviyoPublicKey =
@@ -315,7 +321,9 @@ export default async function RootLayout({
                   component is not mounted and nothing runs. The gate is on
                   the mount, the same shape as NavigationSkeletonHost: the
                   registrar adds no <Suspense> and makes no request-time read. */}
-              {webmcpEnabled ? <WebMcpRegistrar /> : null}
+              {webmcpEnabled ? (
+                <WebMcpRegistrar hostedCheckout={hostedCheckout} />
+              ) : null}
               <AuthProvider>
                 <CartProvider>
                   <HostedCartSync />

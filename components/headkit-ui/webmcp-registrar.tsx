@@ -30,7 +30,12 @@ import {
  * parent owns that gate; this component does not read an env flag. It reads
  * no cookies, headers, or search params, and it adds no Suspense boundary.
  */
-export function WebMcpRegistrar(): null {
+export function WebMcpRegistrar({
+  hostedCheckout,
+}: {
+  /** This storefront leaves for hosted checkout. The server layout decides. */
+  hostedCheckout: boolean;
+}): null {
   const mode = useCheckoutMode();
   const router = useRouter();
   const hidePrices = isQuoteMode(mode);
@@ -119,6 +124,7 @@ export function WebMcpRegistrar(): null {
       },
       navigate,
       assignExternal,
+      hostedCheckout,
       checkoutPlan: async () => {
         if (hidePrices) {
           return resolveCheckoutPlan({ quote: true, hostedUrl: null });
@@ -137,7 +143,7 @@ export function WebMcpRegistrar(): null {
       controller.abort();
       unregister();
     };
-  }, [hidePrices, router]);
+  }, [hidePrices, hostedCheckout, router]);
 
   return null;
 }
