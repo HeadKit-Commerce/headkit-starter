@@ -23,6 +23,7 @@ import {
   deriveFilterValues,
   encodeFilterSlug,
   sameFilterValues,
+  searchTermFromQuery,
   DEFAULT_FILTER_VALUES,
   NO_SEARCH_PARAMS,
   type FilterValues,
@@ -60,6 +61,8 @@ interface CollectionProviderProps {
   itemsPerPage?: number;
   onSale?: boolean | undefined;
   isNew?: boolean | undefined;
+  /** `/featured` — client pagination and sort stay on the featured set. */
+  featured?: boolean | undefined;
   search?: string | undefined;
   brandSlug?: string | undefined;
   categorySlug?: string | undefined;
@@ -86,6 +89,7 @@ export function CollectionProvider({
   itemsPerPage = 24,
   onSale,
   isNew,
+  featured,
   search,
   brandSlug,
   categorySlug,
@@ -157,6 +161,12 @@ export function CollectionProvider({
   // below instead: page 1 in the store's default order is what the shell
   // carries, and no URL that needs the correction is canonical or in the
   // sitemap.
+  // `?q=` is not a filter facet. The shell renders without it; the mount
+  // effect below copies it from the URL into this ref before any refetch, so
+  // `fetchProducts` sees the query even when filter values did not change.
+  const searchTermRef = useRef(search ?? "");
+  const [activeSearch, setActiveSearch] = useState(search ?? "");
+
   const [filterValues, setFilterValues] = useState<FilterValues>(() =>
     deriveFilterValues(NO_SEARCH_PARAMS, {
       initialPage,
@@ -171,7 +181,7 @@ export function CollectionProvider({
   const syncUrl = useCallback(
     (page: number, filters: FilterValues) => {
       const params = new URLSearchParams();
-      if (search) params.set("q", search);
+      if (searchTermRef.current) params.set("q", searchTermRef.current);
       if (page > 1) params.set("page", page.toString());
       if (filters.categories.length)
         params.set("categories", filters.categories.join(","));
@@ -206,7 +216,7 @@ export function CollectionProvider({
         );
       }
     },
-    [categoryBasePath, pathname, search],
+    [categoryBasePath, pathname],
   );
 
   const fetchProducts = useCallback(
@@ -231,23 +241,28 @@ export function CollectionProvider({
       }
 
       try {
+        const term = searchTermRef.current;
         const filter = buildProductListFilter(filterValues, {
           ...(categorySlug !== undefined ? { categorySlug } : {}),
           ...(brandSlug !== undefined ? { brandSlug } : {}),
           ...(onSale !== undefined ? { onSale } : {}),
           ...(isNew !== undefined ? { isNew } : {}),
-          ...(search !== undefined ? { search } : {}),
-          // Route exceptions: /new stays newest-first; /search uses relevance
+          ...(featured ? { featured: true } : {}),
+          ...(term ? { search: term } : {}),
+          // Route exceptions: /new stays newest-first; /featured stays
+          // menu-order until the shopper picks a sort; /search uses relevance
           // (applied below). Other catalog routes use branding default.
           ...(isNew
             ? { defaultSort: "CREATED_AT" as SortKeyType }
-            : search
-              ? {}
-              : {
-                  defaultSort: defaultCollectionSort as SortKeyType,
-                }),
+            : featured
+              ? { defaultSort: "FEATURED" as SortKeyType }
+              : term
+                ? {}
+                : {
+                    defaultSort: defaultCollectionSort as SortKeyType,
+                  }),
         });
-        if (search && !filterValues.sort?.trim()) {
+        if (term && !filterValues.sort?.trim()) {
           filter.orderby = "relevance";
           filter.order = "desc";
         }
@@ -301,7 +316,7 @@ export function CollectionProvider({
       brandSlug,
       onSale,
       isNew,
-      search,
+      featured,
       itemsPerPage,
       syncUrl,
       defaultCollectionSort,
@@ -340,7 +355,7 @@ export function CollectionProvider({
       // a path change, not a query param.
       const filterPath = newAttributeSlug ? `/f/${newAttributeSlug}` : "";
       const params = new URLSearchParams();
-      if (search) params.set("q", search);
+      if (searchTermRef.current) params.set("q", searchTermRef.current);
       if (filterValues.categories.length)
         params.set("categories", filterValues.categories.join(","));
       // Brand omitted from query (06.1) — it lives in filterPath.
@@ -378,20 +393,39 @@ export function CollectionProvider({
   // from `window.location.search`. Reading that during render would be a
   // hydration mismatch, so it has to be an effect.
   //
-  // Setting `filterValues` is all this does: the effect above already knows how
-  // to reconcile a change — one `listCollectionProducts` round trip for a query
-  // change, or a `router.push` to `/f/<slug>` for a legacy query facet. Page 1
-  // is visible for that round trip's duration, and permanently with JS off.
+  // Facet changes go through `filterValues` and the effect above (one
+  // `listCollectionProducts` round trip, or a `router.push` to `/f/<slug>`).
+  // `?q=` is not a facet: when it is the only change, this effect fetches
+  // itself so `/search?q=` still loads the query after the static shell.
+  // Page 1 is visible for that round trip's duration, and permanently with JS off.
   // Accepted: none of these URLs is canonical, none is in the sitemap, and each
   // is produced by this grid's own `history.replaceState` rather than linked to.
   useEffect(() => {
-    const corrected = deriveFilterValues(
-      new URLSearchParams(window.location.search),
-      { initialPage, productFilter, initialFilterValues, initialBrands },
-    );
-    setFilterValues((current) =>
-      sameFilterValues(current, corrected) ? current : corrected,
-    );
+    const params = new URLSearchParams(window.location.search);
+    const corrected = deriveFilterValues(params, {
+      initialPage,
+      productFilter,
+      initialFilterValues,
+      initialBrands,
+    });
+    const nextSearch = searchTermFromQuery(search, params);
+    const searchChanged = nextSearch !== searchTermRef.current;
+    if (searchChanged) {
+      searchTermRef.current = nextSearch;
+      setActiveSearch(nextSearch);
+    }
+    let filtersChanged = false;
+    setFilterValues((current) => {
+      if (sameFilterValues(current, corrected)) return current;
+      filtersChanged = true;
+      return corrected;
+    });
+    // Filter changes refetch via the effect above, which reads the ref updated
+    // just above. A query with the same facets (`/search?q=`) does not change
+    // `filterValues`, so it has to fetch itself.
+    if (searchChanged && !filtersChanged) {
+      void fetchProducts(corrected.page, "middle");
+    }
     // Mount only — later URL changes come from this provider itself.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -452,7 +486,7 @@ export function CollectionProvider({
         loadPrevious,
         productFilter,
         isNew: Boolean(isNew),
-        search: search ?? "",
+        search: activeSearch,
       }}
     >
       {children}

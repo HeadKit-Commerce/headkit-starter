@@ -1,20 +1,26 @@
-import { Suspense } from "react";
 import type { Metadata } from "next";
 import { cacheTag } from "next/cache";
 import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { headkit as sdk } from "@/lib/sdk";
+import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { CollectionHeader } from "@/components/headkit-ui/collection/collection-header";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
 import {
   buildProductListFilter,
-  parseSearchParams,
+  DEFAULT_FILTER_VALUES,
   type SortKeyType,
 } from "@/components/headkit-ui/collection/utils";
-import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import { CATALOG_PAGE_SIZE } from "@/components/headkit-ui/catalog-grid";
 import { getCachedCatalogPage } from "@/lib/catalog-cache";
 import { getBranding } from "@/lib/branding";
-import { storefrontUrl } from "@/lib/make-metadata";
+import { makeSeoMetadata, storefrontUrl } from "@/lib/make-metadata";
+
+/**
+ * Long enough for the meta-description audit (Ahrefs flags copy under ~120
+ * characters) and specific enough to describe the landing.
+ */
+const SALE_DESCRIPTION =
+  "Shop products currently on sale. Compare discounted prices, filter by category, and see what is in stock.";
 
 /**
  * Canonical origin comes from the RUNTIME store domain, not the build-time
@@ -29,23 +35,24 @@ import { storefrontUrl } from "@/lib/make-metadata";
  */
 export async function generateMetadata(): Promise<Metadata> {
   try {
-    const { storeSettings } = await getBranding();
-    return {
+    const { storeSettings, seoSettings, branding } = await getBranding();
+    return await makeSeoMetadata(null, {
       title: "Sale",
-      alternates: {
-        canonical: storefrontUrl("/sale", storeSettings.domain),
-      },
-    };
+      description: SALE_DESCRIPTION,
+      storeName: storeSettings.name ?? undefined,
+      allowIndexing: seoSettings.allowIndexing,
+      canonical: storefrontUrl("/sale", storeSettings.domain),
+      siteUrl: storeSettings.domain,
+      dashboardOgImageUrl: seoSettings.ogImageUrl ?? undefined,
+      brandingIconUrl: branding?.iconUrl ?? undefined,
+    });
   } catch {
-    return {
+    return await makeSeoMetadata(null, {
       title: "Sale",
-      alternates: { canonical: storefrontUrl("/sale") },
-    };
+      description: SALE_DESCRIPTION,
+      canonical: storefrontUrl("/sale"),
+    });
   }
-}
-
-interface Props {
-  searchParams: Promise<Record<string, string>>;
 }
 
 const PER_PAGE = CATALOG_PAGE_SIZE;
@@ -58,64 +65,67 @@ async function getFilters() {
   return sdk.collections.getFilters();
 }
 
+const SALE_BREADCRUMBS = [
+  { name: "Home", uri: "/", current: false },
+  { name: "Sale", uri: "/sale", current: true },
+] as const;
+
 /**
- * Dynamic island: reads searchParams (must live inside <Suspense> under
- * cacheComponents). Preserves the onSale filter for this route.
+ * Instant Navigation (Next.js 16.3): sync default export. The header and the
+ * page-1 grid both commit with the App Shell — this route reads no
+ * `searchParams` and has no Suspense boundary, so a crawler's document is the
+ * finished HTML rather than a stream held open until the catalog read returns.
+ *
+ * `?page=` / `?sort=` / `?price_*` / `?instock=` are applied in the browser by
+ * `CollectionProvider`'s mount effect. None of those URLs is canonical.
  */
-async function LandingResults({ searchParams }: Props) {
-  const sp = await searchParams;
-  const parsed = parseSearchParams(sp);
-  const page = parsed.page;
+export const instant = true;
 
+export default function Page() {
+  return (
+    <>
+      <BreadcrumbJsonLD
+        items={SALE_BREADCRUMBS.map((crumb) => ({
+          name: crumb.name,
+          href: crumb.uri,
+        }))}
+      />
+      <CollectionHeader
+        name="Sale"
+        description="Shop our sale items with great discounts!"
+        breadcrumbs={[...SALE_BREADCRUMBS]}
+        childBasePath="/collections"
+      />
+      <SaleProductsShell />
+    </>
+  );
+}
+
+/** Page 1 of on-sale products, in the store's default order, in the static shell. */
+async function SaleProductsShell() {
   const { branding } = await getBranding();
-  const filter = buildProductListFilter(parsed, {
-    onSale: true,
-    defaultSort: branding.defaultCollectionSort as SortKeyType,
-  });
-
+  const filter = buildProductListFilter(
+    { ...DEFAULT_FILTER_VALUES, page: 1 },
+    {
+      onSale: true,
+      defaultSort: branding.defaultCollectionSort as SortKeyType,
+    },
+  );
   const [productsResult, productFilter] = await Promise.all([
-    getCachedCatalogPage(filter, page, PER_PAGE, {
+    getCachedCatalogPage(filter, 1, PER_PAGE, {
       kind: "route",
       route: "sale",
     }),
     getFilters(),
   ]);
-
   return (
     <CollectionPage
       initialProducts={productsResult.products}
       initialTotal={productsResult.total}
       productFilter={productFilter}
-      initialPage={page}
+      initialPage={1}
       itemsPerPage={PER_PAGE}
       onSale
     />
-  );
-}
-
-/**
- * Instant Navigation (Next.js 16.3) — sync App Shell + Suspense streaming.
- * @see https://nextjs.org/docs/app/guides/instant-navigation
- */
-export const instant = true;
-
-export default function Page({ searchParams }: Props) {
-  return (
-    <>
-      {/* Static shell — outside <Suspense>, cacheable */}
-      <CollectionHeader
-        name="Sale"
-        description="Shop our sale items with great discounts!"
-        breadcrumbs={[
-          { name: "Home", uri: "/", current: false },
-          { name: "Sale", uri: "/sale", current: true },
-        ]}
-        childBasePath="/collections"
-      />
-      {/* Dynamic grid — Instant Navigation shell streams results under Suspense. */}
-      <Suspense fallback={<CollectionProductsSkeleton />}>
-        <LandingResults searchParams={searchParams} />
-      </Suspense>
-    </>
   );
 }

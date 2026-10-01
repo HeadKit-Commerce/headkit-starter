@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 import {
@@ -25,8 +24,6 @@ import {
   PageWithOptionalForm,
   shopifyFormUsesSideColumn,
 } from "@/overrides/page-form-layout";
-import { Skeleton } from "@/components/ui/skeleton";
-
 /**
  * Contact is a WordPress page (slug `contact`), not a hardcoded storefront
  * route. Editors place copy + Gravity Forms in a WP Columns layout; the theme
@@ -117,45 +114,47 @@ async function loadContactPage(): Promise<Awaited<
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const [page, { seoSettings, storeSettings }] = await Promise.all([
+  const [page, { seoSettings, storeSettings, branding }] = await Promise.all([
     loadContactPage(),
     getBranding(),
   ]);
+  const share = {
+    dashboardOgImageUrl: seoSettings.ogImageUrl ?? undefined,
+    brandingIconUrl: branding?.iconUrl ?? undefined,
+  };
   if (!page) {
-    return {
+    return await makeSeoMetadata(null, {
       title: "Contact Us",
-      description: "Get in touch with our team.",
-    };
+      description:
+        "Get in touch with the store. Send a message about an order, a product, or anything else and the team will reply.",
+      canonical: storefrontUrl(`/${CONTACT_SLUG}`, storeSettings.domain),
+      siteUrl: storeSettings.domain,
+      allowIndexing: seoSettings.allowIndexing,
+      storeName: storeSettings.name ?? undefined,
+      ...share,
+    });
   }
   return await makeSeoMetadata(page.seo ?? null, {
     title: page.title,
-    description: seoFallbackDescription("page", page.title),
+    description: seoFallbackDescription("page", page.title, storeSettings.name),
     canonical: storefrontUrl(`/${CONTACT_SLUG}`, storeSettings.domain),
     siteUrl: storeSettings.domain,
     allowIndexing: seoSettings.allowIndexing,
+    storeName: storeSettings.name ?? undefined,
+    ...share,
   });
 }
 
 /**
- * Instant Navigation (Next.js 16.3) — sync App Shell + Suspense streaming.
+ * Instant Navigation (Next.js 16.3) — sync default export, no Suspense.
+ * A boundary around the CMS body is outlined out of the static shell once the
+ * HTML exceeds ~500 bytes, so a crawler waits on the stream for copy that was
+ * already cached. Contact does not read `searchParams`.
  * @see https://nextjs.org/docs/app/guides/instant-navigation
  */
 export const instant = true;
-
 export default function ContactPage(): React.ReactElement {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-[50vh] space-y-4 px-5 py-10 md:px-10">
-          <Skeleton animated={false} className="h-4 w-40" />
-          <Skeleton animated={false} className="h-10 w-48" />
-          <Skeleton animated={false} className="h-4 w-full max-w-xl" />
-        </div>
-      }
-    >
-      <ContactRoute />
-    </Suspense>
-  );
+  return <ContactRoute />;
 }
 
 async function ContactRoute(): Promise<React.ReactElement> {

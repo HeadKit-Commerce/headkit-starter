@@ -141,16 +141,14 @@ beforeEach(() => {
 
 /**
  * `ContactRoute` is module-private, so it is reached the way the route reaches
- * it: the default export returns `<Suspense><ContactRoute /></Suspense>`, and
- * the child element carries the component itself. `renderToStaticMarkup` does
- * not resolve an async server component — it would emit the skeleton fallback —
- * so the component is awaited first and its settled tree rendered.
+ * it: the default export returns `<ContactRoute />`. `renderToStaticMarkup`
+ * does not resolve an async server component, so the component is awaited
+ * first and its settled tree rendered.
  */
 async function renderContact(): Promise<string> {
   const { default: ContactPage } = await import("./page");
-  const boundary = ContactPage() as ReactElement<{ children: ReactElement }>;
-  const route = boundary.props.children;
-  const Content = route.type as () => Promise<ReactElement>;
+  const page = ContactPage() as ReactElement;
+  const Content = page.type as () => Promise<ReactElement>;
   return renderToStaticMarkup(await Content());
 }
 

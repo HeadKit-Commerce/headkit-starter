@@ -1,40 +1,55 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Suspense } from "react";
 import { cacheTag } from "next/cache";
 import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { headkit as sdk } from "@/lib/sdk";
 import { CollectionHeader } from "@/components/headkit-ui/collection/collection-header";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
-import { buildProductListFilter } from "@/components/headkit-ui/collection/utils";
-import type { SortKeyType } from "@/components/headkit-ui/collection/utils";
+import {
+  buildProductListFilter,
+  DEFAULT_FILTER_VALUES,
+} from "@/components/headkit-ui/collection/utils";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
-import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import { CATALOG_PAGE_SIZE } from "@/components/headkit-ui/catalog-grid";
-
-interface Props {
-  searchParams: Promise<Record<string, string>>;
-}
+import { getCachedCatalogPage } from "@/lib/catalog-cache";
+import { getBranding } from "@/lib/branding";
+import { makeSeoMetadata, storefrontUrl } from "@/lib/make-metadata";
 
 const PER_PAGE = CATALOG_PAGE_SIZE;
 
-export async function generateMetadata({
-  searchParams,
-}: Props): Promise<Metadata> {
-  const sp = await searchParams;
-  const q = sp.q ?? "";
+const SEARCH_DESCRIPTION =
+  "Search the product catalog by name or keyword. Filter matches by category, price, and availability.";
 
-  if (!q) {
-    return {
+const SEARCH_BREADCRUMBS = [
+  { name: "Home", uri: "/", current: false },
+  { name: "Search", uri: "/search", current: true },
+] as const;
+
+/**
+ * Metadata does not read `searchParams`. Awaiting `?q=` opted this route out
+ * of the static shell, and the query string is disallowed in robots.txt, so
+ * the canonical document is the bare `/search` URL.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  try {
+    const { storeSettings, seoSettings, branding } = await getBranding();
+    return await makeSeoMetadata(null, {
       title: "Search",
-      description: "Search for products in our store",
-    };
+      description: SEARCH_DESCRIPTION,
+      storeName: storeSettings.name ?? undefined,
+      allowIndexing: seoSettings.allowIndexing,
+      canonical: storefrontUrl("/search", storeSettings.domain),
+      siteUrl: storeSettings.domain,
+      dashboardOgImageUrl: seoSettings.ogImageUrl ?? undefined,
+      brandingIconUrl: branding?.iconUrl ?? undefined,
+    });
+  } catch {
+    return await makeSeoMetadata(null, {
+      title: "Search",
+      description: SEARCH_DESCRIPTION,
+      canonical: storefrontUrl("/search"),
+    });
   }
-
-  return {
-    title: `Search results for "${q}"`,
-    description: `Search for "${q}" in our store`,
-  };
 }
 
 /**
@@ -55,108 +70,56 @@ async function getSearchFilters() {
 }
 
 /**
- * Dynamic island: awaits searchParams inside Suspense so Instant Navigation
- * can show the static Search shell immediately.
+ * Instant Navigation (Next.js 16.3): sync default export. Page 1 of the
+ * catalog is in the HTML. `?q=` is copied into the grid on mount
+ * (`searchTermFromQuery`) — reading it on the server kept the document open
+ * until an uncached `collections.list` finished, which is what a crawler
+ * records as a slow page even when the edge cache says HIT.
  */
-async function SearchResults({ searchParams }: Props): Promise<ReactNode> {
-  const sp = await searchParams;
-  const q = sp.q ?? "";
-  const page = sp.page ? parseInt(sp.page) : 1;
+export const instant = true;
 
-  const categories = sp.categories?.split(",").filter(Boolean) ?? [];
-  const brands = sp.brands?.split(",").filter(Boolean) ?? [];
-  const instock = sp.instock === "true";
-  const sort = (sp.sort ?? "") as SortKeyType | "";
-  const attributes: Record<string, string[]> = {};
-
-  // /search defaults to closest match (WP relevance), not branding sort.
-  const filter = buildProductListFilter(
-    {
-      categories,
-      brands,
-      attributes,
-      instock,
-      sort,
-      page,
-    },
-    { search: q },
-  );
-  if (q && !sort) {
-    filter.orderby = "relevance";
-    filter.order = "desc";
-  }
-
-  const [productsResult, productFilter] = await Promise.all([
-    sdk.collections.list(filter, page, PER_PAGE),
-    getSearchFilters(),
-  ]);
-
-  const title = q ? `Search results for "${q}"` : "Search products";
-  const description = q
-    ? `${productsResult.total} product${productsResult.total === 1 ? "" : "s"} found for "${q}"`
-    : "Search for products in our store";
-
+export default function Page(): ReactNode {
   return (
     <>
+      <BreadcrumbJsonLD
+        items={SEARCH_BREADCRUMBS.map((crumb) => ({
+          name: crumb.name,
+          href: crumb.uri,
+        }))}
+      />
       <CollectionHeader
-        name={title}
-        description={description}
-        breadcrumbs={[
-          { name: "Home", uri: "/", current: false },
-          { name: "Search", uri: "/search", current: true },
-        ]}
+        name="Search"
+        description={SEARCH_DESCRIPTION}
+        breadcrumbs={[...SEARCH_BREADCRUMBS]}
         childBasePath="/collections"
       />
-      <CollectionPage
-        initialProducts={productsResult.products}
-        initialTotal={productsResult.total}
-        productFilter={productFilter}
-        initialPage={page}
-        itemsPerPage={PER_PAGE}
-        {...(q ? { search: q } : {})}
-      />
+      <SearchProductsShell />
     </>
   );
 }
 
 /**
- * Sync shell — Instant Navigation reuses this App Shell; query-dependent
- * header + grid stream under Suspense with a product skeleton fallback.
+ * Unfiltered page 1, cached with the shop catalog. A query is not part of
+ * this shell: `CollectionProvider` refetches when `?q=` is present. Scoped as
+ * `shop` so product and shop-landing invalidation cover it without a new
+ * route-tag union member.
  */
-
-/**
- * Instant Navigation (Next.js 16.3) — sync App Shell + Suspense streaming.
- * @see https://nextjs.org/docs/app/guides/instant-navigation
- */
-export const instant = true;
-
-export default function Page({ searchParams }: Props): ReactNode {
+async function SearchProductsShell() {
+  const filter = buildProductListFilter({
+    ...DEFAULT_FILTER_VALUES,
+    page: 1,
+  });
+  const [productsResult, productFilter] = await Promise.all([
+    getCachedCatalogPage(filter, 1, PER_PAGE, { kind: "shop" }),
+    getSearchFilters(),
+  ]);
   return (
-    <>
-      <BreadcrumbJsonLD
-        items={[
-          { name: "Home", href: "/" },
-          { name: "Search", href: "/search" },
-        ]}
-      />
-      <Suspense
-        fallback={
-          <>
-            <CollectionHeader
-              name="Search"
-              description="Search for products in our store"
-              breadcrumbs={[
-                { name: "Home", uri: "/", current: false },
-                { name: "Search", uri: "/search", current: true },
-              ]}
-              childBasePath="/collections"
-            />
-            <CollectionProductsSkeleton />
-          </>
-        }
-      >
-        <SearchResults searchParams={searchParams} />
-      </Suspense>
-    </>
+    <CollectionPage
+      initialProducts={productsResult.products}
+      initialTotal={productsResult.total}
+      productFilter={productFilter}
+      initialPage={1}
+      itemsPerPage={PER_PAGE}
+    />
   );
 }

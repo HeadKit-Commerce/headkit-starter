@@ -29,14 +29,17 @@ import {
 
 export async function generateMetadata(): Promise<Metadata> {
   try {
-    const { seoSettings, storeSettings } = await getBranding();
+    const { seoSettings, storeSettings, branding } = await getBranding();
     return await makeSeoMetadata(null, {
       title: "Shop",
-      description: "Browse our full product catalog.",
+      description:
+        "Browse the full product catalog. Filter by category, compare options, and find what is in stock.",
       storeName: storeSettings.name ?? undefined,
       allowIndexing: seoSettings.allowIndexing,
       canonical: storefrontUrl("/shop", storeSettings.domain),
       siteUrl: storeSettings.domain,
+      dashboardOgImageUrl: seoSettings.ogImageUrl ?? undefined,
+      brandingIconUrl: branding?.iconUrl ?? undefined,
     });
   } catch (error) {
     unstable_rethrow(error);

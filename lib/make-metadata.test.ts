@@ -204,6 +204,23 @@ describe("makeRootMetadata OG + store name", () => {
 });
 
 describe("makeSeoMetadata fallback chain (FE-09)", () => {
+  it("treats a blank Yoast description as missing and uses the fallback", async () => {
+    const meta = await makeSeoMetadata(
+      { title: "About", metaDesc: "", opengraphDescription: "   " } as Parameters<
+        typeof makeSeoMetadata
+      >[0],
+      {
+        title: "About",
+        description: "About — details, policies, and how to get in touch, on Acme.",
+        storeName: "Acme",
+      },
+    );
+    expect(meta.description).toBe(
+      "About — details, policies, and how to get in touch, on Acme.",
+    );
+    expect(meta.openGraph?.description).toBe(meta.description);
+  });
+
   it("when Yoast/seo is absent, returns bare entity title for root template", async () => {
     const meta = await makeSeoMetadata(null, {
       title: "Widgets",

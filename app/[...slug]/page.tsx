@@ -199,7 +199,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { robots: { index: false, follow: false } };
   }
   const path = slug.join("/");
-  const [page, { seoSettings, storeSettings }] = await Promise.all([
+  const [page, { seoSettings, storeSettings, branding }] = await Promise.all([
     getPageData(path),
     getBranding(),
   ]);
@@ -211,7 +211,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // parent fallback — D-04 mandates a sane SEO floor, not a suppressed page.
   return await makeSeoMetadata(page.seo ?? null, {
     title: page.title,
-    description: seoFallbackDescription("page", page.title),
+    description: seoFallbackDescription(
+      "page",
+      page.title,
+      storeSettings.name,
+    ),
     // Self-referencing canonical: every CMS page (`/about`, `/legal/*`, …)
     // shipped none, and Yoast's own value names the WordPress host.
     canonical: storefrontUrl(`/${path}`, storeSettings.domain),
@@ -220,6 +224,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     // layout's correct value, so the store's indexing switch never reached
     // any CMS page.
     allowIndexing: seoSettings.allowIndexing,
+    storeName: storeSettings.name ?? undefined,
+    dashboardOgImageUrl: seoSettings.ogImageUrl ?? undefined,
+    brandingIconUrl: branding?.iconUrl ?? undefined,
   });
 }
 

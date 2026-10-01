@@ -15,6 +15,8 @@ interface CollectionPageProps {
   itemsPerPage?: number;
   onSale?: boolean;
   isNew?: boolean;
+  /** `/featured` — keep client fetches on the featured set, menu-order by default. */
+  featured?: boolean;
   search?: string;
   brandSlug?: string;
   categorySlug?: string;
@@ -88,6 +90,7 @@ export function CollectionPage({
   itemsPerPage = 24,
   onSale,
   isNew,
+  featured,
   search,
   brandSlug,
   categorySlug,
@@ -118,6 +121,7 @@ export function CollectionPage({
       itemsPerPage={itemsPerPage}
       onSale={onSale}
       isNew={isNew}
+      featured={featured}
       search={search}
       brandSlug={brandSlug}
       categorySlug={categorySlug}
