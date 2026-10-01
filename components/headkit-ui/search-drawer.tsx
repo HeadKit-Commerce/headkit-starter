@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ReactElement } from "react";
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,7 @@ import { searchProducts } from "@/lib/search-actions";
 
 interface SearchDrawerProps {
   /** Custom trigger element. If not provided, uses default search icon button. */
-  trigger?: ReactNode;
+  trigger?: ReactElement;
 }
 
 function debounce<T extends unknown[]>(
@@ -84,7 +84,7 @@ export function SearchDrawer({ trigger }: SearchDrawerProps) {
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>{trigger ?? defaultTrigger}</SheetTrigger>
+      <SheetTrigger render={trigger ?? defaultTrigger} />
 
       <SheetContent
         side="top"

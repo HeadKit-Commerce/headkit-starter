@@ -185,21 +185,23 @@ export function Filter() {
         )}
       >
         <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-          <SheetTrigger asChild>
-            <button
-              type="button"
-              className={cn(
-                navigationMenuTriggerStyle(),
-                "relative cursor-pointer font-semibold",
-              )}
-            >
-              Filters
-              {activeCount > 0 ? (
-                <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-white">
-                  {activeCount}
-                </span>
-              ) : null}
-            </button>
+          <SheetTrigger
+            render={
+              <button
+                type="button"
+                className={cn(
+                  navigationMenuTriggerStyle(),
+                  "relative cursor-pointer font-semibold",
+                )}
+              />
+            }
+          >
+            Filters
+            {activeCount > 0 ? (
+              <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-white">
+                {activeCount}
+              </span>
+            ) : null}
           </SheetTrigger>
           <SheetContent
             side="left"

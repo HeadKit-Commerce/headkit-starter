@@ -290,7 +290,7 @@ const nextConfig: NextConfig = {
       "@headkit/sdk",
       "framer-motion",
       "date-fns",
-      "radix-ui",
+      "@base-ui/react",
     ],
     cpus: buildCpus,
     staticGenerationMaxConcurrency: staticGenConcurrency,

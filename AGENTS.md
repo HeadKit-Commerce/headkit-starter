@@ -699,8 +699,8 @@ is an SDK-query question only. Both renderers recurse (`MegaMenuChild`,
 `MobileMenuBranch`), so a deeper menu needs one more `children` in that fragment and no
 component change.
 
-**A dropdown parent renders as a `<button>`, never a link.** Radix's own trigger, no
-`asChild`: a parent whose URI is `/` used to send a shopper home on the way to the
+**A dropdown parent renders as a `<button>`, never a link.** Base UI's own trigger, no
+`render` override: a parent whose URI is `/` used to send a shopper home on the way to the
 panel. A real destination is not lost — `MegaMenu`'s `viewAll` renders it as the
 panel's first entry.
 

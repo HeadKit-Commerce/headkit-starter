@@ -260,7 +260,7 @@ export function mouseDownNavigationRefusal(event: {
  * dispatching a click on the anchor (`anchor.click()`) rather than by calling
  * `useRouter().push()`, for two reasons. It reuses `next/link`'s own click
  * handler, so `replace`, `scroll`, `onNavigate`, the `useLinkStatus` pending state
- * and any injected `onClick` (Radix's dismiss, the mobile sheet's close) all
+ * and any injected `onClick` (the menu's dismiss, the mobile sheet's close) all
  * behave exactly as they do on a real click. And it adds no router-context
  * dependency: this component is server-rendered bare by a dozen test files, and
  * `useRouter()` throws without an app-router context.
@@ -272,9 +272,9 @@ export function mouseDownNavigationRefusal(event: {
  * on a link, drag off, release: no click ever arrives to clear it).
  *
  * That plain `<a>` MUST still forward every prop it was handed. InstantLink is
- * used as a Radix `asChild` target (see NavigationBar), and Radix injects the
- * trigger wiring — `ref`, `onPointerEnter`/`onClick`, `id`, `aria-expanded`,
- * `data-state`, `data-radix-collection-item` — through the child's props. Dropping
+ * used as a Base UI `render` target (see NavigationBar), and Base UI injects the
+ * trigger wiring — `ref`, `onPointerEnter`/`onClick`, `id`, `aria-expanded` —
+ * through the child's props. Dropping
  * them turned a WordPress mega-menu parent whose Custom Link URL is `#` (the
  * conventional "opens a dropdown, navigates nowhere" parent) into an inert anchor:
  * the trigger never mounted, so its children were unreachable and the item looked

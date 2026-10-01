@@ -6,6 +6,7 @@ import "./globals.css";
 import "@/overrides/styles.css";
 import {
   NavigationWrapper,
+  fallbackNavigation,
   getFooterMenus,
 } from "@/components/headkit-ui/navigation-wrapper";
 import { CartProvider } from "@/components/headkit-ui/cart-context";
@@ -23,7 +24,15 @@ import {
   resolveFooterDescription,
   resolveStoreName,
 } from "@/lib/make-metadata";
-import { getBranding, getBrandingAssets } from "@/lib/branding";
+import {
+  fallbackBrandingBundle,
+  getBranding,
+  getBrandingAssets,
+  type Branding,
+  type SeoSettings,
+  type StoreSettings,
+} from "@/lib/branding";
+import { BrandingUnavailableError } from "@/lib/branding-cache-policy";
 import { resolveSiteUrl } from "@/lib/site-url";
 import { normalizeCheckoutMode } from "@/lib/checkout-mode";
 import { CheckoutModeProvider } from "@/components/checkout/checkout-mode-provider";
@@ -33,7 +42,10 @@ import { resolveOnPrimaryTextColor } from "@/lib/contrast";
 import { BrandingIconsProvider } from "@/components/branding/branding-icons-provider";
 import { ConsentBanner } from "@/components/headkit-ui/consent-banner";
 import { DeferredThirdPartyScripts } from "@/components/headkit-ui/deferred-third-party-scripts";
-import { getEmailMarketingStatus } from "@/lib/email-marketing";
+import {
+  getEmailMarketingStatus,
+  type EmailMarketingStatusResult,
+} from "@/lib/email-marketing";
 import { Toaster } from "@/components/ui/toaster";
 import { getThemeHtmlAttributes } from "@/lib/store-theme";
 import { BelowMain, HeadRouteScript } from "@/overrides/layout-slots";
@@ -111,18 +123,47 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   // Per-tenant branding + CMS footer menus (Footer / Footer 2 / Footer Policy).
-  // Both degrade gracefully (branding → defaults; empty menus → static footer).
-  const [
-    { branding, storeSettings, seoSettings },
-    footerMenus,
-    { iconUrl },
-    emailMarketing,
-  ] = await Promise.all([
-    getBranding(),
-    getFooterMenus(),
-    getBrandingAssets(),
-    getEmailMarketingStatus(),
-  ]);
+  // A failed dashboard read throws out of the cached functions so it is not
+  // stored as “no logo”. The catch is outside `"use cache"`: this one request
+  // renders the empty stand-in, and the previous logo entry stays.
+  let branding: Branding;
+  let storeSettings: StoreSettings;
+  let seoSettings: SeoSettings;
+  let footerMenus: Awaited<ReturnType<typeof getFooterMenus>>;
+  let iconUrl: string | null;
+  let emailMarketing: EmailMarketingStatusResult;
+  let navigation: React.ReactNode;
+  try {
+    const [bundle, menus, assets, email] = await Promise.all([
+      getBranding(),
+      getFooterMenus(),
+      getBrandingAssets(),
+      getEmailMarketingStatus(),
+    ]);
+    branding = bundle.branding;
+    storeSettings = bundle.storeSettings;
+    seoSettings = bundle.seoSettings;
+    footerMenus = menus;
+    iconUrl = assets.iconUrl;
+    emailMarketing = email;
+    navigation = await NavigationWrapper();
+  } catch (error) {
+    unstable_rethrow(error);
+    if (!(error instanceof BrandingUnavailableError)) throw error;
+    const fallback = fallbackBrandingBundle();
+    branding = fallback.branding;
+    storeSettings = fallback.storeSettings;
+    seoSettings = fallback.seoSettings;
+    footerMenus = [];
+    iconUrl = null;
+    emailMarketing = {
+      enabled: false,
+      provider: "",
+      publicApiKey: null,
+      listConfigured: false,
+    };
+    navigation = fallbackNavigation();
+  }
 
   const siteName = resolveStoreName(storeSettings.name);
   // One origin for the whole document: the JSON-LD graph's @id/url, the
@@ -327,7 +368,7 @@ export default async function RootLayout({
                   {navigationSkeletonEnabled() ? (
                     <NavigationSkeletonHost />
                   ) : null}
-                  <NavigationWrapper />
+                  {navigation}
                   <main className="headkit-main pb-10">{children}</main>
                   <Suspense fallback={null}>
                     <BelowMain />

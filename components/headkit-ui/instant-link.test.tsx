@@ -23,24 +23,23 @@ const { observedPrefetch } = vi.hoisted(() => ({
  * `<a href className>` and nothing else — every other prop it was handed was
  * silently dropped.
  *
- * That forwarding is load-bearing wherever `InstantLink` is an `asChild` target
- * or receives handlers for a non-app href, because the parent injects its wiring
- * through the child's props:
- *   - `MegaMenu`'s `NavigationMenuLink asChild > InstantLink` for `#` / `tel:`
- *     CHILD links (navigation-bar.tsx), which dropped Radix's dismiss handler.
+ * That forwarding is load-bearing wherever `InstantLink` is a Base UI `render`
+ * target or receives handlers for a non-app href, because the parent injects its
+ * wiring through the child's props:
+ *   - `MegaMenu`'s `NavigationMenuLink render={<InstantLink />}` for `#` / `tel:`
+ *     CHILD links (navigation-bar.tsx), which dropped the menu's dismiss handler.
  *   - `MobileMenuItem`'s `onClick={onSelect}` on non-app-href links, which
  *     closes the mobile sheet.
  *
  * A top-level `#` dropdown PARENT is no longer this shape: `DesktopMenuSection`
- * renders those as a plain Radix `<button>` with no href, and
- * `navigation-bar.test.tsx` owns that path. The `NavigationMenuTrigger asChild`
+ * renders those as a plain Base UI `<button>` with no href, and
+ * `navigation-bar.test.tsx` owns that path. The `NavigationMenuTrigger render`
  * tree below is kept as a direct test of the forwarding contract itself — the
- * strictest `asChild` consumer, and the shape the original defect was found in.
+ * strictest `render` consumer, and the shape the original defect was found in.
  *
  * These assert the prop plumbing rather than a click, because the defect was
  * visible in server-rendered markup: on the live storefront the broken item
- * carried neither `data-state` nor `data-radix-collection-item`, while every
- * working sibling carried both.
+ * carried no `aria-expanded`, while every working sibling did.
  */
 
 // next/link is only reached on the in-app branch; a passthrough keeps this a
@@ -75,10 +74,10 @@ function renderTrigger(href: string): string {
     <NavigationMenu>
       <NavigationMenuList>
         <NavigationMenuItem>
-          <NavigationMenuTrigger asChild>
-            <InstantLink href={href} pendingVariant="text">
-              Events
-            </InstantLink>
+          <NavigationMenuTrigger
+            render={<InstantLink href={href} pendingVariant="text" />}
+          >
+            Events
           </NavigationMenuTrigger>
         </NavigationMenuItem>
       </NavigationMenuList>
@@ -182,16 +181,15 @@ describe("InstantLink prefetch resolution", () => {
   });
 });
 
-describe("InstantLink as a Radix asChild target", () => {
-  it("forwards injected asChild wiring for a '#' href", () => {
+describe("InstantLink as a Base UI render target", () => {
+  it("forwards injected render wiring for a '#' href", () => {
     const html = renderTrigger("#");
 
-    // The wiring Radix injects through props. Without prop forwarding the
+    // The wiring Base UI injects through props. Without prop forwarding the
     // anchor rendered bare and every injected handler was lost.
-    expect(html).toContain('data-state="closed"');
     expect(html).toContain('aria-expanded="false"');
-    expect(html).toContain("data-radix-collection-item");
     expect(html).toContain('href="#"');
+    expect(html).not.toContain("data-radix-collection-item");
   });
 
   it("forwards the same wiring for an in-app href", () => {
@@ -199,8 +197,9 @@ describe("InstantLink as a Radix asChild target", () => {
     // branch ('/booths') must produce the same injected markup.
     const html = renderTrigger("/booths");
 
-    expect(html).toContain('data-state="closed"');
-    expect(html).toContain("data-radix-collection-item");
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain('href="/booths"');
+    expect(html).not.toContain("data-radix-collection-item");
   });
 
   it("forwards handlers and ARIA to a tel: link", () => {
