@@ -436,8 +436,10 @@ export function buildBreadcrumbFromCategory(
   return crumbs;
 }
 /** Query state this provider owns, and the only thing `CollectionProvider`'s mount effect
- *  reads from `window.location.search`. Everything else (path facets, the
- *  category, the search term) is a prop the server already resolved. */
+ *  folds into `FilterValues` from `window.location.search`. Path facets and the
+ *  category stay server-resolved props. The search term (`?q=`) is not a facet:
+ *  {@link searchTermFromQuery} applies it so `/search` can prerender without
+ *  awaiting `searchParams`. */
 export interface DeriveFilterValuesOptions {
   initialPage: number;
   productFilter: ProductFilters;
@@ -507,6 +509,24 @@ export function deriveFilterValues(
   const priceMax = searchParams.get("price_max");
   if (priceMax) vals.price_max = priceMax;
   return vals;
+}
+
+/**
+ * Catalog search term for this view.
+ *
+ * `?q=` is not part of `FilterValues`. The static shell renders without it so
+ * `/search` can prerender; the provider's mount effect copies it from the URL.
+ * A non-empty query wins over the server prop. An empty query keeps the server
+ * prop, so a route that already resolved `search` is unchanged when the URL
+ * has no `q`.
+ */
+export function searchTermFromQuery(
+  serverSearch: string | undefined,
+  searchParams: URLSearchParams,
+): string {
+  const q = searchParams.get("q")?.trim() ?? "";
+  if (q) return q;
+  return serverSearch ?? "";
 }
 
 /** Query string with nothing in it — the server's view of the world. */

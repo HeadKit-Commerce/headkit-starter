@@ -251,6 +251,12 @@ async function makeCollectionSitemap(siteUrl: string): Promise<SitemapItem[]> {
  * of these is a product / collection / brand / post / app route and is either
  * emitted by its own sitemap section or deliberately excluded (`/search` is
  * disallowed in robots.txt; cart, checkout and account are private).
+ *
+ * `/posts` is always a redirect. `next.config.ts` 308s `/posts` and
+ * `/posts/:slug*` to `/news`, and `posts` is reserved so it can never be the
+ * live posts base (`lib/posts-path.ts`). A menu that still links the old
+ * path would otherwise be confirmed as a CMS page and advertised as a `<loc>`
+ * that answers 308.
  */
 const NON_PAGE_PREFIXES = [
   "/shop",
@@ -260,6 +266,7 @@ const NON_PAGE_PREFIXES = [
   "/projects",
   "/client",
   "/news",
+  "/posts",
   "/search",
   "/cart",
   "/checkout",

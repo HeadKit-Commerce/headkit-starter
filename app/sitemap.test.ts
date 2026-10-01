@@ -510,6 +510,16 @@ describe("WordPress page sitemap section", () => {
   // NON_PAGE_PREFIXES entry; the catch-all had no such gate, which is the half
   // this shares a list with.) The match is exact, so a real nested page under
   // the same first segment is still advertised.
+  it("does not advertise /posts, which 308s to /news", async () => {
+    menuGetMenus.mockResolvedValue([menu("/posts", "/posts/a-story", "/about")]);
+    contentGet.mockResolvedValue({ slug: "x" });
+
+    await expect(pageUrls()).resolves.toEqual([`${SITE_URL}/about`]);
+    expect(contentGet).not.toHaveBeenCalledWith("posts", "PAGE");
+    expect(contentGet).not.toHaveBeenCalledWith("posts/a-story", "PAGE");
+    expect(contentGet).toHaveBeenCalledWith("about", "PAGE");
+  });
+
   it("excludes a menu-linked placeholder page without probing it", async () => {
     menuGetMenus.mockResolvedValue([
       menu("/my-account", "/my-accounts", "/about"),

@@ -36,6 +36,15 @@ function stripTags(html?: OptSeoStr): string {
   return seoText(html).replace(/<[^>]*>/g, "");
 }
 
+/** First non-blank SEO string. Empty Yoast fields (`""`) must not hide a fallback. */
+function firstSeoText(...values: OptSeoStr[]): string {
+  for (const value of values) {
+    const text = stripTags(value);
+    if (text) return text;
+  }
+  return "";
+}
+
 function normalizeUrl(url?: OptSeoStr): string | undefined {
   if (!url) return undefined;
   if (url.startsWith("/")) return `${SITE_URL}${url}`;
@@ -307,7 +316,7 @@ export function seoFallbackDescription(
     case "category":
       return `Browse ${label} at ${site}. Discover products in the ${label} collection.`;
     case "page":
-      return `${label} — read more on ${site}.`;
+      return `${label} — details, policies, and how to get in touch, on ${site}.`;
   }
 }
 
@@ -496,8 +505,10 @@ export async function makeSeoMetadata(
     seoTitle && titleIncludesStoreBrand(seoTitle, storeName)
       ? { absolute: seoTitle }
       : (seoTitle ?? entityName);
-  const description = stripTags(
-    seo?.metaDesc ?? seo?.opengraphDescription ?? fallback?.description,
+  const description = firstSeoText(
+    seo?.metaDesc,
+    seo?.opengraphDescription,
+    fallback?.description,
   );
   const siteUrl = resolveSiteUrl(fallback?.siteUrl, SITE_URL);
   const canonical = resolveCanonical({
@@ -536,7 +547,7 @@ export async function makeSeoMetadata(
     openGraph: {
       type: "website",
       title: openGraphTitle,
-      description: stripTags(seo?.opengraphDescription ?? description),
+      description: firstSeoText(seo?.opengraphDescription, description),
       url: canonical,
       siteName: storeName,
       ...(ogImage ? { images: [{ url: ogImage }] } : {}),
@@ -544,7 +555,7 @@ export async function makeSeoMetadata(
     twitter: {
       card: ogImage ? "summary_large_image" : "summary",
       title: twitterTitle,
-      description: stripTags(seo?.twitterDescription ?? description),
+      description: firstSeoText(seo?.twitterDescription, description),
       ...(ogImage ? { images: [ogImage] } : {}),
     },
   };

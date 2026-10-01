@@ -1,50 +1,46 @@
-import { Suspense } from "react";
 import type { Metadata } from "next";
 import { cacheTag } from "next/cache";
 import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { headkit as sdk } from "@/lib/sdk";
+import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { CollectionHeader } from "@/components/headkit-ui/collection/collection-header";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
 import {
   buildProductListFilter,
-  parseSearchParams,
+  DEFAULT_FILTER_VALUES,
 } from "@/components/headkit-ui/collection/utils";
-import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import { CATALOG_PAGE_SIZE } from "@/components/headkit-ui/catalog-grid";
 import { getCachedCatalogPage } from "@/lib/catalog-cache";
 import { getBranding } from "@/lib/branding";
-import { storefrontUrl } from "@/lib/make-metadata";
+import { makeSeoMetadata, storefrontUrl } from "@/lib/make-metadata";
+
+const FEATURED_DESCRIPTION =
+  "Browse the featured products chosen for this store. Filter the selection by category, price, and availability.";
 
 /**
  * Canonical origin comes from the RUNTIME store domain, not the build-time
- * `NEXT_PUBLIC_FRONTEND_URL` — a custom domain attached without a redeploy
- * leaves that env naming the old `*.headkit.app` host, which would put a
- * cross-host canonical on a route `app/sitemap.ts` advertises under the
- * customer's apex (it emits every `<loc>` from `resolveSiteUrl(store.domain)`).
- *
- * `getBranding()` is `"use cache: remote"`, so reading it here costs this route
- * no static rendering: the metadata read stays cacheable exactly as the sibling
- * `app/shop/page.tsx` already does.
+ * `NEXT_PUBLIC_FRONTEND_URL`. See `app/sale/page.tsx`.
  */
 export async function generateMetadata(): Promise<Metadata> {
   try {
-    const { storeSettings } = await getBranding();
-    return {
+    const { storeSettings, seoSettings, branding } = await getBranding();
+    return await makeSeoMetadata(null, {
       title: "Featured Products",
-      alternates: {
-        canonical: storefrontUrl("/featured", storeSettings.domain),
-      },
-    };
+      description: FEATURED_DESCRIPTION,
+      storeName: storeSettings.name ?? undefined,
+      allowIndexing: seoSettings.allowIndexing,
+      canonical: storefrontUrl("/featured", storeSettings.domain),
+      siteUrl: storeSettings.domain,
+      dashboardOgImageUrl: seoSettings.ogImageUrl ?? undefined,
+      brandingIconUrl: branding?.iconUrl ?? undefined,
+    });
   } catch {
-    return {
+    return await makeSeoMetadata(null, {
       title: "Featured Products",
-      alternates: { canonical: storefrontUrl("/featured") },
-    };
+      description: FEATURED_DESCRIPTION,
+      canonical: storefrontUrl("/featured"),
+    });
   }
-}
-
-interface Props {
-  searchParams: Promise<Record<string, string>>;
 }
 
 const PER_PAGE = CATALOG_PAGE_SIZE;
@@ -57,66 +53,58 @@ async function getFilters() {
   return sdk.collections.getFilters();
 }
 
+const FEATURED_BREADCRUMBS = [
+  { name: "Home", uri: "/", current: false },
+  { name: "Featured Products", uri: "/featured", current: true },
+] as const;
+
 /**
- * Dynamic island: reads searchParams (must live inside <Suspense> under
- * cacheComponents). Featured = ProductListFilter.featured plus menu_order/asc
- * when the shopper has not chosen a sort.
+ * Sync shell. Featured products stay on `menu_order` / `asc` until the
+ * shopper picks a sort (`defaultSort: "FEATURED"`). The `featured` prop keeps
+ * later client fetches (page, sort) on the same set.
  */
-async function LandingResults({ searchParams }: Props) {
-  const sp = await searchParams;
-  const parsed = parseSearchParams(sp);
-  const page = parsed.page;
+export const instant = true;
 
-  const filter = buildProductListFilter(parsed, { featured: true });
-  // Preserve the route's existing featured ordering (was set after build in the
-  // pre-Suspense page). A user-selected sort still wins via filterValues.sort.
-  if (!parsed.sort) {
-    filter.orderby = "menu_order";
-    filter.order = "asc";
-  }
+export default function Page() {
+  return (
+    <>
+      <BreadcrumbJsonLD
+        items={FEATURED_BREADCRUMBS.map((crumb) => ({
+          name: crumb.name,
+          href: crumb.uri,
+        }))}
+      />
+      <CollectionHeader
+        name="Featured Products"
+        description="Discover our handpicked selection of featured products"
+        breadcrumbs={[...FEATURED_BREADCRUMBS]}
+        childBasePath="/collections"
+      />
+      <FeaturedProductsShell />
+    </>
+  );
+}
 
+async function FeaturedProductsShell() {
+  const filter = buildProductListFilter(
+    { ...DEFAULT_FILTER_VALUES, page: 1 },
+    { featured: true, defaultSort: "FEATURED" },
+  );
   const [productsResult, productFilter] = await Promise.all([
-    getCachedCatalogPage(filter, page, PER_PAGE, {
+    getCachedCatalogPage(filter, 1, PER_PAGE, {
       kind: "route",
       route: "featured",
     }),
     getFilters(),
   ]);
-
   return (
     <CollectionPage
       initialProducts={productsResult.products}
       initialTotal={productsResult.total}
       productFilter={productFilter}
-      initialPage={page}
+      initialPage={1}
       itemsPerPage={PER_PAGE}
+      featured
     />
-  );
-}
-
-/**
- * Instant Navigation (Next.js 16.3) — sync App Shell + Suspense streaming.
- * @see https://nextjs.org/docs/app/guides/instant-navigation
- */
-export const instant = true;
-
-export default function Page({ searchParams }: Props) {
-  return (
-    <>
-      {/* Static shell — outside <Suspense>, cacheable */}
-      <CollectionHeader
-        name="Featured Products"
-        description="Discover our handpicked selection of featured products"
-        breadcrumbs={[
-          { name: "Home", uri: "/", current: false },
-          { name: "Featured Products", uri: "/featured", current: true },
-        ]}
-        childBasePath="/collections"
-      />
-      {/* Dynamic grid — Instant Navigation shell streams results under Suspense. */}
-      <Suspense fallback={<CollectionProductsSkeleton />}>
-        <LandingResults searchParams={searchParams} />
-      </Suspense>
-    </>
   );
 }

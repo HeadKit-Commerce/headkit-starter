@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { deriveFilterValues, DEFAULT_FILTER_VALUES } from "./utils";
+import {
+  deriveFilterValues,
+  DEFAULT_FILTER_VALUES,
+  searchTermFromQuery,
+} from "./utils";
 import type { ProductFilters } from "@headkit/sdk";
 
 /**
@@ -84,5 +88,27 @@ describe("deriveFilterValues", () => {
     expect(seeded.attributes).toEqual({});
     expect(seeded.attributes).not.toBe(corrected.attributes);
     expect(corrected.attributes).toEqual({ colour: ["bead-blast-black"] });
+  });
+});
+
+describe("searchTermFromQuery", () => {
+  it("keeps the server term when the URL has no q", () => {
+    expect(searchTermFromQuery("helmet", new URLSearchParams())).toBe("helmet");
+    expect(searchTermFromQuery(undefined, new URLSearchParams())).toBe("");
+  });
+
+  it("uses a non-empty q so /search can prerender without searchParams", () => {
+    expect(
+      searchTermFromQuery(undefined, new URLSearchParams("q=gloves")),
+    ).toBe("gloves");
+    expect(
+      searchTermFromQuery("helmet", new URLSearchParams("q=gloves")),
+    ).toBe("gloves");
+  });
+
+  it("ignores a blank q", () => {
+    expect(searchTermFromQuery("helmet", new URLSearchParams("q=%20%20"))).toBe(
+      "helmet",
+    );
   });
 });
