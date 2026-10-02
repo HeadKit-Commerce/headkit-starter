@@ -52,9 +52,20 @@ export interface ProductPrerenderPlan {
   readonly total: number | null;
 }
 
-/** The slice of the SDK this decision needs. Extra methods are fine. */
-export interface ProductPrerenderSource {
-  bulkStatus?: (() => Promise<unknown>) | undefined;
+/**
+ * Read `bulkStatus` off any object. The published `ProductsDomain` on stores
+ * whose SDK predates that method has nothing else in common with a type whose
+ * only member is optional `bulkStatus`, and TypeScript rejects that as a weak
+ * type (TS2559). `object` accepts the class either way; a missing method is
+ * the `all` path below.
+ */
+function bulkStatusOf(
+  products: object,
+): (() => Promise<unknown>) | undefined {
+  if (!("bulkStatus" in products)) return undefined;
+  const bulkStatus = products.bulkStatus;
+  if (typeof bulkStatus !== "function") return undefined;
+  return bulkStatus as () => Promise<unknown>;
 }
 
 const ALL_WITHOUT_STATUS: ProductPrerenderPlan = {
@@ -160,14 +171,15 @@ function logPlan(plan: ProductPrerenderPlan): void {
 
 /** Ask commerce, then {@link planFromStatus}. Never throws. */
 export async function readProductPrerenderPlan(
-  products: ProductPrerenderSource,
+  products: object,
 ): Promise<ProductPrerenderPlan> {
-  if (typeof products.bulkStatus !== "function") {
+  const bulkStatus = bulkStatusOf(products);
+  if (!bulkStatus) {
     logPlan(ALL_WITHOUT_STATUS);
     return ALL_WITHOUT_STATUS;
   }
   try {
-    const plan = planFromStatus(await products.bulkStatus());
+    const plan = planFromStatus(await bulkStatus());
     logPlan(plan);
     return plan;
   } catch {
