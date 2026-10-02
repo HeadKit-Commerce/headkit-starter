@@ -261,14 +261,10 @@ describe("product and brand URL emitters agree", () => {
       "a param the sitemap does not advertise is build time spent on a URL nothing links to",
     ).toEqual([]);
 
-    // The reverse containment is the BUDGET's doing, not a gap: at the platform
-    // default of zero the sitemap advertises one URL per colourway and this
-    // route emits only base params. The case below asserts the equality that
-    // holds once a store opens the budget.
-    const advertisedOnly = [...advertisedShop].filter(
-      (path) => !built.has(path),
-    );
-    expect(advertisedOnly).toContain("/shop/apparel/trail-jacket/black");
+    // Colourways are in the default build, so every /shop URL the sitemap
+    // advertises is a param this route prerenders.
+    expect(built).toEqual(advertisedShop);
+    expect(built).toContain("/shop/apparel/trail-jacket/black");
   });
 
   it("prerenders exactly the /brand URLs the sitemap advertises, past page 1", async () => {

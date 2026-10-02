@@ -192,37 +192,26 @@ async function getShopCategory(
  *   NESTED-permalink store (`/shop/{cat…}/{slug}`) — THIS route is canonical and
  *   is UNCAPPED, paginating the catalogue to completion, as it already did
  *   before the canonical flip. The flat route (`app/products/[...slug]`) is the
- *   redirect shim there, and it is CAPPED at `HEADKIT_PRERENDER_PRODUCT_LIMIT`
- *   (default 150), so what the cap bounds is how many 308s get prerendered. The
+ *   redirect shim there, and it prerenders every product, unless `HEADKIT_PRERENDER_PRODUCT_LIMIT`
+ *   is a positive emergency ceiling, so those 308s are built files. The
  *   flat route's colourway URLs are deliberately NOT enumerated at all: it
- *   advertises none of them, every one 308s here, and prerendering a redirect
- *   would spend that cap on the wrong class.
+ *   advertises none of them, every one 308s here, and prerendering a redirect spends the build on the redirect class.
  *
  *   DEFAULT-permalink store (`/product/{slug}`) — `productShopSegments` returns
  *   null for every product, so `generateStaticParams` here emits only the
  *   placeholder and this route contributes nothing. `productPath` returns the
- *   FLAT path, making `app/products/[...slug]` the canonical route, and the same
- *   cap therefore bounds canonical PDP prerendering on that store.
- *
- * So `HEADKIT_PRERENDER_PRODUCT_LIMIT` governs whichever route is canonical for
- * the store's permalink base — EXCEPT on a nested-permalink store, where the
- * canonical route is the uncapped one. Extending the cap here was considered and
- * rejected: on a nested-permalink store with N > 150 products it would cut
- * prerendered canonical PDPs from N to 150, a real reduction in coverage of the
- * primary URL class rather than a relocation of an existing bound. A cap that
- * governs the canonical route in both classes is filed as
- * `260824-prerender-cap-nested-pdp`.
+ *   FLAT path, making `app/products/[...slug]` the canonical route, which
+ *   prerenders the whole catalogue under the same rule as this file.
  *
  * COLOURWAY PARAMS are a SECOND class on this route — one per colour option on
  * a variable product, beside that product's base param — and they are budgeted
  * separately (`HEADKIT_PRERENDER_PRODUCT_COLOURWAYS`,
- * `lib/prerender-budget.ts`), at `0` and therefore NONE by default.
- * `app/sitemap.ts` advertises them from the same `productColourSlugs` rule this
- * reads, so at `0` they are indexed but not built and each charges its first
- * visitor a cold render — measured on one storefront at 3.6–5.9 s against a
- * prerendered sibling's 1.15–1.37 s. They are cheap but not free to build,
- * which is why this is a budget rather than a boolean; that module says what
- * the class costs with and without the build-time bulk prefetch.
+ * `lib/prerender-budget.ts`). The default is every colourway the sitemap
+ * advertises, from the same `productColourSlugs` rule. `0` emits none; a
+ * positive integer is an emergency ceiling. Leaving them unbuilt charged the
+ * first visitor 3.6–5.9 s against a prerendered sibling's 1.15–1.37 s. A
+ * colourway resolves the same product as its base page, and a build with the
+ * bulk prefetch serves that product from disk.
  */
 export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
   const params: { slug: string[] }[] = [];

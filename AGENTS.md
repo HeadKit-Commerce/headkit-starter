@@ -980,7 +980,7 @@ nothing is unaffected; moving one is a measured, per-store decision.
 - **`HEADKIT_PRERENDER_COLLECTION_FACETS` / `HEADKIT_PRERENDER_PRODUCT_COLOURWAYS`**
   (`lib/prerender-budget.ts`). Build time is a per-store resource against a 45-minute
   Vercel ceiling, and these two families' size comes from a store's catalogue rather than
-  from the template: facets default to unlimited, colourway PDPs to none. Neither route sets
+  from the template: facets and colourway PDPs both default to unlimited. `0` turns a family off. Neither route sets
   `dynamicParams = false`, so an un-emitted URL still routes and still answers 200 — it pays
   a cold render once. **Prerendering is not indexability**: `app/sitemap.ts` advertises what
   EXISTS and keeps its own rules, so the two emitters diverging is a budget decision, not

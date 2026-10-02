@@ -18,9 +18,9 @@
  *   `unlimited`     no cap
  *
  * Note this deliberately does NOT copy `HEADKIT_PRERENDER_PRODUCT_LIMIT`
- * (`app/products/[...slug]/page.tsx`), where `0` means unlimited. That reading
- * cannot work for a family whose default is "none", which is why `unlimited`
- * is spelled out here instead of overloading zero.
+ * (`app/products/[...slug]/page.tsx`), where unset and `0` both mean the whole
+ * catalogue. Here `0` emits none, so a store can turn one family off, and
+ * `unlimited` is spelled out instead of overloading zero.
  *
  * A param that is NOT prerendered is not a missing page. Neither route sets
  * `dynamicParams = false`, so an un-emitted URL still routes, still answers
@@ -69,25 +69,20 @@ export const COLLECTION_FACET_PARAM_BUDGET_DEFAULT = UNLIMITED;
  * `/shop/[...slug]` colourway params — one extra param per colour option on a
  * variable product, beside that product's base param.
  *
- * DEFAULT: `0` — today's behaviour on every storefront. The base product param
- * is NOT governed by this and is unchanged.
+ * DEFAULT: unlimited — every colourway the sitemap advertises is built. The
+ * base product param is NOT governed by this and is unchanged.
  *
- * Why a store might raise it: `app/sitemap.ts` advertises these URLs already,
- * so at `0` they are indexed but never built and each one charges its first
- * visitor a cold render. Measured on one storefront, 1,375 advertised colourway
- * URLs answered `x-vercel-cache: MISS` at 3.6–5.9 s where a prerendered sibling
- * answered `PRERENDER` at 1.15–1.37 s.
- *
- * The class is cheap at build but NOT free, which is why it is a budget rather
- * than a boolean: a colourway page resolves the same product slug its base page
- * resolves, and during a build with the bulk prefetch enabled that product is
- * served from the per-build store on local disk (`lib/product-cache.ts`) rather
- * than from the origin. So the cost is render time and zero origin requests —
- * estimated at +2.4 minutes for 1,375 params on the store above, never measured
- * against a ceiling. A store WITHOUT the bulk prefetch pays an origin read per
- * param instead; measure before raising it there.
+ * Leaving the class unbuilt charged the first visitor a cold render. Measured
+ * on one storefront, 1,375 advertised colourway URLs answered
+ * `x-vercel-cache: MISS` at 3.6–5.9 s where a prerendered sibling answered
+ * `PRERENDER` at 1.15–1.37 s. A colourway page resolves the same product slug
+ * its base page resolves, and during a build with the bulk prefetch enabled
+ * that product is served from the per-build store on local disk
+ * (`lib/product-cache.ts`) rather than from the origin, so the extra params
+ * cost render time and no origin requests. `0` turns the class off; a positive
+ * integer is an emergency ceiling.
  */
-export const PRODUCT_COLOURWAY_PARAM_BUDGET_DEFAULT = 0;
+export const PRODUCT_COLOURWAY_PARAM_BUDGET_DEFAULT = UNLIMITED;
 
 /**
  * Parse one budget value against {@link COLLECTION_FACET_PARAM_BUDGET_DEFAULT}

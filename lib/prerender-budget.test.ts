@@ -32,9 +32,9 @@ describe("the platform defaults", () => {
     expect(collectionFacetParamBudget()).toBe(UNLIMITED);
   });
 
-  it("prerenders no colourway params, as today", () => {
-    expect(PRODUCT_COLOURWAY_PARAM_BUDGET_DEFAULT).toBe(0);
-    expect(productColourwayParamBudget()).toBe(0);
+  it("prerenders every colourway param", () => {
+    expect(PRODUCT_COLOURWAY_PARAM_BUDGET_DEFAULT).toBe(UNLIMITED);
+    expect(productColourwayParamBudget()).toBe(UNLIMITED);
   });
 });
 

@@ -144,18 +144,18 @@ function mapRelatedToProduct(
 export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
   const params: { slug: string[] }[] = [];
 
-  // Cap build-time PDP seeding for large catalogs. Remaining products still
-  // render on demand via `'use cache'` + Instant Navigation prefetch.
-  // Override with HEADKIT_PRERENDER_PRODUCT_LIMIT (0 = unlimited).
+  // Prerender the whole catalogue. An unbuilt PDP's first visitor waits on
+  // WordPress, which is the slow first load. A positive
+  // HEADKIT_PRERENDER_PRODUCT_LIMIT is an explicit emergency ceiling for a
+  // build that has measured itself against the platform time limit. Unset,
+  // empty, and 0 all mean every product.
   const limitRaw = process.env.HEADKIT_PRERENDER_PRODUCT_LIMIT;
-  const productLimit =
+  const parsedLimit =
     limitRaw === undefined || limitRaw === ""
-      ? 150
+      ? 0
       : Number.parseInt(limitRaw, 10);
-  const unlimited = productLimit === 0;
-  const maxProducts = Number.isFinite(productLimit)
-    ? Math.max(0, productLimit)
-    : 150;
+  const unlimited = !Number.isFinite(parsedLimit) || parsedLimit <= 0;
+  const maxProducts = unlimited ? 0 : parsedLimit;
 
   try {
     let page = 1;
@@ -317,8 +317,7 @@ export async function generateMetadata({
  *
  * The deletion is not free, and the cost is worth stating plainly rather than
  * claiming nothing is lost. The default export awaits `getCachedProduct` before
- * returning anything, so on a cache miss — a product past the
- * `HEADKIT_PRERENDER_PRODUCT_LIMIT` seed, or after the `cacheLife` window — a
+ * returning anything, so on a cache miss — a product outside the build's static params, or after the `cacheLife` window — a
  * soft navigation paints nothing until the backend responds, where
  * `loading.tsx` supplied a route-level skeleton instantly. `instant = true`
  * stays on this route but can no longer produce a static App Shell for the same
