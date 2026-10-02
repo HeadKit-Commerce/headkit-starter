@@ -7,6 +7,10 @@ import type {
   ProjectSummaryFieldsFragment,
 } from "@headkit/sdk";
 import { headkit } from "@/lib/sdk";
+import {
+  paramsFromPlanPaths,
+  readProductPrerenderPlan,
+} from "@/lib/product-prerender-plan";
 import { getCachedProduct, getProductForPage } from "@/lib/product-cache";
 import {
   getCachedProductBrand,
@@ -142,20 +146,17 @@ function mapRelatedToProduct(
 }
 
 export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
-  const params: { slug: string[] }[] = [];
+  // Commerce decides (`lib/product-prerender-plan.ts`). On-demand skips the
+  // catalogue walk: an unbuilt PDP's first request is ISR, and walking a
+  // catalogue past the build ceiling is what kills the deploy.
+  const plan = await readProductPrerenderPlan(headkit.products);
+  if (plan.mode !== "all") {
+    const seeded = paramsFromPlanPaths(plan.paths, "products");
+    if (seeded.length > 0) return seeded;
+    return [{ slug: [STATIC_GEN_PLACEHOLDER_SLUG] }];
+  }
 
-  // Prerender the whole catalogue. An unbuilt PDP's first visitor waits on
-  // WordPress, which is the slow first load. A positive
-  // HEADKIT_PRERENDER_PRODUCT_LIMIT is an explicit emergency ceiling for a
-  // build that has measured itself against the platform time limit. Unset,
-  // empty, and 0 all mean every product.
-  const limitRaw = process.env.HEADKIT_PRERENDER_PRODUCT_LIMIT;
-  const parsedLimit =
-    limitRaw === undefined || limitRaw === ""
-      ? 0
-      : Number.parseInt(limitRaw, 10);
-  const unlimited = !Number.isFinite(parsedLimit) || parsedLimit <= 0;
-  const maxProducts = unlimited ? 0 : parsedLimit;
+  const params: { slug: string[] }[] = [];
 
   try {
     let page = 1;
@@ -164,15 +165,10 @@ export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
     while (hasMore) {
       const result = await headkit.products.list({}, page, 100);
       for (const product of result.products) {
-        if (!unlimited && params.length >= maxProducts) {
-          hasMore = false;
-          break;
-        }
         params.push({ slug: [product.slug] });
-        // Colorway URLs are warmable via InstantLink prefetch; skip exploding
-        // the static param set for large catalogs.
+        // Colourway URLs belong to the nested route. This flat route 308s
+        // them, and prerendering a redirect spends the build on the redirect.
       }
-      if (!unlimited && params.length >= maxProducts) break;
       hasMore = page < result.totalPages;
       page++;
     }

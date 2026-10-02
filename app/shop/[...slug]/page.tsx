@@ -5,6 +5,10 @@ import { cacheTag } from "next/cache";
 import { cacheLifeForProfile } from "@/lib/cache-profile";
 import type { ProductCategoryDetail } from "@headkit/sdk";
 import { headkit as sdk } from "@/lib/sdk";
+import {
+  paramsFromPlanPaths,
+  readProductPrerenderPlan,
+} from "@/lib/product-prerender-plan";
 import { getBranding } from "@/lib/branding";
 import { makeSeoMetadata, storefrontUrl } from "@/lib/make-metadata";
 import { TAG } from "@/lib/cache-tags";
@@ -19,7 +23,6 @@ import {
   productPath,
   productShopSegments,
 } from "@/lib/canonical-path";
-import { productColourwayParamBudget } from "@/lib/prerender-budget";
 import { getCachedProduct } from "@/lib/product-cache";
 import {
   resolveShopPath,
@@ -185,44 +188,44 @@ async function getShopCategory(
  * exactly today's behaviour (placeholder only) and their flat PDPs are
  * unaffected.
  *
- * PRERENDER COVERAGE — the two PDP routes do NOT match, and which of them is
- * canonical depends on the store's WooCommerce permalink base, so state both
- * classes rather than one:
+ * PRERENDER COVERAGE — both PDP routes ask the HeadKit API
+ * (`lib/product-prerender-plan.ts`) and obey the same answer. `all` paginates
+ * the catalogue. `on-demand` emits only the paths commerce named, or the
+ * placeholder, and the rest is ISR. Which route is canonical still depends on
+ * the store's permalink base:
  *
- *   NESTED-permalink store (`/shop/{cat…}/{slug}`) — THIS route is canonical and
- *   is UNCAPPED, paginating the catalogue to completion, as it already did
- *   before the canonical flip. The flat route (`app/products/[...slug]`) is the
- *   redirect shim there, and it prerenders every product, unless `HEADKIT_PRERENDER_PRODUCT_LIMIT`
- *   is a positive emergency ceiling, so those 308s are built files. The
- *   flat route's colourway URLs are deliberately NOT enumerated at all: it
- *   advertises none of them, every one 308s here, and prerendering a redirect spends the build on the redirect class.
+ *   NESTED-permalink store (`/shop/{cat…}/{slug}`) — THIS route is canonical.
+ *   The flat route is the redirect shim and, when the plan is `all`, still
+ *   prerenders one file per product so those 308s are built. It does not
+ *   enumerate colourways: every one 308s here, and prerendering a redirect
+ *   spends the build on the redirect class.
  *
  *   DEFAULT-permalink store (`/product/{slug}`) — `productShopSegments` returns
- *   null for every product, so `generateStaticParams` here emits only the
- *   placeholder and this route contributes nothing. `productPath` returns the
- *   FLAT path, making `app/products/[...slug]` the canonical route, which
- *   prerenders the whole catalogue under the same rule as this file.
+ *   null, so this route emits only the placeholder. The flat route is canonical
+ *   and prerenders under the same plan.
  *
- * COLOURWAY PARAMS are a SECOND class on this route — one per colour option on
- * a variable product, beside that product's base param — and they are budgeted
- * separately (`HEADKIT_PRERENDER_PRODUCT_COLOURWAYS`,
- * `lib/prerender-budget.ts`). The default is every colourway the sitemap
- * advertises, from the same `productColourSlugs` rule. `0` emits none; a
- * positive integer is an emergency ceiling. Leaving them unbuilt charged the
- * first visitor 3.6–5.9 s against a prerendered sibling's 1.15–1.37 s. A
- * colourway resolves the same product as its base page, and a build with the
- * bulk prefetch serves that product from disk.
+ * COLOURWAY PARAMS are built with the base param when the plan is `all`, from
+ * the same `productColourSlugs` rule the sitemap uses. They are not a separate
+ * env budget. A colourway resolves the same product as its base page, and a
+ * build with the bulk prefetch serves that product from disk.
  */
 export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
+  // Same decision as the flat PDP. On-demand does not paginate: a nested
+  // catalogue past the build ceiling is the deploy that dies at 45 minutes.
+  const plan = await readProductPrerenderPlan(sdk.products);
+  if (plan.mode !== "all") {
+    const seeded = paramsFromPlanPaths(plan.paths, "shop");
+    if (seeded.length > 0) return seeded;
+    return [{ slug: [STATIC_GEN_PLACEHOLDER_SLUG] }];
+  }
+
   const params: { slug: string[] }[] = [];
-  const colourwayBudget = productColourwayParamBudget();
-  let colourwayParams = 0;
 
   try {
     let page = 1;
     let hasMore = true;
 
-    // Paginate to completion — uncapped, see the coverage note above.
+    // The plan already said this catalogue fits the build.
     while (hasMore) {
       const result = await sdk.products.list({}, page, 100);
       for (const product of result.products) {
@@ -237,9 +240,7 @@ export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
         // rows, and `products.list` is the byte-identical call the sitemap
         // makes with the same page size and pagination.
         for (const colourSlug of productColourSlugs(product)) {
-          if (colourwayParams >= colourwayBudget) break;
           params.push({ slug: [...segments, colourSlug] });
-          colourwayParams++;
         }
       }
       hasMore = page < result.totalPages;

@@ -5,22 +5,20 @@
  * Vercel), and the two families below are the ones whose size is decided by a
  * store's own catalogue rather than by the template. A store with 150
  * categories and 2,800 facet combinations cannot afford what a store with 12
- * categories can, and the reverse is true for colourway PDPs. So the shape of
- * the emitted param set is configuration, not a constant: the platform default
+ * categories can. The shape of the emitted param set is configuration, not a constant: the platform default
  * reproduces exactly what every storefront builds today, and a store that has
  * MEASURED its own build moves the number.
  *
- * ONE CONVENTION FOR BOTH KEYS, because a per-key convention is how a store
- * sets the opposite of what it meant:
+ * CONVENTION, because a silent alternative is how a store sets the opposite
+ * of what it meant:
  *
  *   unset / empty   the platform default for that family (stated per key below)
  *   a decimal       emit at most that many params; `0` emits NONE
  *   `unlimited`     no cap
  *
- * Note this deliberately does NOT copy `HEADKIT_PRERENDER_PRODUCT_LIMIT`
- * (`app/products/[...slug]/page.tsx`), where unset and `0` both mean the whole
- * catalogue. Here `0` emits none, so a store can turn one family off, and
- * `unlimited` is spelled out instead of overloading zero.
+ * Product HTML is not configured here. Both PDP routes follow the HeadKit
+ * API plan in `lib/product-prerender-plan.ts`. This file is the collection
+ * facet family only. `0` emits none of that family.
  *
  * A param that is NOT prerendered is not a missing page. Neither route sets
  * `dynamicParams = false`, so an un-emitted URL still routes, still answers
@@ -33,10 +31,10 @@
  */
 
 /**
- * Both keys are read from `process.env` DIRECTLY rather than through
- * `lib/env.ts`, which is where they are declared, documented and validated for
- * the boot parse. These accessors run inside `generateStaticParams` on two
- * catalogue routes whose unit tests render without a configured storefront,
+ * The facet key is read from `process.env` DIRECTLY rather than through
+ * `lib/env.ts`, which is where it is declared, documented and validated for
+ * the boot parse. The accessor runs inside `generateStaticParams` on a
+ * catalogue route whose unit tests render without a configured storefront,
  * and pulling the Zod boot parse into them buys nothing:
  * {@link resolvePrerenderBudget} does the narrowing and is tested directly.
  */
@@ -65,28 +63,9 @@ export const UNLIMITED = Number.POSITIVE_INFINITY;
  */
 export const COLLECTION_FACET_PARAM_BUDGET_DEFAULT = UNLIMITED;
 
-/**
- * `/shop/[...slug]` colourway params — one extra param per colour option on a
- * variable product, beside that product's base param.
- *
- * DEFAULT: unlimited — every colourway the sitemap advertises is built. The
- * base product param is NOT governed by this and is unchanged.
- *
- * Leaving the class unbuilt charged the first visitor a cold render. Measured
- * on one storefront, 1,375 advertised colourway URLs answered
- * `x-vercel-cache: MISS` at 3.6–5.9 s where a prerendered sibling answered
- * `PRERENDER` at 1.15–1.37 s. A colourway page resolves the same product slug
- * its base page resolves, and during a build with the bulk prefetch enabled
- * that product is served from the per-build store on local disk
- * (`lib/product-cache.ts`) rather than from the origin, so the extra params
- * cost render time and no origin requests. `0` turns the class off; a positive
- * integer is an emergency ceiling.
- */
-export const PRODUCT_COLOURWAY_PARAM_BUDGET_DEFAULT = UNLIMITED;
 
 /**
- * Parse one budget value against {@link COLLECTION_FACET_PARAM_BUDGET_DEFAULT}
- * -style defaults. Exported for its own test; call the two accessors below.
+ * Parse one budget value. Exported for its own test; the accessor below calls it.
  *
  * An unparseable value falls back to the default rather than throwing, for the
  * same reason `lib/cache-profile.ts` does: a typo in a store's environment must
@@ -107,13 +86,5 @@ export function collectionFacetParamBudget(): number {
   return resolvePrerenderBudget(
     process.env.HEADKIT_PRERENDER_COLLECTION_FACETS,
     COLLECTION_FACET_PARAM_BUDGET_DEFAULT,
-  );
-}
-
-/** How many `/shop` colourway params this store's build may emit. */
-export function productColourwayParamBudget(): number {
-  return resolvePrerenderBudget(
-    process.env.HEADKIT_PRERENDER_PRODUCT_COLOURWAYS,
-    PRODUCT_COLOURWAY_PARAM_BUDGET_DEFAULT,
   );
 }

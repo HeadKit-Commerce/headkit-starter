@@ -1,18 +1,15 @@
 /**
- * The prerender budget parser and the two families' platform defaults.
+ * The prerender budget parser and the facet family's platform default.
  *
- * The defaults are the load-bearing assertions here: they are what keeps this
- * change invisible to a store that sets nothing, so a change to either is a
- * change to every storefront's build and must be a deliberate one.
+ * The default is the load-bearing assertion here: it is what a store that sets
+ * nothing builds, so changing it changes that storefront's build.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   COLLECTION_FACET_PARAM_BUDGET_DEFAULT,
-  PRODUCT_COLOURWAY_PARAM_BUDGET_DEFAULT,
   UNLIMITED,
   collectionFacetParamBudget,
-  productColourwayParamBudget,
   resolvePrerenderBudget,
 } from "@/lib/prerender-budget";
 
@@ -30,11 +27,6 @@ describe("the platform defaults", () => {
   it("prerenders every collection facet param, as today", () => {
     expect(COLLECTION_FACET_PARAM_BUDGET_DEFAULT).toBe(UNLIMITED);
     expect(collectionFacetParamBudget()).toBe(UNLIMITED);
-  });
-
-  it("prerenders every colourway param", () => {
-    expect(PRODUCT_COLOURWAY_PARAM_BUDGET_DEFAULT).toBe(UNLIMITED);
-    expect(productColourwayParamBudget()).toBe(UNLIMITED);
   });
 });
 
@@ -67,12 +59,7 @@ describe("the env keys", () => {
     expect(collectionFacetParamBudget()).toBe(0);
   });
 
-  it("opens the colourway family with `unlimited`", () => {
-    withEnv("HEADKIT_PRERENDER_PRODUCT_COLOURWAYS", "unlimited");
-    expect(productColourwayParamBudget()).toBe(UNLIMITED);
-  });
-
-  it("accepts a finite cap on either family", () => {
+  it("accepts a finite facet cap", () => {
     withEnv("HEADKIT_PRERENDER_COLLECTION_FACETS", "250");
     expect(collectionFacetParamBudget()).toBe(250);
   });
