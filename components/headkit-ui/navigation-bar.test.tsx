@@ -182,6 +182,19 @@ describe("NavigationBar closed bar", () => {
     expect(lists[1]).toContain("flex-1");
     expect(lists[1]).toContain("justify-end");
   });
+
+  it("prefetches dropdown destinations while the menu is closed", () => {
+    const html = renderNav();
+
+    // Closed panels do not mount their links. These copies sit in the bar
+    // so Next can prefetch each collection before the menu opens.
+    expect(html).toContain('href="/silver-package"');
+    expect(html).toContain('href="/birthdays"');
+    expect(html).toContain('href="/graduations"');
+    expect(html).toContain('href="/backdrop-designs"');
+    expect(html).toContain('href="/faq"');
+    expect(html).not.toContain('href="#"');
+  });
 });
 
 describe("NavigationBar desktop dropdowns", () => {
