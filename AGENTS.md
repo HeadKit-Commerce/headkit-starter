@@ -417,14 +417,16 @@ things put content after it, and closing one without the other changes nothing:
   no request-time read at all, yet 124 visible characters in the shell with its boundary
   and the entire article in `S:3`; 411 with the boundary removed and nothing hidden.
 
-So a boundary belongs NEXT TO a request-time read and nowhere else; cached content renders
-in the route itself. `app/news/[...slug]` has no boundary. Both PDP routes compose the
-product the gate resolved through `ProductPageBody` outside any boundary; the flat
-`/products/[...slug]` keeps ONE boundary, around `ProductPageContent`, and renders it only
-when the public read returned null — the one branch that must await `searchParams` (the
-Shopify preview key). `ProductStock` reads the same cached product entry (freshness is the
-theme's `headkit:product:<slug>` purge), so it is inline too. The `/shop` category branch
-keeps its boundary because `CollectionRoute` reads `searchParams` for its grid.
+So a boundary belongs NEXT TO a request-time read. `app/news/[...slug]` has no boundary.
+`/shop/[...slug]` is the Next.js 16 exception: `params` are URL data, so the page returns
+Suspense immediately and `ShopRoute` awaits them. The product read is `"use cache"`, and
+product cards pass `prefetch={true}`, so a prerendered URL resolves before the click instead
+of leaving the shopper on `loading.tsx`. The flat `/products/[...slug]` keeps ONE boundary,
+around `ProductPageContent`, and renders it only when the public read returned null — the
+one branch that must await `searchParams` (the Shopify preview key). `ProductStock` reads
+the same cached product entry (freshness is the theme's `headkit:product:<slug>` purge).
+Do not add a second Suspense around `CollectionRoute`: it reads no `searchParams`, and the
+page-level boundary is only there so the shop segment can share one App Shell.
 
 Measure, do not infer: `bun run scripts/static-shell-split.ts <.next/server/app/….html | url>`
 prints the split, the visible characters on each side, and every hidden segment. The route
