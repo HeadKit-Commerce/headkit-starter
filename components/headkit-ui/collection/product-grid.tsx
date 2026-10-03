@@ -129,7 +129,8 @@ export function ProductGrid({
           // Only the first above-the-fold card may compete for LCP. Prefetching
           // two+ images on a phone wastes bandwidth when filters push the grid
           // down; when the leaf header image owns LCP, skip priority entirely.
-          // Off-screen rows defer layout/paint via content-visibility.
+          // Off-screen card images defer layout/paint. Containment stays on
+          // the image so the selected swatch outline is not clipped.
           <ProductCard
             key={product.id}
             product={product}
@@ -138,12 +139,7 @@ export function ProductGrid({
             listName={pathname}
             listIndex={index}
             priority={!preferHeaderLcp && index === 0}
-            {...(index >= 4
-              ? {
-                  className:
-                    "[content-visibility:auto] [contain-intrinsic-size:auto_360px]",
-                }
-              : {})}
+            deferVisibility={index >= 4}
           />
         ))}
         {(isLoading || isLoadingAfter) && (

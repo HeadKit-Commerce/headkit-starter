@@ -5,6 +5,7 @@ import type { BrandSummary, ProductListFilter } from "@headkit/sdk";
 import { TAG } from "@/lib/cache-tags";
 import { headkit } from "@/lib/sdk";
 import { normalizeFilterKey } from "@/components/headkit-ui/collection/utils";
+import { enrichCollectionResult } from "@/lib/swatch-visual";
 
 /**
  * Comma-free, order-independent cache tag for a normalized filter key.
@@ -76,7 +77,9 @@ export async function getCachedCatalogPage(
       break;
   }
 
-  return headkit.collections.list(filter, page, perPage);
+  return enrichCollectionResult(
+    await headkit.collections.list(filter, page, perPage),
+  );
 }
 
 /** Shared brand facet list for PLP filter drawers. */

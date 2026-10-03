@@ -42,7 +42,7 @@ const VariantSwatch = ({
         title={label}
         onClick={onClick}
         className={cn(
-          "relative cursor-pointer overflow-hidden rounded-brand-button border outline transition-all hover:outline-primary",
+          "relative inline-flex shrink-0 cursor-pointer items-center justify-center rounded-brand-button border p-0 leading-none outline transition-all hover:outline-primary",
           size === "default"
             ? "h-6 w-6 outline-2 outline-offset-1"
             : "h-4 w-4 outline-1 outline-offset-1",
@@ -51,8 +51,12 @@ const VariantSwatch = ({
           isIncompatible && !isSelected && "opacity-50",
         )}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element -- tiny swatch, not LCP */}
-        <img src={imageSrc} alt="" className="h-full w-full object-cover" />
+        {/* Clip the photo inside the chip. Overflow on the button itself
+            would crop the selection outline. */}
+        <span className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
+          {/* eslint-disable-next-line @next/next/no-img-element -- tiny swatch, not LCP */}
+          <img src={imageSrc} alt="" className="size-full object-cover" />
+        </span>
         <span className="sr-only">{label}</span>
         {isUnavailable && (
           <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 rotate-45 transform bg-gray-500" />
@@ -80,7 +84,7 @@ const VariantSwatch = ({
         title={label}
         onClick={onClick}
         className={cn(
-          "relative cursor-pointer rounded-brand-button border outline transition-all hover:outline-primary",
+          "relative inline-flex shrink-0 cursor-pointer items-center justify-center rounded-brand-button border p-0 leading-none outline transition-all hover:outline-primary",
           size === "default"
             ? "h-6 w-6 outline-2 outline-offset-1"
             : "h-4 w-4 outline-1 outline-offset-1",

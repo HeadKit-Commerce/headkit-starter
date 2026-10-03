@@ -4,6 +4,10 @@ import { cacheLife, cacheTag } from "next/cache";
 import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { TAG } from "@/lib/cache-tags";
 import { headkit } from "@/lib/sdk";
+import {
+  enrichCollectionResult,
+  enrichProducts,
+} from "@/lib/swatch-visual";
 import type {
   Product,
   HeroCarouselItem,
@@ -131,6 +135,43 @@ const HOME_TAGS: readonly string[] = [
   TAG.posts,
 ];
 
+async function enrichHomepageProducts<
+  T extends {
+    featuredProducts?: readonly unknown[] | null;
+    page?: {
+      editorBlocks?: ReadonlyArray<{
+        products?: readonly unknown[] | null;
+      }> | null;
+    } | null;
+  },
+>(homepage: T): Promise<T> {
+  const featuredProducts = homepage.featuredProducts?.length
+    ? await enrichProducts(homepage.featuredProducts)
+    : homepage.featuredProducts;
+  const blocks = homepage.page?.editorBlocks;
+  if (!blocks?.length) {
+    return (
+      featuredProducts === homepage.featuredProducts
+        ? homepage
+        : { ...homepage, featuredProducts }
+    ) as T;
+  }
+  const editorBlocks = await Promise.all(
+    blocks.map(async (block) =>
+      block.products?.length
+        ? { ...block, products: await enrichProducts(block.products) }
+        : block,
+    ),
+  );
+  const page = homepage.page;
+  if (!page) return homepage;
+  return {
+    ...homepage,
+    featuredProducts,
+    page: { ...page, editorBlocks },
+  } as T;
+}
+
 export async function getHomepageData() {
   "use cache";
   cacheLifeForProfile("days", "max");
@@ -145,6 +186,10 @@ export async function getHomepageData() {
 
   const homepage =
     homepageResult.status === "fulfilled" ? homepageResult.value : null;
+  const onSaleProducts =
+    onSaleResult.status === "fulfilled"
+      ? onSaleResult.value
+      : EMPTY_COLLECTION;
 
   // Shopify file_reference URLs resolve asynchronously and there is no
   // files/update webhook. A copy-only hero fetched during that window
@@ -155,11 +200,8 @@ export async function getHomepageData() {
   }
 
   return {
-    homepage,
-    onSaleProducts:
-      onSaleResult.status === "fulfilled"
-        ? onSaleResult.value
-        : EMPTY_COLLECTION,
+    homepage: homepage ? await enrichHomepageProducts(homepage) : null,
+    onSaleProducts: await enrichCollectionResult(onSaleProducts),
   };
 }
 

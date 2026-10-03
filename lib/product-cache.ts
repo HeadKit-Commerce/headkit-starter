@@ -5,6 +5,7 @@ import { TAG } from "@/lib/cache-tags";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { headkit } from "@/lib/sdk";
+import { enrichProduct } from "@/lib/swatch-visual";
 import {
   BULK_PREFETCH_DEFAULT_CONCURRENCY,
   BULK_PREFETCH_DIRNAME,
@@ -38,8 +39,10 @@ export async function getCachedProduct(slug: string) {
   // the build phase, or on a store whose gate is closed, `get` resolves null
   // and this is exactly the per-slug read it always was.
   const prefetched = await bulkPrefetch.get(slug);
-  if (prefetched) return prefetched;
-  return headkit.products.get(slug);
+  if (prefetched) return enrichProduct(prefetched);
+  const product = await headkit.products.get(slug);
+  if (!product) return product;
+  return enrichProduct(product);
 }
 
 /**
@@ -70,9 +73,11 @@ export async function getProductForPage(
   options?: ProductPageLoadOptions,
 ) {
   if (options?.shopifyPreviewKey) {
-    return headkit
+    const product = await headkit
       .withShopifyPreviewKey(options.shopifyPreviewKey)
       .products.get(slug);
+    if (!product) return product;
+    return enrichProduct(product);
   }
   return getCachedProduct(slug);
 }

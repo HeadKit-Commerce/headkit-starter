@@ -50,9 +50,13 @@ export function SwatchDot({
 
   if (imageSrc) {
     return (
-      <span className={cn(DOT_CLASS, ring, "overflow-hidden")}>
-        {/* eslint-disable-next-line @next/next/no-img-element -- tiny swatch, not LCP */}
-        <img src={imageSrc} alt="" className="h-full w-full object-cover" />
+      <span className={cn(DOT_CLASS, ring, "relative")}>
+        {/* Clip the photo inside the dot. Overflow on the dot itself would
+            crop the selection outline. */}
+        <span className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
+          {/* eslint-disable-next-line @next/next/no-img-element -- tiny swatch, not LCP */}
+          <img src={imageSrc} alt="" className="size-full object-cover" />
+        </span>
         <span className="sr-only">{label}</span>
       </span>
     );

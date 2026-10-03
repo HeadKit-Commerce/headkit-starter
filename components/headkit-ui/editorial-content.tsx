@@ -1,6 +1,7 @@
 import parse, { Element, domToReact, type DOMNode } from "html-react-parser";
 import type { Product } from "@headkit/sdk";
 import { headkit } from "@/lib/sdk";
+import { enrichProduct } from "@/lib/swatch-visual";
 import { sanitizeContent } from "@/lib/sanitize-content";
 import { EditorialProductGrid } from "@/components/headkit-ui/editorial-product-grid";
 import { GravityForm } from "@/components/gravity-form-lazy";
@@ -87,7 +88,12 @@ export async function EditorialContent({
   // Resolve every referenced product once (slugs can repeat across carousels).
   const uniqueSlugs = [...new Set(carousels.flatMap((c) => c.slugs))];
   const resolved = await Promise.all(
-    uniqueSlugs.map((slug) => headkit.products.get(slug).catch(() => null)),
+    uniqueSlugs.map((slug) =>
+      headkit.products
+        .get(slug)
+        .then((product) => (product ? enrichProduct(product) : null))
+        .catch(() => null),
+    ),
   );
   const bySlug = new Map<string, Product>();
   uniqueSlugs.forEach((slug, i) => {

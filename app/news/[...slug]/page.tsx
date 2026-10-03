@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { notFound, unstable_rethrow } from "next/navigation";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
+import { enrichEditorBlockPage } from "@/lib/swatch-visual";
 import { env } from "@/lib/env";
 import { errorFields, logger } from "@/lib/logger";
 import { FeaturedImageHeader } from "@/components/headkit-ui/post/featured-image-header";
@@ -179,7 +180,9 @@ async function getPost(postSlug: string) {
   "use cache";
   cacheLife("days");
   cacheTag(`headkit:post:${postSlug}`, "headkit:posts");
-  return sdk.content.get(postSlug, "POST");
+  const post = await sdk.content.get(postSlug, "POST");
+  if (!post) return post;
+  return enrichEditorBlockPage(post);
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

@@ -11,6 +11,7 @@ import type { SortKeyType } from "@/components/headkit-ui/collection/utils";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { CollectionProductsSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import { CATALOG_PAGE_SIZE } from "@/components/headkit-ui/catalog-grid";
+import { enrichCollectionResult } from "@/lib/swatch-visual";
 
 interface Props {
   searchParams: Promise<Record<string, string>>;
@@ -87,7 +88,9 @@ async function SearchResults({ searchParams }: Props): Promise<ReactNode> {
   }
 
   const [productsResult, productFilter] = await Promise.all([
-    sdk.collections.list(filter, page, PER_PAGE),
+    sdk
+      .collections.list(filter, page, PER_PAGE)
+      .then((result) => enrichCollectionResult(result)),
     getSearchFilters(),
   ]);
 
