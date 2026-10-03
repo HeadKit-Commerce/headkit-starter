@@ -245,7 +245,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * `apps/starter/AGENTS.md` owns the rule; `scripts/static-shell-split.ts`
  * measures a built file.
  */
-export const instant = false;
+export const instant = true;
 
 export default async function Page(props: Props): Promise<ReactNode> {
   // Pre-commit gate — an unknown post slug must answer 404. The post it reads

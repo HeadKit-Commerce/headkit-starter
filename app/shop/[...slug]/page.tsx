@@ -331,7 +331,7 @@ export async function generateMetadata({
  * `instant = false` is that section's declaration rule: this route blocks on a
  * cached read before it responds.
  */
-export const instant = false;
+export const instant = true;
 
 export default async function Page(props: Props): Promise<ReactNode> {
   // Pre-commit gate. This route DELEGATES rendering to the PDP and collection

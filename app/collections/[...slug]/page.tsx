@@ -19,7 +19,11 @@ import {
 } from "@/components/headkit-ui/collection/utils";
 import { toAttributeKey } from "@/lib/color-attr-slug";
 import { brandSlugsPerCategory } from "@/lib/brand-facets";
-import { collectionFacetParamBudget } from "@/lib/prerender-budget";
+import {
+  readFacetCataloguePlan,
+  shouldDiscoverCollectionFacets,
+  shouldEmitCollectionFacets,
+} from "@/lib/collection-facet-plan";
 import {
   makeSeoMetadata,
   seoFallbackDescription,
@@ -101,24 +105,16 @@ export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
       paths.push({ slug: node.segments });
     }
 
-    // Facet params, under the store's own build budget
-    // (`HEADKIT_PRERENDER_COLLECTION_FACETS`, `lib/prerender-budget.ts`).
-    // Unlimited by default, which is every storefront's behaviour today.
-    //
-    // `0` is the value that matters most, and it does more than drop the
-    // slots: it skips the per-category `getFilters` fan-out and the brands
-    // read below, which is where the build time actually goes. Since the PLP
-    // static-shell change each prerendered collection param also renders page
-    // 1 of its grid, so a facet param costs an origin-paced catalogue read on
-    // top of its build slot — on one measured 154-category store, 2,839 facet
-    // params walked the build into Vercel's 45-minute ceiling.
-    //
-    // A finite non-zero budget still makes those reads (the facet rule cannot
-    // be applied without them) and keeps colour facets ahead of brand ones,
-    // in the order they are generated below.
-    const facetBudget = collectionFacetParamBudget();
-    if (facetBudget > 0) {
-      paths.push(...(await facetParams(nodes)).slice(0, facetBudget));
+    // Whole indexable set, or none. Decided before getFilters.
+    // lib/collection-facet-plan.ts. A set that does not fit is not sliced.
+    const facetPlan = await readFacetCataloguePlan(
+      "products" in sdk ? sdk.products : undefined,
+    );
+    if (shouldDiscoverCollectionFacets(facetPlan, nodes.length)) {
+      const facets = await facetParams(nodes);
+      if (shouldEmitCollectionFacets(facetPlan, nodes.length, facets.length)) {
+        paths.push(...facets);
+      }
     }
 
     if (paths.length > 0) return paths;
@@ -439,7 +435,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * shopper gets the same navigation from `CollectionProvider`'s mount effect,
  * which reads those query params and pushes the `/f/…` path.
  */
-export const instant = false;
+export const instant = true;
 
 export default async function Page({ params }: Props) {
   const { slug } = await params;

@@ -165,7 +165,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * `instant = false` is that section's declaration rule: this route blocks on a
  * cached read before it responds.
  */
-export const instant = false;
+export const instant = true;
 
 export default async function Page(props: Props): Promise<ReactNode> {
   // Pre-commit gate — an unknown project slug must answer 404. The `"use cache"`
