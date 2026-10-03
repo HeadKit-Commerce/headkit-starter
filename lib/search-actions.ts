@@ -2,6 +2,7 @@
 
 import type { ProductSummaryFieldsFragment } from "@headkit/sdk";
 import { headkit } from "@/lib/sdk";
+import { enrichProducts } from "@/lib/swatch-visual";
 
 export async function searchProducts(
   q: string,
@@ -9,5 +10,7 @@ export async function searchProducts(
 ): Promise<ProductSummaryFieldsFragment[]> {
   if (!q.trim()) return [];
   const result = await headkit.collections.list({ search: q }, 1, limit);
-  return result.products as ProductSummaryFieldsFragment[];
+  return enrichProducts(
+    result.products as ProductSummaryFieldsFragment[],
+  );
 }

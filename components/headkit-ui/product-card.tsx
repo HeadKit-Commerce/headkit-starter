@@ -54,6 +54,12 @@ interface Props {
   /** Eager-load the card image (first-row cards where it may be the LCP). */
   priority?: boolean;
   /**
+   * Skip layout/paint for the card image when it is below the first row.
+   * Applied to the image only — paint containment on the whole card clips the
+   * selected swatch outline on the left.
+   */
+  deferVisibility?: boolean;
+  /**
    * Forwarded to both of the card's `InstantLink`s. Leave it unset unless this
    * card is one of the few a shopper is most likely to click next: under the
    * prefetch budget (`NEXT_PUBLIC_NAV_PREFETCH_BUDGET`, off by default) only the
@@ -92,6 +98,7 @@ export const ProductCard = ({
   mobileCol = false,
   isNew = false,
   priority = false,
+  deferVisibility = false,
   prefetch,
   titleAs = "h3",
   listName,
@@ -249,7 +256,11 @@ export const ProductCard = ({
         href={href}
         prefetch={prefetch}
         aria-label="Featured Image"
-        className="block"
+        className={cn(
+          "block",
+          deferVisibility &&
+            "[content-visibility:auto] [contain-intrinsic-size:auto_360px]",
+        )}
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
         onClick={handleSelectItem}

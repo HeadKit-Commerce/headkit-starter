@@ -11,6 +11,7 @@ import { getBranding } from "@/lib/branding";
 import { TAG } from "@/lib/cache-tags";
 import { errorFields, logger } from "@/lib/logger";
 import { headkit as sdk } from "@/lib/sdk";
+import { enrichEditorBlockPage } from "@/lib/swatch-visual";
 import { BreadcrumbJsonLD } from "@/components/seo/breadcrumb-json-ld";
 import { CmsPageBody } from "@/components/headkit-ui/cms-page-body";
 import { ShopifyContactForm } from "@/components/shopify-contact-form";
@@ -104,7 +105,9 @@ async function loadContactPage(): Promise<Awaited<
   cacheLife("days");
   cacheTag(TAG.page(CONTACT_SLUG), TAG.pages);
   try {
-    return await sdk.content.get(CONTACT_SLUG, "PAGE");
+    const page = await sdk.content.get(CONTACT_SLUG, "PAGE");
+    if (!page) return page;
+    return enrichEditorBlockPage(page);
   } catch (error) {
     unstable_rethrow(error);
     logger.error("contact.degraded_render", {

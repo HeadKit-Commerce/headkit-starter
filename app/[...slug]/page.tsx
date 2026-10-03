@@ -3,6 +3,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { Suspense } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import { headkit as sdk } from "@/lib/sdk";
+import { enrichEditorBlockPage } from "@/lib/swatch-visual";
 import {
   makeSeoMetadata,
   seoFallbackDescription,
@@ -125,7 +126,9 @@ export async function getPageData(
   "use cache";
   cacheLife("days");
   cacheTag(TAG.page(contentSlug), TAG.pages);
-  return sdk.content.get(contentSlug, "PAGE");
+  const page = await sdk.content.get(contentSlug, "PAGE");
+  if (!page) return page;
+  return enrichEditorBlockPage(page);
 }
 
 /**
