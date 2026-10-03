@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useLinkStatus } from "next/link";
 import { useRef, type ComponentProps, type ReactNode } from "react";
 import { convertToRelativePath, isAppNavigationHref } from "@/lib/convert-uri";
 import {
@@ -18,55 +17,12 @@ import { cn } from "@/lib/utils";
 
 type PendingVariant = "card" | "text";
 
-/**
- * Pending cue for Instant Navigation — must render as a child of `<Link>`.
- * Card: translucent pulse over media/cards. Text: subtle pulse behind label.
- *
- * It draws the PULSE only. The full-page skeleton (when a store has opted into
- * it) is requested by the link's own event handler and drawn by an always-mounted
- * host, and both halves of that had to move — see
- * `lib/navigation-skeleton-store.ts` for the measured reason. In short: inside a
- * container that dismisses on click, `pending` is never observed here at all.
- * Traced live in a mega-menu with a log on every run of this hook: across a 4.4 s
- * navigation it ran with `pending === false` and then unmounted — not one
- * `pending === true` render, so the pulse never painted either. Radix closes the
- * menu in the same click, and the unmount supersedes the render the pending state
- * would have committed.
- *
- * That is why the skeleton request is made from the handler, not from here: a
- * function call in an event handler always runs, and a render can be thrown away.
- *
- * The pulse still belongs to `pending`, and it is RIGHT that it is missing in a
- * menu that closed: it is a local cue meaning "this card took your click", and the
- * card is gone. The skeleton is the cue that has to survive, because the wait it
- * describes does.
- */
-function LinkPendingOverlay({
-  variant,
-}: {
-  variant: PendingVariant;
-}): React.JSX.Element | null {
-  const { pending } = useLinkStatus();
-  if (!pending) return null;
-  // pointer-events-none: pending overlays must not steal hit-testing or Safari
-  // will flip the cursor back to the default arrow over the link.
-  if (variant === "text") {
-    return (
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-0 z-[1] animate-pulse rounded-sm bg-primary/10"
-      />
-    );
-  }
-  return (
-    <span
-      aria-hidden
-      className="pointer-events-none absolute inset-0 z-[1] animate-pulse bg-brand-bg/40"
-    />
-  );
-}
-
 type InstantLinkProps = Omit<ComponentProps<typeof Link>, "prefetch"> & {
+  /**
+   * Accepted so existing call sites keep typechecking. The clicked link does
+   * not paint a pending state. InstantLink navigates, and the page skeleton
+   * shows only while that navigation has not committed.
+   */
   pendingVariant?: PendingVariant;
   /**
    * Force the full-page skeleton this link's destination gets, overriding what
@@ -259,8 +215,7 @@ export function mouseDownNavigationRefusal(event: {
  * WITH `NEXT_PUBLIC_NAV_MOUSEDOWN` ON, an in-app navigation is started by
  * dispatching a click on the anchor (`anchor.click()`) rather than by calling
  * `useRouter().push()`, for two reasons. It reuses `next/link`'s own click
- * handler, so `replace`, `scroll`, `onNavigate`, the `useLinkStatus` pending state
- * and any injected `onClick` (the menu's dismiss, the mobile sheet's close) all
+ * handler, so `replace`, `scroll`, `onNavigate`, and any injected `onClick` (the menu's dismiss, the mobile sheet's close) all
  * behave exactly as they do on a real click. And it adds no router-context
  * dependency: this component is server-rendered bare by a dozen test files, and
  * `useRouter()` throws without an app-router context.
@@ -283,7 +238,7 @@ export function mouseDownNavigationRefusal(event: {
  */
 export function InstantLink({
   prefetch,
-  pendingVariant = "card",
+  pendingVariant: _pendingVariant = "card",
   skeleton,
   className,
   children,
@@ -352,7 +307,7 @@ export function InstantLink({
    * handler call is synchronous and unconditional; a render can be superseded
    * before it commits, which is exactly what a dismiss-on-click container does —
    * a mega-menu's own close beat every `pending === true` render this link would
-   * have produced, so nothing downstream of `useLinkStatus()` ever ran.
+   * have produced, so a render that depended on the link still being mounted never ran.
    *
    * Idempotent per navigation: with mouse-down navigation on, `handleMouseDown`
    * dispatches a click that re-enters `handleClick`, and a keyboard activation
@@ -433,7 +388,6 @@ export function InstantLink({
         : { prefetch: resolvedPrefetch })}
       className={cn("relative cursor-pointer", className)}
     >
-      <LinkPendingOverlay variant={pendingVariant} />
       {children}
     </Link>
   );
