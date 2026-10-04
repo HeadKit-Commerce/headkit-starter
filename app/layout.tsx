@@ -49,7 +49,9 @@ import {
   type EmailMarketingStatusResult,
 } from "@/lib/email-marketing";
 import { Toaster } from "@/components/ui/toaster";
-import { getThemeHtmlAttributes } from "@/lib/store-theme";
+import { ClientThemeProvider } from "@/components/headkit-ui/client-theme-provider";
+import { clientThemeSlice } from "@/lib/client-theme";
+import { getStoreTheme, getThemeHtmlAttributes } from "@/lib/store-theme";
 import { BelowMain, HeadRouteScript } from "@/overrides/layout-slots";
 
 // Build-time env GTM id (kept as a fallback); per-tenant gtmId from
@@ -232,7 +234,8 @@ export default async function RootLayout({
   const onPrimaryText = background
     ? resolveOnPrimaryTextColor(primary, background)
     : null;
-  const themeAttrs = getThemeHtmlAttributes();
+  const storeTheme = getStoreTheme();
+  const themeAttrs = getThemeHtmlAttributes(storeTheme);
 
   const brandVars = [
     primary
@@ -339,6 +342,7 @@ export default async function RootLayout({
           reason and no longer does; see lib/host-robots.ts.
         */}
         <BrandingIconsProvider library={branding.iconLibrary}>
+          <ClientThemeProvider value={clientThemeSlice(storeTheme)}>
           <CatalogDisplayProvider
             prefs={{
               showVariants: branding.showVariants,
@@ -422,6 +426,7 @@ export default async function RootLayout({
             </CheckoutModeProvider>
             </SwatchImageProvider>
           </CatalogDisplayProvider>
+          </ClientThemeProvider>
         </BrandingIconsProvider>
       </body>
     </html>
