@@ -37,6 +37,8 @@ import { resolveSiteUrl } from "@/lib/site-url";
 import { normalizeCheckoutMode } from "@/lib/checkout-mode";
 import { CheckoutModeProvider } from "@/components/checkout/checkout-mode-provider";
 import { CatalogDisplayProvider } from "@/components/headkit-ui/catalog-display-provider";
+import { SwatchImageProvider } from "@/components/headkit-ui/swatch-image-provider";
+import { experimentalSwatchImagesEnabled } from "@/lib/experimental-swatch-images";
 import { resolveBrandFonts } from "@/lib/brand-fonts";
 import { resolveOnPrimaryTextColor } from "@/lib/contrast";
 import { BrandingIconsProvider } from "@/components/branding/branding-icons-provider";
@@ -345,6 +347,10 @@ export default async function RootLayout({
               defaultCollectionSort: branding.defaultCollectionSort,
             }}
           >
+            {/* Boolean only. The WordPress term read starts on the collection
+                and product pages, and only when the flag is on. No Suspense:
+                a boundary here would hold every document open. */}
+            <SwatchImageProvider enabled={experimentalSwatchImagesEnabled()}>
             <CheckoutModeProvider mode={checkoutMode}>
               <AuthProvider>
                 <CartProvider>
@@ -414,6 +420,7 @@ export default async function RootLayout({
                 </CartProvider>
               </AuthProvider>
             </CheckoutModeProvider>
+            </SwatchImageProvider>
           </CatalogDisplayProvider>
         </BrandingIconsProvider>
       </body>
