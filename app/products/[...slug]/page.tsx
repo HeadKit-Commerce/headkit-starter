@@ -23,6 +23,7 @@ import { SwatchImageProvider } from "@/components/headkit-ui/swatch-image-provid
 import { experimentalSwatchImagesEnabled } from "@/lib/experimental-swatch-images";
 import { loadSwatchImageMap } from "@/lib/swatch-visual";
 import { ProductStock } from "@/components/headkit-ui/product-stock";
+import { AvailabilityLineFallback } from "@/components/headkit-ui/live-availability";
 import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
 import { ProjectCarousel } from "@/components/headkit-ui/project/project-carousel";
 import { SectionHeader } from "@/components/headkit-ui/section-header";
@@ -572,8 +573,9 @@ type ProductPageBodyProps = {
  * brand — so this renders OUTSIDE any Suspense boundary and is baked into the
  * prerendered static shell; see the altitude note on `ProductPage` above.
  * Both PDP routes render it (D-15-04): they serve two valid URL shapes for one
- * product, and only their canonicals differ. Only `ProductStock` beneath it
- * reads on its own, and it reads the same cached product entry.
+ * product, and only their canonicals differ. `ProductStock` is the one dynamic
+ * hole: `cacheLife("seconds")` inside its own `<Suspense>`, so the availability
+ * line streams and the rest of this composition stays in the shell.
  *
  * The branding and Stripe reads never throw by contract (each degrades to its
  * defaults), but the catch stays: this runs above every boundary at BUILD for
@@ -756,13 +758,18 @@ export async function ProductPageBody({
     current: i === breadcrumbs.length - 1,
   }));
 
-  // No boundary: `ProductStock` reads the same cached product entry this page
-  // rendered from, so it is prerendered inline with the price beside it.
+  // Inventory is the dynamic hole. `getLiveProductStock` uses
+  // `cacheLife("seconds")`, which Next.js excludes from the prerender, so this
+  // fallback is in the static shell and the line streams at request time. The
+  // boundary is one line, not the product: a completed page-sized boundary is
+  // what outlines the gallery into `<div hidden>`.
   const stockSlot = (
-    <ProductStock
-      productSlug={productSlug}
-      {...(colorSlug !== undefined ? { colorSlug } : {})}
-    />
+    <Suspense fallback={<AvailabilityLineFallback />}>
+      <ProductStock
+        productSlug={productSlug}
+        {...(colorSlug !== undefined ? { colorSlug } : {})}
+      />
+    </Suspense>
   );
 
   const themeCopy = getStoreTheme().copy;

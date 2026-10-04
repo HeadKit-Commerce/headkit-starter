@@ -1,22 +1,20 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { notFound, unstable_rethrow } from "next/navigation";
-import { Suspense } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { headkit as sdk } from "@/lib/sdk";
 import { TAG } from "@/lib/cache-tags";
 import { BrandHeader } from "@/components/headkit-ui/brand/brand-header";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
-import { buildProductListFilter } from "@/components/headkit-ui/collection/utils";
+import {
+  buildProductListFilter,
+  DEFAULT_FILTER_VALUES,
+} from "@/components/headkit-ui/collection/utils";
 import { getCachedCatalogPage } from "@/lib/catalog-cache";
 import { makeSeoMetadata, storefrontUrl } from "@/lib/make-metadata";
 import { getBranding } from "@/lib/branding";
 import type { SortKeyType } from "@/components/headkit-ui/collection/utils";
-import {
-  CollectionPageSkeleton,
-  CollectionProductsSkeleton,
-} from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import { CATALOG_PAGE_SIZE } from "@/components/headkit-ui/catalog-grid";
 
 /**
@@ -27,7 +25,6 @@ const STATIC_GEN_PLACEHOLDER_SLUG = "__hk_static_placeholder";
 
 interface Props {
   params: Promise<{ slug: string[] }>;
-  searchParams: Promise<Record<string, string>>;
 }
 
 const PER_PAGE = CATALOG_PAGE_SIZE;
@@ -72,28 +69,25 @@ async function getBrandShell(brandSlug: string) {
 }
 
 /**
- * Dynamic island: awaits `searchParams` inside Suspense (required under
- * cacheComponents — see nextjs blocking-route / next-cache-components skill).
+ * Page 1 of this brand, in the store's default order. The reads are cached
+ * and nothing here awaits `searchParams`, so the grid is part of the static
+ * shell. `?page=` / `?sort=` / `?instock=` / `?categories=` are applied in
+ * the browser by `CollectionProvider`. None of them is canonical.
+ *
+ * @see https://nextjs.org/docs/app/getting-started/caching
  */
-async function BrandProductsServer({
+async function BrandProductsShell({
   brandSlug,
-  searchParams,
 }: {
   brandSlug: string;
-  searchParams: Promise<Record<string, string>>;
 }): Promise<ReactNode> {
-  const sp = await searchParams;
-  const page = sp.page ? parseInt(sp.page) : 1;
   const { branding } = await getBranding();
 
   const filter = buildProductListFilter(
     {
-      categories: sp.categories?.split(",").filter(Boolean) ?? [],
+      ...DEFAULT_FILTER_VALUES,
       brands: [brandSlug],
-      attributes: {},
-      instock: sp.instock === "true",
-      sort: (sp.sort ?? "") as SortKeyType | "",
-      page,
+      page: 1,
     },
     {
       brandSlug,
@@ -103,7 +97,7 @@ async function BrandProductsServer({
 
   const [productFilter, productsResult] = await Promise.all([
     getFilters(),
-    getCachedCatalogPage(filter, page, PER_PAGE, {
+    getCachedCatalogPage(filter, 1, PER_PAGE, {
       kind: "brand",
       slug: brandSlug,
     }),
@@ -114,12 +108,14 @@ async function BrandProductsServer({
       initialProducts={productsResult.products}
       initialTotal={productsResult.total}
       productFilter={productFilter}
-      initialPage={page}
+      initialPage={1}
       itemsPerPage={PER_PAGE}
       brandSlug={brandSlug}
     />
   );
 }
+
+
 
 /** Page size for the brand walk — `headkit/v2/brands` 400s above 100. */
 const BRAND_PER_PAGE = 100;
@@ -205,13 +201,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 /**
- * Brand-card destination. `loading.tsx` is the navigation shell. A missing
- * brand streams as 200 with `noindex`. See "Card routes navigate instantly"
- * in `apps/starter/AGENTS.md`.
+ * Brand page. The header and the page-1 grid are cached, so they are the
+ * static shell. `notFound()` in this export answers 404. There is no
+ * `loading.tsx`.
+ *
+ * @see https://nextjs.org/docs/app/getting-started/caching
  */
 export const instant = true;
 
-export default async function Page({ params, searchParams }: Props) {
+export default async function Page({ params }: Props) {
   // Pre-commit gate — only existence is hoisted; the product grid keeps
   // streaming behind the boundary below. `BrandRoute` repeats the checks and
   // the `"use cache"` shell read dedupes. A THROWN read still propagates (see
@@ -228,14 +226,10 @@ export default async function Page({ params, searchParams }: Props) {
   const { brand } = await getBrandShell(brandSlug);
   if (!brand) notFound();
 
-  return (
-    <Suspense fallback={<CollectionPageSkeleton variant="brand" />}>
-      <BrandRoute params={params} searchParams={searchParams} />
-    </Suspense>
-  );
+  return <BrandRoute params={params} />;
 }
 
-async function BrandRoute({ params, searchParams }: Props) {
+async function BrandRoute({ params }: Props) {
   const { slug } = await params;
   if (slug[0] === STATIC_GEN_PLACEHOLDER_SLUG) return notFound();
   const brandSlug = slug[slug.length - 1];
@@ -261,12 +255,7 @@ async function BrandRoute({ params, searchParams }: Props) {
           { name: brand.name, uri: `/brand/${brandSlug}`, current: true },
         ]}
       />
-      <Suspense fallback={<CollectionProductsSkeleton />}>
-        <BrandProductsServer
-          brandSlug={brandSlug}
-          searchParams={searchParams}
-        />
-      </Suspense>
+      <BrandProductsShell brandSlug={brandSlug} />
     </>
   );
 }

@@ -19,8 +19,9 @@ import { DynamicMetadataMarker } from "@/components/seo/dynamic-metadata-marker"
  * So the composition this file pins is:
  *
  *   - a product the PUBLIC read resolves renders through `ProductPageBody`
- *     directly in the route — no `<Suspense>` above it, none inside it at the
- *     page level — and `searchParams` is never awaited on that path;
+ *     directly in the route — no `<Suspense>` around the product — and
+ *     `searchParams` is never awaited on that path. The one boundary inside
+ *     the body is the availability line;
  *   - a NULL public read (a Shopify draft under Admin preview, a missing
  *     product, the build-time placeholder, a failed read) falls into the one
  *     boundary, whose child `ProductPageContent` is the only place that awaits
@@ -343,7 +344,7 @@ describe("products/[...slug] — a resolvable product renders OUTSIDE the bounda
     ).toBe(false);
   });
 
-  it("composes the body with no page-level Suspense — the stock slot is the plain cached component", async () => {
+  it("composes the body with the inventory hole as its only Suspense", async () => {
     getCachedProduct.mockResolvedValue(FLAT_PRODUCT);
 
     const tree = await ProductPageBody({
@@ -354,9 +355,9 @@ describe("products/[...slug] — a resolvable product renders OUTSIDE the bounda
 
     const rendered = elements(tree);
     expect(
-      rendered.map((element) => element.type),
-      "the composition itself must not reintroduce a boundary around cached content",
-    ).not.toContain(Suspense);
+      rendered.filter((element) => element.type === Suspense),
+      "the product composition itself has no boundary; the inventory hole is the stock slot",
+    ).toEqual([]);
 
     const detail = rendered.find(
       (element) => element.type === ProductDetail,
@@ -365,9 +366,14 @@ describe("products/[...slug] — a resolvable product renders OUTSIDE the bounda
       detail,
       "positive control: the body rendered the detail",
     ).toBeDefined();
+    const slot = detail!.props.stockSlot as ReactElement<{
+      children?: ReactElement;
+    }>;
+    expect(slot.type).toBe(Suspense);
+    const child = slot.props.children as ReactElement;
     expect(
-      detail!.props.stockSlot.type,
-      "stock reads the same cached product entry, so it is rendered inline — no Suspense, no skeleton",
+      child.type,
+      "the hole's child is the live stock read, not the cached product",
     ).toBe(ProductStock);
   });
 
