@@ -315,15 +315,10 @@ export async function generateMetadata({
  * function throws `NEXT_REDIRECT` under all of them — so
  * `e2e/canonical-url-308.spec.ts` is what fails, on the status code itself.
  *
- * The deletion is not free, and the cost is worth stating plainly rather than
- * claiming nothing is lost. The default export awaits `getCachedProduct` before
- * returning anything, so on a cache miss — a product past the
- * build's static params, or after the `cacheLife` window — a
- * soft navigation paints nothing until the backend responds, where
- * `loading.tsx` supplied a route-level skeleton instantly. `instant = true`
- * stays on this route but can no longer produce a static App Shell for the same
- * reason (the collections route documents the same forfeit). Both are accepted:
- * a 200 duplicate on every flat product URL is the larger cost.
+ * The page component itself does not await. {@link ProductRoute} performs the
+ * cached read under the page `<Suspense>`, so a click paints
+ * {@link ProductPageShell} immediately and the prefetched product replaces it.
+ * `instant = true` stays on.
  *
  * ### No redirect loop
  *
@@ -378,7 +373,32 @@ export async function generateMetadata({
  */
 export const instant = true;
 
-export default async function ProductPage({ params, searchParams }: Props) {
+/**
+ * Sync segment, per the Instant Navigation guide.
+ *
+ * The cached product is read in {@link ProductRoute}, under this `<Suspense>`.
+ * The shell commits on click, so the address bar moves and the skeleton paints
+ * while a cold cache is still resolving. `prefetch={true}` on product cards
+ * resolves that `'use cache'` read before the click, and the product replaces
+ * the skeleton from the prefetch. Inventory stays in its own boundary inside
+ * the body. The Shopify preview key is still awaited only on the null branch.
+ *
+ * @see https://nextjs.org/docs/app/guides/instant-navigation
+ */
+export default function ProductPage(props: Props) {
+  return (
+    <>
+      <Suspense fallback={<ProductPageShell />}>
+        <ProductRoute {...props} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <DynamicMetadataMarker />
+      </Suspense>
+    </>
+  );
+}
+
+export async function ProductRoute({ params, searchParams }: Props) {
   const { slug } = await params;
   const productSlug = slug[0]!;
   const colorSlug = slug[1];
@@ -409,34 +429,23 @@ export default async function ProductPage({ params, searchParams }: Props) {
     }
   }
 
+  if (product) {
+    return (
+      <ProductPageBody
+        product={product}
+        productSlug={productSlug}
+        colorSlug={colorSlug}
+      />
+    );
+  }
+
+  // A null public read: a draft, a missing product, the build placeholder, or
+  // a provider failure. The preview key is a request-time read, so it stays
+  // in this nested boundary and the public path above never awaits it.
   return (
-    <>
-      {product ? (
-        <ProductPageBody
-          product={product}
-          productSlug={productSlug}
-          colorSlug={colorSlug}
-        />
-      ) : (
-        <Suspense fallback={<ProductPageShell />}>
-          <ProductPageContent params={params} searchParams={searchParams} />
-        </Suspense>
-      )}
-      {/*
-        Request-time metadata opt-in, and the ONLY route in the app that mounts
-        one. `generateMetadata` above awaits `searchParams` for the Shopify
-        Admin preview key; the prerendered branch renders `ProductPageBody`
-        outside any boundary, so without this marker that read is a build error
-        ("uncached or runtime data in generateMetadata()"). It is a SIBLING of
-        the page content, never a wrapper — a boundary around the body would
-        hide the product from a client with JavaScript off. It used to live in
-        `app/layout.tsx`, where it cost every route in the app its static shell;
-        see components/seo/dynamic-metadata-marker.tsx for the measurement.
-      */}
-      <Suspense fallback={null}>
-        <DynamicMetadataMarker />
-      </Suspense>
-    </>
+    <Suspense fallback={<ProductPageShell />}>
+      <ProductPageContent params={params} searchParams={searchParams} />
+    </Suspense>
   );
 }
 
