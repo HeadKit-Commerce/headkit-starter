@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Suspense, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { notFound, unstable_rethrow } from "next/navigation";
 import { cacheTag } from "next/cache";
 import { cacheLifeForProfile } from "@/lib/cache-profile";
@@ -16,7 +16,6 @@ import {
   generateMetadata as productMetadata,
   ProductPageBody,
 } from "@/app/products/[...slug]/page";
-import { ProductPageShell } from "@/app/products/[...slug]/product-page-shell";
 import { CollectionRoute } from "@/app/collections/[...slug]/page";
 import { collectionPathFromCategory } from "@/components/headkit-ui/collection/utils";
 import {
@@ -340,18 +339,15 @@ export async function generateMetadata({
 export const instant = true;
 
 /**
- * Sync segment. {@link ShopRoute} reads the cached product or category under
- * this boundary, so a click paints the shell immediately and a warm prefetch
- * replaces it with the catalogue page.
+ * Sync segment. {@link ShopRoute} is the cached product or category, rendered
+ * in this segment with no page-level `<Suspense>`. The boundary outlined a
+ * finished product into a hidden segment and flashed {@link ProductPageShell}
+ * on click. `prefetch={true}` on the links that point here has the page ready.
  *
  * @see https://nextjs.org/docs/app/guides/instant-navigation
  */
 export default function Page(props: Props): ReactNode {
-  return (
-    <Suspense fallback={<ProductPageShell />}>
-      <ShopRoute params={props.params} />
-    </Suspense>
-  );
+  return <ShopRoute params={props.params} />;
 }
 
 export async function ShopRoute({

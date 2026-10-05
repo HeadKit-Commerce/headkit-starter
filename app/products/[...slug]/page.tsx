@@ -374,23 +374,20 @@ export async function generateMetadata({
 export const instant = true;
 
 /**
- * Sync segment, per the Instant Navigation guide.
- *
- * The cached product is read in {@link ProductRoute}, under this `<Suspense>`.
- * The shell commits on click, so the address bar moves and the skeleton paints
- * while a cold cache is still resolving. `prefetch={true}` on product cards
- * resolves that `'use cache'` read before the click, and the product replaces
- * the skeleton from the prefetch. Inventory stays in its own boundary inside
- * the body. The Shopify preview key is still awaited only on the null branch.
+ * Sync segment. The cached product is {@link ProductRoute}, with no page-level
+ * `<Suspense>` around it. A completed boundary outlines the gallery and the
+ * heading into a hidden segment, and the skeleton fallback is what flashes on
+ * a cold catalogue click. Inventory stays in its own boundary inside the body.
+ * The Shopify preview key is still awaited only on the null branch, inside
+ * that branch's own boundary. `prefetch={true}` on product cards and menu
+ * links resolves the cached read before the click.
  *
  * @see https://nextjs.org/docs/app/guides/instant-navigation
  */
 export default function ProductPage(props: Props) {
   return (
     <>
-      <Suspense fallback={<ProductPageShell />}>
-        <ProductRoute {...props} />
-      </Suspense>
+      <ProductRoute {...props} />
       <Suspense fallback={null}>
         <DynamicMetadataMarker />
       </Suspense>

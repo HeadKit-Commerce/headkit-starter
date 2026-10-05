@@ -390,6 +390,7 @@ function Preheader({
             <InstantLink
               key={i}
               href={uri}
+              prefetch={true}
               className="underline text-brand-bg"
               pendingVariant="text"
             >
@@ -570,6 +571,7 @@ export function MegaMenu({
             render={
               <InstantLink
                 href={viewAll.href}
+                prefetch={true}
                 pendingVariant="text"
                 className="font-semibold text-primary hover:opacity-80 underline block"
               />
@@ -599,6 +601,7 @@ export function MegaMenu({
                   render={
                     <InstantLink
                       href={removeTrailingSlash(group.uri)}
+                      prefetch={true}
                       pendingVariant="text"
                       className="font-semibold text-primary hover:opacity-80 uppercase block mb-2"
                     />
@@ -635,6 +638,7 @@ function MegaMenuChild({ item, depth }: { item: NavMenuItem; depth: number }) {
         render={
           <InstantLink
             href={removeTrailingSlash(item.uri)}
+            prefetch={true}
             pendingVariant="text"
             className={cn(
               "hover:opacity-80 text-[15px] block py-0.5",
@@ -713,6 +717,7 @@ export function MobileMenuBranch({
     <div>
       <InstantLink
         href={removeTrailingSlash(item.uri)}
+        prefetch={true}
         pendingVariant="text"
         className={cn(
           "block text-[15px]",
@@ -785,6 +790,7 @@ function MobileMenuItem({
   return (
     <InstantLink
       href={removeTrailingSlash(item.uri)}
+      prefetch={true}
       pendingVariant="text"
       className={cn(
         "text-xl font-semibold font-body text-primary hover:opacity-70",
