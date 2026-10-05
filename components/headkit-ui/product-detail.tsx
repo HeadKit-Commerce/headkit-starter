@@ -59,7 +59,7 @@ import {
   getFloatVal,
   getStoreCurrency,
 } from "@/lib/utils";
-import { PaymentMethodMessaging } from "@/components/stripe/payment-messaging";
+import dynamic from "next/dynamic";
 import { isInWishlist, toggleWishlist } from "@/lib/wishlist";
 import {
   buildAddToCart,
@@ -99,6 +99,17 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+
+// Stripe.js stays out of the gallery's module graph. `next/dynamic` from this
+// client module code-splits it (a server-component dynamic import does not).
+// https://nextjs.org/docs/app/guides/lazy-loading
+const PaymentMethodMessaging = dynamic(
+  () =>
+    import("@/components/stripe/payment-messaging").then(
+      (m) => m.PaymentMethodMessaging,
+    ),
+  { loading: () => null },
+);
 
 // Lazy: gift-card-form drags react-hook-form + zod (~63 KB transfer) into the
 // PDP bundle, but only gift-card products render it (RC-1 perf fix).

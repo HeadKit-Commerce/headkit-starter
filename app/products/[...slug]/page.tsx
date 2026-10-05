@@ -24,6 +24,7 @@ import { experimentalSwatchImagesEnabled } from "@/lib/experimental-swatch-image
 import { loadSwatchImageMap } from "@/lib/swatch-visual";
 import { ProductStock } from "@/components/headkit-ui/product-stock";
 import { AvailabilityLineFallback } from "@/components/headkit-ui/live-availability";
+import { HydrateLater } from "@/components/headkit-ui/hydrate-later";
 import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
 import { ProjectCarousel } from "@/components/headkit-ui/project/project-carousel";
 import { SectionHeader } from "@/components/headkit-ui/section-header";
@@ -827,73 +828,81 @@ export async function ProductPageBody({
       </div>
 
       {featuredProjects.length > 0 ? (
-        <section className="overflow-hidden py-10">
-          <SectionHeader
-            title="Featured in projects"
-            description="See this product in real projects."
-            allButton="View All"
-            allButtonPath="/projects"
-            className="px-5 md:px-10"
-          />
-          <div className="mt-5">
-            <ProjectCarousel projects={featuredProjects} imageAspect="video" />
-          </div>
-        </section>
+        <HydrateLater>
+          <section className="overflow-hidden py-10">
+            <SectionHeader
+              title="Featured in projects"
+              description="See this product in real projects."
+              allButton="View All"
+              allButtonPath="/projects"
+              className="px-5 md:px-10"
+            />
+            <div className="mt-5">
+              <ProjectCarousel projects={featuredProjects} imageAspect="video" />
+            </div>
+          </section>
+        </HydrateLater>
       ) : null}
 
       {upsellsAsProducts.length > 0 && (
-        <section className="overflow-x-clip py-10">
-          <SectionHeader
-            title="You might also like…"
-            description=""
-            className="px-5 md:px-10"
-          />
-          <div className="mt-5">
-            <ProductCarousel
-              products={upsellsAsProducts}
-              id="upsell-products"
+        <HydrateLater>
+          <section className="overflow-x-clip py-10">
+            <SectionHeader
+              title="You might also like…"
+              description=""
+              className="px-5 md:px-10"
             />
-          </div>
-        </section>
+            <div className="mt-5">
+              <ProductCarousel
+                products={upsellsAsProducts}
+                id="upsell-products"
+              />
+            </div>
+          </section>
+        </HydrateLater>
       )}
 
       <div className="headkit-pdp-beside-bundles">
         <PdpBesideBundles />
         {bundlesAsProducts.length > 0 && (
-          <section className="overflow-x-clip py-10">
-            <SectionHeader
-              title={bundlesCopy.title}
-              description={bundlesCopy.description}
-              allButton={bundlesCopy.allButton}
-              allButtonPath={bundlesCopy.allButtonPath}
-              className="px-5 md:px-10"
-            />
-            <div className="mt-5">
-              <ProductCarousel
-                products={bundlesAsProducts}
-                id="bundle-products"
+          <HydrateLater>
+            <section className="overflow-x-clip py-10">
+              <SectionHeader
+                title={bundlesCopy.title}
+                description={bundlesCopy.description}
+                allButton={bundlesCopy.allButton}
+                allButtonPath={bundlesCopy.allButtonPath}
+                className="px-5 md:px-10"
               />
-            </div>
-          </section>
+              <div className="mt-5">
+                <ProductCarousel
+                  products={bundlesAsProducts}
+                  id="bundle-products"
+                />
+              </div>
+            </section>
+          </HydrateLater>
         )}
       </div>
 
       {relatedAsProducts.length > 0 && (
-        <section className="overflow-x-clip py-10">
-          <SectionHeader
-            title={relatedCopy.title}
-            description={relatedCopy.description}
-            allButton={relatedCopy.allButton}
-            allButtonPath={relatedCopy.allButtonPath}
-            className="px-5 md:px-10"
-          />
-          <div className="mt-5">
-            <ProductCarousel
-              products={relatedAsProducts}
-              id="related-products"
+        <HydrateLater>
+          <section className="overflow-x-clip py-10">
+            <SectionHeader
+              title={relatedCopy.title}
+              description={relatedCopy.description}
+              allButton={relatedCopy.allButton}
+              allButtonPath={relatedCopy.allButtonPath}
+              className="px-5 md:px-10"
             />
-          </div>
-        </section>
+            <div className="mt-5">
+              <ProductCarousel
+                products={relatedAsProducts}
+                id="related-products"
+              />
+            </div>
+          </section>
+        </HydrateLater>
       )}
     </div>
     </SwatchImageProvider>
