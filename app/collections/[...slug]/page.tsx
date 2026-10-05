@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import { notFound, permanentRedirect, unstable_rethrow } from "next/navigation";
 import { headkit as sdk } from "@/lib/sdk";
 import { getCachedProductBrand } from "@/lib/product-brand";
 import { CollectionHeader } from "@/components/headkit-ui/collection/collection-header";
-import { CollectionPageSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
 import {
   buildProductListFilter,
@@ -445,21 +443,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export const instant = true;
 
 /**
- * Sync segment, per the Instant Navigation guide. The cached category and
- * page-1 grid resolve in {@link CollectionPageContent}. A click paints the
- * collection skeleton immediately; `prefetch={true}` on catalogue links fills
- * the cached read before the click. Path facets arrive on `params`. Query
- * facets (`?page=`, `?sort=`, and the rest) stay in `CollectionProvider`,
- * which shows its own loading state in the browser.
+ * Sync segment. The cached category, header and page-1 grid are the static
+ * shell — they are not wrapped in `<Suspense>`. A completed boundary here is
+ * outlined into a hidden segment, so the first HTML is only the nav, and a
+ * client navigation paints {@link CollectionPageSkeleton} until the grid
+ * arrives (the hang and flicker on collection links). `prefetch={true}` on
+ * home and menu links has that cached page ready before the click. Query
+ * facets stay in `CollectionProvider`. `notFound()` and `permanentRedirect()`
+ * in {@link CollectionPageContent} set a real status because nothing here
+ * has committed a 200.
  *
  * @see https://nextjs.org/docs/app/guides/instant-navigation
  */
 export default function Page({ params }: Props) {
-  return (
-    <Suspense fallback={<CollectionPageSkeleton />}>
-      <CollectionPageContent params={params} />
-    </Suspense>
-  );
+  return <CollectionPageContent params={params} />;
 }
 
 export async function CollectionPageContent({ params }: Props) {

@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
-import { Suspense, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { notFound, unstable_rethrow } from "next/navigation";
 import { cacheLife, cacheTag } from "next/cache";
 import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { headkit as sdk } from "@/lib/sdk";
 import { TAG } from "@/lib/cache-tags";
 import { BrandHeader } from "@/components/headkit-ui/brand/brand-header";
-import { CollectionPageSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
 import {
   buildProductListFilter,
@@ -211,17 +210,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export const instant = true;
 
 /**
- * Sync segment. The cached brand header and page-1 grid resolve under this
- * boundary, so a click paints the brand skeleton immediately.
+ * Sync segment. The cached brand header and page-1 grid are this segment,
+ * with no page-level `<Suspense>`. That boundary painted the collection
+ * skeleton and then swapped in the grid. `prefetch={true}` on brand links
+ * has the page ready before the click.
  *
  * @see https://nextjs.org/docs/app/guides/instant-navigation
  */
 export default function Page({ params }: Props): ReactNode {
-  return (
-    <Suspense fallback={<CollectionPageSkeleton variant="brand" />}>
-      <BrandPageContent params={params} />
-    </Suspense>
-  );
+  return <BrandPageContent params={params} />;
 }
 
 async function BrandPageContent({ params }: Props) {

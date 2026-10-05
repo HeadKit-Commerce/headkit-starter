@@ -279,7 +279,7 @@ beforeEach(() => {
 });
 
 describe("products/[...slug] — the segment is a sync shell", () => {
-  it("returns the product Suspense and the metadata marker without reading the catalogue", async () => {
+  it("returns the cached product route and the metadata marker without reading the catalogue", async () => {
     const element = ProductPage({
       params: Promise.resolve({ slug: [SLUG] }),
     }) as ReactElement;
@@ -287,12 +287,14 @@ describe("products/[...slug] — the segment is a sync shell", () => {
 
     expect(getCachedProduct).not.toHaveBeenCalled();
     expect(children.filter(isMarkerBoundary)).toHaveLength(1);
-    const shell = children.find(
-      (child) => child.type === Suspense && !isMarkerBoundary(child),
-    ) as ReactElement<{ fallback: ReactElement; children: ReactElement }>;
-    expect(shell).toBeDefined();
-    expect(shell.props.fallback.type).toBe(ProductPageShell);
-    expect(shell.props.children.type).toBe(ProductRoute);
+    const content = children.find((child) => !isMarkerBoundary(child));
+    expect(content?.type).toBe(ProductRoute);
+    expect(
+      children.some(
+        (child) => child.type === Suspense && !isMarkerBoundary(child),
+      ),
+      "a page-level Suspense outlines the finished product into a hidden segment",
+    ).toBe(false);
   });
 });
 
@@ -358,8 +360,8 @@ describe("products/[...slug] — ProductRoute resolves the cached product", () =
       children.some(
         (child) => child.type === Suspense && !isMarkerBoundary(child),
       ),
-      "the sync page's content boundary is the Instant Navigation shell",
-    ).toBe(true);
+      "the cached product is the shell; a page-level Suspense would outline it",
+    ).toBe(false);
   });
 
   it("composes the body with the inventory hole as its only Suspense", async () => {
