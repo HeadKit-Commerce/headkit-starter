@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { notFound, unstable_rethrow } from "next/navigation";
 import { cacheLife, cacheTag } from "next/cache";
 import { cacheLifeForProfile } from "@/lib/cache-profile";
 import { headkit as sdk } from "@/lib/sdk";
 import { TAG } from "@/lib/cache-tags";
 import { BrandHeader } from "@/components/headkit-ui/brand/brand-header";
+import { CollectionPageSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
 import {
   buildProductListFilter,
@@ -209,7 +210,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  */
 export const instant = true;
 
-export default async function Page({ params }: Props) {
+/**
+ * Sync segment. The cached brand header and page-1 grid resolve under this
+ * boundary, so a click paints the brand skeleton immediately.
+ *
+ * @see https://nextjs.org/docs/app/guides/instant-navigation
+ */
+export default function Page({ params }: Props): ReactNode {
+  return (
+    <Suspense fallback={<CollectionPageSkeleton variant="brand" />}>
+      <BrandPageContent params={params} />
+    </Suspense>
+  );
+}
+
+async function BrandPageContent({ params }: Props) {
   // Pre-commit gate — only existence is hoisted; the product grid keeps
   // streaming behind the boundary below. `BrandRoute` repeats the checks and
   // the `"use cache"` shell read dedupes. A THROWN read still propagates (see

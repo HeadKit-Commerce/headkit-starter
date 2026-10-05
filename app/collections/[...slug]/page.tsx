@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { notFound, permanentRedirect, unstable_rethrow } from "next/navigation";
 import { headkit as sdk } from "@/lib/sdk";
 import { getCachedProductBrand } from "@/lib/product-brand";
 import { CollectionHeader } from "@/components/headkit-ui/collection/collection-header";
+import { CollectionPageSkeleton } from "@/components/headkit-ui/skeletons/collection-page-skeleton";
 import { CollectionPage } from "@/components/headkit-ui/collection/collection-page";
 import {
   buildProductListFilter,
@@ -99,18 +101,18 @@ export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
     const nodes = walkCategoryPaths(categories, { includeExcluded: true });
     const paths: { slug: string[] }[] = [];
 
-    // Base category params (all categories incl. nested). Never budgeted:
-    // these are the route's primary URL class.
+    // Known collection pages: one unfiltered URL per category, including
+    // nested paths. Always emitted. Facet URLs are a separate family below
+    // and never take one of these params' place.
     for (const node of nodes) {
       paths.push({ slug: node.segments });
     }
 
-    // Facet params: the whole indexable set, or none. The decision is the
-    // pages left under the 45-minute ceiling after product HTML and the base
-    // categories (`lib/collection-facet-plan.ts`). It is made before
-    // `getFilters`. A set that does not fit is not sliced to a walk-order
-    // prefix. Unbuilt facet URLs still route. The first request fills the
-    // cache; there is no `loading.tsx` skeleton in front of them.
+    // Facet params, appended after the known collection pages: the whole
+    // indexable set, or none. The room is `lib/collection-facet-plan.ts`.
+    // A bulk-prefetched catalogue spends that room on facets only. A set
+    // that does not fit is not sliced to a walk-order prefix. Unbuilt
+    // facet URLs still route. The first request fills the cache.
     const facetPlan = await readFacetCataloguePlan(
       "products" in sdk ? sdk.products : undefined,
     );
@@ -442,7 +444,25 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  */
 export const instant = true;
 
-export default async function Page({ params }: Props) {
+/**
+ * Sync segment, per the Instant Navigation guide. The cached category and
+ * page-1 grid resolve in {@link CollectionPageContent}. A click paints the
+ * collection skeleton immediately; `prefetch={true}` on catalogue links fills
+ * the cached read before the click. Path facets arrive on `params`. Query
+ * facets (`?page=`, `?sort=`, and the rest) stay in `CollectionProvider`,
+ * which shows its own loading state in the browser.
+ *
+ * @see https://nextjs.org/docs/app/guides/instant-navigation
+ */
+export default function Page({ params }: Props) {
+  return (
+    <Suspense fallback={<CollectionPageSkeleton />}>
+      <CollectionPageContent params={params} />
+    </Suspense>
+  );
+}
+
+export async function CollectionPageContent({ params }: Props) {
   const { slug } = await params;
   // The build-time placeholder is never served from a prerender, so a runtime
   // request for it is a junk URL and must 404 HERE. Skipping the gate for it
