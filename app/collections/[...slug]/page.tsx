@@ -101,8 +101,9 @@ export async function generateStaticParams(): Promise<{ slug: string[] }[]> {
     const nodes = walkCategoryPaths(categories, { includeExcluded: true });
     const paths: { slug: string[] }[] = [];
 
-    // Base category params (all categories incl. nested). Never budgeted:
-    // these are the route's primary URL class.
+    // Known collection pages: one unfiltered URL per category, including
+    // nested paths. Always emitted. Facet URLs are a separate family below
+    // and never take one of these params' place.
     for (const node of nodes) {
       paths.push({ slug: node.segments });
     }
