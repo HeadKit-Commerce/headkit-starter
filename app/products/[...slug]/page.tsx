@@ -24,7 +24,6 @@ import { experimentalSwatchImagesEnabled } from "@/lib/experimental-swatch-image
 import { loadSwatchImageMap } from "@/lib/swatch-visual";
 import { ProductStock } from "@/components/headkit-ui/product-stock";
 import { AvailabilityLineFallback } from "@/components/headkit-ui/live-availability";
-import { HydrateLater } from "@/components/headkit-ui/hydrate-later";
 import { ProductCarousel } from "@/components/headkit-ui/product-carousel";
 import { ProjectCarousel } from "@/components/headkit-ui/project/project-carousel";
 import { SectionHeader } from "@/components/headkit-ui/section-header";
@@ -828,7 +827,6 @@ export async function ProductPageBody({
       </div>
 
       {featuredProjects.length > 0 ? (
-        <HydrateLater>
           <section className="overflow-hidden py-10">
             <SectionHeader
               title="Featured in projects"
@@ -841,11 +839,9 @@ export async function ProductPageBody({
               <ProjectCarousel projects={featuredProjects} imageAspect="video" />
             </div>
           </section>
-        </HydrateLater>
       ) : null}
 
       {upsellsAsProducts.length > 0 && (
-        <HydrateLater>
           <section className="overflow-x-clip py-10">
             <SectionHeader
               title="You might also like…"
@@ -859,13 +855,11 @@ export async function ProductPageBody({
               />
             </div>
           </section>
-        </HydrateLater>
       )}
 
       <div className="headkit-pdp-beside-bundles">
         <PdpBesideBundles />
         {bundlesAsProducts.length > 0 && (
-          <HydrateLater>
             <section className="overflow-x-clip py-10">
               <SectionHeader
                 title={bundlesCopy.title}
@@ -881,12 +875,10 @@ export async function ProductPageBody({
                 />
               </div>
             </section>
-          </HydrateLater>
         )}
       </div>
 
       {relatedAsProducts.length > 0 && (
-        <HydrateLater>
           <section className="overflow-x-clip py-10">
             <SectionHeader
               title={relatedCopy.title}
@@ -902,7 +894,6 @@ export async function ProductPageBody({
               />
             </div>
           </section>
-        </HydrateLater>
       )}
     </div>
     </SwatchImageProvider>

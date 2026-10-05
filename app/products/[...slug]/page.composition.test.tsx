@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Suspense, type ReactElement, type ReactNode } from "react";
 import { DynamicMetadataMarker } from "@/components/seo/dynamic-metadata-marker";
-import { HydrateLater } from "@/components/headkit-ui/hydrate-later";
 
 /**
  * Where the flat PDP puts its ONE Suspense boundary, and what goes inside it.
@@ -220,21 +219,6 @@ function trackedSearchParams(value: Record<string, string>): {
   };
 }
 
-/** True when ProductDetail sits inside HydrateLater. */
-function productInsideHydrateLater(
-  node: ReactNode,
-  inside = false,
-): boolean {
-  if (Array.isArray(node)) {
-    return node.some((child) => productInsideHydrateLater(child, inside));
-  }
-  if (!node || typeof node !== "object" || !("type" in node)) return false;
-  const element = node as ReactElement<{ children?: ReactNode }>;
-  if (element.type === ProductDetail) return inside;
-  const next = inside || element.type === HydrateLater;
-  return productInsideHydrateLater(element.props?.children, next);
-}
-
 /** Every element in a tree, depth-first, without rendering components. */
 function elements(node: ReactNode, out: ReactElement[] = []): ReactElement[] {
   if (Array.isArray(node)) {
@@ -392,13 +376,8 @@ describe("products/[...slug] — ProductRoute resolves the cached product", () =
     const rendered = elements(tree);
     expect(
       rendered.filter((element) => element.type === Suspense),
-      "the product composition itself has no page-level Suspense; the inventory hole is the stock slot",
+      "the product composition itself has no boundary; the inventory hole is the stock slot",
     ).toEqual([]);
-    expect(
-      productInsideHydrateLater(tree),
-      "HydrateLater is only the below-fold rails; the gallery and title stay in the shell",
-    ).toBe(false);
-
     const detail = rendered.find(
       (element) => element.type === ProductDetail,
     ) as ReactElement<{ stockSlot: ReactElement }> | undefined;
