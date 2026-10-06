@@ -34,7 +34,7 @@ import {
 } from "@/lib/nav-hover-switch";
 import { cn, decodeHtmlEntities } from "@/lib/utils";
 import { HeaderActions } from "@/components/headkit-ui/header-actions";
-import { CartTriggerButton } from "@/components/headkit-ui/cart-drawer";
+import { CartTriggerButton } from "@/components/headkit-ui/cart-trigger-button";
 import type { NavLayout, NavStyle } from "@/lib/store-theme";
 
 /** A navigation tree node returned by headkit.menu.get(). */
