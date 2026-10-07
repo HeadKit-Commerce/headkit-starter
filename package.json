@@ -2,6 +2,10 @@
   "name": "@headkit/starter",
   "version": "0.1.4",
   "private": true,
+  "sideEffects": [
+    "*.css",
+    "**/*.css"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -20,7 +24,6 @@
   "dependencies": {
     "@base-ui/react": "^1.8.0",
     "@headkit/sdk": "1.5.0",
-    "@headlessui/react": "^2.2.9",
     "@hookform/resolvers": "^5.2.2",
     "@next/third-parties": "16.4.0",
     "@stripe/react-stripe-js": "^6.8.2",
