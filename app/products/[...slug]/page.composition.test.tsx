@@ -374,7 +374,7 @@ describe("products/[...slug] — ProductRoute resolves the cached product", () =
     ).toBe(false);
   });
 
-  it("composes the body with the inventory hole as its only Suspense", async () => {
+  it("composes the body with the five-minute stock line and no stock boundary", async () => {
     getCachedProduct.mockResolvedValue(FLAT_PRODUCT);
 
     const tree = await ProductPageBody({
@@ -386,7 +386,7 @@ describe("products/[...slug] — ProductRoute resolves the cached product", () =
     const rendered = elements(tree);
     expect(
       rendered.filter((element) => element.type === Suspense),
-      "the product composition itself has no boundary; the inventory hole is the stock slot",
+      "the product composition has no boundary at all, the stock slot included",
     ).toEqual([]);
     const detail = rendered.find(
       (element) => element.type === ProductDetail,
@@ -395,14 +395,10 @@ describe("products/[...slug] — ProductRoute resolves the cached product", () =
       detail,
       "positive control: the body rendered the detail",
     ).toBeDefined();
-    const slot = detail!.props.stockSlot as ReactElement<{
-      children?: ReactElement;
-    }>;
-    expect(slot.type).toBe(Suspense);
-    const child = slot.props.children as ReactElement;
+    const slot = detail!.props.stockSlot as ReactElement;
     expect(
-      child.type,
-      "the hole's child is the live stock read, not the cached product",
+      slot.type,
+      "the stock slot is ProductStock itself: the five-minute read stays in the stored document, so it has no Suspense boundary",
     ).toBe(ProductStock);
   });
 

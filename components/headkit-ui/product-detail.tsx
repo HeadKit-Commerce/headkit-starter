@@ -1004,12 +1004,11 @@ export function ProductDetail({
 
   const colorKey = findSwatchAttribute(variationAttributes)?.slug;
   const selectedColor = colorKey ? selectedAttributes[colorKey] : undefined;
-  // The stock slot is the dynamic hole: a one-line fallback in the static
-  // shell, and the live snapshot streamed into it. `LiveAvailability` matches
-  // `selectedVariation` and publishes that stock, so the line and the button
-  // stay on the same variation — including after a size click. A variable
-  // product uses the slot for that reason. The rest of the PDP is the cached
-  // product and is not inside this boundary.
+  // The stock slot is the five-minute availability read, prerendered with
+  // the page. `LiveAvailability` matches `selectedVariation` and publishes
+  // that stock, so the line and the button stay on the same variation —
+  // including after a size click. A variable product uses the slot for that
+  // reason.
   const showStreamedStock = Boolean(stockSlot);
 
   const sizeChartHtml = shopifyRichTextToHtml(product.sizeChart ?? "");
