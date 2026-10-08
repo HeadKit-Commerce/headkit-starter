@@ -337,6 +337,10 @@ export async function generateMetadata({
  * not read. Product cards still pass `prefetch={true}`.
  */
 export const instant = true;
+// The finished document is prerendered. This fails the build if the
+// route, or a layout above it, starts reading cookies, headers,
+// searchParams, or connection(). The root layout stays unset.
+export const ensureStatic = "navigation";
 
 /**
  * Sync segment. {@link ShopRoute} is the cached product or category, rendered

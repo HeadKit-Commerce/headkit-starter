@@ -208,6 +208,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * @see https://nextjs.org/docs/app/getting-started/caching
  */
 export const instant = true;
+// The finished document is prerendered. This fails the build if the
+// route, or a layout above it, starts reading cookies, headers,
+// searchParams, or connection(). The root layout stays unset.
+export const ensureStatic = "navigation";
 
 /**
  * Sync segment. The cached brand header and page-1 grid are this segment,
