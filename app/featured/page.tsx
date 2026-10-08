@@ -59,6 +59,7 @@ async function getFilters() {
  * @see https://nextjs.org/docs/app/getting-started/caching
  */
 export const instant = true;
+export const ensureStatic = "navigation";
 
 export default function Page() {
   return (

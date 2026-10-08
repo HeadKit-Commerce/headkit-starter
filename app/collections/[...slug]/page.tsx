@@ -441,6 +441,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * which reads those query params and pushes the `/f/…` path.
  */
 export const instant = true;
+// The finished document is prerendered. This fails the build if the
+// route, or a layout above it, starts reading cookies, headers,
+// searchParams, or connection(). The root layout stays unset.
+export const ensureStatic = "navigation";
 
 /**
  * Sync segment. The cached category, header and page-1 grid are the static
