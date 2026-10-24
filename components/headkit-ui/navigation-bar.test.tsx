@@ -4,12 +4,15 @@ import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
-  MegaMenu,
-  MobileMenuBranch,
-  MobileMenuSection,
   NavigationBar,
   type NavMenuItem,
 } from "@/components/headkit-ui/navigation-bar";
+import {
+  MegaMenu,
+  MobileMenuBranch,
+  MobileMenuSection,
+} from "@/components/headkit-ui/navigation-menu-panels";
+
 import {
   NavigationMenu,
   NavigationMenuContent,
